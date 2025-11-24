@@ -49,8 +49,6 @@ public class Core : Game
 	/// </summary>
 	public static bool DebugRenderEnabled = false;
 
-	public static bool IsGamePaused = false;
-
 	/// <summary>
 	/// If true, the scene will automatically reset after going from PlayMode back to EditMode (resetting all values that weren't saved beforehand, for consistency) .
 	/// </summary>
@@ -426,8 +424,6 @@ public class Core : Game
 		return sceneTransition;
 	}
 
-
-
 	#region Global Managers
 
 	/// <summary>
@@ -528,11 +524,13 @@ public class Core : Game
 	#endregion
 
 	#region Edit Mode
+	public static event Action<bool> OnTimeFrozen;
 	public static event Action OnChangedToEditMode;
 	public static event Action OnChangedToPlayMode;
 	public static event Action OnResetScene;
 	public static event Action<bool> OnSwitchEditMode;
 
+	private static bool _isTimeFrozen;
 	private static bool _isEditMode;
 	private static bool _hasBeenInEditMode;
 
@@ -559,6 +557,19 @@ public class Core : Game
 			}
 		}
 	}
+
+	public static bool IsTimeFrozen
+	{
+		get => _isTimeFrozen;
+		set
+		{
+			if (_isTimeFrozen != value)
+			{
+				_isTimeFrozen = value;
+				OnTimeFrozen?.Invoke(_isTimeFrozen);
+			}
+		}
+	}
 	public static void InvokeSwitchEditMode(bool isEditMode)
 	{
 		Core.IsEditMode = isEditMode;
@@ -569,6 +580,31 @@ public class Core : Game
 	public static void InvokeResetScene()
 	{
 		OnResetScene?.Invoke();
+	}
+
+	/// <summary>
+	/// Freeze the game for a certain amount of time
+	/// </summary>
+	/// <param name="time"></param>
+	public static void FreezeGame(float time)
+	{
+		IsTimeFrozen = true;
+		StartCoroutine(UnfreezeAfterTime(time));
+	}
+
+	/// <summary>
+	/// Freeze the game for indefinite amount of time
+	/// </summary>
+	/// <param name="time"></param>
+	public static void FreezeGame(bool freeze)
+	{
+		IsTimeFrozen = freeze;
+	}
+
+	private static IEnumerator UnfreezeAfterTime(float time)
+	{
+		yield return Coroutine.WaitForSeconds(time);
+		IsTimeFrozen = false;
 	}
 	#endregion
 

@@ -16,6 +16,7 @@ namespace Nez.ImGuiTools.Inspectors
         private PersistentBool _isGroupLogsOn = new("DebugWindow_GroupLogs", false);
         private PersistentBool _isCollapseTextOn = new("DebugWindow_CollapseText", false);
         private ImGuiManager _imguiManager;
+        private string _copiedText = string.Empty;
 
 		private static readonly Dictionary<Debug.LogType, Num.Vector4> LogTypeColors = new()
         {
@@ -126,32 +127,7 @@ namespace Nez.ImGuiTools.Inspectors
 
                 foreach (var group in _groupedBuffer)
                 {
-                    var color = LogTypeColors.TryGetValue(group.Type, out var c) ? c : LogTypeColors[Debug.LogType.Log];
-                    string text = $"[{group.LatestTimestamp:HH:mm:ss}] {group.Message} ({group.CallerClass}:{group.CallerLine})";
-                    if (group.Count > 1)
-                    {
-                        if (group.Count > 99)
-                            text += $"  (x100+)";
-                        else
-                            text += $"  (x{group.Count})";
-                    }
-
-                    float fontScale = GetFontScale(group.Type);
-                    ImGui.SetWindowFontScale(fontScale);
-
-                    if (collapseText)
-                    {
-                        ImGui.PushTextWrapPos(0.0f);
-                        ImGui.TextColored(color, text);
-                        ImGui.PopTextWrapPos();
-                    }
-                    else
-                    {
-                        ImGui.TextColored(color, text);
-                    }
-
-                    ImGui.SetWindowFontScale(1.0f); // Reset font scale
-                    ImGui.Spacing(); 
+                    DrawLogEntry(group.Type, group.Message, group.CallerClass, group.CallerLine, group.LatestTimestamp, group.Count, collapseText);
                 }
             }
             else
@@ -161,30 +137,69 @@ namespace Nez.ImGuiTools.Inspectors
                 for (int i = logEntries.Count - 1; i >= startIdx; i--)
                 {
                     var entry = logEntries[i];
-                    var color = LogTypeColors.TryGetValue(entry.Type, out var c) ? c : LogTypeColors[Debug.LogType.Log];
-                    string text = $"[{entry.Timestamp:HH:mm:ss}] {entry.Message} ({entry.CallerClass}:{entry.CallerLine})";
-
-                    float fontScale = GetFontScale(entry.Type);
-                    ImGui.SetWindowFontScale(fontScale);
-
-                    if (collapseText)
-                    {
-                        ImGui.PushTextWrapPos(0.0f);
-                        ImGui.TextColored(color, text);
-                        ImGui.PopTextWrapPos();
-                    }
-                    else
-                    {
-                        ImGui.TextColored(color, text);
-                    }
-
-                    ImGui.SetWindowFontScale(1.0f); // Reset font scale
-                    ImGui.Spacing(); 
+                    DrawLogEntry(entry.Type, entry.Message, entry.CallerClass, entry.CallerLine, entry.Timestamp, 1, collapseText);
                 }
             }
 
             ImGui.EndChild();
             ImGui.End();
+        }
+
+        private void DrawLogEntry(Debug.LogType type, string message, string callerClass, int callerLine, DateTime timestamp, int count, bool collapseText)
+        {
+            var color = LogTypeColors.TryGetValue(type, out var c) ? c : LogTypeColors[Debug.LogType.Log];
+            string text = $"[{timestamp:HH:mm:ss}] {message} ({callerClass}:{callerLine})";
+            if (count > 1)
+            {
+                text += count > 99 ? "  (x100+)" : $"  (x{count})";
+            }
+
+            float fontScale = GetFontScale(type);
+            ImGui.SetWindowFontScale(fontScale);
+
+            var cursorScreenPos = ImGui.GetCursorScreenPos();
+            
+            if (collapseText)
+            {
+                ImGui.PushTextWrapPos(0.0f);
+                ImGui.TextColored(color, text);
+                ImGui.PopTextWrapPos();
+            }
+            else
+            {
+                ImGui.TextColored(color, text);
+            }
+
+            var itemRectMin = cursorScreenPos;
+            var itemRectMax = ImGui.GetItemRectMax();
+            
+            itemRectMin.X -= 2;
+            itemRectMin.Y -= 2;
+            itemRectMax.X += 2;
+            itemRectMax.Y += 2;
+
+            // Create an invisible button overlay for reliable click detection
+            ImGui.SetCursorScreenPos(itemRectMin);
+            var buttonSize = new Num.Vector2(itemRectMax.X - itemRectMin.X, itemRectMax.Y - itemRectMin.Y);
+            ImGui.InvisibleButton($"##logentry_{text.GetHashCode()}_{timestamp.Ticks}", buttonSize);
+            
+            if (ImGui.IsItemHovered() && ImGui.IsMouseClicked(ImGuiMouseButton.Right))
+            {
+                _copiedText = text;
+                ImGui.OpenPopup($"LogContextMenu##{text.GetHashCode()}_{timestamp.Ticks}");
+            }
+
+            if (ImGui.BeginPopup($"LogContextMenu##{text.GetHashCode()}_{timestamp.Ticks}"))
+            {
+                if (ImGui.MenuItem("Copy text"))
+                {
+                    ImGui.SetClipboardText(_copiedText);
+                }
+                ImGui.EndPopup();
+            }
+
+            ImGui.SetWindowFontScale(1.0f);
+            ImGui.Spacing();
         }
     }
 }

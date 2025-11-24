@@ -268,7 +268,7 @@ public class ComponentList : IEnumerable<Component>
 	{
 		UpdateLists();
 
-		if (!Core.IsEditMode && !Core.IsGamePaused)
+		if (!Core.IsEditMode && !Core.IsTimeFrozen)
 		{
 			for (var i = 0; i < _updatableComponents.Length; i++)
 			{
@@ -279,7 +279,7 @@ public class ComponentList : IEnumerable<Component>
 
 			}
 		}
-		else if (Core.IsEditMode && !Core.IsGamePaused)
+		else if (Core.IsEditMode && !Core.IsTimeFrozen)
 		{
 			// If in Edit Mode, update only components that are renderable (for correct rendering)
 			for (var i = 0; i < _updatableComponents.Length; i++)
