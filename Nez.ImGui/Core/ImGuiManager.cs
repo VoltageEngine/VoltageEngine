@@ -108,7 +108,20 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			if(IsInspectorTabLocked)
 				return;
-			_selectedInspectorTab = value;
+			
+			if (_selectedInspectorTab != value)
+			{
+				_selectedInspectorTab = value;
+				
+				// Save to persistent storage
+				_persistentInspectorTab.Value = value switch
+				{
+					InspectorTab.EntityInspector => PersistentInspectorTab.InspectorTabType.MainEntityInspector,
+					InspectorTab.Core => PersistentInspectorTab.InspectorTabType.CoreWindow,
+					InspectorTab.Debug => PersistentInspectorTab.InspectorTabType.DebugWindow,
+					_ => PersistentInspectorTab.InspectorTabType.MainEntityInspector
+				};
+			}
 		}
 	}
 	#endregion
@@ -192,6 +205,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	#endregion
 
+	private PersistentInspectorTab _persistentInspectorTab = new("ImGuiManager_LastInspectorTab", PersistentInspectorTab.InspectorTabType.MainEntityInspector);
+
 	public ImGuiManager(ImGuiOptions options = null)
 	{
 		if (options == null)
@@ -225,12 +240,23 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_imageLoader = new ImguiImageLoader();
 		_imageLoader.LoadImages(_renderer);
 
+		// Load the last selected inspector tab
+		_selectedInspectorTab = _persistentInspectorTab.Value switch
+		{
+			PersistentInspectorTab.InspectorTabType.MainEntityInspector => InspectorTab.EntityInspector,
+			PersistentInspectorTab.InspectorTabType.CoreWindow => InspectorTab.Core,
+			PersistentInspectorTab.InspectorTabType.DebugWindow => InspectorTab.Debug,
+			_ => InspectorTab.EntityInspector
+		};
+
 		// Create default Main Entity Inspector window when current scene is finished loading the entities
 		Scene.OnFinishedAddingEntitiesWithData += OpenMainEntityInspector;
 		Core.EmitterWithPending.AddObserver(CoreEvents.Exiting, OnAppExitSaveChanges);
 
 		Core.OnResetScene += RequestResetScene;
 		Core.OnSwitchEditMode += OnEditModeSwitched;
+
+		MainEntityInspector = new MainEntityInspector(this, null);
 	}
 
 	/// <summary>
@@ -860,7 +886,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		}
 		else
 		{
-			MainEntityInspector = new MainEntityInspector(entity);
+			MainEntityInspector = new MainEntityInspector(this, entity);
 		}
 	}
 

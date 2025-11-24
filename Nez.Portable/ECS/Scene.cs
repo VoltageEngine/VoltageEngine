@@ -272,9 +272,9 @@ public class Scene
 		RenderableComponents = new RenderableComponentList();
 		Content = new NezContentManager();
 
-		var cameraEntity = SimpleCreateEntity<EntityData>("camera");
+		var cameraEntity = SimpleCreateEntity<EntityData>("camera", Entity.InstanceType.HardCoded);
 		Camera = cameraEntity.AddComponent(new Camera());
-
+		
 		// setup our resolution policy. we'll commit it in begin
 		_resolutionPolicy = _defaultSceneResolutionPolicy;
 		_designResolutionSize = _defaultDesignResolutionSize;
@@ -968,9 +968,9 @@ public class Scene
 	/// add the Entity to this Scene, and return it
 	/// </summary>
 	/// <returns></returns>
-	public Entity SimpleCreateEntity<TData>(string name) where TData : EntityData, new()
+	public Entity SimpleCreateEntity<TData>(string name, Entity.InstanceType type) where TData : EntityData, new()
 	{
-		var entity = new Entity(name);
+		var entity = new Entity(name, type);
 		if (entity.EntityData == null)
 			entity.EntityData = new TData();
 
@@ -993,9 +993,9 @@ public class Scene
 		return AddEntity(entity);
 	}
 
-	public Entity SimpleCreateEntity(string name)
+	public Entity SimpleCreateEntity(string name, Entity.InstanceType type)
 	{
-		var entity = new Entity(name);
+		var entity = new Entity(name, type);
 		return AddEntity(entity);
 	}
 

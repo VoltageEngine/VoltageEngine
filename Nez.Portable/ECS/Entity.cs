@@ -297,17 +297,24 @@ public class Entity : IComparable<Entity>
 	#endregion
 
 
-	public Entity(string name)
+	public Entity(string name, InstanceType type = InstanceType.HardCoded)
 	{
 		Components = new ComponentList(this);
 		Transform = new Transform(this);
 		_name = name; 
 		Id = _idGenerator++;
 		DebugRenderEnabled = Core.DebugRenderEnabled;
+		Type = type;
+
+		//Since HardCoded entities cannot be created in the Editor, we set this to false
+		if (Type == InstanceType.HardCoded) 
+			IsSelectableInEditor = false;
 	}
 
 	public Entity() : this(Utils.Utils.RandomString(8))
 	{
+		if (Type == InstanceType.HardCoded)
+			IsSelectableInEditor = false;
 	}
 
 	internal void OnTransformChanged(Transform.Component comp)

@@ -69,4 +69,59 @@ public static class EntityFactoryRegistry
 	{
 		return _factories.Keys;
 	}
+
+	/// <summary>
+	/// Gets the Type for a registered entity without instantiating it
+	/// </summary>
+	/// <param name="typeName">The type name or full name of the entity</param>
+	/// <returns>The Type if found, null otherwise</returns>
+	public static Type GetEntityType(string typeName)
+	{
+		// First, search through registered factories by creating a temporary instance
+		// and getting its type (not ideal but necessary since we only store factory delegates)
+		foreach (var kvp in _factories)
+		{
+			var registeredTypeName = kvp.Key;
+			
+			// If the registered name matches, create a temporary instance to get the type
+			if (registeredTypeName == typeName)
+			{
+				try
+				{
+					var tempEntity = kvp.Value();
+					var type = tempEntity.GetType();
+					
+					// Clean up the temporary entity if it was added to a scene
+					if (tempEntity.Scene != null)
+						tempEntity.Destroy();
+					
+					return type;
+				}
+				catch
+				{
+					continue;
+				}
+			}
+		}
+
+		// Fallback: try Type.GetType for assembly-qualified names
+		var fallbackType = Type.GetType(typeName);
+		if (fallbackType != null)
+			return fallbackType;
+
+		// Last resort: search all loaded assemblies for the type
+		foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+		{
+			foreach (var type in assembly.GetTypes())
+			{
+				if (type.Name == typeName || type.FullName == typeName)
+				{
+					if (typeof(Entity).IsAssignableFrom(type))
+						return type;
+				}
+			}
+		}
+
+		return null;
+	}
 }
