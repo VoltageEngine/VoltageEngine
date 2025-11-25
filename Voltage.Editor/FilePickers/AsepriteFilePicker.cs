@@ -1,7 +1,5 @@
 using ImGuiNET;
 using Nez.Aseprite;
-using Nez.Editor;
-using Nez.ImGuiTools.Utils;
 using Nez.Textures;
 using Nez.UI;
 using Nez.Utils;
@@ -9,9 +7,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Nez;
+using Voltage.Editor.Persistence;
+using Voltage.Editor.Utils;
 using Num = System.Numerics;
 
-namespace Nez.ImGuiTools.FilePickers
+namespace Voltage.Editor.FilePickers
 {
     /// <summary>
     /// Reusable Aseprite file picker with layer and frame selection support.

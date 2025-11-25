@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 
 
-namespace Nez.Persistence.Binary
+namespace Voltage.Persistence.Binary
 {
 	public static class IPersistableWriterExtensions
 	{

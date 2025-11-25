@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Nez.ImGuiTools.Persistence
+namespace Voltage.Editor.Persistence
 {
 	public class PersistentInt
 	{

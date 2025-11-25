@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework;
 using Nez;
 
-namespace Nez.ImGuiTools.UndoActions
+namespace Voltage.Editor.UndoActions
 {
 	/// <summary>
 	/// Undo action for scaling multiple entities via gizmo.

@@ -1,7 +1,7 @@
-using Nez.ImGuiTools.Persistence;
 using System;
+using Nez;
 
-namespace Nez.ImGuiTools.Utils
+namespace Voltage.Editor.Persistence
 {
 	/// <summary>
 	/// Tracks and persists the last opened scene across sessions using ImGuiSettingsLoader.

@@ -1,7 +1,7 @@
 using System.IO;
 
 
-namespace Nez.Persistence.Binary
+namespace Voltage.Persistence.Binary
 {
 	public class BinaryPersistableWriter : BinaryWriter, IPersistableWriter
 	{

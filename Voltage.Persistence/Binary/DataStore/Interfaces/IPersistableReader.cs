@@ -1,4 +1,4 @@
-namespace Nez.Persistence.Binary
+namespace Voltage.Persistence.Binary
 {
 	public interface IPersistableReader : System.IDisposable
 	{

@@ -1,9 +1,8 @@
 using System;
-using System.Linq;
 using System.Reflection;
-using Nez.ImGuiTools.ObjectInspectors;
+using Nez;
 
-namespace Nez.ImGuiTools.ObjectInspectors
+namespace Voltage.Editor.Inspectors.ObjectInspectors
 {
     public static class ComponentInspectorFactory
     {

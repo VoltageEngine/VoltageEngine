@@ -1,10 +1,10 @@
-﻿using ImGuiNET;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using ImGuiNET;
 using Num = System.Numerics;
 
 
-namespace Nez.ImGuiTools;
+namespace Voltage.Editor.Core;
 
 public class ImGuiOptions
 {

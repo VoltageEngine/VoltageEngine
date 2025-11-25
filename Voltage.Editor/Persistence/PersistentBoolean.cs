@@ -1,7 +1,4 @@
-﻿using Nez.ImGuiTools.Persistence;
-using Nez.ImGuiTools.Utils;
-
-namespace Nez.ImGuiTools.Utils
+﻿namespace Voltage.Editor.Persistence
 {
 	/// <summary>
 	/// A boolean setting that persists its value across sessions using ImGuiSettingsLoader.

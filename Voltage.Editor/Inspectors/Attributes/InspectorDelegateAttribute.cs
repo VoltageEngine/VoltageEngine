@@ -1,7 +1,6 @@
 using System;
 
-
-namespace Nez.ImGuiTools.ObjectInspectors
+namespace Voltage.Editor.Inspectors.Attributes
 {
 	/// <summary>
 	/// adding this to a method on a Component will cause the ImGui ComponentInspector to call the method whenever

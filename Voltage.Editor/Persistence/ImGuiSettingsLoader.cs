@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using Nez.Persistence;
+using Nez;
+using Voltage.Persistence;
 
-namespace Nez.ImGuiTools.Persistence
+namespace Voltage.Editor.Persistence
 {
 	public static class ImGuiSettingsLoader
 	{

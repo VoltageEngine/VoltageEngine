@@ -3,9 +3,6 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Nez.Data;
-using Nez.Editor;
-using Nez.ImGuiTools.Inspectors.CustomInspectors;
-using Nez.ImGuiTools.UndoActions;
 using Nez.Sprites;
 using Nez.UI;
 using Nez.Utils;
@@ -14,13 +11,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Mime;
 using System.Threading.Tasks;
-using Nez.ImGuiTools.Inspectors;
-using Nez.ImGuiTools.Utils;
+using Nez;
 using Num = System.Numerics;
-using Nez.ImGuiTools.FilePickers;
+using Voltage.Editor.FilePickers;
+using Voltage.Editor.Inspectors;
+using Voltage.Editor.Inspectors.CustomInspectors;
+using Voltage.Editor.UndoActions;
+using Voltage.Editor.Utils;
 
 
-namespace Nez.ImGuiTools;
+namespace Voltage.Editor;
 
 public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDisposable
 {
@@ -222,7 +222,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_renderer.RebuildFontAtlas(options);
 
 		Core.Emitter.AddObserver(CoreEvents.SceneChanged, OnSceneChanged);
-		NezImGuiThemes.DarkTheme1();
+		VoltageEditorThemes.DarkTheme1();
 
 		// find all Scenes
 		_sceneSubclasses = ReflectionUtils.GetAllSubclasses(typeof(Scene), true);
@@ -232,7 +232,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		ImGui.GetIO().ConfigWindowsMoveFromTitleBarOnly = true;
 
 		// find all themes
-		_themes = typeof(NezImGuiThemes).GetMethods(System.Reflection.BindingFlags.Static |
+		_themes = typeof(VoltageEditorThemes).GetMethods(System.Reflection.BindingFlags.Static |
 		                                            System.Reflection.BindingFlags.Public);
 		SceneGraphWindow = new SceneGraphWindow();
 		_cursorSelectionManager = new ImGuiCursorSelectionManager(this);

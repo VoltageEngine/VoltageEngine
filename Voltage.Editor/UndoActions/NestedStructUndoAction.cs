@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using Nez.ImGuiTools.UndoActions;
+using Voltage.Editor.UndoActions;
 
-namespace Nez.ImGuiTools.UndoActions
+namespace Voltage.Editor.UndoActions
 {
 	/// <summary>
 	/// Handles undo/redo for values nested inside structs (including nested structs).

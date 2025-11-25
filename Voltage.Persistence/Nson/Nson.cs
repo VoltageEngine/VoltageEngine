@@ -2,7 +2,7 @@
 using System.Reflection;
 
 
-namespace Nez.Persistence
+namespace Voltage.Persistence
 {
 	public static class Nson
 	{

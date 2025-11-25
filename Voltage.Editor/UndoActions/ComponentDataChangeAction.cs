@@ -1,8 +1,9 @@
 using System;
-using Nez.ImGuiTools.UndoActions;
-using Nez.Persistence;
+using Nez;
+using Voltage.Editor.UndoActions;
+using Voltage.Persistence;
 
-namespace Nez.ImGuiTools.UndoActions
+namespace Voltage.Editor.UndoActions
 {
     public class ComponentDataChangeAction : EditorChangeTracker.IEditorAction
     {

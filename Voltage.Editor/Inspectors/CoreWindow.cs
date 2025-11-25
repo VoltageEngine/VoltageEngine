@@ -2,10 +2,12 @@ using System;
 using ImGuiNET;
 using Microsoft.Xna.Framework.Graphics;
 using Nez.Utils;
+using Voltage.Editor.Core;
+using Voltage.Editor.Utils;
 using Num = System.Numerics;
 
 
-namespace Nez.ImGuiTools
+namespace Voltage.Editor.Inspectors
 {
 	class CoreWindow
 	{
@@ -25,7 +27,7 @@ namespace Nez.ImGuiTools
 				return;
 
 			if (_imguiManager == null)
-				_imguiManager = Core.GetGlobalManager<ImGuiManager>();
+				_imguiManager = Nez.Core.GetGlobalManager<ImGuiManager>();
 
 			var windowPosX = Screen.Width - _imguiManager.InspectorTabWidth + _imguiManager.InspectorWidthOffset;
 			var windowPosY = _imguiManager.MainWindowPositionY + 32f;
@@ -50,26 +52,26 @@ namespace Nez.ImGuiTools
 			ImGui.PlotLines("##hidelabel", ref _frameRateArray[0], _frameRateArray.Length, _frameRateArrayIndex,
 				$"FPS: {ImGui.GetIO().Framerate:0}", 0, 60, new Num.Vector2(ImGui.GetContentRegionAvail().X, 50));
 
-			NezImGui.SmallVerticalSpace();
+			VoltageEditorUtils.SmallVerticalSpace();
 
 			if (ImGui.CollapsingHeader("Core Settings", ImGuiTreeNodeFlags.DefaultOpen))
 			{
-				ImGui.Checkbox("ResetSceneAutomatically", ref Core.ResetSceneAutomatically);
-				ImGui.Checkbox("exitOnEscapeKeypress", ref Core.ExitOnEscapeKeypress);
-				ImGui.Checkbox("pauseOnFocusLost", ref Core.PauseOnFocusLost);
-				ImGui.Checkbox("debugRenderEnabled", ref Core.DebugRenderEnabled);
+				ImGui.Checkbox("ResetSceneAutomatically", ref Nez.Core.ResetSceneAutomatically);
+				ImGui.Checkbox("exitOnEscapeKeypress", ref Nez.Core.ExitOnEscapeKeypress);
+				ImGui.Checkbox("pauseOnFocusLost", ref Nez.Core.PauseOnFocusLost);
+				ImGui.Checkbox("debugRenderEnabled", ref Nez.Core.DebugRenderEnabled);
 			}
 
 			if (ImGui.CollapsingHeader("Core.defaultSamplerState", ImGuiTreeNodeFlags.DefaultOpen))
 			{
 #if !FNA
 				ImGui.PushStyleVar(ImGuiStyleVar.Alpha, ImGui.GetStyle().Alpha * 0.5f);
-				NezImGui.DisableNextWidget();
+				VoltageEditorUtils.DisableNextWidget();
 #endif
 
-				var currentTextureFilter = (int) Core.DefaultSamplerState.Filter;
+				var currentTextureFilter = (int) Nez.Core.DefaultSamplerState.Filter;
 				if (ImGui.Combo("Filter", ref currentTextureFilter, _textureFilters, _textureFilters.Length))
-					Core.DefaultSamplerState.Filter = (TextureFilter) Enum.Parse(typeof(TextureFilter),
+					Nez.Core.DefaultSamplerState.Filter = (TextureFilter) Enum.Parse(typeof(TextureFilter),
 						_textureFilters[currentTextureFilter]);
 
 #if !FNA

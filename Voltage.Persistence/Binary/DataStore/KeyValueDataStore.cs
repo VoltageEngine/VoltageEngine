@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Nez.Persistence.Binary
+namespace Voltage.Persistence.Binary
 {
 	/// <summary>
 	/// simple storage of some basic types. This is designed for small amounts of data such as preferences.

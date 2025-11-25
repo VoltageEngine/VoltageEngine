@@ -1,12 +1,11 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using ImGuiNET;
-using Nez.ImGuiTools.ObjectInspectors;
 using Nez.Utils;
+using Voltage.Editor.Inspectors.ObjectInspectors;
+using Voltage.Editor.Utils;
 
-
-namespace Nez.ImGuiTools.SceneGraphPanes
+namespace Voltage.Editor.Inspectors.SceneGraphPanes
 {
 	/// <summary>
 	/// manages displaying the current Renderers in the Scene
@@ -24,9 +23,9 @@ namespace Nez.ImGuiTools.SceneGraphPanes
 			{
 				_isRendererListInitialized = true;
 
-				for (var i = 0; i < Core.Scene._renderers.Length; i++)
+				for (var i = 0; i < Nez.Core.Scene._renderers.Length; i++)
 				{
-					var renderer = Core.Scene._renderers.Buffer[i];
+					var renderer = Nez.Core.Scene._renderers.Buffer[i];
 					if (!_renderers.Any(inspector => inspector.Renderer == renderer))
 					{
 						_renderers.Add(new RendererInspector(renderer));
@@ -57,11 +56,11 @@ namespace Nez.ImGuiTools.SceneGraphPanes
 				}
 
 				_renderers[i].Draw();
-				NezImGui.SmallVerticalSpace();
+				VoltageEditorUtils.SmallVerticalSpace();
 			}
 
 			if (_renderers.Count == 0)
-				NezImGui.SmallVerticalSpace();
+				VoltageEditorUtils.SmallVerticalSpace();
 
 			ImGui.Unindent();
 		}

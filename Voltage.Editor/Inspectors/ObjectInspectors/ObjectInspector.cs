@@ -1,10 +1,9 @@
 using System;
 using System.Collections.Generic;
 using ImGuiNET;
-using Nez.ImGuiTools.TypeInspectors;
+using Voltage.Editor.Inspectors.TypeInspectors;
 
-
-namespace Nez.ImGuiTools.ObjectInspectors
+namespace Voltage.Editor.Inspectors.ObjectInspectors
 {
 	public class ObjectInspector : AbstractTypeInspector
 	{

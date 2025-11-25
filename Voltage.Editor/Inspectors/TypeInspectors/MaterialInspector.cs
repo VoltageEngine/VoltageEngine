@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Reflection;
 using ImGuiNET;
-using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Nez;
 using Nez.Utils;
+using Voltage.Editor.Utils;
 
-
-namespace Nez.ImGuiTools.TypeInspectors
+namespace Voltage.Editor.Inspectors.TypeInspectors
 {
 	public class MaterialInspector : AbstractTypeInspector
 	{
@@ -59,7 +58,7 @@ namespace Nez.ImGuiTools.TypeInspectors
 				return;
 			}
 
-			NezImGui.ShowContextMenuTooltip();
+			VoltageEditorUtils.ShowContextMenuTooltip();
 
 			if (ImGui.BeginPopupContextItem())
 			{
@@ -82,7 +81,7 @@ namespace Nez.ImGuiTools.TypeInspectors
 
 				if (_inspectors.Count == 0)
 				{
-					if (NezImGui.CenteredButton("Set Effect", 0.6f))
+					if (VoltageEditorUtils.CenteredButton("Set Effect", 0.6f))
 						ImGui.OpenPopup("effect-chooser");
 				}
 
@@ -106,7 +105,7 @@ namespace Nez.ImGuiTools.TypeInspectors
 
 		void DrawNullMaterial()
 		{
-			if (NezImGui.CenteredButton("Create Material", 0.5f, ImGui.GetStyle().IndentSpacing * 0.5f))
+			if (VoltageEditorUtils.CenteredButton("Create Material", 0.5f, ImGui.GetStyle().IndentSpacing * 0.5f))
 			{
 				var material = new Material();
 				SetValue(material);

@@ -1,11 +1,11 @@
 ﻿using ImGuiNET;
-using Nez.ImGuiTools.ObjectInspectors;
-using Nez.ImGuiTools.TypeInspectors;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Nez;
+using Voltage.Editor.Inspectors.TypeInspectors;
 
-namespace Nez.ImGuiTools.Inspectors.ObjectInspectors
+namespace Voltage.Editor.Inspectors.ObjectInspectors
 {
 	/// <summary>
 	/// MultiComponentInspector is used to inspect and edit components that are common across multiple entities.

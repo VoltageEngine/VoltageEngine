@@ -1,9 +1,8 @@
 using Nez;
-using Nez.Editor;
 using System;
 using System.Linq;
 
-namespace Nez.ImGuiTools.UndoActions
+namespace Voltage.Editor.UndoActions
 {
 	/// <summary>
 	/// Undo action for adding a component to an entity.

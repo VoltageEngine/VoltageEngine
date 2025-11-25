@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Nez.Persistence
+namespace Voltage.Persistence
 {
 	/// <summary>
 	/// used to override the default NSON writing and augment converting NSON to an object

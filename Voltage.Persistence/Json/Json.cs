@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Reflection;
 
-namespace Nez.Persistence
+namespace Voltage.Persistence
 {
 	public sealed class DecodeException : Exception
 	{

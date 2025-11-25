@@ -2,7 +2,7 @@ using System;
 using System.IO;
 
 
-namespace Nez.Persistence.Binary
+namespace Voltage.Persistence.Binary
 {
 	public class FileDataStore
 	{
@@ -23,7 +23,7 @@ namespace Nez.Persistence.Binary
 
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="T:Nez.Persistence.Binary.FileDataStore"/> class. If <paramref name="persistentDataPath"/>
+		/// Initializes a new instance of the <see cref="T:Voltage.Persistence.Binary.FileDataStore"/> class. If <paramref name="persistentDataPath"/>
 		/// is null, it will use Utils.GetStorageRoot().
 		/// </summary>
 		/// <param name="persistentDataPath">Persistent data path.</param>

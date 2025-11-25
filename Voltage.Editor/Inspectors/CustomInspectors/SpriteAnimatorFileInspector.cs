@@ -2,16 +2,18 @@
 using System.Collections.Generic;
 using System.IO;
 using ImGuiNET;
+using Nez;
 using Nez.Aseprite;
-using Nez.ImGuiTools.FilePickers;
-using Nez.ImGuiTools.TypeInspectors;
-using Nez.ImGuiTools.UndoActions;
 using Nez.Sprites;
 using Nez.Textures;
 using Nez.Utils;
+using Voltage.Editor.Core;
+using Voltage.Editor.FilePickers;
+using Voltage.Editor.Inspectors.TypeInspectors;
+using Voltage.Editor.UndoActions;
 using Num = System.Numerics;
 
-namespace Nez.ImGuiTools.Inspectors.CustomInspectors
+namespace Voltage.Editor.Inspectors.CustomInspectors
 {
     public class SpriteAnimatorFileInspector : AbstractTypeInspector
     {

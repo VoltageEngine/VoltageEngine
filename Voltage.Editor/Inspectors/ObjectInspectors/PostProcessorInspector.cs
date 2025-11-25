@@ -1,17 +1,20 @@
 using System.Collections.Generic;
 using ImGuiNET;
-using Nez.ImGuiTools.TypeInspectors;
+using Nez;
 using Nez.Utils;
+using Voltage.Editor.Inspectors.TypeInspectors;
+using Voltage.Editor.Utils;
+using EffectInspector = Voltage.Editor.Inspectors.TypeInspectors.EffectInspector;
 
 
-namespace Nez.ImGuiTools.ObjectInspectors
+namespace Voltage.Editor.Inspectors.ObjectInspectors
 {
 	public class PostProcessorInspector
 	{
 		public PostProcessor PostProcessor => _postProcessor;
 
 		protected List<AbstractTypeInspector> _inspectors;
-		protected int _scopeId = NezImGui.GetScopeId();
+		protected int _scopeId = VoltageEditorUtils.GetScopeId();
 
 		PostProcessor _postProcessor;
 
@@ -26,7 +29,7 @@ namespace Nez.ImGuiTools.ObjectInspectors
 				var didFindEffectInspector = false;
 				for (var i = 0; i < _inspectors.Count; i++)
 				{
-					var isEffectInspector = _inspectors[i] is Nez.ImGuiTools.TypeInspectors.EffectInspector;
+					var isEffectInspector = _inspectors[i] is EffectInspector;
 					if (isEffectInspector)
 					{
 						if (didFindEffectInspector)
@@ -53,14 +56,14 @@ namespace Nez.ImGuiTools.ObjectInspectors
 			ImGui.PushID(_scopeId);
 			var isOpen = ImGui.CollapsingHeader(_postProcessor.GetType().Name.Replace("PostProcessor", string.Empty));
 
-			NezImGui.ShowContextMenuTooltip();
+			VoltageEditorUtils.ShowContextMenuTooltip();
 
 			if (ImGui.BeginPopupContextItem())
 			{
 				if (ImGui.Selectable("Remove PostProcessor"))
 				{
 					isOpen = false;
-					Core.Scene.RemovePostProcessor(_postProcessor);
+					Nez.Core.Scene.RemovePostProcessor(_postProcessor);
 					ImGui.CloseCurrentPopup();
 				}
 

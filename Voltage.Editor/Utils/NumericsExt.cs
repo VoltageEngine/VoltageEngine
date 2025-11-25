@@ -2,7 +2,7 @@ using Microsoft.Xna.Framework;
 using Num = System.Numerics;
 
 
-namespace Nez.ImGuiTools
+namespace Voltage.Editor.Utils
 {
 	/// <summary>
 	/// helpers to convert to/from System.Numberics

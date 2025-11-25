@@ -1,9 +1,8 @@
 using Microsoft.Xna.Framework;
 using Nez;
 using Nez.DeferredLighting;
-using Nez.Editor;
 
-namespace Nez.ImGuiTools.UndoActions
+namespace Voltage.Editor.UndoActions
 {
 	public class AreaLightResizeUndoAction : EditorChangeTracker.IEditorAction
 	{

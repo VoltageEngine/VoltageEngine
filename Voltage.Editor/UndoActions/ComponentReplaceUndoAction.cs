@@ -1,6 +1,7 @@
-using Nez.ImGuiTools.UndoActions;
+using Nez;
+using Voltage.Editor.UndoActions;
 
-namespace Nez.ImGuiTools.UndoActions
+namespace Voltage.Editor.UndoActions
 {
     public class ComponentReplaceUndoAction : EditorChangeTracker.IEditorAction
     {

@@ -1,9 +1,10 @@
-using Nez.Persistence;
+using Voltage.Persistence;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Nez;
 
-namespace Nez.ImGuiTools.UndoActions
+namespace Voltage.Editor.UndoActions
 {
 	/// <summary>
 	/// Undo action for applying prefab changes to a single entity copy.

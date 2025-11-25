@@ -1,15 +1,18 @@
 using System;
 using System.Collections.Generic;
 using ImGuiNET;
-using Nez.ImGuiTools.Inspectors.CustomInspectors;
-using Nez.ImGuiTools.TypeInspectors;
-using Nez.ImGuiTools.UndoActions;
-using Nez.Persistence;
+using Nez;
 using Nez.Sprites;
 using Nez.Utils.Extensions;
+using Voltage.Editor.Core;
+using Voltage.Editor.Inspectors.Attributes;
+using Voltage.Editor.Inspectors.CustomInspectors;
+using Voltage.Editor.Inspectors.TypeInspectors;
+using Voltage.Editor.UndoActions;
+using Voltage.Editor.Utils;
+using Voltage.Persistence;
 
-
-namespace Nez.ImGuiTools.ObjectInspectors
+namespace Voltage.Editor.Inspectors.ObjectInspectors
 {
 	public class ComponentInspector : AbstractComponentInspector
 	{
@@ -78,7 +81,7 @@ namespace Nez.ImGuiTools.ObjectInspectors
 		public override void Draw()
 		{
 			if(_imGuiManager == null)
-				_imGuiManager = Core.GetGlobalManager<ImGuiManager>();
+				_imGuiManager = Nez.Core.GetGlobalManager<ImGuiManager>();
 
 			ImGui.PushID(_scopeId);
 			var isHeaderOpen = ImGui.CollapsingHeader(_name);
@@ -133,7 +136,7 @@ namespace Nez.ImGuiTools.ObjectInspectors
 					}
 				}
 
-				NezImGui.SmallVerticalSpace();
+				VoltageEditorUtils.SmallVerticalSpace();
 
 				//Paste - Simplified since we now have a true copy
 				var copiedComponent = _imGuiManager.SceneGraphWindow.CopiedComponent;
@@ -158,7 +161,7 @@ namespace Nez.ImGuiTools.ObjectInspectors
 				}
 
 				ImGui.Separator();
-				NezImGui.SmallVerticalSpace();
+				VoltageEditorUtils.SmallVerticalSpace();
 
 				if (ImGui.Selectable("Remove Component"))
 				{

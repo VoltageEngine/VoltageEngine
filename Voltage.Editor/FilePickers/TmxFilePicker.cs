@@ -1,13 +1,12 @@
 using ImGuiNET;
-using Nez.Editor;
-using Nez.ImGuiTools.Persistence;
-using Nez.ImGuiTools.Utils;
 using Nez.Utils;
 using System;
 using System.IO;
+using Voltage.Editor.Persistence;
+using Voltage.Editor.Utils;
 using Num = System.Numerics;
 
-namespace Nez.ImGuiTools.FilePickers
+namespace Voltage.Editor.FilePickers
 {
     /// <summary>
     /// Reusable TMX (Tiled Map) file picker.
@@ -111,7 +110,7 @@ namespace Nez.ImGuiTools.FilePickers
                                        "This includes both 'Colliders' and 'Ledges' object groups.");
                     }
 
-                    NezImGui.MediumVerticalSpace();
+                    VoltageEditorUtils.MediumVerticalSpace();
 
                     ImGui.TextWrapped("Select Image Mode:");
                     if (ImGui.IsItemHovered())

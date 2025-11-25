@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using Num = System.Numerics;
 
-namespace Nez.ImGuiTools.FilePickers
+namespace Voltage.Editor.FilePickers
 {
 	public class FilePicker
 	{

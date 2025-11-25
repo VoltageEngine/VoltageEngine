@@ -2,12 +2,14 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 using ImGuiNET;
-using Nez.ImGuiTools.UndoActions;
+using Nez;
 using Nez.Sprites;
 using Nez.Utils;
+using Voltage.Editor.Core;
+using Voltage.Editor.UndoActions;
 using Num = System.Numerics;
 
-namespace Nez.ImGuiTools.Inspectors.CustomInspectors
+namespace Voltage.Editor.Inspectors.CustomInspectors
 {
     public class AnimationEventInspector
     {

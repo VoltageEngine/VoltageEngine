@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 
 
-namespace Nez.Persistence
+namespace Voltage.Persistence
 {
 	/// <summary>
 	/// responsible for caching as much of the reflection calls as we can. Should be cleared after each encode/decode.

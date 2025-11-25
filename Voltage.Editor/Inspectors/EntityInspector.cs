@@ -1,22 +1,24 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.IO;
+using System.Linq;
 using ImGuiNET;
-using Nez.ImGuiTools.ObjectInspectors;
-using Nez.ImGuiTools.UndoActions;
+using Nez;
 using Nez.Utils;
-using Nez.Editor;
-using Nez.Persistence;
+using Voltage.Editor.Core;
+using Voltage.Editor.Inspectors.ObjectInspectors;
+using Voltage.Editor.UndoActions;
+using Voltage.Editor.Utils;
+using Voltage.Persistence;
 using Num = System.Numerics;
 
-namespace Nez.ImGuiTools;
+namespace Voltage.Editor.Inspectors;
 
 public class EntityInspector
 {
 	public Entity Entity { get; }
 
-	private string _entityWindowId = "entity-" + NezImGui.GetScopeId().ToString();
+	private string _entityWindowId = "entity-" + VoltageEditorUtils.GetScopeId().ToString();
 	private bool _shouldFocusWindow;
 	private string _componentNameFilter;
 	private TransformInspector _transformInspector;
@@ -80,7 +82,7 @@ public class EntityInspector
 	public void Draw()
 	{
 		if (_imGuiManager == null)
-			_imGuiManager = Core.GetGlobalManager<ImGuiManager>();
+			_imGuiManager = Nez.Core.GetGlobalManager<ImGuiManager>();
 
 		var topMargin = 20f;
 		var windowHeight = Screen.Height - topMargin;
@@ -269,7 +271,7 @@ public class EntityInspector
 				}
 			}
 
-			NezImGui.MediumVerticalSpace();
+			VoltageEditorUtils.MediumVerticalSpace();
 
 			// IsSelectableInEditor
 			{
@@ -318,9 +320,9 @@ public class EntityInspector
 				}
 			}
 
-			NezImGui.MediumVerticalSpace();
+			VoltageEditorUtils.MediumVerticalSpace();
 			_transformInspector.Draw();
-			NezImGui.MediumVerticalSpace();
+			VoltageEditorUtils.MediumVerticalSpace();
 
 			for (var i = _componentInspectors.Count - 1; i >= 0; i--)
 			{
@@ -331,11 +333,11 @@ public class EntityInspector
 				}
 
 				_componentInspectors[i].Draw();
-				NezImGui.MediumVerticalSpace();
+				VoltageEditorUtils.MediumVerticalSpace();
 			}
 
 			// Create Prefab button
-			if (Entity.Type != Entity.InstanceType.HardCoded && NezImGui.CenteredButton("Create Prefab", 0.6f))
+			if (Entity.Type != Entity.InstanceType.HardCoded && VoltageEditorUtils.CenteredButton("Create Prefab", 0.6f))
 			{
 				_prefabName = Entity.Name + "_Prefab";
 				ImGui.OpenPopup("prefab-creator");
@@ -344,8 +346,8 @@ public class EntityInspector
 			// Apply to Prefab Copies button for prefab entities
 			if (Entity.Type == Entity.InstanceType.Prefab && !string.IsNullOrEmpty(Entity.OriginalPrefabName))
 			{
-				NezImGui.MediumVerticalSpace();
-				if (NezImGui.CenteredButton("Apply to Prefab Copies", 0.8f))
+				VoltageEditorUtils.MediumVerticalSpace();
+				if (VoltageEditorUtils.CenteredButton("Apply to Prefab Copies", 0.8f))
 				{
 					ShowApplyToPrefabCopiesConfirmation();
 				}
@@ -354,8 +356,8 @@ public class EntityInspector
 			// Apply to Original Prefab button for prefab entities
 			if (Entity.Type == Entity.InstanceType.Prefab && !string.IsNullOrEmpty(Entity.OriginalPrefabName))
 			{
-				NezImGui.MediumVerticalSpace();
-				if (NezImGui.CenteredButton("Apply to Original Prefab", 0.8f))
+				VoltageEditorUtils.MediumVerticalSpace();
+				if (VoltageEditorUtils.CenteredButton("Apply to Original Prefab", 0.8f))
 				{
 					_showApplyToOriginalPrefabConfirmation = true;
 				}
@@ -397,7 +399,7 @@ public class EntityInspector
 				ImGui.TextColored(new Num.Vector4(1.0f, 0.2f, 0.2f, 1.0f), $"Warning: Prefab '{correctedName}' already exists!");
 			}
 
-			NezImGui.MediumVerticalSpace();
+			VoltageEditorUtils.MediumVerticalSpace();
 
 			var buttonWidth = 80f;
 			var spacing = 10f;
@@ -511,7 +513,7 @@ public class EntityInspector
 		if (Entity == null || Entity.Type != Entity.InstanceType.Prefab || string.IsNullOrEmpty(Entity.OriginalPrefabName))
 			return;
 
-		_prefabCopiesToModify = Core.Scene.Entities
+		_prefabCopiesToModify = Nez.Core.Scene.Entities
 			.Where(e => e != Entity &&
 						e.Type == Entity.InstanceType.Prefab && 
 						e.OriginalPrefabName == Entity.OriginalPrefabName)
@@ -549,7 +551,7 @@ public class EntityInspector
 			
 			ImGui.TextWrapped($"You are going to change prefab values for these entities:");
 			
-			NezImGui.SmallVerticalSpace();
+			VoltageEditorUtils.SmallVerticalSpace();
 			
 			ImGui.TextColored(new Num.Vector4(1.0f, 0.8f, 0.2f, 1.0f), $"Prefab: {Entity.OriginalPrefabName}");
 			ImGui.TextColored(new Num.Vector4(0.8f, 0.8f, 0.8f, 1.0f), $"Entities to be modified ({_prefabCopiesToModify.Count}):");
@@ -566,11 +568,11 @@ public class EntityInspector
 			}
 			ImGui.EndChild();
 
-			NezImGui.MediumVerticalSpace();
+			VoltageEditorUtils.MediumVerticalSpace();
 			
 			ImGui.TextColored(new Num.Vector4(1.0f, 0.6f, 0.2f, 1.0f), "This action can be undone with Ctrl+Z");
 
-			NezImGui.MediumVerticalSpace();
+			VoltageEditorUtils.MediumVerticalSpace();
 
 			var buttonWidth = 80f;
 			var spacing = 10f;
@@ -723,7 +725,7 @@ public class EntityInspector
 			ImGui.Separator();
 			ImGui.TextWrapped("This action will overwrite the original prefab file and cannot be undone outside of this session.");
 
-			NezImGui.MediumVerticalSpace();
+			VoltageEditorUtils.MediumVerticalSpace();
 
 			var buttonWidth = 80f;
 			var spacing = 10f;
@@ -758,7 +760,7 @@ public class EntityInspector
 		if (Entity != null && Entity.Type == Entity.InstanceType.Prefab &&
 		    !string.IsNullOrEmpty(Entity.OriginalPrefabName))
 		{
-			bool saveSuccessful = await Core.GetGlobalManager<ImGuiManager>().InvokePrefabCreated(Entity, true);
+			bool saveSuccessful = await Nez.Core.GetGlobalManager<ImGuiManager>().InvokePrefabCreated(Entity, true);
 
 			if (saveSuccessful)
 			{

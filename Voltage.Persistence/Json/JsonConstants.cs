@@ -2,7 +2,7 @@
 using System.Reflection;
 
 
-namespace Nez.Persistence
+namespace Voltage.Persistence
 {
 	/// <summary>
 	/// caches some commonly used data by the Json classes

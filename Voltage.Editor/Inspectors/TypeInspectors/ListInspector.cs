@@ -3,10 +3,11 @@ using System.Collections;
 using System.Collections.Generic;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
-using Num = System.Numerics;
+using Nez;
+using Voltage.Editor.Utils;
 
 
-namespace Nez.ImGuiTools.TypeInspectors
+namespace Voltage.Editor.Inspectors.TypeInspectors
 {
 	public class ListInspector : AbstractTypeInspector
 	{
@@ -70,7 +71,7 @@ namespace Nez.ImGuiTools.TypeInspectors
 						ImGui.OpenPopup("Clear Data");
 					}
 
-					if (NezImGui.SimpleDialog("Clear Data", "Are you sure you want to clear the data?"))
+					if (VoltageEditorUtils.SimpleDialog("Clear Data", "Are you sure you want to clear the data?"))
 					{
 						_list.Clear();
 						Debug.Log($"list count: {_list.Count}");

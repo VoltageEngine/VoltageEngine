@@ -5,13 +5,17 @@ using System.IO;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.ImGuiTools.FilePickers;
+using Nez;
 using Nez.Sprites;
 using Nez.Utils;
 using Nez.Utils.Extensions;
+using Voltage.Editor.Core;
+using Voltage.Editor.FilePickers;
+using Voltage.Editor.Utils;
+using Debug = Nez.Debug;
 using Num = System.Numerics;
 
-namespace Nez.ImGuiTools
+namespace Voltage.Editor.Tools
 {
 	public class SpriteAtlasEditorWindow
 	{
@@ -247,13 +251,13 @@ namespace Nez.ImGuiTools
 				}
 			}
 
-			if (NezImGui.CenteredButton("Set All Origins", 0.75f))
+			if (VoltageEditorUtils.CenteredButton("Set All Origins", 0.75f))
 			{
 				_globalOriginEnumValue = 7;
 				ImGui.OpenPopup("set-all-origins");
 			}
 
-			NezImGui.MediumVerticalSpace();
+			VoltageEditorUtils.MediumVerticalSpace();
 
 			if (ImGui.BeginPopup("set-all-origins"))
 			{
@@ -462,13 +466,13 @@ namespace Nez.ImGuiTools
 				ImGui.PushStyleColor(ImGuiCol.Text, Color.Red.PackedValue);
 				ImGui.TextWrapped("Edit/Add animations at your own risk! The loaded atlas either does not have contiguous frames or contains animations that are not contiguous.");
 				ImGui.PopStyleColor();
-				NezImGui.MediumVerticalSpace();
+				VoltageEditorUtils.MediumVerticalSpace();
 			}
 
-			if (NezImGui.CenteredButton("Add Animation", 0.5f))
+			if (VoltageEditorUtils.CenteredButton("Add Animation", 0.5f))
 				ImGui.OpenPopup("add-animation");
 
-			NezImGui.MediumVerticalSpace();
+			VoltageEditorUtils.MediumVerticalSpace();
 
 			for (var i = 0; i < _spriteAtlasData.AnimationNames.Count; i++)
 			{
@@ -531,7 +535,7 @@ namespace Nez.ImGuiTools
 						ImGui.Image(_texturePtr, size, uv0, uv0 + uv1);
 					}
 
-					NezImGui.SmallVerticalSpace();
+					VoltageEditorUtils.SmallVerticalSpace();
 				}
 
 				if (!didNotDeleteAnimation)
@@ -544,7 +548,7 @@ namespace Nez.ImGuiTools
 				ImGui.PopID();
 			}
 
-			NezImGui.SmallVerticalSpace();
+			VoltageEditorUtils.SmallVerticalSpace();
 			ImGui.SliderInt("Preview Size", ref _animationPreviewSize, 50, 150);
 
 			if (ImGui.BeginPopup("add-animation"))

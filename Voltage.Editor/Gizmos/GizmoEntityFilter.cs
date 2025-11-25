@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Nez;
 
-namespace Nez.ImGuiTools.Gizmos
+namespace Voltage.Editor.Gizmos
 {
     public class GizmoEntityFilter
     {

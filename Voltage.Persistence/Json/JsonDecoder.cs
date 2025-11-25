@@ -7,7 +7,7 @@ using System.Reflection;
 using System.Globalization;
 
 
-namespace Nez.Persistence
+namespace Voltage.Persistence
 {
 	/// <summary>
 	/// responsible for taking a json string and decoding it into objects, either generic or strongly typed

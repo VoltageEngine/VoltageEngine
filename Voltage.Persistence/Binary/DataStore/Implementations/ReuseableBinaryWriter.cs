@@ -3,7 +3,7 @@ using System.IO;
 using System.Text;
 
 
-namespace Nez.Persistence.Binary
+namespace Voltage.Persistence.Binary
 {
 	public sealed class ReuseableBinaryWriter : IPersistableWriter
 	{
