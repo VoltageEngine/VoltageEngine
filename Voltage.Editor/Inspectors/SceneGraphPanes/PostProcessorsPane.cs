@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using ImGuiNET;
-using Nez;
-using Nez.Utils;
+using Voltage;
+using Voltage.Utils;
 using Voltage.Editor.Inspectors.ObjectInspectors;
 using Voltage.Editor.Utils;
 
@@ -25,9 +25,9 @@ namespace Voltage.Editor.Inspectors.SceneGraphPanes
 			{
 				_isPostProcessorListInitialized = true;
 
-				for (var i = 0; i < Nez.Core.Scene._postProcessors.Length; i++)
+				for (var i = 0; i < Voltage.Core.Scene._postProcessors.Length; i++)
 				{
-					var postProcessor = Nez.Core.Scene._postProcessors.Buffer[i];
+					var postProcessor = Voltage.Core.Scene._postProcessors.Buffer[i];
 					if (_postProcessorInspectors.Where(inspector => inspector.PostProcessor == postProcessor).Count() == 0)
 						_postProcessorInspectors.Add(new PostProcessorInspector(postProcessor));
 				}
@@ -83,7 +83,7 @@ namespace Voltage.Editor.Inspectors.SceneGraphPanes
 					if (ImGui.Selectable(subclassType.Name))
 					{
 						var postprocessor = (PostProcessor)Activator.CreateInstance(subclassType, new object[] { _postProcessorInspectors.Count });
-						Nez.Core.Scene.AddPostProcessor(postprocessor);
+						Voltage.Core.Scene.AddPostProcessor(postprocessor);
 						_isPostProcessorListInitialized = false;
 					}
 				}

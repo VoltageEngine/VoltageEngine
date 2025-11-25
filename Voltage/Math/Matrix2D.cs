@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 using Microsoft.Xna.Framework;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// Represents the right-handed 3x3 floating point matrix, which can store translation, scale and rotation information.

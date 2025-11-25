@@ -1,4 +1,4 @@
-﻿namespace Nez
+﻿namespace Voltage
 {
 	/// <summary>
 	/// when added to a Component, whenever a Collider on the Entity overlaps/exits another Component these methods will be called.

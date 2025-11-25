@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
 
-namespace Nez.Utils.Collections
+namespace Voltage.Utils.Collections
 {
 	/// <summary>
 	/// sourced from: https://github.com/tejacques/Deque

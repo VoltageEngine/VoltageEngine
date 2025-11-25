@@ -1,6 +1,6 @@
 using Microsoft.Xna.Framework;
-using Nez;
-using Nez.DeferredLighting;
+using Voltage;
+using Voltage.DeferredLighting;
 
 namespace Voltage.Editor.UndoActions
 {

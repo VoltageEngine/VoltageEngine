@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Runtime.InteropServices;
 
-namespace Nez.Utils
+namespace Voltage.Utils
 {
 	public static class Storage
 	{

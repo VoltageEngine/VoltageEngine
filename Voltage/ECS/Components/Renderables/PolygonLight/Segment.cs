@@ -1,4 +1,4 @@
-﻿namespace Nez.Shadows
+﻿namespace Voltage.Shadows
 {
 	/// <summary>
 	/// Represents an occluding line segment in the visibility mesh

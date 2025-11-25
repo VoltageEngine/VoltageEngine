@@ -1,7 +1,7 @@
 ﻿using System;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// Renderer that only renders the specified renderLayers. Useful to keep UI rendering separate from the rest of the game when used in conjunction

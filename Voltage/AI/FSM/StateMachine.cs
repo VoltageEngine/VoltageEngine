@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 
 
-namespace Nez.AI.FSM
+namespace Voltage.AI.FSM
 {
 	public class StateMachine<T>
 	{

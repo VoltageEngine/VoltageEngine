@@ -1,8 +1,8 @@
 ﻿using System;
-using Nez.Utils.Collections;
+using Voltage.Utils.Collections;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	public class Cell : IPoolable
 	{

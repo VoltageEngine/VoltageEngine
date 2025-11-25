@@ -2,7 +2,7 @@ using System;
 using Microsoft.Xna.Framework.Graphics;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// convenience subclass with a single property that casts the Effect for cleaner configuration

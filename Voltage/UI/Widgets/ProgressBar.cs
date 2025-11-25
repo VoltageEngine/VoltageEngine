@@ -1,9 +1,9 @@
 ﻿using System;
 using Microsoft.Xna.Framework;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	public class ProgressBar : Element
 	{

@@ -1,10 +1,10 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
-using Nez.Textures;
-using Nez.BitmapFonts;
+using Voltage.BitmapFonts;
+using Voltage.Textures;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// wrapper class that holds in instance of a Batcher and helpers so that it can be passed around and draw anything.
@@ -19,7 +19,7 @@ namespace Nez
 		public Batcher Batcher;
 
 		/// <summary>
-		/// default font is loaded up and stored here for easy access. Nez uses it for the DebugConsole
+		/// default font is loaded up and stored here for easy access. Voltage uses it for the DebugConsole
 		/// </summary>
 		public BitmapFont BitmapFont;
 

@@ -21,10 +21,10 @@
 */
 
 using System;
-using Voltage.FarseerPhysics.Dynamics;
+using FarseerPhysics.Dynamics;
 
 
-namespace Voltage.FarseerPhysics
+namespace FarseerPhysics
 {
 	public static class Settings
 	{

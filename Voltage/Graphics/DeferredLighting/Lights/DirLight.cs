@@ -1,11 +1,11 @@
 ﻿using Microsoft.VisualBasic.FileIO;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Utils;
-using static Nez.Sprites.SpriteRenderer.SpriteRendererComponentData;
+using Voltage.Utils;
+using static Voltage.Sprites.SpriteRenderer.SpriteRendererComponentData;
 
 
-namespace Nez.DeferredLighting
+namespace Voltage.DeferredLighting
 {
 	/// <summary>
 	/// directional light with a shortended name to avoid clashes with the XNA DirectionalLight. This light type has only a direction and is

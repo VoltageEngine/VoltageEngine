@@ -1,7 +1,7 @@
 using ImGuiNET;
 using Microsoft.Xna.Framework;
-using Nez;
-using Nez.PhysicsShapes;
+using Voltage;
+using Voltage.PhysicsShapes;
 using System.Collections.Generic;
 using Voltage.Editor.Inspectors.UndoActions;
 using Voltage.Editor.UndoActions;

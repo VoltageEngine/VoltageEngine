@@ -1,10 +1,10 @@
 using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input.Touch;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez
+namespace Voltage
 {
 	public class Camera : Component
 	{

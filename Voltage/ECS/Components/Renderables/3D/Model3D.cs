@@ -1,11 +1,11 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
-using Nez;
+using Voltage;
 
 
-namespace Nez3D
+namespace Voltage3D
 {
 	/// <summary>
-	/// Model3D represents a normal 3D Model but it is rendered by a standard Nez Camera on the same plane as all the 2D sprites. For this
+	/// Model3D represents a normal 3D Model but it is rendered by a standard Voltage Camera on the same plane as all the 2D sprites. For this
 	/// reason, the Model is inflated by a scale of 80 by default. This keeps the Model at approximately the same scale as 2D sprites. You
 	/// can adjust this via the Vector3s present in this class (which replace the 2D Transform) and the 3D Camera fields (which are all
 	/// suffixed with "3D").

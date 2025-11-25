@@ -1,9 +1,9 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// basic class that can be used to create simple meshes. For more advanced usage subclass and override what is needed. The general gist

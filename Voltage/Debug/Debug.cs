@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
-namespace Nez
+namespace Voltage
 {
     public static partial class Debug
     {

@@ -2,10 +2,10 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
-using Nez.Utils;
+using Voltage.Utils;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// grid of springs

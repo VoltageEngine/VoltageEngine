@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// moves taking collision into account only for reporting to any ITriggerListeners. The object will always move the full amount so it is up

@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace Nez.Utils.Analysis
+namespace Voltage.Utils.Analysis
 {
 	/// <summary>
 	/// Alignment for layout.

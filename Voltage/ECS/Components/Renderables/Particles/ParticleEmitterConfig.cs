@@ -1,10 +1,10 @@
 ﻿using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Textures;
+using Voltage.Textures;
 
 
-namespace Nez.Particles
+namespace Voltage.Particles
 {
 	[Serializable]
 	public class ParticleEmitterConfig : IDisposable

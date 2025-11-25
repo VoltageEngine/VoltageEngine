@@ -1,6 +1,6 @@
-﻿using Nez.Utils;
+﻿using Voltage.Utils;
 
-namespace Nez.AI.UtilityAI
+namespace Voltage.AI.UtilityAI
 {
 	public class UtilityAI<T>
 	{

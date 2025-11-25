@@ -1,12 +1,12 @@
 ﻿using System.Collections.Generic;
 using System.Xml.Serialization;
 using Microsoft.Xna.Framework;
-using Nez.Splines;
-using Nez.Utils.Collections;
-using Nez.Utils.Extensions;
+using Voltage.Splines;
+using Voltage.Utils.Collections;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez.Svg
+namespace Voltage.Svg
 {
 	/// <summary>
 	/// representation of a path element. Note that the best way to get points from the path is to use the getTransformedPoints method. It uses

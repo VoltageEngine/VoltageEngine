@@ -1,8 +1,8 @@
 ﻿using Microsoft.Xna.Framework;
-using Nez.Utils.Collections;
+using Voltage.Utils.Collections;
 
 
-namespace Nez.Splines
+namespace Voltage.Splines
 {
 	/// <summary>
 	/// houses a series of cubic bezier points and provides helper methods to access the bezier

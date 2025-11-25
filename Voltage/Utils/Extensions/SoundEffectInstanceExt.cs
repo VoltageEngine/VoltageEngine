@@ -3,7 +3,7 @@ using System.Reflection;
 using Microsoft.Xna.Framework.Audio;
 
 
-namespace Nez
+namespace Voltage
 {
 	public static class SoundEffectInstanceExt
 	{

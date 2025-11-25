@@ -1,7 +1,7 @@
 ﻿using System.IO;
 
 
-namespace Nez.BitmapFonts
+namespace Voltage.BitmapFonts
 {
 	/// <summary>
 	/// Represents a texture page.

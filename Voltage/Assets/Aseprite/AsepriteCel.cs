@@ -1,6 +1,6 @@
 using Microsoft.Xna.Framework;
 
-namespace Nez.Aseprite
+namespace Voltage.Aseprite
 {
 	/// <summary>
 	/// Defines a single cel within a frame in Aseprite.

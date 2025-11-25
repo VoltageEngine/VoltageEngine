@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
-using Nez.Utils;
+using Voltage.Utils;
 
-namespace Nez.Tiled
+namespace Voltage.Tiled
 {
 	public static class TmxLayerTileExt
 	{

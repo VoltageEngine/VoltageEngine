@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
 using Microsoft.Xna.Framework;
-using Nez.Utils.Collections;
+using Voltage.Utils.Collections;
 
 
-namespace Nez.Splines
+namespace Voltage.Splines
 {
 	/// <summary>
 	/// cubic and quadratic bezier helper

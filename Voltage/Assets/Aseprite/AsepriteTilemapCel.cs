@@ -1,6 +1,6 @@
 using Microsoft.Xna.Framework;
 
-namespace Nez.Aseprite
+namespace Voltage.Aseprite
 {
 	/// <summary>
 	/// Represents a single cel in a frame that contains tilemap data.

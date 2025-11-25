@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 
 
-namespace Nez.AI.Pathfinding
+namespace Voltage.AI.Pathfinding
 {
 	/// <summary>
 	/// basic implementation of an UnweightedGraph. All edges are cached. This type of graph is best suited for non-grid based graphs.

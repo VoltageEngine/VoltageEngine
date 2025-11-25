@@ -2,12 +2,12 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Microsoft.Xna.Framework;
-using Nez.PhysicsShapes;
-using Nez.Utils;
-using Nez.Utils.Extensions;
+using Voltage.PhysicsShapes;
+using Voltage.Utils;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez.Spatial
+namespace Voltage.Spatial
 {
 	public class SpatialHash
 	{

@@ -1,8 +1,8 @@
 ﻿using System;
 using Voltage.Persistence;
-using Nez.Textures;
+using Voltage.Textures;
 
-namespace Nez.Sprites;
+namespace Voltage.Sprites;
 
 public class SpriteAnimation
 {

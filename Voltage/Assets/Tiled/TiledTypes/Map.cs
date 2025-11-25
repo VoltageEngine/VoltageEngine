@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 
-namespace Nez.Tiled
+namespace Voltage.Tiled
 {
 	public partial class TmxMap : TmxDocument, IDisposable
     {

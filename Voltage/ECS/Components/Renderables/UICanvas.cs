@@ -1,8 +1,8 @@
-﻿using Nez.UI;
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
+using Voltage.UI;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// simple component that houses a Stage and delegates update/render/debugRender calls

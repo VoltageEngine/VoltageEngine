@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using Nez.Utils.Collections;
+using Voltage.Utils.Collections;
 
 
-namespace Nez.AI.GOAP
+namespace Voltage.AI.GOAP
 {
 	public class AStarNode : IComparable<AStarNode>, IEquatable<AStarNode>, IPoolable
 	{

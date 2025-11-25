@@ -1,4 +1,4 @@
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// Class holds all the settings used to tweak the bloom effect.

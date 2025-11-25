@@ -1,7 +1,7 @@
 ﻿using System;
 
 
-namespace Nez.AI.UtilityAI
+namespace Voltage.AI.UtilityAI
 {
 	/// <summary>
 	/// wraps an Action for use as an IAction without having to create a new class

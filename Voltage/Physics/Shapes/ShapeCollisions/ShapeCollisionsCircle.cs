@@ -1,9 +1,9 @@
 ﻿using System.Runtime.CompilerServices;
 using Microsoft.Xna.Framework;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez.PhysicsShapes
+namespace Voltage.PhysicsShapes
 {
 	public static partial class ShapeCollisions
 	{

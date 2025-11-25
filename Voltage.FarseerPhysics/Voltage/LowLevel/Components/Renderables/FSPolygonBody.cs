@@ -2,8 +2,8 @@
 using FarseerPhysics.Collision.Shapes;
 using FarseerPhysics.Common;
 using Microsoft.Xna.Framework;
-using Nez.Textures;
-using Transform = Nez.Transform;
+using Voltage.Textures;
+using Transform = Voltage.Transform;
 
 
 namespace Voltage.Farseer

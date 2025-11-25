@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Microsoft.Xna.Framework.Input;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// A virtual input represented as a float between -1 and 1

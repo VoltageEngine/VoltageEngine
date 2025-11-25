@@ -7,11 +7,11 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Utils;
-using Nez.Utils.Fonts;
+using Voltage.Utils;
+using Voltage.Utils.Fonts;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// MarkupText lets you set fonts, textures and conditionals and provide some XML text to render that uses them. You must first

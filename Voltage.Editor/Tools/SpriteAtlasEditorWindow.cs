@@ -5,14 +5,14 @@ using System.IO;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez;
-using Nez.Sprites;
-using Nez.Utils;
-using Nez.Utils.Extensions;
+using Voltage;
+using Voltage.Sprites;
+using Voltage.Utils;
+using Voltage.Utils.Extensions;
 using Voltage.Editor.Core;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Utils;
-using Debug = Nez.Debug;
+using Debug = Voltage.Debug;
 using Num = System.Numerics;
 
 namespace Voltage.Editor.Tools
@@ -130,17 +130,17 @@ namespace Voltage.Editor.Tools
 		void LoadTextureAndAtlasFiles()
 		{
 			if (_texturePtr != IntPtr.Zero)
-				Core.GetGlobalManager<ImGuiManager>().UnbindTexture(_texturePtr);
+				Voltage.Core.GetGlobalManager<ImGuiManager>().UnbindTexture(_texturePtr);
 
 			_spriteAtlasData.Clear();
 			_nonEditableAnimations.Clear();
 			_atlasAllowsAnimationEditing = true;
 			_hasSlicedContent = false;
 
-			var _atlasTexture = Texture2D.FromStream(Core.GraphicsDevice, File.OpenRead(_sourceImageFile));
+			var _atlasTexture = Texture2D.FromStream(Voltage.Core.GraphicsDevice, File.OpenRead(_sourceImageFile));
 			_textureSize = new Num.Vector2(_atlasTexture.Width, _atlasTexture.Height);
 			_textureAspectRatio = _textureSize.X / _textureSize.Y;
-			_texturePtr = Core.GetGlobalManager<ImGuiManager>().BindTexture(_atlasTexture);
+			_texturePtr = Voltage.Core.GetGlobalManager<ImGuiManager>().BindTexture(_atlasTexture);
 			_textureLoadedThisFrame = true;
 
 			if (File.Exists(_sourceAtlasFile))
@@ -567,7 +567,7 @@ namespace Voltage.Editor.Tools
 				ImGui.PushStyleColor(ImGuiCol.Button, Color.Green.PackedValue);
 				if (ImGui.Button("Create"))
 				{
-					_stringBuffer = _stringBuffer.Length > 0 ? _stringBuffer : Nez.Utils.Utils.RandomString(8);
+					_stringBuffer = _stringBuffer.Length > 0 ? _stringBuffer : Voltage.Utils.Utils.RandomString(8);
 					_spriteAtlasData.AnimationNames.Add(_stringBuffer);
 					_spriteAtlasData.AnimationFps.Add(8);
 					_spriteAtlasData.AnimationFrames.Add(new List<int>());
@@ -677,7 +677,7 @@ namespace Voltage.Editor.Tools
 		~SpriteAtlasEditorWindow()
 		{
 			if (_texturePtr != IntPtr.Zero)
-				Core.GetGlobalManager<ImGuiManager>().UnbindTexture(_texturePtr);
+				Voltage.Core.GetGlobalManager<ImGuiManager>().UnbindTexture(_texturePtr);
 		}
 
 	}

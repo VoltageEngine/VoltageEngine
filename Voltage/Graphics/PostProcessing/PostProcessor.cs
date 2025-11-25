@@ -3,7 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// Post Processing step for rendering actions after everthing done.
@@ -88,7 +88,7 @@ namespace Nez
 		/// </summary>
 		public virtual void Unload()
 		{
-			// Nez-specific Effects will have a null name. We don't want to try to remove them.
+			// Voltage-specific Effects will have a null name. We don't want to try to remove them.
 			if (Effect != null && Effect.Name != null)
 			{
 				_scene.Content.UnloadEffect(Effect);

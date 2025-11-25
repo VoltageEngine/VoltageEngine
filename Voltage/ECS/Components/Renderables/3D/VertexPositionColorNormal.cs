@@ -3,7 +3,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
 
-namespace Nez
+namespace Voltage
 {
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
 	public struct VertexPositionColorNormal : IVertexType

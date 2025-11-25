@@ -1,4 +1,4 @@
-namespace Nez.Aseprite
+namespace Voltage.Aseprite
 {
 	/// <summary>
 	/// Defines the animation direction values set for a tag in Aseprite.

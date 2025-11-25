@@ -1,8 +1,8 @@
 ﻿using Microsoft.Xna.Framework;
-using Nez.Utils.Collections;
-using Nez.Utils.Tweens.Interfaces;
+using Voltage.Utils.Collections;
+using Voltage.Utils.Tweens.Interfaces;
 
-namespace Nez.Utils.Tweens
+namespace Voltage.Utils.Tweens
 {
 	public static class TweenExt
 	{

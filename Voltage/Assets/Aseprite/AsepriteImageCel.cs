@@ -1,9 +1,9 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Textures;
+using Voltage.Textures;
 
-namespace Nez.Aseprite
+namespace Voltage.Aseprite
 {
 	/// <summary>
 	/// Represents a single cel in a frame in Aseprite that contains image data.

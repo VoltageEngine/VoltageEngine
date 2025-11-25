@@ -1,12 +1,12 @@
 ﻿using Microsoft.Xna.Framework;
-using Nez.BitmapFonts;
 using System;
 using System.Collections.Generic;
-using Nez.Utils.Extensions;
-using Nez.Utils.Fonts;
+using Voltage.BitmapFonts;
+using Voltage.Utils.Extensions;
+using Voltage.Utils.Fonts;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	/// <summary>
 	/// displays textual items and highlights the currently selected item

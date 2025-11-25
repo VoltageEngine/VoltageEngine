@@ -1,5 +1,5 @@
 using ImGuiNET;
-using Nez;
+using Voltage;
 using Voltage.Editor.Core;
 using Voltage.Editor.Inspectors.TypeInspectors;
 using Voltage.Editor.Utils;
@@ -39,7 +39,7 @@ public class RendererInspector
 			if (ImGui.Selectable("Remove Renderer"))
 			{
 				isOpen = false;
-				Nez.Core.Scene.RemoveRenderer(_renderer);
+				Voltage.Core.Scene.RemoveRenderer(_renderer);
 				ImGui.CloseCurrentPopup();
 			}
 
@@ -60,7 +60,7 @@ public class RendererInspector
 
 			if (Renderer.Camera != null)
 				if (VoltageEditorUtils.LabelButton("Camera", Renderer.Camera.Entity.Name))
-					Nez.Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(Renderer.Camera.Entity);
+					Voltage.Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(Renderer.Camera.Entity);
 
 			ImGui.PushStyleVar(ImGuiStyleVar.Alpha, ImGui.GetStyle().Alpha * 0.5f);
 			VoltageEditorUtils.DisableNextWidget();

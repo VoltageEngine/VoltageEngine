@@ -1,9 +1,9 @@
 using System.Runtime.CompilerServices;
 using Microsoft.Xna.Framework;
-using Nez.Utils.Collections;
+using Voltage.Utils.Collections;
 
 
-namespace Nez.Verlet
+namespace Voltage.Verlet
 {
 	/// <summary>
 	/// represents an object in the Verlet world. Consists of Particles and Constraints and handles updating them

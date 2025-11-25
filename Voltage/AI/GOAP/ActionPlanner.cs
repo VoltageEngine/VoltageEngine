@@ -1,9 +1,9 @@
 ﻿using System.Text;
 using System.Collections.Generic;
-using Nez.Utils.Collections;
+using Voltage.Utils.Collections;
 
 
-namespace Nez.AI.GOAP
+namespace Voltage.AI.GOAP
 {
 	/// <summary>
 	/// GOAP based on https://github.com/stolk/GPGOAP

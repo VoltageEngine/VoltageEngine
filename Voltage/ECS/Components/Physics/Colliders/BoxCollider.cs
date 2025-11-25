@@ -1,9 +1,9 @@
 ﻿using System.Linq;
 using Microsoft.Xna.Framework;
-using Nez.PhysicsShapes;
+using Voltage.PhysicsShapes;
 
 
-namespace Nez
+namespace Voltage
 {
 	public class BoxCollider : Collider
 	{

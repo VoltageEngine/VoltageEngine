@@ -1,6 +1,6 @@
 ﻿using System.Collections;
 
-namespace Nez.Utils.Tweens.Interfaces
+namespace Voltage.Utils.Tweens.Interfaces
 {
 	/// <summary>
 	/// more specific tween playback controls here.

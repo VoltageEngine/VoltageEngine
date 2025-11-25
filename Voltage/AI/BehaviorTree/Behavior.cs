@@ -1,4 +1,4 @@
-﻿namespace Nez.AI.BehaviorTrees
+﻿namespace Voltage.AI.BehaviorTrees
 {
 	/// <summary>
 	/// root class for all nodes

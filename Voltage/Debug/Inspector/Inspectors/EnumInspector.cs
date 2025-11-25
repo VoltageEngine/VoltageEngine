@@ -1,10 +1,10 @@
 ﻿using System;
-using Nez.UI;
 using System.Collections.Generic;
+using Voltage.UI;
 
 
 #if DEBUG
-namespace Nez
+namespace Voltage
 {
 	public class EnumInspector : Inspector
 	{

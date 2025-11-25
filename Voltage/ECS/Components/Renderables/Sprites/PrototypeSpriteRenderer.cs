@@ -1,10 +1,10 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Sprites;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
+using Voltage.Sprites;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// skewable rectangle sprite for prototyping

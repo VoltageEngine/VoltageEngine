@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
-using Nez;
-using Nez.DeferredLighting;
-using Nez.Sprites;
-using Nez.Utils;
+using Voltage;
+using Voltage.DeferredLighting;
+using Voltage.Sprites;
+using Voltage.Utils;
 using Voltage.Editor.Gizmos;
 
 namespace Voltage.Editor.Core
@@ -102,11 +102,11 @@ namespace Voltage.Editor.Core
 
 			if (_imGuiManager.IsGameWindowFocused && IsCursorWithinGameWindow())
 			{
-				var camera = Nez.Core.Scene.Camera;
+				var camera = Voltage.Core.Scene.Camera;
 				var worldMouse = camera.ScreenToWorldPoint(Input.ScaledMousePosition);
 				var selectedEntities = _imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities;
 
-				if (Nez.Core.IsEditMode)
+				if (Voltage.Core.IsEditMode)
 				{
 					if (SelectionMode == CursorSelectionMode.Normal)
 					{
@@ -129,7 +129,7 @@ namespace Voltage.Editor.Core
 					}
 				}
 
-				if (!IsMouseOverGizmo && Nez.Core.IsEditMode && 
+				if (!IsMouseOverGizmo && Voltage.Core.IsEditMode && 
 					!_polygonGizmoHandler.IsDragging && !_rectangleGizmoHandler.IsDragging &&
 					!_transformGizmoHandler.IsDragging && !_rotateGizmoHandler.IsDragging && !_scaleGizmoHandler.IsDragging)
 					HandleBoxSelection();
@@ -181,7 +181,7 @@ namespace Voltage.Editor.Core
 
 		private void HandleBoxSelection()
 		{
-			mouseScreen = Nez.Core.Scene.Camera.ScreenToWorldPoint(Input.ScaledMousePosition);
+			mouseScreen = Voltage.Core.Scene.Camera.ScreenToWorldPoint(Input.ScaledMousePosition);
 
 			if (!_isBoxSelecting && Input.LeftMouseButtonPressed)
 			{
@@ -192,19 +192,19 @@ namespace Voltage.Editor.Core
 				}
 
 				_isBoxSelecting = true;
-				_boxSelectStartWorld = Nez.Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
+				_boxSelectStartWorld = Voltage.Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
 				_boxSelectEndWorld = _boxSelectStartWorld;
 			}
 
 			if (_isBoxSelecting && Input.LeftMouseButtonDown)
 			{
-				_boxSelectEndWorld = Nez.Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
+				_boxSelectEndWorld = Voltage.Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
 				DrawSelectionBoxNez(_boxSelectStartWorld, _boxSelectEndWorld);
 			}
 
 			if (_isBoxSelecting && Input.LeftMouseButtonReleased)
 			{
-				_boxSelectEndWorld = Nez.Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
+				_boxSelectEndWorld = Voltage.Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
 				SelectEntitiesInBox(_boxSelectStartWorld, _boxSelectEndWorld);
 				_isBoxSelecting = false;
 			}
@@ -212,7 +212,7 @@ namespace Voltage.Editor.Core
 
 		private void DrawSelectionBoxNez(Vector2 worldStart, Vector2 worldEnd)
 		{
-			var camera = Nez.Core.Scene.Camera;
+			var camera = Voltage.Core.Scene.Camera;
 			var min = new Vector2(Math.Min(worldStart.X, worldEnd.X), Math.Min(worldStart.Y, worldEnd.Y));
 			var max = new Vector2(Math.Max(worldStart.X, worldEnd.X), Math.Max(worldStart.Y, worldEnd.Y));
 			var rect = new RectangleF(min.X, min.Y, max.X - min.X, max.Y - min.Y);
@@ -221,16 +221,16 @@ namespace Voltage.Editor.Core
 
 		private void SelectEntitiesInBox(Vector2 worldStart, Vector2 worldEnd)
 		{
-			var camera = Nez.Core.Scene.Camera;
+			var camera = Voltage.Core.Scene.Camera;
 			var min = new Vector2(Math.Min(worldStart.X, worldEnd.X), Math.Min(worldStart.Y, worldEnd.Y));
 			var max = new Vector2(Math.Max(worldStart.X, worldEnd.X), Math.Max(worldStart.Y, worldEnd.Y));
 			var rect = new RectangleF(min.X, min.Y, max.X - min.X, max.Y - min.Y);
 			var selectionRect = camera.WorldToScreenRect(rect);
 			var selectedEntities = new List<Entity>();
 
-			for (int i = Nez.Core.Scene.Entities.Count - 1; i >= 0; i--)
+			for (int i = Voltage.Core.Scene.Entities.Count - 1; i >= 0; i--)
 			{
-				var entity = Nez.Core.Scene.Entities[i];
+				var entity = Voltage.Core.Scene.Entities[i];
 
 				if(!entity.IsSelectableInEditor)
 					continue;
@@ -340,7 +340,7 @@ namespace Voltage.Editor.Core
 
 		private void TrySelectEntityAtMouse()
 		{
-			var mouseWorld = Nez.Core.Scene.Camera.ScreenToWorldPoint(Input.ScaledMousePosition);
+			var mouseWorld = Voltage.Core.Scene.Camera.ScreenToWorldPoint(Input.ScaledMousePosition);
 			var mouseScreen = Input.ScaledMousePosition;
 			float currentTime = (float)Time.TotalTime;
 			
@@ -392,9 +392,9 @@ namespace Voltage.Editor.Core
 
 			// Priority 1: Entities with Colliders
 			var collidersAtPosition = new List<(Entity entity, float distance)>();
-			for (int i = Nez.Core.Scene.Entities.Count - 1; i >= 0; i--)
+			for (int i = Voltage.Core.Scene.Entities.Count - 1; i >= 0; i--)
 			{
-				var entity = Nez.Core.Scene.Entities[i];
+				var entity = Voltage.Core.Scene.Entities[i];
 				
 				if (MathUtils.IsVectorNaNOrInfinite(entity.Transform.Position))
 					continue;
@@ -423,9 +423,9 @@ namespace Voltage.Editor.Core
 
 			// Priority 2: Entities with SpriteRenderer
 			var spritesAtPosition = new List<(Entity entity, int renderLayer, float distance)>();
-			for (int i = Nez.Core.Scene.Entities.Count - 1; i >= 0; i--)
+			for (int i = Voltage.Core.Scene.Entities.Count - 1; i >= 0; i--)
 			{
-				var entity = Nez.Core.Scene.Entities[i];
+				var entity = Voltage.Core.Scene.Entities[i];
 				
 				if (MathUtils.IsVectorNaNOrInfinite(entity.Transform.Position))
 					continue;
@@ -461,9 +461,9 @@ namespace Voltage.Editor.Core
 
 			// Priority 3: Entities with DeferredLight
 			var lightsAtPosition = new List<(Entity entity, float distance)>();
-			for (int i = Nez.Core.Scene.Entities.Count - 1; i >= 0; i--)
+			for (int i = Voltage.Core.Scene.Entities.Count - 1; i >= 0; i--)
 			{
-				var entity = Nez.Core.Scene.Entities[i];
+				var entity = Voltage.Core.Scene.Entities[i];
 				
 				if (MathUtils.IsVectorNaNOrInfinite(entity.Transform.Position))
 					continue;
@@ -497,9 +497,9 @@ namespace Voltage.Editor.Core
 
 			// Priority 4: Fallback to entities without sprites/colliders/lights
 			var fallbackEntities = new List<(Entity entity, float distance)>();
-			for (int i = Nez.Core.Scene.Entities.Count - 1; i >= 0; i--)
+			for (int i = Voltage.Core.Scene.Entities.Count - 1; i >= 0; i--)
 			{
-				var entity = Nez.Core.Scene.Entities[i];
+				var entity = Voltage.Core.Scene.Entities[i];
 				
 				if (MathUtils.IsVectorNaNOrInfinite(entity.Transform.Position))
 					continue;
@@ -555,10 +555,10 @@ namespace Voltage.Editor.Core
 			var entityPane = _imGuiManager.SceneGraphWindow.EntityPane;
 			IsMouseOverGizmo = false;
 
-			if (entityPane.SelectedEntities.Count == 0 || !Nez.Core.IsEditMode)
+			if (entityPane.SelectedEntities.Count == 0 || !Voltage.Core.IsEditMode)
 				return;
 
-			var camera = Nez.Core.Scene.Camera;
+			var camera = Voltage.Core.Scene.Camera;
 			var mousePos = Input.ScaledMousePosition;
 			var worldMouse = camera.ScreenToWorldPoint(mousePos);
 

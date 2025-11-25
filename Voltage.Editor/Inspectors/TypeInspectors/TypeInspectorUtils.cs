@@ -3,9 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using Microsoft.Xna.Framework.Graphics;
-using Nez;
-using Nez.Utils;
-using Nez.Utils.Extensions;
+using Voltage;
+using Voltage.Utils;
+using Voltage.Utils.Extensions;
 
 
 namespace Voltage.Editor.Inspectors.TypeInspectors

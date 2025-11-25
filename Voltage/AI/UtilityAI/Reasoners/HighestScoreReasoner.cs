@@ -1,4 +1,4 @@
-﻿namespace Nez.AI.UtilityAI
+﻿namespace Voltage.AI.UtilityAI
 {
 	/// <summary>
 	/// The Consideration with the highest score is selected

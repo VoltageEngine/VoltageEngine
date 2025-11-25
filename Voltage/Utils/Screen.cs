@@ -1,7 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace Nez.Utils
+namespace Voltage.Utils
 {
 	public static class Screen
 	{

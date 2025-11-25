@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections;
-using Nez.Utils.Tweens.Easing;
-using Nez.Utils.Tweens.Interfaces;
+using Voltage.Utils.Tweens.Easing;
+using Voltage.Utils.Tweens.Interfaces;
 
-namespace Nez.Utils.Tweens
+namespace Voltage.Utils.Tweens
 {
 	public enum LoopType
 	{

@@ -1,7 +1,7 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// helper subclass for strongly typed Effects loaded from EffectResource. The effect will automatically be unloaded when the scene

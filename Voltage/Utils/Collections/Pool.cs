@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Nez.Utils.Collections
+namespace Voltage.Utils.Collections
 {
 	/// <summary>
 	/// simple static class that can be used to pool any object
@@ -72,7 +72,7 @@ namespace Nez.Utils.Collections
 
 
 	/// <summary>
-	/// Objects implementing this interface will have <see cref="Reset"/> called when passed to <see cref="Pool.Free"/>
+	/// Objects implementing this interface will have <see cref="Reset"/> called when passed to <see cref="Pool{T}.Free"/>
 	/// </summary>
 	public interface IPoolable
 	{

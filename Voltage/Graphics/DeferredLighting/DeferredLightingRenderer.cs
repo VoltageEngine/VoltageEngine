@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Linq;
-using Nez.Textures;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
-using Nez.Materials;
+using Voltage.Materials;
+using Voltage.Textures;
 
 
-namespace Nez.DeferredLighting
+namespace Voltage.DeferredLighting
 {
 	/// <summary>
 	/// handles deferred lighting. This Renderer should be ordered after any of your Renderers that render to a RenderTexture. Any renderLayers

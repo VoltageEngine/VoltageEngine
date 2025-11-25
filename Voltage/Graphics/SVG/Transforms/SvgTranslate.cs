@@ -1,7 +1,7 @@
 ﻿using System.Globalization;
 
 
-namespace Nez.Svg
+namespace Voltage.Svg
 {
 	public class SvgTranslate : SvgTransform
 	{

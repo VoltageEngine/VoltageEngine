@@ -6,16 +6,16 @@ using System.Linq;
 using System.Xml.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Systems;
-using Nez.Utils.Extensions;
+using Voltage.Systems;
+using Voltage.Utils.Extensions;
 
-namespace Nez.Tiled
+namespace Voltage.Tiled
 {
 	public static class TiledMapLoader
 	{
 		#region TmxMap Loader
 
-		public static TmxMap LoadTmxMap(this TmxMap map, string filepath, NezContentManager contentManager = null)
+		public static TmxMap LoadTmxMap(this TmxMap map, string filepath, VoltageContentManager contentManager = null)
 		{
 			using (var stream = TitleContainer.OpenStream(filepath))
 			{
@@ -27,7 +27,7 @@ namespace Nez.Tiled
 			}
 		}
 
-		public static TmxMap LoadTmxMap(this TmxMap map, XDocument xDoc, NezContentManager contentManager = null)
+		public static TmxMap LoadTmxMap(this TmxMap map, XDocument xDoc, VoltageContentManager contentManager = null)
 		{
 			var xMap = xDoc.Element("map");
 			map.Version = (string)xMap.Attribute("version");
@@ -142,7 +142,7 @@ namespace Nez.Tiled
 
 		#region Parsers
 
-		public static TmxTileset ParseTmxTileset(TmxMap map, XElement xTileset, string tmxDir, NezContentManager contentManager = null)
+		public static TmxTileset ParseTmxTileset(TmxMap map, XElement xTileset, string tmxDir, VoltageContentManager contentManager = null)
 		{
 			// firstgid is always in TMX, but not TSX
 			var xFirstGid = xTileset.Attribute("firstgid");
@@ -270,7 +270,7 @@ namespace Nez.Tiled
 		/// <summary>
 		/// parses all the layers in xEle putting them in the container
 		/// </summary>
-		public static void ParseLayers(object container, XElement xEle, TmxMap map, int width, int height, string tmxDirectory, NezContentManager contentManager = null)
+		public static void ParseLayers(object container, XElement xEle, TmxMap map, int width, int height, string tmxDirectory, VoltageContentManager contentManager = null)
 		{
 			foreach (var e in xEle.Elements().Where(x => x.Name == "layer" || x.Name == "objectgroup" || x.Name == "imagelayer" || x.Name == "group"))
 			{
@@ -645,7 +645,7 @@ namespace Nez.Tiled
 			return alignment;
 		}
 
-		public static TmxImageLayer LoadTmxImageLayer(this TmxImageLayer layer, TmxMap map, XElement xImageLayer, string tmxDir = "", NezContentManager contentManager = null)
+		public static TmxImageLayer LoadTmxImageLayer(this TmxImageLayer layer, TmxMap map, XElement xImageLayer, string tmxDir = "", VoltageContentManager contentManager = null)
 		{
 			layer.Map = map;
 			layer.Name = (string)xImageLayer.Attribute("name");
@@ -668,7 +668,7 @@ namespace Nez.Tiled
 			return layer;
 		}
 
-		public static TmxGroup LoadTmxGroup(this TmxGroup group, TmxMap map, XElement xGroup, int width, int height, string tmxDirectory, NezContentManager contentManager = null)
+		public static TmxGroup LoadTmxGroup(this TmxGroup group, TmxMap map, XElement xGroup, int width, int height, string tmxDirectory, VoltageContentManager contentManager = null)
 		{
 			group.map = map;
 			group.Name = (string)xGroup.Attribute("name") ?? string.Empty;
@@ -692,7 +692,7 @@ namespace Nez.Tiled
 			return group;
 		}
 
-		public static TmxTileset LoadTmxTileset(this TmxTileset tileset, TmxMap map, XElement xTileset, int firstGid, string tsxDir, NezContentManager contentManager = null)
+		public static TmxTileset LoadTmxTileset(this TmxTileset tileset, TmxMap map, XElement xTileset, int firstGid, string tsxDir, VoltageContentManager contentManager = null)
 		{
 			tileset.Map = map;
 			tileset.FirstGid = firstGid;
@@ -754,7 +754,7 @@ namespace Nez.Tiled
 			return tileset;
 		}
 
-		public static TmxTilesetTile LoadTmxTilesetTile(this TmxTilesetTile tile, TmxTileset tileset, XElement xTile, TmxList<TmxTerrain> Terrains, string tmxDir = "", NezContentManager contentManager = null)
+		public static TmxTilesetTile LoadTmxTilesetTile(this TmxTilesetTile tile, TmxTileset tileset, XElement xTile, TmxList<TmxTerrain> Terrains, string tmxDir = "", VoltageContentManager contentManager = null)
 		{
 			tile.Tileset = tileset;
 			tile.Id = (int)xTile.Attribute("id");
@@ -810,7 +810,7 @@ namespace Nez.Tiled
 			return frame;
 		}
 
-		public static TmxImage LoadTmxImage(this TmxImage image, XElement xImage, string tmxDir = "", NezContentManager contentManager = null)
+		public static TmxImage LoadTmxImage(this TmxImage image, XElement xImage, string tmxDir = "", VoltageContentManager contentManager = null)
 		{
 			var xSource = xImage.Attribute("source");
 			if (xSource != null)

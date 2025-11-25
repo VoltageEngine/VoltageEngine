@@ -1,9 +1,9 @@
 ﻿using Microsoft.Xna.Framework;
 using System.Collections.Generic;
-using Nez.Tiled;
+using Voltage.Tiled;
 
 
-namespace Nez.AI.Pathfinding
+namespace Voltage.AI.Pathfinding
 {
 	/// <summary>
 	/// basic grid graph with support for one type of weighted node

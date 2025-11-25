@@ -1,7 +1,7 @@
 ﻿using Microsoft.Xna.Framework.Input;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	public interface IKeyboardListener
 	{

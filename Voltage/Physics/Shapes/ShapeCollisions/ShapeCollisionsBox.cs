@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 using Microsoft.Xna.Framework;
 
 
-namespace Nez.PhysicsShapes
+namespace Voltage.PhysicsShapes
 {
 	/// <summary>
 	/// various collision routines for Shapes. Most of these expect the first Shape to be in the space of the second (i.e. shape1.pos should

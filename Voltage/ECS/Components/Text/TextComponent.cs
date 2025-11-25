@@ -1,10 +1,10 @@
 ﻿using Microsoft.Xna.Framework;
-using Nez.Sprites;
-using Nez.Utils;
-using Nez.Utils.Fonts;
+using Voltage.Sprites;
+using Voltage.Utils;
+using Voltage.Utils.Fonts;
 
 
-namespace Nez
+namespace Voltage
 {
 	public class TextComponent : SpriteRenderer
 	{

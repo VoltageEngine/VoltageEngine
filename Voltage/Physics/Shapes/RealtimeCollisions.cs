@@ -1,8 +1,8 @@
 ﻿using Microsoft.Xna.Framework;
-using Nez.Utils;
+using Voltage.Utils;
 
 
-namespace Nez.PhysicsShapes.BETA
+namespace Voltage.PhysicsShapes.BETA
 {
 	public static class RealtimeCollisions
 	{

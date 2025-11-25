@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using ImGuiNET;
-using Nez;
-using Nez.Utils;
+using Voltage;
+using Voltage.Utils;
 using Voltage.Editor.Core;
 using Voltage.Editor.Inspectors.ObjectInspectors;
 using Voltage.Editor.UndoActions;
@@ -82,7 +82,7 @@ public class EntityInspector
 	public void Draw()
 	{
 		if (_imGuiManager == null)
-			_imGuiManager = Nez.Core.GetGlobalManager<ImGuiManager>();
+			_imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
 
 		var topMargin = 20f;
 		var windowHeight = Screen.Height - topMargin;
@@ -513,7 +513,7 @@ public class EntityInspector
 		if (Entity == null || Entity.Type != Entity.InstanceType.Prefab || string.IsNullOrEmpty(Entity.OriginalPrefabName))
 			return;
 
-		_prefabCopiesToModify = Nez.Core.Scene.Entities
+		_prefabCopiesToModify = Voltage.Core.Scene.Entities
 			.Where(e => e != Entity &&
 						e.Type == Entity.InstanceType.Prefab && 
 						e.OriginalPrefabName == Entity.OriginalPrefabName)
@@ -760,7 +760,7 @@ public class EntityInspector
 		if (Entity != null && Entity.Type == Entity.InstanceType.Prefab &&
 		    !string.IsNullOrEmpty(Entity.OriginalPrefabName))
 		{
-			bool saveSuccessful = await Nez.Core.GetGlobalManager<ImGuiManager>().InvokePrefabCreated(Entity, true);
+			bool saveSuccessful = await Voltage.Core.GetGlobalManager<ImGuiManager>().InvokePrefabCreated(Entity, true);
 
 			if (saveSuccessful)
 			{

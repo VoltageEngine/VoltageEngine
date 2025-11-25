@@ -1,7 +1,7 @@
 ﻿using System;
 
 
-namespace Nez.AI.BehaviorTrees
+namespace Voltage.AI.BehaviorTrees
 {
 	[Flags]
 	public enum AbortTypes

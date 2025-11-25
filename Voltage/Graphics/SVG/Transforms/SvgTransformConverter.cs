@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 
 
-namespace Nez.Svg
+namespace Voltage.Svg
 {
 	/// <summary>
 	/// helpers for converting the transform string into SvgTransform objects

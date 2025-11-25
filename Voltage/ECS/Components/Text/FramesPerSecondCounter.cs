@@ -1,12 +1,12 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Xna.Framework;
-using Nez.BitmapFonts;
-using Nez.Utils;
-using Nez.Utils.Fonts;
+using Voltage.Utils;
+using Voltage.BitmapFonts;
+using Voltage.Utils.Fonts;
 
 
-namespace Nez
+namespace Voltage
 {
 	public class FramesPerSecondCounter : TextComponent, IUpdatable
 	{
@@ -73,7 +73,7 @@ namespace Nez
 			Init();
 		}
 
-		public FramesPerSecondCounter(NezSpriteFont font, Color color,
+		public FramesPerSecondCounter(VoltageSpriteFont font, Color color,
 		                              FPSDockPosition dockPosition = FPSDockPosition.TopRight, int maximumSamples = 100)
 			: base(font, string.Empty, Vector2.Zero, color)
 		{

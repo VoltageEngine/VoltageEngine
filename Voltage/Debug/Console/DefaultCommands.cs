@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Text;
 using System.Collections.Generic;
-using Nez.Utils;
-using Nez.Utils.Timers;
+using Voltage.Utils;
+using Voltage.Utils.Timers;
 
 
-namespace Nez.Console
+namespace Voltage.Console
 {
 	/// <summary>
 	/// add this attribute to any static method
@@ -27,7 +27,7 @@ namespace Nez.Console
 
 
 #if DEBUG
-namespace Nez.Console
+namespace Voltage.Console
 {
 	public partial class DebugConsole
 	{
@@ -230,7 +230,7 @@ namespace Nez.Console
 			var ticker = 0f;
 			Core.Schedule(0f, true, null, timer =>
 			{
-				Nez.Physics.DebugDraw(0f);
+				Voltage.Physics.DebugDraw(0f);
 				ticker += Time.DeltaTime;
 				if (ticker >= secondsToDisplay)
 				{
@@ -240,7 +240,7 @@ namespace Nez.Console
 			});
 
 			Instance.Log("Physics system collider count: " +
-			                          ((HashSet<Collider>) Nez.Physics.GetAllColliders()).Count);
+			                          ((HashSet<Collider>) Voltage.Physics.GetAllColliders()).Count);
 		}
 
 

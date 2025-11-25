@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
-using Nez.Utils.Collections;
+using Voltage.Utils.Collections;
 
 
-namespace Nez.AI.Pathfinding
+namespace Voltage.AI.Pathfinding
 {
 	/// <summary>
 	/// calculates paths given an IAstarGraph and start/goal positions

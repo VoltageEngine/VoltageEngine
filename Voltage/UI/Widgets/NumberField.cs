@@ -1,8 +1,8 @@
 ﻿using Microsoft.Xna.Framework;
-using Nez.BitmapFonts;
 using System;
+using Voltage.BitmapFonts;
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	public class NumberField : Table, IInputListener
 	{
@@ -25,7 +25,7 @@ namespace Nez.UI
 			SetStep(step);
 
 			field = new TextField(initial.ToString(), this.style);
-			field.SetAlignment(Nez.UI.Align.Center);
+			field.SetAlignment(UI.Align.Center);
 			SetNumber(initial);
 
 			if (showButtons)

@@ -1,16 +1,16 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
-using Nez.Systems;
-using Nez.Textures;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Data;
-using Nez.Utils;
-using Nez.Utils.Collections;
-using Nez.Utils.Extensions;
+using Voltage.Data;
+using Voltage.Systems;
+using Voltage.Textures;
+using Voltage.Utils;
+using Voltage.Utils.Collections;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez;
+namespace Voltage;
 
 public class Scene
 {
@@ -108,9 +108,9 @@ public class Scene
 
 	/// <summary>
 	/// Scene-specific ContentManager. Use it to load up any resources that are needed only by this scene. If you have global/multi-scene
-	/// resources you can use Core.contentManager to load them since Nez will not ever unload them.
+	/// resources you can use Core.contentManager to load them since Voltage will not ever unload them.
 	/// </summary>
-	public readonly NezContentManager Content;
+	public readonly VoltageContentManager Content;
 
 	/// <summary>
 	/// global toggle for PostProcessors
@@ -270,7 +270,7 @@ public class Scene
 	{
 		Entities = new EntityList(this);
 		RenderableComponents = new RenderableComponentList();
-		Content = new NezContentManager();
+		Content = new VoltageContentManager();
 
 		var cameraEntity = SimpleCreateEntity<EntityData>("camera", Entity.InstanceType.HardCoded);
 		Camera = cameraEntity.AddComponent(new Camera());

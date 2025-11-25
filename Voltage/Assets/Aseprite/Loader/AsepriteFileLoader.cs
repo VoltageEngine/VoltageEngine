@@ -4,7 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using Microsoft.Xna.Framework;
 
-namespace Nez.Aseprite
+namespace Voltage.Aseprite
 {
 	/// <summary>
 	/// Utility class used to load the contents of an Aseprite (.ase/.aseprite) file.

@@ -4,10 +4,10 @@ using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
 
 
-namespace Nez.BitmapFonts
+namespace Voltage.BitmapFonts
 {
     /// <summary>
-    /// Legacy MonoGame Pipeline reader. This exists as legacy support to load the embedded Nez default font into the
+    /// Legacy MonoGame Pipeline reader. This exists as legacy support to load the embedded Voltage default font into the
     /// new runtime BitmapFont class
     /// </summary>
     public class BitmapFontReader : ContentTypeReader<BitmapFont>

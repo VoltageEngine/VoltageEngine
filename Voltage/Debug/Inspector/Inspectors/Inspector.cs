@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.Reflection;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.UI;
-using Nez.Utils;
-using Nez.Utils.Extensions;
+using Voltage.Utils;
+using Voltage.Utils.Extensions;
+using Voltage.UI;
 
 
 #if DEBUG
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// the heart of the inspector system. Subclasses of Inspector are responsible for setting up and managing the UI. Currently,
@@ -140,7 +140,7 @@ namespace Nez
 			if (valueType.GetTypeInfo().IsValueType)
 				return new StructInspector();
 
-			// check for custom inspectors before checking Nez types in case a subclass implemented one
+			// check for custom inspectors before checking Voltage types in case a subclass implemented one
 			var customInspectorType =
 				CustomAttributeExtensions.GetCustomAttribute<CustomInspectorAttribute>(valueType.GetTypeInfo());
 			if (customInspectorType != null)
@@ -152,7 +152,7 @@ namespace Nez
 					$"found CustomInspector {customInspectorType.InspectorType} but it is not a subclass of Inspector");
 			}
 
-			// Nez types
+			// Voltage types
 			if (valueType == typeof(Material))
 				return GetMaterialInspector(target);
 			if (valueType.GetTypeInfo().IsSubclassOf(typeof(Effect)))

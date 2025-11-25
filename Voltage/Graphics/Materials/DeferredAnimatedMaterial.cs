@@ -1,7 +1,7 @@
-﻿using Nez.Sprites;
-using Nez.Textures;
+﻿using Voltage.Textures;
+using Voltage.Sprites;
 
-namespace Nez.Materials
+namespace Voltage.Materials
 {
 	public class DeferredAnimatedMaterial : DeferredSpriteMaterial
 	{

@@ -1,8 +1,8 @@
-﻿using Nez.Sprites;
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
+using Voltage.Sprites;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// renders a sprite with an outline in a very inefficient (but simple) way. The sprite is rendered multiple times offset/colored then it

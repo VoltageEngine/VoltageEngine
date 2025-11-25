@@ -1,8 +1,8 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
-using Nez.Utils;
+using Voltage.Utils;
 
 
-namespace Nez
+namespace Voltage
 {
 	public class HeatDistortionPostProcessor : PostProcessor
 	{

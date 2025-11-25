@@ -1,6 +1,6 @@
 using Microsoft.Xna.Framework;
 
-namespace Nez.Utils.Tweens.Easing
+namespace Voltage.Utils.Tweens.Easing
 {
 	/// <summary>
 	/// standard easing equations simplified by replacing the b and c params (begin and change values) with 0 and

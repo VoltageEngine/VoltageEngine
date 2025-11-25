@@ -1,10 +1,10 @@
-﻿using Nez.Sprites;
-using Nez.Textures;
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Voltage.Sprites;
+using Voltage.Textures;
 
 
-namespace Nez
+namespace Voltage
 {
 	public class NinePatchSpriteRenderer : SpriteRenderer
 	{

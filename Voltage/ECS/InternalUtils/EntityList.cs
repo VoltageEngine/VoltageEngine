@@ -2,11 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using Nez.Utils;
-using Nez.Utils.Collections;
+using Voltage;
+using Voltage.Utils;
+using Voltage.Utils.Collections;
 
 
-namespace Nez;
+namespace Voltage;
 
 public class EntityList : IEnumerable<Entity>
 {

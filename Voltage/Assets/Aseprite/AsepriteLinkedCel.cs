@@ -1,6 +1,6 @@
 using Microsoft.Xna.Framework;
 
-namespace Nez.Aseprite
+namespace Voltage.Aseprite
 {
 	/// <summary>
 	/// Represents a cel in an Aseprite file that is linked to another cel.

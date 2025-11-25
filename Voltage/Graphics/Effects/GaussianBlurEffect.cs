@@ -3,7 +3,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// this effect requires that you render it twice. The first time horizontally (prepareForHorizontalBlur) and then

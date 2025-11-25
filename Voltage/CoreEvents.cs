@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 
 
-namespace Nez
+namespace Voltage
 {
 	public enum CoreEvents
 	{

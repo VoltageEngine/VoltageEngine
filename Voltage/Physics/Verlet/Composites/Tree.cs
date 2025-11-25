@@ -1,7 +1,7 @@
 using Microsoft.Xna.Framework;
 
 
-namespace Nez.Verlet
+namespace Voltage.Verlet
 {
 	/// <summary>
 	/// fractal tree. Converted from https://github.com/subprotocol/verlet-js/blob/master/examples/tree.html

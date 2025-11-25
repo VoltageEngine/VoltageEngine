@@ -1,8 +1,8 @@
-﻿using Nez.UI;
+﻿using Voltage.UI;
 
 
 #if DEBUG
-namespace Nez
+namespace Voltage
 {
 	public class StringInspector : Inspector
 	{

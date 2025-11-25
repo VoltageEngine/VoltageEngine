@@ -1,12 +1,12 @@
 ﻿using System;
 using Microsoft.Xna.Framework;
-using Nez.BitmapFonts;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Utils;
-using Nez.Utils.Fonts;
+using Voltage.Utils;
+using Voltage.BitmapFonts;
+using Voltage.Utils.Fonts;
 
 
-namespace Nez
+namespace Voltage
 {
 	internal class DebugDrawItem
 	{
@@ -29,7 +29,7 @@ namespace Nez
 		// used for Text items
 		public string Text;
 		public BitmapFont BitmapFont;
-		public NezSpriteFont SpriteFont;
+		public VoltageSpriteFont SpriteFont;
 		public Vector2 Position;
 		public float Scale;
 
@@ -87,7 +87,7 @@ namespace Nez
 		}
 
 
-		public DebugDrawItem(NezSpriteFont spriteFont, String text, Vector2 position, Color color, float duration,
+		public DebugDrawItem(VoltageSpriteFont spriteFont, String text, Vector2 position, Color color, float duration,
 		                     float scale)
 		{
 			SpriteFont = spriteFont;

@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework;
 
 
-namespace Nez.Svg
+namespace Voltage.Svg
 {
 	/// <summary>
 	/// dummy interface used by SvgPath.getTransformedDrawingPoints to workaround PCL not having System.Drawing

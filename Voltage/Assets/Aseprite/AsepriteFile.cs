@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Sprites;
-using Nez.Textures;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
+using Voltage.Sprites;
+using Voltage.Textures;
 
-namespace Nez.Aseprite;
+namespace Voltage.Aseprite;
 
 /// <summary>
 /// Represents the contents loaded from an Aseprite file.

@@ -6,12 +6,12 @@ using Microsoft.Xna.Framework;
 using System.Text.RegularExpressions;
 using Microsoft.Xna.Framework.Graphics;
 using System.Linq;
-using Nez.Utils;
-using Nez.Utils.Extensions;
-using Nez.Utils.Fonts;
+using Voltage.Utils.Fonts;
+using Voltage.Utils;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez.Console
+namespace Voltage.Console
 {
 	public partial class DebugConsole
 	{
@@ -612,7 +612,7 @@ namespace Nez.Console
 
 		void BuildCommandsList()
 		{
-			// this will get us the Nez assembly
+			// this will get us the Voltage assembly
 			ProcessAssembly(typeof(DebugConsole).GetTypeInfo().Assembly);
 
 			// this will get us the current executables assembly in 99.9% of cases
@@ -636,12 +636,12 @@ namespace Nez.Console
 				var ignoredAssemblies = new string[]
 				{
 					"mscorlib", "MonoMac", "MonoGame.Framework", "Mono.Security", "System", "OpenTK",
-					"ObjCImplementations", "Nez"
+					"ObjCImplementations", "Voltage"
 				};
 				foreach (var assembly in assemblies)
 				{
 					var name = assembly.GetName().Name;
-					if (name.StartsWith("System.") || ignoredAssemblies.Contains(name))
+					if (name.StartsWith("System.") || Enumerable.Contains(ignoredAssemblies, name))
 						continue;
 
 					ProcessAssembly(assembly);

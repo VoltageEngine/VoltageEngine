@@ -2,7 +2,7 @@
 using System;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	public class Button : Table, IInputListener, IGamepadFocusable
 	{

@@ -2,8 +2,8 @@
 using System.Collections.Generic;
 using ImGuiNET;
 using Microsoft.Xna.Framework.Graphics;
-using Nez;
-using Nez.Utils;
+using Voltage;
+using Voltage.Utils;
 using Voltage.Editor.Utils;
 
 namespace Voltage.Editor.Inspectors.TypeInspectors

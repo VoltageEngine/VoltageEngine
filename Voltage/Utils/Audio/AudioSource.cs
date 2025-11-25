@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
 using Microsoft.Xna.Framework.Audio;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
 
-namespace Nez.Utils.Audio
+namespace Voltage.Utils.Audio
 {
 	/// <summary>
 	/// plays a collection of SoundEffects randomly and optionally with random pitch

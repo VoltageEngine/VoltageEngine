@@ -1,10 +1,10 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez.Textures
+namespace Voltage.Textures
 {
 	/// <summary>
 	/// represents a single element in a texture atlas consisting of a texture and the source rectangle for the frame

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Nez.Utils.Timers
+namespace Voltage.Utils.Timers
 {
 	/// <summary>
 	/// allows delayed and repeated execution of an Action

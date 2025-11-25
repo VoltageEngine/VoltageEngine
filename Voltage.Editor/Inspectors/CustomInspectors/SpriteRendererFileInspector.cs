@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using ImGuiNET;
-using Nez;
-using Nez.Sprites;
-using Nez.Textures;
-using Nez.Tiled;
-using Nez.Utils;
+using Voltage;
+using Voltage.Sprites;
+using Voltage.Textures;
+using Voltage.Tiled;
+using Voltage.Utils;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Inspectors.TypeInspectors;
 using Voltage.Editor.UndoActions;
@@ -609,7 +609,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             try
             {
                 string relativePath = Path.GetRelativePath(Environment.CurrentDirectory, filePath).Replace('\\', '/');
-                var tiledMap = Nez.Core.Content.LoadTiledMap(relativePath);
+                var tiledMap = Voltage.Core.Content.LoadTiledMap(relativePath);
 
                 var imageLayerNames = tiledMap.ImageLayers
                     .Where(layer => !string.IsNullOrEmpty(layer.Name))
@@ -665,7 +665,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             {
                 try
                 {
-                    var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Nez.Core.Content;
+                    var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Voltage.Core.Content;
                     if (contentManager != null)
                     {
                         var oldSprite = spriteRenderer.Sprite;
@@ -708,7 +708,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             else
             {
                 // Use SetNormalMap instead of LoadNormalMap, with error and undo support
-                var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Nez.Core.Content;
+                var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Voltage.Core.Content;
                 Sprite normalMapSprite = null;
                 string errorMsg = null;
                 try
@@ -803,7 +803,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             {
                 try
                 {
-                    var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Nez.Core.Content;
+                    var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Voltage.Core.Content;
                     if (contentManager != null)
                     {
                         var oldSprite = spriteRenderer.Sprite;
@@ -846,7 +846,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             else
             {
                 // SetNormalMap for Aseprite normal maps, with error and undo support
-                var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Nez.Core.Content;
+                var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Voltage.Core.Content;
                 Sprite normalMapSprite = null;
                 string errorMsg = null;
                 try
@@ -926,7 +926,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             {
                 try
                 {
-                    var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Nez.Core.Content;
+                    var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Voltage.Core.Content;
                     if (contentManager != null)
                     {
                         var oldSprite = spriteRenderer.Sprite;
@@ -969,7 +969,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             else
             {
                 // SetNormalMap for TMX normal maps, with error and undo support
-                var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Nez.Core.Content;
+                var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Voltage.Core.Content;
                 Sprite normalMapSprite = null;
                 string errorMsg = null;
                 try

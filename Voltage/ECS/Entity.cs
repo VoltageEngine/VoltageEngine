@@ -1,13 +1,13 @@
 ﻿using Microsoft.Xna.Framework;
-using Nez.Data;
 using Voltage.Persistence;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
+using Voltage.Data;
 
-namespace Nez;
+namespace Voltage;
 
 [JsonSerializable(typeof(Entity))]
 public class Entity : IComparable<Entity>

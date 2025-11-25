@@ -1,10 +1,10 @@
 ﻿using System.Collections.Generic;
 using Microsoft.Xna.Framework;
-using Nez.UI;
+using Voltage.UI;
 
 
 #if DEBUG
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// container for a Component/PostProcessor/Transform and all of its inspectable properties

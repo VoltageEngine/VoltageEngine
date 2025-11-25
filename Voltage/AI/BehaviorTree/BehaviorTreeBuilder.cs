@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 
 
-namespace Nez.AI.BehaviorTrees
+namespace Voltage.AI.BehaviorTrees
 {
 	/// <summary>
 	/// helper for building a BehaviorTree using a fluent API. Leaf nodes need to first have a parent added. Parents can be Composites or

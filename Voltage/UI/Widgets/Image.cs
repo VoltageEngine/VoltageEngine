@@ -1,8 +1,8 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
-using Nez.Textures;
+using Voltage.Textures;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	public class Image : Element
 	{

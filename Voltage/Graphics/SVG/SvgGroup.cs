@@ -1,7 +1,7 @@
 ﻿using System.Xml.Serialization;
 
 
-namespace Nez.Svg
+namespace Voltage.Svg
 {
 	/// <summary>
 	/// container in SVG. The 'g' XML tag.

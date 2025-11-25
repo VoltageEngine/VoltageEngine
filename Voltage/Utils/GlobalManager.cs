@@ -1,4 +1,4 @@
-﻿namespace Nez.Utils
+﻿namespace Voltage.Utils
 {
 	public class GlobalManager
 	{

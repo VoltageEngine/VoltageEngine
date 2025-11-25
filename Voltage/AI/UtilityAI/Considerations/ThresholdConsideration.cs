@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 
 
-namespace Nez.AI.UtilityAI
+namespace Voltage.AI.UtilityAI
 {
 	/// <summary>
 	/// Scores by summing child Appraisals until a child scores below the threshold

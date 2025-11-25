@@ -1,10 +1,10 @@
-﻿using Nez.UI;
-using System;
+﻿using System;
 using System.Reflection;
+using Voltage.UI;
 
 
 #if DEBUG
-namespace Nez
+namespace Voltage
 {
 	public class MethodInspector : Inspector
 	{

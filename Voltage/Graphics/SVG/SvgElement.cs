@@ -1,10 +1,10 @@
 ﻿using System.Collections.Generic;
 using System.Xml.Serialization;
 using Microsoft.Xna.Framework;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez.Svg
+namespace Voltage.Svg
 {
 	/// <summary>
 	/// base class for all SVG elements. Has some helpers for parsing colors and dealing with transforms.

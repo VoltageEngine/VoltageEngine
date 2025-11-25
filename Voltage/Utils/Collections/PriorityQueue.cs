@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 
 
 // sourced from: https://github.com/BlueRaja/High-Speed-Priority-Queue-for-C-Sharp
-namespace Nez.Utils.Collections
+namespace Voltage.Utils.Collections
 {
 	/// <summary>
 	/// An implementation of a min-Priority Queue using a heap.  Has O(1) .Contains()!

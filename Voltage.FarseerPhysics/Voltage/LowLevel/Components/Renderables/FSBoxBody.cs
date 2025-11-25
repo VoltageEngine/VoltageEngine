@@ -1,6 +1,6 @@
 ﻿using FarseerPhysics.Common;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Textures;
+using Voltage.Textures;
 
 
 namespace Voltage.Farseer

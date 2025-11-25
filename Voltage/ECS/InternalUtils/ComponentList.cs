@@ -1,10 +1,11 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Nez.Utils.Collections;
+using Voltage;
+using Voltage.Utils.Collections;
 
 
-namespace Nez;
+namespace Voltage;
 
 public class ComponentList : IEnumerable<Component>
 {

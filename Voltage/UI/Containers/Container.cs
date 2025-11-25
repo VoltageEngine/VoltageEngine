@@ -1,9 +1,9 @@
 ﻿using System;
 using Microsoft.Xna.Framework;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	/// <summary>
 	/// A group with a single child that sizes and positions the child using constraints. This provides layout similar to a

@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 using System.Xml.Serialization;
 
 
-namespace Nez.Svg
+namespace Voltage.Svg
 {
 	/// <summary>
 	/// handles parsing out groups, paths, rects, lines, circles, ellipses, polygons, polylines and images. This is just a small subset of the SVG

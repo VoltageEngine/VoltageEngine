@@ -1,9 +1,9 @@
 ﻿using Microsoft.Xna.Framework;
-using Nez.UI;
+using Voltage.UI;
 
 
 #if DEBUG
-namespace Nez
+namespace Voltage
 {
 	public class ColorInspector : Inspector
 	{

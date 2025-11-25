@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Nez.Utils.Collections
+namespace Voltage.Utils.Collections
 {
 	/// <summary>
 	/// simple static class that can be used to pool Lists

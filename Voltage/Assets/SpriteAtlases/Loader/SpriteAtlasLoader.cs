@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Textures;
+using Voltage.Textures;
 
-namespace Nez.Sprites
+namespace Voltage.Sprites
 {
 	public static class SpriteAtlasLoader
 	{

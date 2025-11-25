@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using Nez;
+using Voltage;
 using Voltage.Persistence;
 
 namespace Voltage.Editor.Persistence

@@ -2,7 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 
-namespace Nez.Utils.Collections
+namespace Voltage.Utils.Collections
 {
 	/// <summary>
 	/// very basic wrapper around an array that auto-expands it when it reaches capacity. Note that when iterating it should be done

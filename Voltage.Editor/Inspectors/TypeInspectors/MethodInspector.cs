@@ -2,8 +2,8 @@
 using System.Reflection;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
-using Nez;
-using Nez.Utils.Extensions;
+using Voltage;
+using Voltage.Utils.Extensions;
 using Voltage.Editor.Utils;
 using Num = System.Numerics;
 

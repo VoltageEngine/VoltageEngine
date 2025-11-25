@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using ImGuiNET;
-using Nez;
-using Nez.Utils;
+using Voltage;
+using Voltage.Utils;
 using Voltage.Editor.Core;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.Utils;
@@ -45,7 +45,7 @@ namespace Voltage.Editor.Inspectors
         public void Draw()
         {
             if (_imguiManager == null)
-                _imguiManager = Core.GetGlobalManager<ImGuiManager>();
+                _imguiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
 
             var windowPosX = Screen.Width - _imguiManager.InspectorTabWidth + _imguiManager.InspectorWidthOffset;
             var windowPosY = _imguiManager.MainWindowPositionY + 32f;

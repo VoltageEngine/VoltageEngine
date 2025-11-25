@@ -1,6 +1,6 @@
 using System;
 using System.Reflection;
-using Nez;
+using Voltage;
 
 namespace Voltage.Editor.Inspectors.ObjectInspectors
 {

@@ -1,6 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 
-namespace Nez.Utils.Tweens.Easing
+namespace Voltage.Utils.Tweens.Easing
 {
 	/// <summary>
 	/// series of static methods to handle all common tween type structs along with unclamped lerps for them.

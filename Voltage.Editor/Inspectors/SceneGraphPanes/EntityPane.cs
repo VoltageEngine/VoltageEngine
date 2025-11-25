@@ -4,13 +4,13 @@ using System.Linq;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
-using Nez;
-using Nez.ECS;
+using Voltage;
+using Voltage.ECS;
 using Voltage.Editor.Core;
 using Voltage.Editor.UndoActions;
 using Voltage.Editor.Utils;
 using Voltage.Persistence;
-using static Nez.Entity;
+using static Voltage.Entity;
 
 namespace Voltage.Editor.Inspectors.SceneGraphPanes;
 
@@ -84,26 +84,26 @@ public class EntityPane
 	public unsafe void Draw()
 	{
 		if (_imGuiManager == null)
-			_imGuiManager = Nez.Core.GetGlobalManager<ImGuiManager>();
+			_imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
 
 		// Draw entity tree (with clipper for large lists)
-		if (Nez.Core.Scene.Entities.Count > MIN_ENTITIES_FOR_CLIPPER)
+		if (Voltage.Core.Scene.Entities.Count > MIN_ENTITIES_FOR_CLIPPER)
 		{
 			var clipperPtr = ImGuiNative.ImGuiListClipper_ImGuiListClipper();
 			var clipper = new ImGuiListClipperPtr(clipperPtr);
 
-			clipper.Begin(Nez.Core.Scene.Entities.Count, -1);
+			clipper.Begin(Voltage.Core.Scene.Entities.Count, -1);
 
 			while (clipper.Step())
 				for (var i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
-					DrawEntity(Nez.Core.Scene.Entities[i]);
+					DrawEntity(Voltage.Core.Scene.Entities[i]);
 
 			ImGuiNative.ImGuiListClipper_destroy(clipperPtr);
 		}
 		else
 		{
-			for (var i = 0; i < Nez.Core.Scene.Entities.Count; i++)
-				DrawEntity(Nez.Core.Scene.Entities[i]);
+			for (var i = 0; i < Voltage.Core.Scene.Entities.Count; i++)
+				DrawEntity(Voltage.Core.Scene.Entities[i]);
 		}
 
 		VoltageEditorUtils.MediumVerticalSpace();
@@ -187,7 +187,7 @@ public class EntityPane
 
 		if (ImGui.IsMouseClicked(0) && ImGui.IsItemClicked() &&
 		    ImGui.GetMousePos().X - ImGui.GetItemRectMin().X > ImGui.GetTreeNodeToLabelSpacing())
-            if (Nez.Core.Scene.Entities.Count > 0 && Nez.Core.IsEditMode)
+            if (Voltage.Core.Scene.Entities.Count > 0 && Voltage.Core.IsEditMode)
             {
                 if (_previousEntity == null || !_previousEntity.Equals(entity))
                 {
@@ -219,7 +219,7 @@ public class EntityPane
     private void DrawEntityContextMenuPopup(Entity entity)
     {
         if (_imGuiManager == null)
-            _imGuiManager = Nez.Core.GetGlobalManager<ImGuiManager>();
+            _imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
 
         if (ImGui.BeginPopup("entityContextMenu"))
         {
@@ -297,11 +297,11 @@ public class EntityPane
             }
 
             if (ImGui.Selectable($"Open {entity.Name} in separate window"))
-                Nez.Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(entity);
+                Voltage.Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(entity);
 
             // Entity Commands
             if (ImGui.Selectable("Move Camera to " + entity.Name))
-                if (Nez.Core.Scene.Entities.Count > 0 && Nez.Core.IsEditMode)
+                if (Voltage.Core.Scene.Entities.Count > 0 && Voltage.Core.IsEditMode)
                     _imGuiManager.CursorSelectionManager.SetCameraTargetPosition(entity.Transform.Position);
 
             // Clone logic
@@ -368,7 +368,7 @@ public class EntityPane
 	    }
 
 	    // Ctrl+D: Duplicate selected
-	    if (Nez.Core.IsEditMode && gameCtrlDown && Input.IsKeyPressed(Keys.D) && _selectedEntities.Count > 0)
+	    if (Voltage.Core.IsEditMode && gameCtrlDown && Input.IsKeyPressed(Keys.D) && _selectedEntities.Count > 0)
 	    {
 	        var entitiesToDuplicate = _selectedEntities.Where(e => !ShouldBlockDuplication(e)).ToList();
 	        if (entitiesToDuplicate.Count > 1)
@@ -396,7 +396,7 @@ public class EntityPane
 	    }
 
 	    // Ctrl+C: Copy all selected entities
-	    if (Nez.Core.IsEditMode && gameCtrlDown && Input.IsKeyPressed(Keys.C) && _selectedEntities.Count > 0)
+	    if (Voltage.Core.IsEditMode && gameCtrlDown && Input.IsKeyPressed(Keys.C) && _selectedEntities.Count > 0)
 	    {
 	        _copiedEntities = _selectedEntities.ToList();
 	    }
@@ -406,7 +406,7 @@ public class EntityPane
 	    }
 
 	    // Ctrl+V: Paste (duplicate all copied entities)
-	    if (Nez.Core.IsEditMode && gameCtrlDown && Input.IsKeyPressed(Keys.V) && _copiedEntities.Count > 0)
+	    if (Voltage.Core.IsEditMode && gameCtrlDown && Input.IsKeyPressed(Keys.V) && _copiedEntities.Count > 0)
 	    {
 	        var entitiesToDuplicate = _copiedEntities.Where(e => !ShouldBlockDuplication(e)).ToList();
 	        if (entitiesToDuplicate.Count > 1)
@@ -434,14 +434,14 @@ public class EntityPane
 	    }
 
 	    // Delete: Remove all selected entities with Undo/Redo support
-	    if (Nez.Core.IsEditMode && _selectedEntities.Count > 0 &&
+	    if (Voltage.Core.IsEditMode && _selectedEntities.Count > 0 &&
 	        (Input.IsKeyPressed(Keys.Delete) || ImGui.IsKeyPressed(ImGuiKey.Delete)))
 	    {
 	        var entitiesToDelete = _selectedEntities.ToList();
 
 	        // Push a single undo for all entities
 	        EditorChangeTracker.PushUndo(
-	            new MultiEntityDeleteUndoAction(Nez.Core.Scene, entitiesToDelete, 
+	            new MultiEntityDeleteUndoAction(Voltage.Core.Scene, entitiesToDelete, 
 	                $"Deleted: {string.Join(", ", entitiesToDelete.Select(e => e.Name))}"),
 	            entitiesToDelete.FirstOrDefault(),
 	            $"Deleted: {string.Join(", ", entitiesToDelete.Select(e => e.Name))}"
@@ -469,7 +469,7 @@ public class EntityPane
 		{
 			// Use unique name for each clone
 			string baseName = customName ?? entity.Name;
-			clone.Name = Nez.Core.Scene.GetUniqueEntityName(baseName, clone);
+			clone.Name = Voltage.Core.Scene.GetUniqueEntityName(baseName, clone);
 
 			// Set up the clone with basic properties first
 			clone.Transform.Position = entity.Transform.Position;
@@ -680,7 +680,7 @@ public class EntityPane
             var typeName = entity.GetType().Name;
             if (EntityFactoryRegistry.TryCreate(typeName, out var clone))
             {
-                clone.Name = Nez.Core.Scene.GetUniqueEntityName(entity.Name, clone, clones);
+                clone.Name = Voltage.Core.Scene.GetUniqueEntityName(entity.Name, clone, clones);
                 clone.Transform.Position = entity.Transform.Position;
                 clone.Transform.Rotation = entity.Rotation;
                 clone.Transform.Scale = entity.Scale;
@@ -832,7 +832,7 @@ public class EntityPane
 
         // Add all clones to the scene after naming
         foreach (var clone in clones)
-            Nez.Core.Scene.AddEntity(clone);
+            Voltage.Core.Scene.AddEntity(clone);
 
         return clones;
 	}
@@ -848,7 +848,7 @@ public class EntityPane
 	public Vector2 GetSelectedEntitiesCenter()
     {
         if (SelectedEntities.Count == 0)
-            return Nez.Core.Scene.Camera.Position;        
+            return Voltage.Core.Scene.Camera.Position;        
 
         Vector2 sum = Vector2.Zero;
 

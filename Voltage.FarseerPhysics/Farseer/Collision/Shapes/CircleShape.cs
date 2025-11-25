@@ -116,7 +116,7 @@ namespace FarseerPhysics.Collision.Shapes
 
 				//TODO: Check results here
 				output.Normal = s + a * r;
-				Nez.Vector2Ext.Normalize(ref output.Normal);
+				Voltage.Vector2Ext.Normalize(ref output.Normal);
 				return true;
 			}
 

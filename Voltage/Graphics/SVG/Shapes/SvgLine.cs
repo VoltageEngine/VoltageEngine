@@ -1,9 +1,9 @@
 ﻿using System.Xml.Serialization;
 using Microsoft.Xna.Framework;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez.Svg
+namespace Voltage.Svg
 {
 	public class SvgLine : SvgElement
 	{

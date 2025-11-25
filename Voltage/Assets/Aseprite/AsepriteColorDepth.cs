@@ -1,4 +1,4 @@
-namespace Nez.Aseprite
+namespace Voltage.Aseprite
 {
 	/// <summary>
 	///	Defines the color depth mode used by an Aseprite image.

@@ -1,9 +1,9 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
-using Nez.Utils;
+using Voltage.Utils;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// glitch effect where the screen is divided into rows verticalSize high. Each row is shifted horizonalAmount left or right. It is best used

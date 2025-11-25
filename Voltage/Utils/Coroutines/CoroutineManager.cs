@@ -1,8 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
-using Nez.Utils.Collections;
+using Voltage.Utils.Collections;
 
-namespace Nez.Utils.Coroutines
+namespace Voltage.Utils.Coroutines
 {
 	/// <summary>
 	/// basic CoroutineManager. Coroutines can do the following:

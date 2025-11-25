@@ -1,7 +1,7 @@
 using Microsoft.Xna.Framework;
 
 
-namespace Nez.Verlet
+namespace Voltage.Verlet
 {
 	/// <summary>
 	/// a series of points connected with DistanceConstraints

@@ -1,7 +1,7 @@
 using System;
 using Microsoft.Xna.Framework;
 
-namespace Nez.Tiled
+namespace Voltage.Tiled
 {
 	/// <summary>
 	/// contains runtime querying and other helper methods seperate from the tmx parsing in the other partial

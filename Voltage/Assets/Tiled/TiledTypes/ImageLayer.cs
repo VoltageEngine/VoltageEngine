@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Nez.Tiled
+namespace Voltage.Tiled
 {
 	public class TmxImageLayer : ITmxLayer
 	{

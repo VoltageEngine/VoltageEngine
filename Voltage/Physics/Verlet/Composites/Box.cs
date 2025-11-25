@@ -1,7 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 
 
-namespace Nez.Verlet
+namespace Voltage.Verlet
 {
 	/// <summary>
 	/// creates a simple box with diagonal contraints to keep it rigid

@@ -1,4 +1,4 @@
-﻿namespace Nez
+﻿namespace Voltage
 {
 	/// <summary>
 	/// very basic wrapper around TextRun. Note that the TextRunComponent.compile method should be used not TextRun.compile so that

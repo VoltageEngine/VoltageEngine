@@ -1,8 +1,8 @@
 ﻿using Microsoft.Xna.Framework;
-using Nez;
-using Nez.PhysicsShapes;
+using Voltage;
+using Voltage.PhysicsShapes;
 using System;
-using RectangleF = Nez.RectangleF;
+using RectangleF = Voltage.RectangleF;
 
 public class ColliderUtils
 {

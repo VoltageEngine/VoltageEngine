@@ -1,7 +1,7 @@
 ﻿using System;
 
 
-namespace Nez
+namespace Voltage
 {
 	public class SceneComponent : IComparable<SceneComponent>
 	{

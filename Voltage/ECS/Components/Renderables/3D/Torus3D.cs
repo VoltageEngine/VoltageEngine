@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework;
 
 
-namespace Nez
+namespace Voltage
 {
 	public class Torus3D : GeometricPrimitive3D
 	{

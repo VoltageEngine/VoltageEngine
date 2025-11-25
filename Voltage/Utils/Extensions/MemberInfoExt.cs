@@ -1,7 +1,7 @@
 using System;
 using System.Reflection;
 
-namespace Nez.Utils.Extensions
+namespace Voltage.Utils.Extensions
 {
 	public static class MemberInfoExt
 	{

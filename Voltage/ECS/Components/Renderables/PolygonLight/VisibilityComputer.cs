@@ -1,12 +1,12 @@
 ﻿using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
-using Nez.PhysicsShapes;
 using System.Runtime.CompilerServices;
-using Nez.Utils.Collections;
+using Voltage.PhysicsShapes;
+using Voltage.Utils.Collections;
 
 
-namespace Nez.Shadows
+namespace Voltage.Shadows
 {
 	/// <summary>
 	/// Class which computes a mesh that represents which regions are visibile from the origin point given a set of occluders. Usage is as

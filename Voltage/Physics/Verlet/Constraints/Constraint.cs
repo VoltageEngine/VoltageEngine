@@ -1,4 +1,4 @@
-namespace Nez.Verlet
+namespace Voltage.Verlet
 {
 	public abstract class Constraint
 	{
@@ -8,7 +8,7 @@ namespace Nez.Verlet
 		internal Composite composite;
 
 		/// <summary>
-		/// if true, the Constraint will check for collisions with standard Nez Colliders. Inner Constraints do not need to have this set to
+		/// if true, the Constraint will check for collisions with standard Voltage Colliders. Inner Constraints do not need to have this set to
 		/// true.
 		/// </summary>
 		public bool CollidesWithColliders = true;

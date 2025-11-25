@@ -1,4 +1,4 @@
-﻿namespace Nez.AI.UtilityAI
+﻿namespace Voltage.AI.UtilityAI
 {
 	public interface IAction<T>
 	{

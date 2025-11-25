@@ -1,11 +1,11 @@
 using System;
 using System.Diagnostics;
 using Microsoft.Xna.Framework;
-using Nez.Utils;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
+using Voltage.Utils;
 
 
-namespace Nez;
+namespace Voltage;
 
 /// <summary>
 /// Describes a 2D-rectangle. 

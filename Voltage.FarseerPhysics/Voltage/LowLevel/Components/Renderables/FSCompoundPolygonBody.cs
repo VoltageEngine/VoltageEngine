@@ -2,9 +2,9 @@
 using FarseerPhysics.Collision.Shapes;
 using FarseerPhysics.Common;
 using FarseerPhysics.Common.Decomposition;
-using Nez.Textures;
+using Voltage.Textures;
 using FarseerPhysics.Common.PolygonManipulation;
-using Transform = Nez.Transform;
+using Transform = Voltage.Transform;
 
 
 namespace Voltage.Farseer

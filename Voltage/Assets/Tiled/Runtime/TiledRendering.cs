@@ -2,9 +2,9 @@ using System;
 using System.Runtime.CompilerServices;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Utils.Fonts;
+using Voltage.Utils.Fonts;
 
-namespace Nez.Tiled
+namespace Voltage.Tiled
 {
 	/// <summary>
 	/// helper class to deal with rendering Tiled maps

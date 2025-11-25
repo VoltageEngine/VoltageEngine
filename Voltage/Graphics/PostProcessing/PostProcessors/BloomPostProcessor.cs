@@ -1,8 +1,8 @@
-﻿using Nez.Textures;
+﻿using Voltage.Textures;
 using Microsoft.Xna.Framework.Graphics;
 
 
-namespace Nez
+namespace Voltage
 {
 	public class BloomPostProcessor : PostProcessor
 	{
@@ -61,7 +61,7 @@ namespace Nez
 
 			_bloomExtractEffect = scene.Content.LoadEffect<Effect>("bloomExtract", EffectResource.BloomExtractBytes);
 			_bloomCombineEffect = scene.Content.LoadEffect<Effect>("bloomCombine", EffectResource.BloomCombineBytes);
-			_gaussianBlurEffect = scene.Content.LoadNezEffect<GaussianBlurEffect>();
+			_gaussianBlurEffect = scene.Content.LoadVoltageEffect<GaussianBlurEffect>();
 
 			_bloomExtractThresholdParam = _bloomExtractEffect.Parameters["_bloomThreshold"];
 

@@ -1,12 +1,12 @@
 using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez;
-using Nez.Sprites;
-using Nez.Textures;
-using Nez.Tiled;
+using Voltage;
+using Voltage.Tiled;
+using Voltage.Sprites;
+using Voltage.Textures;
 
-namespace Nez.Utils;
+namespace Voltage.Utils;
 
 public class AsepriteUtils
 {

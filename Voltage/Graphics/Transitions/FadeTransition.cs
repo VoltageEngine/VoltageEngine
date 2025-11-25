@@ -2,12 +2,12 @@
 using Microsoft.Xna.Framework;
 using System.Collections;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Utils;
-using Nez.Utils.Coroutines;
-using Nez.Utils.Tweens.Easing;
+using Voltage.Utils;
+using Voltage.Utils.Coroutines;
+using Voltage.Utils.Tweens.Easing;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// fades to fadeToColor then fades to the new Scene

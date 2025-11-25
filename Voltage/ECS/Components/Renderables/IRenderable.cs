@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// interface that when applied to a Component will register it to be rendered by the Scene Renderers. Implement this very carefully! Changing

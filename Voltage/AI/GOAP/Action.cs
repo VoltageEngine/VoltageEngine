@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 
 
-namespace Nez.AI.GOAP
+namespace Voltage.AI.GOAP
 {
 	public class Action
 	{

@@ -1,9 +1,9 @@
 using System;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Utils;
+using Voltage.Utils;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// this class exists only so that we can sneak the Batcher through and have it work just like SpriteBatch with regard to resource handling.

@@ -1,10 +1,10 @@
 ﻿using System.Collections.Generic;
-using Nez.Utils.Timers;
-using Nez.Utils.Tweens;
-using Nez.Utils.Tweens.Easing;
+using Voltage.Utils.Timers;
+using Voltage.Utils.Tweens;
+using Voltage.Utils.Tweens.Easing;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	public class TooltipManager
 	{

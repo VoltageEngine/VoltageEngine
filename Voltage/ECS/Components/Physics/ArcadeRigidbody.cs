@@ -1,8 +1,8 @@
 using Microsoft.Xna.Framework;
-using Nez.Utils;
+using Voltage.Utils;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// Note that this is not a full, multi-iteration physics system! This can be used for simple, arcade style physics.

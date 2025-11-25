@@ -1,11 +1,11 @@
-﻿using Nez.Sprites;
-using Nez.Textures;
-using Microsoft.Xna.Framework.Graphics;
+﻿using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
-using Nez.Utils.Extensions;
+using Voltage.Sprites;
+using Voltage.Textures;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// Tiled sprite. Note that TiledSprite overrides the Material so that it can wrap the UVs. This class requires the texture

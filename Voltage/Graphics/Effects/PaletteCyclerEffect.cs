@@ -1,8 +1,8 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
-using Nez.Utils;
+using Voltage.Utils;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// retro palette swap/cycle effect. If cycleSpeed is 0 (the default) this works as a plain old palette swap. It should be used with

@@ -3,11 +3,11 @@
 using System;
 using Microsoft.Xna.Framework;
 using System.Collections.Generic;
-using Nez.Utils;
-using Nez.Utils.Extensions;
+using Voltage.Utils;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez.Tiled
+namespace Voltage.Tiled
 {
 	/// <summary>
 	/// WIP
@@ -18,11 +18,11 @@ namespace Nez.Tiled
 	///
 	/// If you plan to use slopes/one way platforms with the TiledMapMover some extra properties need to be added to your tiles in Tiled.
 	/// They are listed below:
-	/// - nez:isOneWayPlatform (bool): one way platforms will ignore all collisions except from above
-	/// - nez:isSlope (bool): signifies if the tile is a slope. Requires the next two properties if it is
-	/// - nez:slopeTopLeft (int): distance in pixels from the tiles top to the slope on the left side. For example, a 45 top-left to bottom-right
+	/// - voltage:isOneWayPlatform (bool): one way platforms will ignore all collisions except from above
+	/// - voltage:isSlope (bool): signifies if the tile is a slope. Requires the next two properties if it is
+	/// - voltage:slopeTopLeft (int): distance in pixels from the tiles top to the slope on the left side. For example, a 45 top-left to bottom-right
 	/// tile |\ would have a slopeTopLeft of 0 and slopeTopRight of 15
-	/// - nez:slopeTopRight (int): distance in pixels from the tiles top to the slope on the right side
+	/// - voltage:slopeTopRight (int): distance in pixels from the tiles top to the slope on the right side
 	/// </summary>
 	public class TiledMapMover :
 #if DEBUG_MOVER

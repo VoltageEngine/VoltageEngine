@@ -1,11 +1,11 @@
 ﻿using System;
 using Microsoft.Xna.Framework;
 using System.Collections.Generic;
-using Nez.Spatial;
-using Nez.Utils;
+using Voltage.Utils;
+using Voltage.Spatial;
 
 
-namespace Nez
+namespace Voltage
 {
 	public static class Physics
 	{

@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using ImGuiNET;
-using Nez;
-using Nez.ECS;
-using Nez.Utils;
+using Voltage;
+using Voltage.ECS;
+using Voltage.Utils;
 using Voltage.Editor.Core;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Inspectors.SceneGraphPanes;
@@ -147,11 +147,11 @@ public class SceneGraphWindow
 	{
 		IsOpen = isOpen;
 
-		if (Nez.Core.Scene == null || !isOpen)
+		if (Voltage.Core.Scene == null || !isOpen)
 			return;
 
 		if (_imGuiManager == null)
-			_imGuiManager = Nez.Core.GetGlobalManager<ImGuiManager>();
+			_imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
 
 		var windowHeight = Screen.Height - SceneGraphPosY;
 		SceneGraphPosY = _imGuiManager.MainWindowPositionY;
@@ -172,17 +172,17 @@ public class SceneGraphWindow
 				_sceneGraphWidth = Math.Clamp(currentWidth, _minSceneGraphWidth, _maxSceneGraphWidth);
 
 			VoltageEditorUtils.SmallVerticalSpace();
-			if (Nez.Core.IsEditMode)
+			if (Voltage.Core.IsEditMode)
 			{
 				ImGui.TextWrapped("Press F1/F2 to switch to Play mode.");
 				VoltageEditorUtils.SmallVerticalSpace();
 
 				if (VoltageEditorUtils.CenteredButton("Edit Mode", 0.8f))
-					Nez.Core.InvokeSwitchEditMode(false); 
+					Voltage.Core.InvokeSwitchEditMode(false); 
 
 				VoltageEditorUtils.SmallVerticalSpace();
 				if (VoltageEditorUtils.CenteredButton("Reset Scene", 0.8f))
-					Nez.Core.InvokeResetScene();
+					Voltage.Core.InvokeResetScene();
 			}
 			else
 			{
@@ -190,7 +190,7 @@ public class SceneGraphWindow
 				VoltageEditorUtils.SmallVerticalSpace();
 
 				if (VoltageEditorUtils.CenteredButton("Play Mode", 0.8f))
-					Nez.Core.InvokeSwitchEditMode(true);
+					Voltage.Core.InvokeSwitchEditMode(true);
 			}
 
 			VoltageEditorUtils.MediumVerticalSpace();
@@ -876,14 +876,14 @@ public class SceneGraphWindow
 			{
 				EntityFactoryRegistry.InvokeEntityCreated(entity);
 				entity.Type = Entity.InstanceType.Prefab;
-				entity.Transform.Position = Nez.Core.Scene.Camera.Transform.Position;
+				entity.Transform.Position = Voltage.Core.Scene.Camera.Transform.Position;
 
 				_imGuiManager.InvokeLoadEntityData(entity, prefabData);
-				entity.Name = Nez.Core.Scene.GetUniqueEntityName(prefabData.Name, entity);
+				entity.Name = Voltage.Core.Scene.GetUniqueEntityName(prefabData.Name, entity);
 				entity.OriginalPrefabName = prefabName;
 
 				EditorChangeTracker.PushUndo(
-					new EntityCreateDeleteUndoAction(Nez.Core.Scene, entity, wasCreated: true,
+					new EntityCreateDeleteUndoAction(Voltage.Core.Scene, entity, wasCreated: true,
 						$"Create Entity from Prefab {entity.Name}"),
 					entity,
 					$"Create Entity from Prefab {entity.Name}"
@@ -915,17 +915,17 @@ public class SceneGraphWindow
 		{
 			EntityFactoryRegistry.InvokeEntityCreated(entity);
 			entity.Type = Entity.InstanceType.Dynamic;
-			entity.Name = Nez.Core.Scene.GetUniqueEntityName(typeName, entity); 
-			entity.Transform.Position = Nez.Core.Scene.Camera.Transform.Position;
+			entity.Name = Voltage.Core.Scene.GetUniqueEntityName(typeName, entity); 
+			entity.Transform.Position = Voltage.Core.Scene.Camera.Transform.Position;
 
 			EditorChangeTracker.PushUndo(
-				new EntityCreateDeleteUndoAction(Nez.Core.Scene, entity, wasCreated: true,
+				new EntityCreateDeleteUndoAction(Voltage.Core.Scene, entity, wasCreated: true,
 					$"Create Entity {entity.Name}"),
 				entity,
 				$"Create Entity {entity.Name}"
 			);
 
-			var imGuiManager = Nez.Core.GetGlobalManager<ImGuiManager>();
+			var imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
 			if (imGuiManager != null)
 			{
 				imGuiManager.SceneGraphWindow.EntityPane.SetSelectedEntity(entity, false);
@@ -939,7 +939,7 @@ public class SceneGraphWindow
 	{
 		var selectedEntity = _imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities.FirstOrDefault();
 
-		if (!Nez.Core.IsEditMode || selectedEntity == null || !ImGui.IsWindowFocused(ImGuiFocusedFlags.AnyWindow))
+		if (!Voltage.Core.IsEditMode || selectedEntity == null || !ImGui.IsWindowFocused(ImGuiFocusedFlags.AnyWindow))
 			return; 
 
 		var hierarchyList = BuildHierarchyList();
@@ -1024,7 +1024,7 @@ public class SceneGraphWindow
 	public List<Entity> BuildHierarchyList()
 	{
 		var result = new List<Entity>();
-		var entities = Nez.Core.Scene?.Entities;
+		var entities = Voltage.Core.Scene?.Entities;
 		if (entities == null) return result;
 
 		for (int i = 0; i < entities.Count; i++)

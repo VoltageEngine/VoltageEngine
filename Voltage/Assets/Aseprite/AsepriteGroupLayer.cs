@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Nez.Aseprite
+namespace Voltage.Aseprite
 {
 	/// <summary>
 	/// Represents a group layer in an Aseprite file that contains child layers.

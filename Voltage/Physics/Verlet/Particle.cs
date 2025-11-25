@@ -1,7 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 
 
-namespace Nez.Verlet
+namespace Voltage.Verlet
 {
 	public class Particle
 	{
@@ -26,7 +26,7 @@ namespace Nez.Verlet
 		public float Radius;
 
 		/// <summary>
-		/// if true, the Particle will collide with standard Nez Colliders
+		/// if true, the Particle will collide with standard Voltage Colliders
 		/// </summary>
 		public bool CollidesWithColliders = true;
 

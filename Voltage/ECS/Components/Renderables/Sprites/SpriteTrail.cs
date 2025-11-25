@@ -1,14 +1,14 @@
 ﻿using System;
 using Microsoft.Xna.Framework;
-using Nez.Textures;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework.Graphics;
 using System.Runtime.CompilerServices;
-using Nez.Utils;
-using Nez.Utils.Extensions;
+using Voltage.Textures;
+using Voltage.Utils;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez.Sprites
+namespace Voltage.Sprites
 {
 	/// <summary>
 	/// renders and fades a series of copies of the Sprite on the same Entity. minDistanceBetweenInstances determines how often a trail

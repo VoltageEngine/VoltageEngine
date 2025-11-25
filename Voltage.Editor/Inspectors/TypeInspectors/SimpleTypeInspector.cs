@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
-using Nez;
-using Nez.Utils;
-using Nez.Utils.Extensions;
+using Voltage;
+using Voltage.Utils;
+using Voltage.Utils.Extensions;
 using Voltage.Editor.UndoActions;
 using Voltage.Editor.Utils;
 

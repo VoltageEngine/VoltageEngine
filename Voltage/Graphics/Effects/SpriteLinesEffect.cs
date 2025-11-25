@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// draws the sprite with just vertical or horizonal lines of the specified color. The effect works in screen space.

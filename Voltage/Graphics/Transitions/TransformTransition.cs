@@ -2,11 +2,11 @@
 using Microsoft.Xna.Framework;
 using System.Collections;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Utils;
-using Nez.Utils.Tweens.Easing;
+using Voltage.Utils;
+using Voltage.Utils.Tweens.Easing;
 
 
-namespace Nez
+namespace Voltage
 {
 	public class TransformTransition : SceneTransition
 	{

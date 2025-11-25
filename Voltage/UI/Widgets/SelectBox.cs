@@ -1,13 +1,13 @@
 ﻿using Microsoft.Xna.Framework;
-using Nez.BitmapFonts;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Nez.Utils.Extensions;
-using Nez.Utils.Fonts;
+using Voltage.BitmapFonts;
+using Voltage.Utils.Extensions;
+using Voltage.Utils.Fonts;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	public class SelectBox<T> : Element, IInputListener where T : class
 	{

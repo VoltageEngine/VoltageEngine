@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using Nez.Utils;
+using Voltage.Utils;
 
 
-namespace Nez.AI.FSM
+namespace Voltage.AI.FSM
 {
 	/// <summary>
 	/// Simple state machine with an enum constraint. There are some rules you must follow when using this:

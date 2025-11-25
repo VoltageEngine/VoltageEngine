@@ -1,8 +1,8 @@
 ﻿using Microsoft.Xna.Framework;
-using Nez.PhysicsShapes;
+using Voltage.PhysicsShapes;
 
 
-namespace Nez.Shadows
+namespace Voltage.Shadows
 {
 	/// <summary>
 	/// WIP: still has some odd rendering bugs that need to get worked out

@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 using ImGuiNET;
-using Nez;
+using Voltage;
 using Voltage.Editor.Core;
 using Voltage.Editor.UndoActions;
 using Voltage.Editor.Utils;
@@ -45,7 +45,7 @@ public class TransformInspector
             else
             {
                 if (VoltageEditorUtils.LabelButton("Parent", _transform.Parent.Entity.Name))
-                    Nez.Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(_transform.Parent.Entity);
+                    Voltage.Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(_transform.Parent.Entity);
 
                 if (ImGui.Button("Detach From Parent"))
                     _transform.Parent = null;

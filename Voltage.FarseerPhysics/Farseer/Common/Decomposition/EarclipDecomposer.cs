@@ -126,9 +126,9 @@ namespace FarseerPhysics.Common.Decomposition
 						var d2 = new Vector2(xrem[i] - xrem[lower], yrem[i] - yrem[lower]);
 						var d3 = new Vector2(xrem[lower] - xrem[upper], yrem[lower] - yrem[upper]);
 
-						Nez.Vector2Ext.Normalize(ref d1);
-						Nez.Vector2Ext.Normalize(ref d2);
-						Nez.Vector2Ext.Normalize(ref d3);
+						Voltage.Vector2Ext.Normalize(ref d1);
+						Voltage.Vector2Ext.Normalize(ref d2);
+						Voltage.Vector2Ext.Normalize(ref d3);
 						float cross12;
 						MathUtils.Cross(ref d1, ref d2, out cross12);
 						cross12 = Math.Abs(cross12);

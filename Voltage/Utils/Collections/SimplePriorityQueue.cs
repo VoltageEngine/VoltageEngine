@@ -2,7 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 
-namespace Nez.Utils.Collections
+namespace Voltage.Utils.Collections
 {
 	public sealed class SimplePriorityQueue<T> : IPriorityQueue<T>
 	{

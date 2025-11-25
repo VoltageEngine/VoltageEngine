@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using ImGuiNET;
-using Nez.Utils;
+using Voltage.Utils;
 using Voltage.Editor.Inspectors.ObjectInspectors;
 using Voltage.Editor.Utils;
 
@@ -23,9 +23,9 @@ namespace Voltage.Editor.Inspectors.SceneGraphPanes
 			{
 				_isRendererListInitialized = true;
 
-				for (var i = 0; i < Nez.Core.Scene._renderers.Length; i++)
+				for (var i = 0; i < Voltage.Core.Scene._renderers.Length; i++)
 				{
-					var renderer = Nez.Core.Scene._renderers.Buffer[i];
+					var renderer = Voltage.Core.Scene._renderers.Buffer[i];
 					if (!_renderers.Any(inspector => inspector.Renderer == renderer))
 					{
 						_renderers.Add(new RendererInspector(renderer));

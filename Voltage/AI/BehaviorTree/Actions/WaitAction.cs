@@ -1,6 +1,6 @@
-﻿using Nez.Utils;
+﻿using Voltage.Utils;
 
-namespace Nez.AI.BehaviorTrees
+namespace Voltage.AI.BehaviorTrees
 {
 	/// <summary>
 	/// Wait a specified amount of time. The task will return running until the task is done waiting. It will return success after the wait

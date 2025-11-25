@@ -1,10 +1,10 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.UI;
-using Nez.Utils;
+using Voltage.UI;
+using Voltage.Utils;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// adds a water reflection effect designed to be placed on the bottom of the screen. Note that transform.position is the top-left point

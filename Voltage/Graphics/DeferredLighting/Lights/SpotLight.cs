@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework;
 
 
-namespace Nez.DeferredLighting
+namespace Voltage.DeferredLighting
 {
 	public class SpotLight : PointLight
 	{

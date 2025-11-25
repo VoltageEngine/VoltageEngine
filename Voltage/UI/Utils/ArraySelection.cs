@@ -2,7 +2,7 @@
 using System.Linq;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	public class ArraySelection<T> : Selection<T> where T : class
 	{

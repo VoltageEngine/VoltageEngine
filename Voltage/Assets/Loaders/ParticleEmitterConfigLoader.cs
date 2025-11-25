@@ -5,14 +5,14 @@ using System.Xml;
 using System.Xml.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Particles;
+using Voltage.Particles;
 
-namespace Nez.ParticleDesigner
+namespace Voltage.ParticleDesigner
 {
 	public static class ParticleEmitterConfigLoader
 	{
 		/// <summary>
-		/// parses a ParticleDesigner pex file or one exported from the Nez.Samples exporter or from Particle Editor:
+		/// parses a ParticleDesigner pex file or one exported from the Voltage.Samples exporter or from Particle Editor:
 		/// http://onebyonedesign.com/flash/particleeditor/
 		/// </summary>
 		public static ParticleEmitterConfig Load(string name)

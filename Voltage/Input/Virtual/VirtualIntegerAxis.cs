@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework.Input;
-using Nez.Utils;
+using Voltage.Utils;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// A virtual input that is represented as a int that is either -1, 0, or 1. It corresponds to input that can range from on to nuetral to off

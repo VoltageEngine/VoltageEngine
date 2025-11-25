@@ -1,7 +1,7 @@
 ﻿using System;
 
 
-namespace Nez.AI.UtilityAI
+namespace Voltage.AI.UtilityAI
 {
 	/// <summary>
 	/// wraps a Func for use as an Appraisal without having to create a subclass

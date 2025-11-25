@@ -1,12 +1,12 @@
 ﻿using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.BitmapFonts;
-using Nez.Utils;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
+using Voltage.BitmapFonts;
+using Voltage.Utils;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// provides a cached run of text for super fast text drawing. Note that this is only appropriate for text that doesnt change often

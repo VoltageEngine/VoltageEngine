@@ -1,8 +1,8 @@
 using ImGuiNET;
 using Microsoft.Xna.Framework;
-using Nez;
-using Nez.DeferredLighting;
-using Nez.PhysicsShapes;
+using Voltage;
+using Voltage.DeferredLighting;
+using Voltage.PhysicsShapes;
 using System;
 using System.Collections.Generic;
 using Voltage.Editor.UndoActions;

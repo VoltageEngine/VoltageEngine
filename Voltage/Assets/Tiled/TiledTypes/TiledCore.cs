@@ -8,7 +8,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Xml.Linq;
 
-namespace Nez.Tiled
+namespace Voltage.Tiled
 {
 	public class TmxDocument
 	{

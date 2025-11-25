@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework;
 
 
-namespace Nez.PhysicsShapes
+namespace Voltage.PhysicsShapes
 {
 	public class Circle : Shape
 	{

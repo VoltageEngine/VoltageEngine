@@ -1,4 +1,4 @@
-﻿namespace Nez.AI.BehaviorTrees
+﻿namespace Voltage.AI.BehaviorTrees
 {
 	/// <summary>
 	/// The sequence task is similar to an "and" operation. It will return failure as soon as one of its child tasks return failure. If a
