@@ -29,10 +29,14 @@
 
 	<ItemGroup>
 	  <None Remove="Content\VoltageDefaultBMFont.fnt" />
+	  <None Remove="Content\VoltageDefaultBMFont.png" />
 	</ItemGroup>
 
 	<ItemGroup>
 	  <Content Include="Content\VoltageDefaultBMFont.fnt">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Content\VoltageDefaultBMFont.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
 	</ItemGroup>		
