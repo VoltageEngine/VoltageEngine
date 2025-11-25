@@ -2,7 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 
-namespace Nez.Persistence
+namespace Voltage.Persistence
 {
 	public abstract class NsonObjectFactory : NsonTypeConverter
 	{

@@ -4,9 +4,9 @@ using ImGuiNET;
 using Num = System.Numerics;
 
 
-namespace Nez.ImGuiTools
+namespace Voltage.Editor.Utils
 {
-	public static class NezImGui
+	public static class VoltageEditorUtils
 	{
 		static int _idScope;
 

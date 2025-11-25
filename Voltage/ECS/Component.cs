@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
-using Nez.Persistence;
+using Voltage.Persistence;
 
 namespace Nez;
 

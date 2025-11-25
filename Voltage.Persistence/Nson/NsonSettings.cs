@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Nez.Persistence
+namespace Voltage.Persistence
 {
 	public class NsonSettings
 	{

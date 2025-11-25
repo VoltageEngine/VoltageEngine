@@ -2,9 +2,9 @@ using ImGuiNET;
 using Num = System.Numerics;
 
 
-namespace Nez.ImGuiTools
+namespace Voltage.Editor.Utils
 {
-	public static class NezImGuiThemes
+	public static class VoltageEditorThemes
 	{
 		public static void DefaultDarkTheme()
 		{

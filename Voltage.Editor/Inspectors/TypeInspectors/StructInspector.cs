@@ -1,11 +1,12 @@
 ﻿using System.Collections.Generic;
 using System.Reflection;
 using ImGuiNET;
-using Microsoft.Xna.Framework;
-using Nez.ImGuiTools.UndoActions;
+using Nez;
 using Nez.Utils;
+using Voltage.Editor.UndoActions;
+using Voltage.Editor.Utils;
 
-namespace Nez.ImGuiTools.TypeInspectors
+namespace Voltage.Editor.Inspectors.TypeInspectors
 {
     public class StructInspector : AbstractTypeInspector
     {
@@ -64,7 +65,7 @@ namespace Nez.ImGuiTools.TypeInspectors
         public override void DrawMutable()
         {
             ImGui.Indent();
-            NezImGui.BeginBorderedGroup();
+            VoltageEditorUtils.BeginBorderedGroup();
 
             _isHeaderOpen = ImGui.CollapsingHeader($"{_name}");
             if (_isHeaderOpen)
@@ -143,7 +144,7 @@ namespace Nez.ImGuiTools.TypeInspectors
                 }
             }
 
-            NezImGui.EndBorderedGroup(new System.Numerics.Vector2(4, 1), new System.Numerics.Vector2(4, 2));
+            VoltageEditorUtils.EndBorderedGroup(new System.Numerics.Vector2(4, 1), new System.Numerics.Vector2(4, 2));
             ImGui.Unindent();
         }
 

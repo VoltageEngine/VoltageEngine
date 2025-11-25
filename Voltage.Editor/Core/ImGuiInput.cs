@@ -1,9 +1,10 @@
-﻿using ImGuiNET;
-using Microsoft.Xna.Framework.Input;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using ImGuiNET;
+using Microsoft.Xna.Framework.Input;
+using Nez;
 
-namespace Nez.ImGuiTools
+namespace Voltage.Editor.Core
 {
 	public class ImGuiInput
 	{
@@ -88,7 +89,7 @@ namespace Nez.ImGuiTools
 			}
 
 #if !FNA
-			Core.Instance.Window.TextInput += (s, a) =>
+			Nez.Core.Instance.Window.TextInput += (s, a) =>
 			{
 				if (a.Character == '\t')
 					return;
@@ -125,8 +126,8 @@ namespace Nez.ImGuiTools
 			io.KeyAlt = keyboard.IsKeyDown(Keys.LeftAlt) || keyboard.IsKeyDown(Keys.RightAlt);
 			io.KeySuper = keyboard.IsKeyDown(Keys.LeftWindows) || keyboard.IsKeyDown(Keys.RightWindows);
 
-			io.DisplaySize = new System.Numerics.Vector2(Core.GraphicsDevice.PresentationParameters.BackBufferWidth,
-				Core.GraphicsDevice.PresentationParameters.BackBufferHeight);
+			io.DisplaySize = new System.Numerics.Vector2(Nez.Core.GraphicsDevice.PresentationParameters.BackBufferWidth,
+				Nez.Core.GraphicsDevice.PresentationParameters.BackBufferHeight);
 			io.DisplayFramebufferScale = new System.Numerics.Vector2(1f, 1f);
 
 			io.MousePos = new System.Numerics.Vector2(mouse.X, mouse.Y);

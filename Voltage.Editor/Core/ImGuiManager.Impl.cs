@@ -1,17 +1,18 @@
 using System;
-using System.Threading.Tasks;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using Nez.Editor;
-using Num = System.Numerics;
-using Nez.Persistence.Binary;
+using Nez;
+using Nez.Console;
 using Nez.Utils;
 using Nez.Utils.Extensions;
-using Nez.ImGuiTools.UndoActions;
+using Voltage.Editor.UndoActions;
+using Voltage.Editor.Utils;
+using Voltage.Persistence.Binary;
+using Num = System.Numerics;
 
-namespace Nez.ImGuiTools;
+namespace Voltage.Editor.Core;
 
 /// <summary>
 /// Manages the ImGui game window specifically
@@ -39,7 +40,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void LoadSettings()
 	{
-		var fileDataStore = Core.Services.GetService<FileDataStore>() ?? new FileDataStore(Storage.GetStorageRoot());
+		var fileDataStore = Nez.Core.Services.GetService<FileDataStore>() ?? new FileDataStore(Storage.GetStorageRoot());
 		KeyValueDataStore.Default.Load(fileDataStore);
 
 		ShowStyleEditor = KeyValueDataStore.Default.GetBool(kShowStyleEditor, ShowStyleEditor);
@@ -47,7 +48,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		ShowCoreWindow = KeyValueDataStore.Default.GetBool(kShowCoreWindow, ShowCoreWindow);
 		ShowSeparateGameWindow = KeyValueDataStore.Default.GetBool(kShowSeperateGameWindow, ShowSeparateGameWindow);
 
-		Core.Emitter.AddObserver(CoreEvents.Exiting, PersistSettings);
+		Nez.Core.Emitter.AddObserver(CoreEvents.Exiting, PersistSettings);
 	}
 
 	private void PersistSettings()
@@ -57,7 +58,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		KeyValueDataStore.Default.Set(kShowCoreWindow, ShowCoreWindow);
 		KeyValueDataStore.Default.Set(kShowSeperateGameWindow, ShowSeparateGameWindow);
 
-		KeyValueDataStore.Default.Flush(Core.Services.GetOrAddService<FileDataStore>());
+		KeyValueDataStore.Default.Flush(Nez.Core.Services.GetOrAddService<FileDataStore>());
 	}
 
 	/// <summary>
@@ -150,7 +151,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		HandleForcedGameViewParams();
 
-		string gameWindowState = Core.IsEditMode ? "Paused" : "Playing";
+		string gameWindowState = Nez.Core.IsEditMode ? "Paused" : "Playing";
 
 		ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Num.Vector2(0, 0));
 		ImGui.Begin($"Game: {gameWindowState}###{_gameWindowTitle}", _gameWindowFlags);
@@ -159,7 +160,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		GameWindowHeight = ImGui.GetWindowSize().Y;
 
 		// Camera control buttons at top-left
-		var camera = Core.Scene?.Camera;
+		var camera = Nez.Core.Scene?.Camera;
 		bool showZoomButton = camera != null && Math.Abs(camera.Zoom - Camera.DefaultZoom) > 0.01f;
 		bool showSpeedButton = Math.Abs(GetDynamicCameraSpeed() - EditModeCameraSpeed) > 0.1f;
 
@@ -208,7 +209,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		}
 
 		// Camera Speed Indicator at top-right (only in edit mode and when speed is modified)
-		if (Core.IsEditMode && Math.Abs(GetDynamicCameraSpeed() - EditModeCameraSpeed) > 0.1f)
+		if (Nez.Core.IsEditMode && Math.Abs(GetDynamicCameraSpeed() - EditModeCameraSpeed) > 0.1f)
 		{
 			var speedText = $"Camera Speed: {(int)GetDynamicCameraSpeed()}";
 			var speedTextSize = ImGui.CalcTextSize(speedText);
@@ -387,9 +388,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	public override void OnEnabled()
 	{
-		if (Core.Scene != null)
+		if (Nez.Core.Scene != null)
 		{
-			Core.Scene.FinalRenderDelegate = this;
+			Nez.Core.Scene.FinalRenderDelegate = this;
 
 			// why call beforeLayout here? If added from the DebugConsole we missed the GlobalManger.update call and ImGui needs NextFrame
 			// called or it fails. Calling NextFrame twice in a frame causes no harm, just missed input.
@@ -400,8 +401,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	public override void OnDisabled()
 	{
 		Unload();
-		if (Core.Scene != null)
-			Core.Scene.FinalRenderDelegate = null;
+		if (Nez.Core.Scene != null)
+			Nez.Core.Scene.FinalRenderDelegate = null;
 	}
 
 	public override void Update()
@@ -449,7 +450,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			ImGui.TextWrapped("You have unsaved changes for:");
 
 			ImGui.Spacing();
-			NezImGui.MediumVerticalSpace();
+			VoltageEditorUtils.MediumVerticalSpace();
 			ImGui.Separator();
 
 			int i = 1;
@@ -459,7 +460,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			}
 
 			ImGui.Separator();
-			NezImGui.MediumVerticalSpace();
+			VoltageEditorUtils.MediumVerticalSpace();
 
 			if (ImGui.Button("Save", new Num.Vector2(120, 0)))
 			{
@@ -488,7 +489,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				else
 				{
 					pendingValue = false;
-					Core.ConfirmAndExit();
+					Nez.Core.ConfirmAndExit();
 				}
 			}
 
@@ -523,7 +524,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 					_requestedResetSceneType = null;
 					break;
 				case ExitPromptType.Exit:
-					Core.ConfirmAndExit();
+					Nez.Core.ConfirmAndExit();
 					_pendingExit = false;
 					break;
 			}
@@ -554,7 +555,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			}
 
 			// Use the same window name as DrawGameWindow
-			string gameWindowState = Core.IsEditMode ? "Paused" : "Playing";
+			string gameWindowState = Nez.Core.IsEditMode ? "Paused" : "Playing";
 			string windowTitle = $"Game: {gameWindowState}###{_gameWindowTitle}";
 
 			ImGui.Begin(windowTitle, _gameWindowFlags);
@@ -568,14 +569,14 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			ImGui.PopStyleVar();
 			ImGui.End();
 
-			Core.GraphicsDevice.SamplerStates[0] = samplerState;
-			Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
-			Core.GraphicsDevice.Clear(letterboxColor);
+			Nez.Core.GraphicsDevice.SamplerStates[0] = samplerState;
+			Nez.Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
+			Nez.Core.GraphicsDevice.Clear(letterboxColor);
 		}
 		else
 		{
-			Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
-			Core.GraphicsDevice.Clear(letterboxColor);
+			Nez.Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
+			Nez.Core.GraphicsDevice.Clear(letterboxColor);
 			Graphics.Instance.Batcher.Begin(BlendState.Opaque, samplerState, null, null);
 			Graphics.Instance.Batcher.Draw(source, finalRenderDestinationRect, Color.White);
 			Graphics.Instance.Batcher.End();
@@ -607,7 +608,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	{
 		if (!_isDisposed)
 		{
-			if (disposing) Core.Emitter.RemoveObserver(CoreEvents.SceneChanged, OnSceneChanged);
+			if (disposing) Nez.Core.Emitter.RemoveObserver(CoreEvents.SceneChanged, OnSceneChanged);
 
 			_isDisposed = true;
 		}
@@ -620,15 +621,15 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	#endregion
 
-	[Console.Command("toggle-imgui", "Toggles the Dear ImGui renderer")]
+	[Command("toggle-imgui", "Toggles the Dear ImGui renderer")]
 	public static void ToggleImGui()
 	{
 		// install the service if it isnt already there
-		var service = Core.GetGlobalManager<ImGuiManager>();
+		var service = Nez.Core.GetGlobalManager<ImGuiManager>();
 		if (service == null)
 		{
 			service = new ImGuiManager();
-			Core.RegisterGlobalManager(service);
+			Nez.Core.RegisterGlobalManager(service);
 		}
 		else
 		{

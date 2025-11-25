@@ -1,6 +1,4 @@
-using Nez.ImGuiTools.Persistence;
-
-namespace Nez.ImGuiTools.Utils
+namespace Voltage.Editor.Persistence
 {
     /// <summary>
     /// Tracks the last selected inspector tab across sessions.

@@ -2,13 +2,12 @@ using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Nez;
 using Nez.DeferredLighting;
-using Nez.Editor;
-using Nez.ImGuiTools.UndoActions;
 using Nez.PhysicsShapes;
 using System;
 using System.Collections.Generic;
+using Voltage.Editor.UndoActions;
 
-namespace Nez.ImGuiTools.Gizmos
+namespace Voltage.Editor.Gizmos
 {
 	/// <summary>
 	/// Handle types for rectangle manipulation

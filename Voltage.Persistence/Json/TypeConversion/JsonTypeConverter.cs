@@ -1,7 +1,7 @@
 ﻿using System;
 
 
-namespace Nez.Persistence
+namespace Voltage.Persistence
 {
 	/// <summary>
 	/// used to override the default JSON writing and augment converting JSON to an object

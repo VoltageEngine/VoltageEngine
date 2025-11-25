@@ -1,4 +1,4 @@
-﻿namespace Nez.Persistence
+﻿namespace Voltage.Persistence
 {
 	public interface IJsonEncoder
 	{

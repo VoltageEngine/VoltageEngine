@@ -1,14 +1,14 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
-using Nez.ImGuiTools.UndoActions;
+using Nez;
 using Nez.Utils;
 using Nez.Utils.Extensions;
-using Num = System.Numerics;
+using Voltage.Editor.UndoActions;
+using Voltage.Editor.Utils;
 
-namespace Nez.ImGuiTools.TypeInspectors
+namespace Voltage.Editor.Inspectors.TypeInspectors
 {
     /// <summary>
     /// handles inspecting a slew of different basic types

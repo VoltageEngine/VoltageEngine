@@ -2,12 +2,13 @@
 using System.Collections.Generic;
 using ImGuiNET;
 using Nez;
-using Nez.ImGuiTools.Persistence;
-using Nez.ImGuiTools.Utils;
 using Nez.Utils;
+using Voltage.Editor.Core;
+using Voltage.Editor.Persistence;
+using Voltage.Editor.Utils;
 using Num = System.Numerics;
 
-namespace Nez.ImGuiTools.Inspectors
+namespace Voltage.Editor.Inspectors
 {
     public class DebugWindow
     {

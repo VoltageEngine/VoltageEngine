@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using ImGuiNET;
-using Nez.ImGuiTools.UndoActions;
+using Nez;
 using Nez.Utils;
 using Nez.Utils.Extensions;
+using Voltage.Editor.UndoActions;
+using Voltage.Editor.Utils;
 
-namespace Nez.ImGuiTools.TypeInspectors
+namespace Voltage.Editor.Inspectors.TypeInspectors
 {
 	/// <summary>
 	/// subclasses are used to inspect various built-in types. A bit of care has to be taken when we are dealing with any non-value types. Objects
@@ -39,7 +41,7 @@ namespace Nez.ImGuiTools.TypeInspectors
 		/// </summary>
 		public MemberInfo MemberInfo => _memberInfo;
 
-		protected int _scopeId = NezImGui.GetScopeId();
+		protected int _scopeId = VoltageEditorUtils.GetScopeId();
 		protected bool _wantsIndentWhenDrawn;
 
 		protected bool _isTargetDestroyed;
@@ -100,7 +102,7 @@ namespace Nez.ImGuiTools.TypeInspectors
 		/// </summary>
 		public virtual void DrawReadOnly()
 		{
-			NezImGui.DisableNextWidget();
+			VoltageEditorUtils.DisableNextWidget();
 			DrawMutable();
 		}
 

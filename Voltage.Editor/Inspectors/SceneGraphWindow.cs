@@ -1,19 +1,19 @@
-using ImGuiNET;
-using Microsoft.Xna.Framework.Input;
-using Nez.ECS;
-using Nez.Editor;
-using Nez.ImGuiTools.FilePickers;
-using Nez.ImGuiTools.SceneGraphPanes;
-using Nez.ImGuiTools.UndoActions;
-using Nez.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
+using ImGuiNET;
+using Nez;
+using Nez.ECS;
+using Nez.Utils;
+using Voltage.Editor.Core;
+using Voltage.Editor.FilePickers;
+using Voltage.Editor.Inspectors.SceneGraphPanes;
+using Voltage.Editor.UndoActions;
+using Voltage.Editor.Utils;
 using Num = System.Numerics;
 
-namespace Nez.ImGuiTools;
+namespace Voltage.Editor.Inspectors;
 
 // Helper classes for organizing entities and prefabs with nested namespaces
 public class EntityCategory
@@ -147,11 +147,11 @@ public class SceneGraphWindow
 	{
 		IsOpen = isOpen;
 
-		if (Core.Scene == null || !isOpen)
+		if (Nez.Core.Scene == null || !isOpen)
 			return;
 
 		if (_imGuiManager == null)
-			_imGuiManager = Core.GetGlobalManager<ImGuiManager>();
+			_imGuiManager = Nez.Core.GetGlobalManager<ImGuiManager>();
 
 		var windowHeight = Screen.Height - SceneGraphPosY;
 		SceneGraphPosY = _imGuiManager.MainWindowPositionY;
@@ -171,29 +171,29 @@ public class SceneGraphWindow
 			if (Math.Abs(currentWidth - _sceneGraphWidth) > 0.01f)
 				_sceneGraphWidth = Math.Clamp(currentWidth, _minSceneGraphWidth, _maxSceneGraphWidth);
 
-			NezImGui.SmallVerticalSpace();
-			if (Core.IsEditMode)
+			VoltageEditorUtils.SmallVerticalSpace();
+			if (Nez.Core.IsEditMode)
 			{
 				ImGui.TextWrapped("Press F1/F2 to switch to Play mode.");
-				NezImGui.SmallVerticalSpace();
+				VoltageEditorUtils.SmallVerticalSpace();
 
-				if (NezImGui.CenteredButton("Edit Mode", 0.8f))
-					Core.InvokeSwitchEditMode(false); 
+				if (VoltageEditorUtils.CenteredButton("Edit Mode", 0.8f))
+					Nez.Core.InvokeSwitchEditMode(false); 
 
-				NezImGui.SmallVerticalSpace();
-				if (NezImGui.CenteredButton("Reset Scene", 0.8f))
-					Core.InvokeResetScene();
+				VoltageEditorUtils.SmallVerticalSpace();
+				if (VoltageEditorUtils.CenteredButton("Reset Scene", 0.8f))
+					Nez.Core.InvokeResetScene();
 			}
 			else
 			{
 				ImGui.TextWrapped("Press F1/F2 to switch to Edit mode.");
-				NezImGui.SmallVerticalSpace();
+				VoltageEditorUtils.SmallVerticalSpace();
 
-				if (NezImGui.CenteredButton("Play Mode", 0.8f))
-					Core.InvokeSwitchEditMode(true);
+				if (VoltageEditorUtils.CenteredButton("Play Mode", 0.8f))
+					Nez.Core.InvokeSwitchEditMode(true);
 			}
 
-			NezImGui.MediumVerticalSpace();
+			VoltageEditorUtils.MediumVerticalSpace();
 			if (ImGui.CollapsingHeader("Post Processors"))
 				_postProcessorsPane.Draw();
 
@@ -203,15 +203,15 @@ public class SceneGraphWindow
 			if (ImGui.CollapsingHeader("Entities (double-click label to inspect)", ImGuiTreeNodeFlags.DefaultOpen))
 				_entityPane.Draw();
 
-			NezImGui.MediumVerticalSpace();
-			if (NezImGui.CenteredButton("Save Scene", 0.7f))
+			VoltageEditorUtils.MediumVerticalSpace();
+			if (VoltageEditorUtils.CenteredButton("Save Scene", 0.7f))
 				_imGuiManager.InvokeSaveSceneChanges();
 
-			NezImGui.MediumVerticalSpace();
+			VoltageEditorUtils.MediumVerticalSpace();
 
 			// IMPORTANT: This assumes that Entities are registered under the "Dynamic" namespace or its sub-namespaces \
 			// (e.g. Dynamic.Interactables.Platforms). Adjust the logic in OrganizeEntitiesByNamespace if your project uses a different structure.
-			if (NezImGui.CenteredButton("Add Entity", 0.6f))
+			if (VoltageEditorUtils.CenteredButton("Add Entity", 0.6f))
 			{
 				_entityFilterName = "";
 				ImGui.OpenPopup("entity-selector");
@@ -231,14 +231,14 @@ public class SceneGraphWindow
 				ImGui.OpenPopup(AsepriteFilePicker.PopupId);
 			}
 
-			NezImGui.MediumVerticalSpace();
+			VoltageEditorUtils.MediumVerticalSpace();
 			if (CopiedComponent != null)
 			{
-				NezImGui.VeryBigVerticalSpace();
+				VoltageEditorUtils.VeryBigVerticalSpace();
 				ImGui.TextWrapped($"Component Copied: {CopiedComponent.GetType().Name}");
 
-				NezImGui.SmallVerticalSpace();
-				if (NezImGui.CenteredButton("Clear Copied Component", 0.8f))
+				VoltageEditorUtils.SmallVerticalSpace();
+				if (VoltageEditorUtils.CenteredButton("Clear Copied Component", 0.8f))
 					CopiedComponent = null;
 			}
 
@@ -760,7 +760,7 @@ public class SceneGraphWindow
 			ImGui.TextWrapped($"Are you sure you want to delete the '{_prefabToDelete}' prefab completely?");
 			ImGui.TextColored(new Num.Vector4(1.0f, 0.6f, 0.2f, 1.0f), "This action cannot be undone!");
 
-			NezImGui.MediumVerticalSpace();
+			VoltageEditorUtils.MediumVerticalSpace();
 
 			var buttonWidth = 80f;
 			var spacing = 10f;
@@ -876,14 +876,14 @@ public class SceneGraphWindow
 			{
 				EntityFactoryRegistry.InvokeEntityCreated(entity);
 				entity.Type = Entity.InstanceType.Prefab;
-				entity.Transform.Position = Core.Scene.Camera.Transform.Position;
+				entity.Transform.Position = Nez.Core.Scene.Camera.Transform.Position;
 
 				_imGuiManager.InvokeLoadEntityData(entity, prefabData);
-				entity.Name = Core.Scene.GetUniqueEntityName(prefabData.Name, entity);
+				entity.Name = Nez.Core.Scene.GetUniqueEntityName(prefabData.Name, entity);
 				entity.OriginalPrefabName = prefabName;
 
 				EditorChangeTracker.PushUndo(
-					new EntityCreateDeleteUndoAction(Core.Scene, entity, wasCreated: true,
+					new EntityCreateDeleteUndoAction(Nez.Core.Scene, entity, wasCreated: true,
 						$"Create Entity from Prefab {entity.Name}"),
 					entity,
 					$"Create Entity from Prefab {entity.Name}"
@@ -915,17 +915,17 @@ public class SceneGraphWindow
 		{
 			EntityFactoryRegistry.InvokeEntityCreated(entity);
 			entity.Type = Entity.InstanceType.Dynamic;
-			entity.Name = Core.Scene.GetUniqueEntityName(typeName, entity); 
-			entity.Transform.Position = Core.Scene.Camera.Transform.Position;
+			entity.Name = Nez.Core.Scene.GetUniqueEntityName(typeName, entity); 
+			entity.Transform.Position = Nez.Core.Scene.Camera.Transform.Position;
 
 			EditorChangeTracker.PushUndo(
-				new EntityCreateDeleteUndoAction(Core.Scene, entity, wasCreated: true,
+				new EntityCreateDeleteUndoAction(Nez.Core.Scene, entity, wasCreated: true,
 					$"Create Entity {entity.Name}"),
 				entity,
 				$"Create Entity {entity.Name}"
 			);
 
-			var imGuiManager = Core.GetGlobalManager<ImGuiManager>();
+			var imGuiManager = Nez.Core.GetGlobalManager<ImGuiManager>();
 			if (imGuiManager != null)
 			{
 				imGuiManager.SceneGraphWindow.EntityPane.SetSelectedEntity(entity, false);
@@ -939,7 +939,7 @@ public class SceneGraphWindow
 	{
 		var selectedEntity = _imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities.FirstOrDefault();
 
-		if (!Core.IsEditMode || selectedEntity == null || !ImGui.IsWindowFocused(ImGuiFocusedFlags.AnyWindow))
+		if (!Nez.Core.IsEditMode || selectedEntity == null || !ImGui.IsWindowFocused(ImGuiFocusedFlags.AnyWindow))
 			return; 
 
 		var hierarchyList = BuildHierarchyList();
@@ -1024,7 +1024,7 @@ public class SceneGraphWindow
 	public List<Entity> BuildHierarchyList()
 	{
 		var result = new List<Entity>();
-		var entities = Core.Scene?.Entities;
+		var entities = Nez.Core.Scene?.Entities;
 		if (entities == null) return result;
 
 		for (int i = 0; i < entities.Count; i++)

@@ -1,15 +1,16 @@
-using System.Collections.Generic;
 using ImGuiNET;
-using Nez.ImGuiTools.TypeInspectors;
+using Nez;
+using Voltage.Editor.Core;
+using Voltage.Editor.Inspectors.TypeInspectors;
+using Voltage.Editor.Utils;
 
-
-namespace Nez.ImGuiTools.ObjectInspectors;
+namespace Voltage.Editor.Inspectors.ObjectInspectors;
 
 public class RendererInspector
 {
 	public Renderer Renderer => _renderer;
 
-	private int _scopeId = NezImGui.GetScopeId();
+	private int _scopeId = VoltageEditorUtils.GetScopeId();
 	private string _name;
 	private Renderer _renderer;
 	private MaterialInspector _materialInspector;
@@ -31,14 +32,14 @@ public class RendererInspector
 		ImGui.PushID(_scopeId);
 		var isOpen = ImGui.CollapsingHeader(_name);
 
-		NezImGui.ShowContextMenuTooltip();
+		VoltageEditorUtils.ShowContextMenuTooltip();
 
 		if (ImGui.BeginPopupContextItem())
 		{
 			if (ImGui.Selectable("Remove Renderer"))
 			{
 				isOpen = false;
-				Core.Scene.RemoveRenderer(_renderer);
+				Nez.Core.Scene.RemoveRenderer(_renderer);
 				ImGui.CloseCurrentPopup();
 			}
 
@@ -58,15 +59,15 @@ public class RendererInspector
 				Renderer.RenderTargetClearColor = value.ToXNAColor();
 
 			if (Renderer.Camera != null)
-				if (NezImGui.LabelButton("Camera", Renderer.Camera.Entity.Name))
-					Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(Renderer.Camera.Entity);
+				if (VoltageEditorUtils.LabelButton("Camera", Renderer.Camera.Entity.Name))
+					Nez.Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(Renderer.Camera.Entity);
 
 			ImGui.PushStyleVar(ImGuiStyleVar.Alpha, ImGui.GetStyle().Alpha * 0.5f);
-			NezImGui.DisableNextWidget();
+			VoltageEditorUtils.DisableNextWidget();
 			var tempBool = Renderer.WantsToRenderToSceneRenderTarget;
 			ImGui.Checkbox("wantsToRenderToSceneRenderTarget", ref tempBool);
 
-			NezImGui.DisableNextWidget();
+			VoltageEditorUtils.DisableNextWidget();
 			tempBool = Renderer.WantsToRenderAfterPostProcessors;
 			ImGui.Checkbox("wantsToRenderAfterPostProcessors", ref tempBool);
 			ImGui.PopStyleVar();

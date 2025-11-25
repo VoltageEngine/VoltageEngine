@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
 using ImGuiNET;
 using Microsoft.Xna.Framework.Graphics;
+using Voltage.Editor.Utils;
 
-
-namespace Nez.ImGuiTools.TypeInspectors
+namespace Voltage.Editor.Inspectors.TypeInspectors
 {
 	public class EffectInspector : AbstractTypeInspector
 	{
@@ -32,7 +32,7 @@ namespace Nez.ImGuiTools.TypeInspectors
 			var isOpen = ImGui.CollapsingHeader($"{_name}", ImGuiTreeNodeFlags.FramePadding);
 
 			if (AllowsEffectRemoval)
-				NezImGui.ShowContextMenuTooltip();
+				VoltageEditorUtils.ShowContextMenuTooltip();
 
 			if (AllowsEffectRemoval && ImGui.BeginPopupContextItem())
 			{

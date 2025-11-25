@@ -8,8 +8,8 @@
 		<Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
 		<Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
 		<OutputType>Library</OutputType>
-		<RootNamespace>Nez.ImGuiTools</RootNamespace>
-		<AssemblyName>Nez.ImGui</AssemblyName>
+		<RootNamespace>Voltage.Editor</RootNamespace>
+		<AssemblyName>Voltage.Editor</AssemblyName>
 		<TargetFramework>net8.0</TargetFramework>
 		<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
 		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>

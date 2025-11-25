@@ -1,11 +1,14 @@
 using System;
 using System.Linq;
 using ImGuiNET;
-using Nez.ImGuiTools.UndoActions;
+using Nez;
+using Voltage.Editor.Core;
+using Voltage.Editor.UndoActions;
+using Voltage.Editor.Utils;
 using Num = System.Numerics;
 
 
-namespace Nez.ImGuiTools.ObjectInspectors;
+namespace Voltage.Editor.Inspectors.ObjectInspectors;
 
 public class TransformInspector
 {
@@ -41,8 +44,8 @@ public class TransformInspector
             }
             else
             {
-                if (NezImGui.LabelButton("Parent", _transform.Parent.Entity.Name))
-                    Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(_transform.Parent.Entity);
+                if (VoltageEditorUtils.LabelButton("Parent", _transform.Parent.Entity.Name))
+                    Nez.Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(_transform.Parent.Entity);
 
                 if (ImGui.Button("Detach From Parent"))
                     _transform.Parent = null;
@@ -108,7 +111,7 @@ public class TransformInspector
                 }
             }
 
-            NezImGui.SmallVerticalSpace();
+            VoltageEditorUtils.SmallVerticalSpace();
 
             // Local Position 
             var pos = _transform.LocalPosition.ToNumerics();

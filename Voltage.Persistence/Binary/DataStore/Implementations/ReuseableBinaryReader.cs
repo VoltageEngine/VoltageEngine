@@ -3,7 +3,7 @@ using System.IO;
 using System.Text;
 
 
-namespace Nez.Persistence.Binary
+namespace Voltage.Persistence.Binary
 {
 	// if we want to get really crazy, we can switch this to a buffered reader: https://jacksondunstan.com/articles/3568
 	// the string read code would be the only tricky part.

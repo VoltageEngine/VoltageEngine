@@ -1,9 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using ImGuiNET;
 
-
-namespace Nez.ImGuiTools.TypeInspectors
+namespace Voltage.Editor.Inspectors.TypeInspectors
 {
 	public class EnumInspector : AbstractTypeInspector
 	{

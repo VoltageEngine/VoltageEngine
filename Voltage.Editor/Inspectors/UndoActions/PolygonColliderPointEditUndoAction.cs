@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Nez;
-using Nez.PhysicsShapes;
+using Voltage.Editor.UndoActions;
 
-namespace Nez.ImGuiTools.UndoActions
+namespace Voltage.Editor.Inspectors.UndoActions
 {
 	public class PolygonColliderPointEditUndoAction : EditorChangeTracker.IEditorAction
 	{

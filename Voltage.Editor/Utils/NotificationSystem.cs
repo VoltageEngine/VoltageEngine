@@ -2,7 +2,7 @@ using ImGuiNET;
 using Nez;
 using Nez.Utils;
 
-namespace Nez.Editor;
+namespace Voltage.Editor.Utils;
 
 public class NotificationSystem
 {

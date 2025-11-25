@@ -1,16 +1,14 @@
+using System;
+using System.Collections.Generic;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Nez;
 using Nez.DeferredLighting;
-using Nez.ImGuiTools.Gizmos;
-using Nez.ImGuiTools.UndoActions;
 using Nez.Sprites;
 using Nez.Utils;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using Voltage.Editor.Gizmos;
 
-namespace Nez.ImGuiTools
+namespace Voltage.Editor.Core
 {
 	public enum CursorSelectionMode
 	{
@@ -104,11 +102,11 @@ namespace Nez.ImGuiTools
 
 			if (_imGuiManager.IsGameWindowFocused && IsCursorWithinGameWindow())
 			{
-				var camera = Core.Scene.Camera;
+				var camera = Nez.Core.Scene.Camera;
 				var worldMouse = camera.ScreenToWorldPoint(Input.ScaledMousePosition);
 				var selectedEntities = _imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities;
 
-				if (Core.IsEditMode)
+				if (Nez.Core.IsEditMode)
 				{
 					if (SelectionMode == CursorSelectionMode.Normal)
 					{
@@ -131,7 +129,7 @@ namespace Nez.ImGuiTools
 					}
 				}
 
-				if (!IsMouseOverGizmo && Core.IsEditMode && 
+				if (!IsMouseOverGizmo && Nez.Core.IsEditMode && 
 					!_polygonGizmoHandler.IsDragging && !_rectangleGizmoHandler.IsDragging &&
 					!_transformGizmoHandler.IsDragging && !_rotateGizmoHandler.IsDragging && !_scaleGizmoHandler.IsDragging)
 					HandleBoxSelection();
@@ -183,7 +181,7 @@ namespace Nez.ImGuiTools
 
 		private void HandleBoxSelection()
 		{
-			mouseScreen = Core.Scene.Camera.ScreenToWorldPoint(Input.ScaledMousePosition);
+			mouseScreen = Nez.Core.Scene.Camera.ScreenToWorldPoint(Input.ScaledMousePosition);
 
 			if (!_isBoxSelecting && Input.LeftMouseButtonPressed)
 			{
@@ -194,19 +192,19 @@ namespace Nez.ImGuiTools
 				}
 
 				_isBoxSelecting = true;
-				_boxSelectStartWorld = Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
+				_boxSelectStartWorld = Nez.Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
 				_boxSelectEndWorld = _boxSelectStartWorld;
 			}
 
 			if (_isBoxSelecting && Input.LeftMouseButtonDown)
 			{
-				_boxSelectEndWorld = Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
+				_boxSelectEndWorld = Nez.Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
 				DrawSelectionBoxNez(_boxSelectStartWorld, _boxSelectEndWorld);
 			}
 
 			if (_isBoxSelecting && Input.LeftMouseButtonReleased)
 			{
-				_boxSelectEndWorld = Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
+				_boxSelectEndWorld = Nez.Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
 				SelectEntitiesInBox(_boxSelectStartWorld, _boxSelectEndWorld);
 				_isBoxSelecting = false;
 			}
@@ -214,7 +212,7 @@ namespace Nez.ImGuiTools
 
 		private void DrawSelectionBoxNez(Vector2 worldStart, Vector2 worldEnd)
 		{
-			var camera = Core.Scene.Camera;
+			var camera = Nez.Core.Scene.Camera;
 			var min = new Vector2(Math.Min(worldStart.X, worldEnd.X), Math.Min(worldStart.Y, worldEnd.Y));
 			var max = new Vector2(Math.Max(worldStart.X, worldEnd.X), Math.Max(worldStart.Y, worldEnd.Y));
 			var rect = new RectangleF(min.X, min.Y, max.X - min.X, max.Y - min.Y);
@@ -223,16 +221,16 @@ namespace Nez.ImGuiTools
 
 		private void SelectEntitiesInBox(Vector2 worldStart, Vector2 worldEnd)
 		{
-			var camera = Core.Scene.Camera;
+			var camera = Nez.Core.Scene.Camera;
 			var min = new Vector2(Math.Min(worldStart.X, worldEnd.X), Math.Min(worldStart.Y, worldEnd.Y));
 			var max = new Vector2(Math.Max(worldStart.X, worldEnd.X), Math.Max(worldStart.Y, worldEnd.Y));
 			var rect = new RectangleF(min.X, min.Y, max.X - min.X, max.Y - min.Y);
 			var selectionRect = camera.WorldToScreenRect(rect);
 			var selectedEntities = new List<Entity>();
 
-			for (int i = Core.Scene.Entities.Count - 1; i >= 0; i--)
+			for (int i = Nez.Core.Scene.Entities.Count - 1; i >= 0; i--)
 			{
-				var entity = Core.Scene.Entities[i];
+				var entity = Nez.Core.Scene.Entities[i];
 
 				if(!entity.IsSelectableInEditor)
 					continue;
@@ -342,7 +340,7 @@ namespace Nez.ImGuiTools
 
 		private void TrySelectEntityAtMouse()
 		{
-			var mouseWorld = Core.Scene.Camera.ScreenToWorldPoint(Input.ScaledMousePosition);
+			var mouseWorld = Nez.Core.Scene.Camera.ScreenToWorldPoint(Input.ScaledMousePosition);
 			var mouseScreen = Input.ScaledMousePosition;
 			float currentTime = (float)Time.TotalTime;
 			
@@ -394,9 +392,9 @@ namespace Nez.ImGuiTools
 
 			// Priority 1: Entities with Colliders
 			var collidersAtPosition = new List<(Entity entity, float distance)>();
-			for (int i = Core.Scene.Entities.Count - 1; i >= 0; i--)
+			for (int i = Nez.Core.Scene.Entities.Count - 1; i >= 0; i--)
 			{
-				var entity = Core.Scene.Entities[i];
+				var entity = Nez.Core.Scene.Entities[i];
 				
 				if (MathUtils.IsVectorNaNOrInfinite(entity.Transform.Position))
 					continue;
@@ -425,9 +423,9 @@ namespace Nez.ImGuiTools
 
 			// Priority 2: Entities with SpriteRenderer
 			var spritesAtPosition = new List<(Entity entity, int renderLayer, float distance)>();
-			for (int i = Core.Scene.Entities.Count - 1; i >= 0; i--)
+			for (int i = Nez.Core.Scene.Entities.Count - 1; i >= 0; i--)
 			{
-				var entity = Core.Scene.Entities[i];
+				var entity = Nez.Core.Scene.Entities[i];
 				
 				if (MathUtils.IsVectorNaNOrInfinite(entity.Transform.Position))
 					continue;
@@ -463,9 +461,9 @@ namespace Nez.ImGuiTools
 
 			// Priority 3: Entities with DeferredLight
 			var lightsAtPosition = new List<(Entity entity, float distance)>();
-			for (int i = Core.Scene.Entities.Count - 1; i >= 0; i--)
+			for (int i = Nez.Core.Scene.Entities.Count - 1; i >= 0; i--)
 			{
-				var entity = Core.Scene.Entities[i];
+				var entity = Nez.Core.Scene.Entities[i];
 				
 				if (MathUtils.IsVectorNaNOrInfinite(entity.Transform.Position))
 					continue;
@@ -499,9 +497,9 @@ namespace Nez.ImGuiTools
 
 			// Priority 4: Fallback to entities without sprites/colliders/lights
 			var fallbackEntities = new List<(Entity entity, float distance)>();
-			for (int i = Core.Scene.Entities.Count - 1; i >= 0; i--)
+			for (int i = Nez.Core.Scene.Entities.Count - 1; i >= 0; i--)
 			{
-				var entity = Core.Scene.Entities[i];
+				var entity = Nez.Core.Scene.Entities[i];
 				
 				if (MathUtils.IsVectorNaNOrInfinite(entity.Transform.Position))
 					continue;
@@ -557,10 +555,10 @@ namespace Nez.ImGuiTools
 			var entityPane = _imGuiManager.SceneGraphWindow.EntityPane;
 			IsMouseOverGizmo = false;
 
-			if (entityPane.SelectedEntities.Count == 0 || !Core.IsEditMode)
+			if (entityPane.SelectedEntities.Count == 0 || !Nez.Core.IsEditMode)
 				return;
 
-			var camera = Core.Scene.Camera;
+			var camera = Nez.Core.Scene.Camera;
 			var mousePos = Input.ScaledMousePosition;
 			var worldMouse = camera.ScreenToWorldPoint(mousePos);
 

@@ -1,4 +1,6 @@
-namespace Nez.ImGuiTools.ObjectInspectors
+using Nez;
+
+namespace Voltage.Editor.Inspectors.ObjectInspectors
 {
 	public interface IComponentInspector
 	{

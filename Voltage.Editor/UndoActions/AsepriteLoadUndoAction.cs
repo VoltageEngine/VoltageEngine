@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using Nez;
-using Nez.Editor;
+using Voltage.Editor.Utils;
 
-namespace Nez.ImGuiTools.UndoActions
+namespace Voltage.Editor.UndoActions
 {
     public class AsepriteLoadUndoAction : EditorChangeTracker.IEditorAction
     {

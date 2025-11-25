@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Nez;
 
-namespace Nez.ImGuiTools.UndoActions
+namespace Voltage.Editor.UndoActions
 {
     /// <summary>
     /// Undo action for rotating multiple entities via gizmo.

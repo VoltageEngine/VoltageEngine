@@ -2,11 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using ImGuiNET;
-using Nez.ImGuiTools.ObjectInspectors;
+using Nez;
 using Nez.Utils;
+using Voltage.Editor.Inspectors.ObjectInspectors;
+using Voltage.Editor.Utils;
 
-
-namespace Nez.ImGuiTools.SceneGraphPanes
+namespace Voltage.Editor.Inspectors.SceneGraphPanes
 {
 	/// <summary>
 	/// manages displaying the current PostProcessors in the Scene and provides a means to add PostProcessors
@@ -24,9 +25,9 @@ namespace Nez.ImGuiTools.SceneGraphPanes
 			{
 				_isPostProcessorListInitialized = true;
 
-				for (var i = 0; i < Core.Scene._postProcessors.Length; i++)
+				for (var i = 0; i < Nez.Core.Scene._postProcessors.Length; i++)
 				{
-					var postProcessor = Core.Scene._postProcessors.Buffer[i];
+					var postProcessor = Nez.Core.Scene._postProcessors.Buffer[i];
 					if (_postProcessorInspectors.Where(inspector => inspector.PostProcessor == postProcessor).Count() == 0)
 						_postProcessorInspectors.Add(new PostProcessorInspector(postProcessor));
 				}
@@ -56,20 +57,20 @@ namespace Nez.ImGuiTools.SceneGraphPanes
 				}
 
 				_postProcessorInspectors[i].Draw();
-				NezImGui.SmallVerticalSpace();
+				VoltageEditorUtils.SmallVerticalSpace();
 			}
 
 			if (_postProcessorInspectors.Count == 0)
-				NezImGui.SmallVerticalSpace();
+				VoltageEditorUtils.SmallVerticalSpace();
 
-			if (NezImGui.CenteredButton("Add PostProcessor", 0.6f))
+			if (VoltageEditorUtils.CenteredButton("Add PostProcessor", 0.6f))
 			{
 				ImGui.OpenPopup("postprocessor-selector");
 			}
 
 			ImGui.Unindent();
 
-			NezImGui.MediumVerticalSpace();
+			VoltageEditorUtils.MediumVerticalSpace();
 			DrawPostProcessorSelectorPopup();
 		}
 
@@ -82,7 +83,7 @@ namespace Nez.ImGuiTools.SceneGraphPanes
 					if (ImGui.Selectable(subclassType.Name))
 					{
 						var postprocessor = (PostProcessor)Activator.CreateInstance(subclassType, new object[] { _postProcessorInspectors.Count });
-						Core.Scene.AddPostProcessor(postprocessor);
+						Nez.Core.Scene.AddPostProcessor(postprocessor);
 						_isPostProcessorListInitialized = false;
 					}
 				}

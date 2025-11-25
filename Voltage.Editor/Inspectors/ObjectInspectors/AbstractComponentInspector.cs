@@ -1,8 +1,9 @@
 using System.Collections.Generic;
-using Nez.ImGuiTools.TypeInspectors;
+using Nez;
+using Voltage.Editor.Inspectors.TypeInspectors;
+using Voltage.Editor.Utils;
 
-
-namespace Nez.ImGuiTools.ObjectInspectors
+namespace Voltage.Editor.Inspectors.ObjectInspectors
 {
 	public abstract class AbstractComponentInspector : IComponentInspector
 	{
@@ -10,7 +11,7 @@ namespace Nez.ImGuiTools.ObjectInspectors
 		public abstract Component Component { get; }
 
 		protected List<AbstractTypeInspector> _inspectors;
-		protected int _scopeId = NezImGui.GetScopeId();
+		protected int _scopeId = VoltageEditorUtils.GetScopeId();
 
 		public abstract void Draw();
 	}

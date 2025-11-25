@@ -1,12 +1,12 @@
 using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Nez;
-using Nez.ImGuiTools.UndoActions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Voltage.Editor.UndoActions;
 
-namespace Nez.ImGuiTools.Gizmos
+namespace Voltage.Editor.Gizmos
 {
 	/// <summary>
 	/// Handles gizmo rendering and interaction for entity scale using rectangles at axis ends

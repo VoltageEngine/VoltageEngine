@@ -1,7 +1,9 @@
 ﻿using System;
+using Nez;
 using Nez.Utils;
+using Voltage.Editor.Core;
 
-namespace Nez.ImGuiTools.Utils
+namespace Voltage.Editor.Utils
 {
 	public class ImguiImageLoader
 	{

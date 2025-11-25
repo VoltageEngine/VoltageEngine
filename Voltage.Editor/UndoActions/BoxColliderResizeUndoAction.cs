@@ -1,7 +1,8 @@
 using Microsoft.Xna.Framework;
 using Nez;
+using Nez.PhysicsShapes;
 
-namespace Nez.ImGuiTools.UndoActions
+namespace Voltage.Editor.UndoActions
 {
 	public class BoxColliderResizeUndoAction : EditorChangeTracker.IEditorAction
 	{
@@ -34,7 +35,7 @@ namespace Nez.ImGuiTools.UndoActions
 			if (_collider == null || _collider.Entity == null)
 				return;
 
-			var box = _collider.Shape as PhysicsShapes.Box;
+			var box = _collider.Shape as Box;
 			if (box == null)
 				return;
 

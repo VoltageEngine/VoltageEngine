@@ -2,7 +2,7 @@
 using System.Collections;
 
 
-namespace Nez.Persistence
+namespace Voltage.Persistence
 {
 	public abstract class JsonObjectFactory : JsonTypeConverter
 	{

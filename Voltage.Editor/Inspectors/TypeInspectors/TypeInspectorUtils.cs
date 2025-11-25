@@ -1,19 +1,22 @@
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-using Nez.Data;
-using Nez.Utils;
-using Nez.Utils.Extensions;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
-using Nez.Sprites;
-using Nez.Textures;
-using TI = Nez.ImGuiTools.TypeInspectors;
+using Microsoft.Xna.Framework.Graphics;
+using Nez;
+using Nez.Utils;
+using Nez.Utils.Extensions;
 
 
-namespace Nez.ImGuiTools.TypeInspectors
+namespace Voltage.Editor.Inspectors.TypeInspectors
 {
+	using TypeInspectors_BlendStateInspector = TypeInspectors.BlendStateInspector;
+	using TypeInspectors_EntityFieldInspector = TypeInspectors.EntityFieldInspector;
+	using TypeInspectors_EnumInspector = TypeInspectors.EnumInspector;
+	using TypeInspectors_ListInspector = TypeInspectors.ListInspector;
+	using TypeInspectors_SimpleTypeInspector = TypeInspectors.SimpleTypeInspector;
+	using TypeInspectors_StructInspector = TypeInspectors.StructInspector;
+
 	public static class TypeInspectorUtils
 	{
 		// Type cache seeing as how typeof isnt free and this will be hit a lot
@@ -144,24 +147,24 @@ namespace Nez.ImGuiTools.TypeInspectors
 		{
 			// built-in types
 			if (SimpleTypeInspector.KSupportedTypes.Contains(valueType))
-				return new TI.SimpleTypeInspector();
+				return new TypeInspectors_SimpleTypeInspector();
 			if (target is Entity)
-				return new TI.EntityFieldInspector();
+				return new TypeInspectors_EntityFieldInspector();
 			if (target is BlendState)
-				return new TI.BlendStateInspector();
+				return new TypeInspectors_BlendStateInspector();
 			if (valueType.GetTypeInfo().IsEnum)
-				return new TI.EnumInspector();
+				return new TypeInspectors_EnumInspector();
 			if (valueType.GetTypeInfo().IsValueType)
-				return new TI.StructInspector();
+				return new TypeInspectors_StructInspector();
 			if (target is IList && ListInspector.KSupportedTypes.Contains(valueType.GetElementType()))
-				return new TI.ListInspector();
+				return new TypeInspectors_ListInspector();
 			if (valueType.IsArray && valueType.GetArrayRank() == 1 &&
 			    ListInspector.KSupportedTypes.Contains(valueType.GetElementType()))
-				return new TI.ListInspector();
+				return new TypeInspectors_ListInspector();
 			if (valueType.IsGenericType && iListType.IsAssignableFrom(valueType) &&
 			    valueType.GetInterface(nameof(IList)) != null &&
 			    ListInspector.KSupportedTypes.Contains(valueType.GetGenericArguments()[0]))
-				return new TI.ListInspector();
+				return new TypeInspectors_ListInspector();
 
 			// check for custom inspectors before checking Nez types in case a subclass implemented one
 			var customInspectorType = valueType.GetTypeInfo().GetAttribute<CustomInspectorAttribute>();

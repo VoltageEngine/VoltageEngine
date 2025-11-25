@@ -1,8 +1,8 @@
-﻿using ImGuiNET;
-using System.Text;
+﻿using Nez;
+using Voltage.Editor.Core;
+using Voltage.Editor.Utils;
 
-
-namespace Nez.ImGuiTools.TypeInspectors;
+namespace Voltage.Editor.Inspectors.TypeInspectors;
 
 /// <summary>
 /// special Inspector that handles Entity references displaying a button that opens the inspector for the Entity
@@ -13,8 +13,8 @@ public class EntityFieldInspector : AbstractTypeInspector
 	{
 		var entity = GetValue<Entity>();
 
-		if (NezImGui.LabelButton(_name, entity.Name))
-			Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(entity);
+		if (VoltageEditorUtils.LabelButton(_name, entity.Name))
+			Nez.Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(entity);
 		HandleTooltip();
 	}
 }

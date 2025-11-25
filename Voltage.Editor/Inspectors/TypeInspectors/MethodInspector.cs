@@ -2,11 +2,13 @@
 using System.Reflection;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
+using Nez;
 using Nez.Utils.Extensions;
+using Voltage.Editor.Utils;
 using Num = System.Numerics;
 
 
-namespace Nez.ImGuiTools.TypeInspectors
+namespace Voltage.Editor.Inspectors.TypeInspectors
 {
 	public class MethodInspector : AbstractTypeInspector
 	{
@@ -50,7 +52,7 @@ namespace Nez.ImGuiTools.TypeInspectors
 		{
 			base.Initialize();
 
-			_scopeId = NezImGui.GetScopeId();
+			_scopeId = VoltageEditorUtils.GetScopeId();
 
 			// we could have zero or 1 param
 			var parameters = (_memberInfo as MethodInfo).GetParameters();

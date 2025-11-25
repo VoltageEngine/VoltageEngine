@@ -5,7 +5,7 @@ using System.Globalization;
 using System.Text;
 
 
-namespace Nez.Persistence
+namespace Voltage.Persistence
 {
 	/// <summary>
 	/// responsible for serializing an object to JSON

@@ -1,10 +1,9 @@
 using System;
-using System.Collections.Generic;
 using Microsoft.Xna.Framework.Graphics;
+using Nez;
 using Nez.Utils;
 
-
-namespace Nez.ImGuiTools
+namespace Voltage.Editor.Inspectors
 {
 	public static class InspectorCache
 	{
