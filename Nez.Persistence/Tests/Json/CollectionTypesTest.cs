@@ -13,28 +13,28 @@ namespace Nez.Persistence.JsonTests
 		public void DumpRank1Array()
 		{
 			var array = new[] { 3, 1, 4 };
-			Assert.AreEqual( "[3,1,4]", Json.ToJson( array ) );
+			Assert.That("[3,1,4]", Is.EqualTo(Json.ToJson(array)));
 		}
 
 		[Test]
 		public void DumpRank2Array()
 		{
 			var array = new[,] { { 1, 2, 3 }, { 4, 5, 6 } };
-			Assert.AreEqual( "[[1,2,3],[4,5,6]]", Json.ToJson( array ) );
+			Assert.That("[[1,2,3],[4,5,6]]", Is.EqualTo(Json.ToJson(array)));
 		}
 
 		[Test]
 		public void DumpRank3Array()
 		{
 			var array = new[, ,] { { { 1, 2 }, { 3, 4 } }, { { 5, 6 }, { 7, 8 } }, { { 9, 0 }, { 1, 2 } } };
-			Assert.AreEqual( "[[[1,2],[3,4]],[[5,6],[7,8]],[[9,0],[1,2]]]", Json.ToJson( array ) );
+			Assert.That("[[[1,2],[3,4]],[[5,6],[7,8]],[[9,0],[1,2]]]", Is.EqualTo(Json.ToJson(array)));
 		}
 
 		[Test]
 		public void DumpJaggedArray()
 		{
 			var array = new[] { new[] { 1, 2, 3 }, new[] { 4, 5, 6 } };
-			Assert.AreEqual( "[[1,2,3],[4,5,6]]", Json.ToJson( array ) );
+			Assert.That("[[1,2,3],[4,5,6]]", Is.EqualTo(Json.ToJson(array)));
 		}
 
 
@@ -44,11 +44,11 @@ namespace Nez.Persistence.JsonTests
 			var json = "[1,2,3]";
 			var array = Json.FromJson<int[]>( json );
 
-			Assert.AreNotEqual( null, array );
-			Assert.AreEqual( 3, array.Length );
-			Assert.AreEqual( 1, array[0] );
-			Assert.AreEqual( 2, array[1] );
-			Assert.AreEqual( 3, array[2] );
+			Assert.That(null, Is.Not.EqualTo(array));
+			Assert.That(3, Is.EqualTo(array.Length));
+			Assert.That(1, Is.EqualTo(array[0]));
+			Assert.That(2, Is.EqualTo(array[1]));
+			Assert.That(3, Is.EqualTo(array[2]));
 		}
 
 		[Test]
@@ -57,19 +57,19 @@ namespace Nez.Persistence.JsonTests
 			var json = "[[1,2,3],[4,5,6]]";
 			var array = Json.FromJson<int[,]>( json );
 
-			Assert.AreNotEqual( null, array );
+			Assert.That(null, Is.Not.EqualTo(array));
 
-			Assert.AreEqual( 2, array.Rank );
-			Assert.AreEqual( 2, array.GetLength( 0 ) );
-			Assert.AreEqual( 3, array.GetLength( 1 ) );
+			Assert.That(2, Is.EqualTo(array.Rank));
+			Assert.That(2, Is.EqualTo(array.GetLength(0)));
+			Assert.That(3, Is.EqualTo(array.GetLength(1)));
 
-			Assert.AreEqual( 1, array[0, 0] );
-			Assert.AreEqual( 2, array[0, 1] );
-			Assert.AreEqual( 3, array[0, 2] );
+			Assert.That(1, Is.EqualTo(array[0, 0]));
+			Assert.That(2, Is.EqualTo(array[0, 1]));
+			Assert.That(3, Is.EqualTo(array[0, 2]));
 
-			Assert.AreEqual( 4, array[1, 0] );
-			Assert.AreEqual( 5, array[1, 1] );
-			Assert.AreEqual( 6, array[1, 2] );
+			Assert.That(4, Is.EqualTo(array[1, 0]));
+			Assert.That(5, Is.EqualTo(array[1, 1]));
+			Assert.That(6, Is.EqualTo(array[1, 2]));
 		}
 
 		[Test]
@@ -78,19 +78,19 @@ namespace Nez.Persistence.JsonTests
 			var json = "[[\"1\",\"2\",\"3\"],[\"4\",\"5\",\"6\"]]";
 			var array = Json.FromJson<string[,]>( json );
 
-			Assert.AreNotEqual( null, array );
+			Assert.That(null, Is.Not.EqualTo(array));
 
-			Assert.AreEqual( 2, array.Rank );
-			Assert.AreEqual( 2, array.GetLength( 0 ) );
-			Assert.AreEqual( 3, array.GetLength( 1 ) );
+			Assert.That(2, Is.EqualTo(array.Rank));
+			Assert.That(2, Is.EqualTo(array.GetLength(0)));
+			Assert.That(3, Is.EqualTo(array.GetLength(1)));
 
-			Assert.AreEqual( "1", array[0, 0] );
-			Assert.AreEqual( "2", array[0, 1] );
-			Assert.AreEqual( "3", array[0, 2] );
+			Assert.That( "1", Is.EqualTo(array[0, 0]) );
+			Assert.That("2", Is.EqualTo(array[0, 1]));
+			Assert.That("3", Is.EqualTo(array[0, 2]));
 
-			Assert.AreEqual( "4", array[1, 0] );
-			Assert.AreEqual( "5", array[1, 1] );
-			Assert.AreEqual( "6", array[1, 2] );
+			Assert.That("4", Is.EqualTo(array[1, 0]));
+			Assert.That("5", Is.EqualTo(array[1, 1]));
+			Assert.That("6", Is.EqualTo(array[1, 2]));
 		}
 
 		struct TestStruct
@@ -105,13 +105,13 @@ namespace Nez.Persistence.JsonTests
 			var json = "[[{\"x\":5,\"y\":7}, {\"x\":5,\"y\":7}],[{\"x\":5,\"y\":7}, {\"x\":77,\"y\":7}]]";
 			var array = Json.FromJson<TestStruct[,]>( json );
 
-			Assert.AreNotEqual( null, array );
+			Assert.That(null, Is.Not.EqualTo(array));
 
-			Assert.AreEqual( 2, array.Rank );
-			Assert.AreEqual( 2, array.GetLength( 0 ) );
-			Assert.AreEqual( 2, array.GetLength( 1 ) );
+			Assert.That(2, Is.EqualTo(array.Rank));
+			Assert.That(2, Is.EqualTo(array.GetLength(0)));
+			Assert.That(2, Is.EqualTo(array.GetLength(1)));
 
-			Assert.AreEqual( 77, array[1, 1].x );
+			Assert.That(77, Is.EqualTo(array[1, 1].x));
 		}
 
 		[Test]
@@ -119,30 +119,30 @@ namespace Nez.Persistence.JsonTests
 		{
 			var json = "[[[1,2],[3,4]],[[5,6],[7,8]],[[9,0],[1,2]]]";
 			var array = Json.FromJson<int[,,]>( json );
-			Assert.AreNotEqual( null, array );
+			Assert.That(null, Is.Not.EqualTo(array));
 
-			Assert.AreEqual( 3, array.Rank );
-			Assert.AreEqual( 3, array.GetLength( 0 ) );
-			Assert.AreEqual( 2, array.GetLength( 1 ) );
-			Assert.AreEqual( 2, array.GetLength( 2 ) );
+			Assert.That(3, Is.EqualTo(array.Rank));
+			Assert.That(3, Is.EqualTo(array.GetLength(0)));
+			Assert.That(2, Is.EqualTo(array.GetLength(1)));
+			Assert.That(2, Is.EqualTo(array.GetLength(2)));
 
-			Assert.AreEqual( 1, array[0, 0, 0] );
-			Assert.AreEqual( 2, array[0, 0, 1] );
+			Assert.That(1, Is.EqualTo(array[0, 0, 0]));
+			Assert.That(2, Is.EqualTo(array[0, 0, 1]));
 
-			Assert.AreEqual( 3, array[0, 1, 0] );
-			Assert.AreEqual( 4, array[0, 1, 1] );
+			Assert.That(3, Is.EqualTo(array[0, 1, 0]));
+			Assert.That(4, Is.EqualTo(array[0, 1, 1]));
 
-			Assert.AreEqual( 5, array[1, 0, 0] );
-			Assert.AreEqual( 6, array[1, 0, 1] );
+			Assert.That(5, Is.EqualTo(array[1, 0, 0]));
+			Assert.That(6, Is.EqualTo(array[1, 0, 1]));
 
-			Assert.AreEqual( 7, array[1, 1, 0] );
-			Assert.AreEqual( 8, array[1, 1, 1] );
+			Assert.That(7, Is.EqualTo(array[1, 1, 0]));
+			Assert.That(8, Is.EqualTo(array[1, 1, 1]));
 
-			Assert.AreEqual( 9, array[2, 0, 0] );
-			Assert.AreEqual( 0, array[2, 0, 1] );
+			Assert.That(9, Is.EqualTo(array[2, 0, 0]));
+			Assert.That(0, Is.EqualTo(array[2, 0, 1]));
 
-			Assert.AreEqual( 1, array[2, 1, 0] );
-			Assert.AreEqual( 2, array[2, 1, 1] );
+			Assert.That(1, Is.EqualTo(array[2, 1, 0]));
+			Assert.That(2, Is.EqualTo(array[2, 1, 1]));
 		}
 
 		[Test]
@@ -150,19 +150,19 @@ namespace Nez.Persistence.JsonTests
 		{
 			var json = "[[1,2,3],[4,5,6]]";
 			var array = Json.FromJson<int[][]>( json );
-			Assert.AreNotEqual( null, array );
+			Assert.That(null, Is.Not.EqualTo(array));
 
-			Assert.AreEqual( 2, array.Length );
+			Assert.That(2, Is.EqualTo(array.Length));
 
-			Assert.AreEqual( 3, array[0].Length );
-			Assert.AreEqual( 1, array[0][0] );
-			Assert.AreEqual( 2, array[0][1] );
-			Assert.AreEqual( 3, array[0][2] );
+			Assert.That(3, Is.EqualTo(array[0].Length));
+			Assert.That(1, Is.EqualTo(array[0][0]));
+			Assert.That(2, Is.EqualTo(array[0][1]));
+			Assert.That(3, Is.EqualTo(array[0][2]));
 
-			Assert.AreEqual( 3, array[1].Length );
-			Assert.AreEqual( 4, array[1][0] );
-			Assert.AreEqual( 5, array[1][1] );
-			Assert.AreEqual( 6, array[1][2] );
+			Assert.That(3, Is.EqualTo(array[1].Length));
+			Assert.That(4, Is.EqualTo(array[1][0]));
+			Assert.That(5, Is.EqualTo(array[1][1]));
+			Assert.That(6, Is.EqualTo(array[1][2]));
 		}
 
 
@@ -170,19 +170,19 @@ namespace Nez.Persistence.JsonTests
 		public void DumpList()
 		{
 			var list = new List<int>() { { 3 }, { 1 }, { 4 } };
-			Assert.AreEqual( "[3,1,4]", Json.ToJson( list ) );
+			Assert.That("[3,1,4]", Is.EqualTo(Json.ToJson(list)));
 		}
 
 		[Test]
 		public void LoadList()
 		{
 			var list = Json.FromJson<List<int>>( "[3,1,4]" );
-			Assert.AreNotEqual( null, list );
+			Assert.That(null, Is.Not.EqualTo(list));
 
-			Assert.AreEqual( 3, list.Count );
-			Assert.AreEqual( 3, list[0] );
-			Assert.AreEqual( 1, list[1] );
-			Assert.AreEqual( 4, list[2] );
+			Assert.That(3, Is.EqualTo(list.Count));
+			Assert.That(3, Is.EqualTo(list[0]));
+			Assert.That(1, Is.EqualTo(list[1]));
+			Assert.That(4, Is.EqualTo(list[2]));
 		}
 
 		class ListOfObjects
@@ -197,19 +197,19 @@ namespace Nez.Persistence.JsonTests
 			var list = new List<ListOfObjects> { { new ListOfObjects() }, { new ListOfObjects() }, { new ListOfObjects() } };
 			var json = Json.ToJson( list );
 
-			Assert.AreEqual( "[{\"x\":5,\"y\":10},{\"x\":5,\"y\":10},{\"x\":5,\"y\":10}]", Json.ToJson( list ) );
+			Assert.That("[{\"x\":5,\"y\":10},{\"x\":5,\"y\":10},{\"x\":5,\"y\":10}]", Is.EqualTo(Json.ToJson(list)));
 		}
 
 		[Test]
 		public void LoadListOfObjects()
 		{
 			var list = Json.FromJson<List<ListOfObjects>>( "[{\"x\":5,\"y\":10},{\"x\":15,\"y\":10},{\"x\":25,\"y\":10}]" );
-			Assert.AreNotEqual( null, list );
+			Assert.That(null, Is.Not.EqualTo(list));
 
-			Assert.AreEqual( 3, list.Count );
-			Assert.AreEqual( 5, list[0].x );
-			Assert.AreEqual( 15, list[1].x );
-			Assert.AreEqual( 25, list[2].x );
+			Assert.That(3, Is.EqualTo(list.Count));
+			Assert.That(5, Is.EqualTo(list[0].x));
+			Assert.That(15, Is.EqualTo(list[1].x));
+			Assert.That(25, Is.EqualTo(list[2].x));
 		}
 
 		[Test]
@@ -219,7 +219,7 @@ namespace Nez.Persistence.JsonTests
 			dict["foo"] = 1337f;
 			dict["bar"] = 3.14f;
 
-			Assert.AreEqual( "{\"foo\":1337,\"bar\":3.14}", Json.ToJson( dict ) );
+			Assert.That("{\"foo\":1337,\"bar\":3.14}", Is.EqualTo(Json.ToJson(dict)));
 		}
 
 
@@ -228,10 +228,10 @@ namespace Nez.Persistence.JsonTests
 		{
 			var dict = Json.FromJson<Dictionary<string, float>>( "{\"foo\":1337,\"bar\":3.14}" );
 
-			Assert.AreNotEqual( null, dict );
-			Assert.AreEqual( 2, dict.Count );
-			Assert.AreEqual( 1337f, dict["foo"] );
-			Assert.AreEqual( 3.14f, dict["bar"] );
+			Assert.That(null, Is.Not.EqualTo(dict));
+			Assert.That(2, Is.EqualTo(dict.Count));
+			Assert.That(1337f, Is.EqualTo(dict["foo"]));
+			Assert.That(3.14f, Is.EqualTo(dict["bar"]));
 		}
 
 
@@ -240,10 +240,10 @@ namespace Nez.Persistence.JsonTests
 		{
 			var dict = Json.FromJson( "{\"foo\":1337,\"bar\":3.14}" ) as IDictionary;
 
-			Assert.IsNotNull( dict );
-			Assert.AreEqual( 2, dict.Count );
-			Assert.AreEqual( 1337f, Convert.ToSingle( dict["foo"] ) );
-			Assert.AreEqual( 3.14f, Convert.ToSingle( dict["bar"] ) );
+			Assert.That( dict, Is.Not.Null);
+			Assert.That(2, Is.EqualTo(dict.Count));
+			Assert.That(1337f, Is.EqualTo(Convert.ToSingle(dict["foo"])));
+			Assert.That(3.14f, Is.EqualTo(Convert.ToSingle(dict["bar"])));
 		}
 
 
@@ -258,14 +258,14 @@ namespace Nez.Persistence.JsonTests
 		public void DumpEnum()
 		{
 			const TestEnum testEnum = TestEnum.Thing2;
-			Assert.AreEqual( "\"Thing2\"", Json.ToJson( testEnum ) );
+			Assert.That("\"Thing2\"", Is.EqualTo(Json.ToJson(testEnum)));
 		}
 
 		[Test]
 		public void LoadEnum()
 		{
 			var testEnum = Json.FromJson<TestEnum>( "\"Thing2\"" );
-			Assert.AreEqual( TestEnum.Thing2, testEnum );
+			Assert.That(TestEnum.Thing2, Is.EqualTo(testEnum));
 
 			try
 			{
@@ -273,7 +273,7 @@ namespace Nez.Persistence.JsonTests
 			}
 			catch( ArgumentException e )
 			{
-				Assert.AreEqual( e.Message, "Requested value 'Thing4' was not found." );
+				Assert.That(e.Message, Is.EqualTo("Requested value 'Thing4' was not found."));
 			}
 		}
 
@@ -286,7 +286,7 @@ namespace Nez.Persistence.JsonTests
 				[TestEnum.Thing2] = "Item 2",
 				[TestEnum.Thing3] = "Item 3"
 			};
-			Assert.AreEqual( "{\"Thing1\":\"Item 1\",\"Thing2\":\"Item 2\",\"Thing3\":\"Item 3\"}", Json.ToJson( dict ) );
+			Assert.That("{\"Thing1\":\"Item 1\",\"Thing2\":\"Item 2\",\"Thing3\":\"Item 3\"}", Is.EqualTo(Json.ToJson(dict)));
 		}
 
 		[Test]
@@ -295,11 +295,11 @@ namespace Nez.Persistence.JsonTests
 			const string json = "{\"Thing1\":\"Item 1\",\"Thing2\":\"Item 2\",\"Thing3\":\"Item 3\"}";
 			var dict = Json.FromJson<Dictionary<TestEnum, string>>( json );
 
-			Assert.AreNotEqual( null, dict );
-			Assert.AreEqual( 3, dict.Count );
-			Assert.AreEqual( "Item 1", dict[TestEnum.Thing1] );
-			Assert.AreEqual( "Item 2", dict[TestEnum.Thing2] );
-			Assert.AreEqual( "Item 3", dict[TestEnum.Thing3] );
+			Assert.That(null, Is.Not.EqualTo(dict));
+			Assert.That(3, Is.EqualTo(dict.Count));
+			Assert.That("Item 1", Is.EqualTo(dict[TestEnum.Thing1]));
+			Assert.That("Item 2", Is.EqualTo(dict[TestEnum.Thing2]));
+			Assert.That("Item 3", Is.EqualTo(dict[TestEnum.Thing3]));
 		}
 
 	}

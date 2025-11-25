@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
+using NUnit.Framework.Legacy;
 
 namespace Nez.Persistence.Binary.Tests
 {
@@ -18,12 +19,12 @@ namespace Nez.Persistence.Binary.Tests
 
 		void ReadPrimitives( IPersistableReader reader )
 		{
-			Assert.AreEqual( reader.ReadString(), TestValues.aString );
-			Assert.AreEqual( reader.ReadInt(), TestValues.aInt );
-			Assert.AreEqual( reader.ReadUInt(), TestValues.aUint );
-			Assert.AreEqual( reader.ReadFloat(), TestValues.aFloat );
-			Assert.AreEqual( reader.ReadDouble(), TestValues.aDouble );
-			Assert.AreEqual( reader.ReadBool(), TestValues.aBool );
+			Assert.That( reader.ReadString(), Is.EqualTo(TestValues.aString) );
+			Assert.That( reader.ReadInt(), Is.EqualTo(TestValues.aInt ));
+			Assert.That( reader.ReadUInt(), Is.EqualTo(TestValues.aUint ));
+			Assert.That( reader.ReadFloat(), Is.EqualTo(TestValues.aFloat ));
+			Assert.That( reader.ReadDouble(), Is.EqualTo(TestValues.aDouble ));
+			Assert.That( reader.ReadBool(), Is.EqualTo(TestValues.aBool ));
 		}
 
 		void WriteComplex( IPersistableWriter writer )
@@ -39,7 +40,7 @@ namespace Nez.Persistence.Binary.Tests
 
 		void ReadComplex( IPersistableReader reader )
 		{
-			Assert.AreEqual( reader.ReadOptionalBool(), TestValues.aNullableBool );
+			Assert.That( reader.ReadOptionalBool(), Is.EqualTo(TestValues.aNullableBool ));
 			var intList = new List<int>();
 			reader.ReadIntListInto( intList );
 			CollectionAssert.AreEqual( intList, TestValues.aIntList );

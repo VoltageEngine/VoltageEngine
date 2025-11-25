@@ -82,8 +82,8 @@ namespace Nez.Persistence.NsonTests
 			var doodle = new Doodle { x = 5, y = 7, z = 9 };
 			var json = Nson.ToNson( doodle, new CustomDataConverter() );
 
-			Assert.IsTrue( json.Contains( "key-that-isnt-on-object" ) );
-			Assert.IsTrue( json.Contains( "another_key" ) );
+			Assert.That( json.Contains( "key-that-isnt-on-object" ), Is.True);
+			Assert.That(json.Contains("another_key"), Is.True);
 		}
 
 		[Test]
@@ -95,8 +95,8 @@ namespace Nez.Persistence.NsonTests
 
 			var newDoodle = Nson.FromNson<Doodle>( nson, settings );
 
-			Assert.AreEqual( 2, newDoodle.totalOrphanedKeys );
-			Assert.AreNotEqual( doodle.totalOrphanedKeys, newDoodle.totalOrphanedKeys );
+			Assert.That( 2, Is.EqualTo(newDoodle.totalOrphanedKeys) );
+			Assert.That( doodle.totalOrphanedKeys, Is.Not.EqualTo(newDoodle.totalOrphanedKeys) );
 		}
 
 		[Test]
@@ -105,10 +105,10 @@ namespace Nez.Persistence.NsonTests
 			var doodle = new Doodle { x = 5, y = 7, z = 9 };
 			var json = Nson.ToNson( doodle, new WantsExclusiveWriteConverter() );
 
-			Assert.IsTrue( json.Contains( "key-that-isnt-on-object" ) );
-			Assert.IsTrue( json.Contains( "another_key" ) );
-			Assert.IsTrue( json.Contains( "string_array" ) );
-			Assert.IsFalse( json.Contains( "x" ) );
+			Assert.That(json.Contains("key-that-isnt-on-object"), Is.True);
+			Assert.That(json.Contains("another_key"), Is.True);
+			Assert.That(json.Contains("string_array"), Is.True);
+			Assert.That( json.Contains( "x" ), Is.False );
 		}
 
 		[Test]
@@ -120,11 +120,11 @@ namespace Nez.Persistence.NsonTests
 			var settings = new NsonSettings { TypeConverters = new NsonTypeConverter[] { new ObjectFactoryConverter() } };
 			var newDoodle = Nson.FromNson<Doodle>( json, settings );
 
-			Assert.IsTrue( newDoodle.wasCreatedByObjectFactory );
+			Assert.That(newDoodle.wasCreatedByObjectFactory, Is.True);
 
-			Assert.AreEqual( newDoodle.x, doodle.x );
-			Assert.AreEqual( newDoodle.y, doodle.y );
-			Assert.AreEqual( newDoodle.z, doodle.z );
+			Assert.That(newDoodle.x, Is.EqualTo(doodle.x));
+			Assert.That(newDoodle.y, Is.EqualTo(doodle.y));
+			Assert.That(newDoodle.z, Is.EqualTo(doodle.z));
 		}
 
 		[Test]
@@ -140,16 +140,16 @@ namespace Nez.Persistence.NsonTests
 			var settings = new NsonSettings { TypeConverters = new NsonTypeConverter[] { new ObjectFactoryConverter() } };
 			var newContainer = Nson.FromNson<DoodleContainer>( json, settings );
 
-			Assert.IsTrue( newContainer.firstDoodle.wasCreatedByObjectFactory );
-			Assert.IsTrue( newContainer.secondDoodle.wasCreatedByObjectFactory );
+			Assert.That(newContainer.firstDoodle.wasCreatedByObjectFactory, Is.True);
+			Assert.That(newContainer.secondDoodle.wasCreatedByObjectFactory, Is.True);
 
-			Assert.AreEqual( container.firstDoodle.x, newContainer.firstDoodle.x );
-			Assert.AreEqual( container.firstDoodle.y, newContainer.firstDoodle.y );
-			Assert.AreEqual( container.firstDoodle.z, newContainer.firstDoodle.z );
+			Assert.That(container.firstDoodle.x, Is.EqualTo(newContainer.firstDoodle.x));
+			Assert.That(container.firstDoodle.y, Is.EqualTo(newContainer.firstDoodle.y));
+			Assert.That(container.firstDoodle.z, Is.EqualTo(newContainer.firstDoodle.z));
 
-			Assert.AreEqual( container.secondDoodle.x, newContainer.secondDoodle.x );
-			Assert.AreEqual( container.secondDoodle.y, newContainer.secondDoodle.y );
-			Assert.AreEqual( container.secondDoodle.z, newContainer.secondDoodle.z );
+			Assert.That(container.secondDoodle.x, Is.EqualTo(newContainer.secondDoodle.x));
+			Assert.That(container.secondDoodle.y, Is.EqualTo(newContainer.secondDoodle.y));
+			Assert.That(container.secondDoodle.z, Is.EqualTo(newContainer.secondDoodle.z));
 		}
 
 		[Test]
@@ -165,16 +165,16 @@ namespace Nez.Persistence.NsonTests
 			var settings = new NsonSettings { TypeConverters = new NsonTypeConverter[] { new ObjectFactoryConverter() } };
 			var newList = Nson.FromNson<List<Doodle>>( json, settings );
 
-			Assert.IsTrue( newList[0].wasCreatedByObjectFactory );
-			Assert.IsTrue( newList[1].wasCreatedByObjectFactory );
+			Assert.That(newList[0].wasCreatedByObjectFactory, Is.True);
+			Assert.That(newList[1].wasCreatedByObjectFactory, Is.True);
 
-			Assert.AreEqual( list[0].x, newList[0].x );
-			Assert.AreEqual( list[0].y, newList[0].y );
-			Assert.AreEqual( list[0].z, newList[0].z );
+			Assert.That( list[0].x, Is.EqualTo(newList[0].x) );
+			Assert.That(list[0].y, Is.EqualTo(newList[0].y));
+			Assert.That(list[0].z, Is.EqualTo(newList[0].z));
 
-			Assert.AreEqual( list[1].x, newList[1].x );
-			Assert.AreEqual( list[1].y, newList[1].y );
-			Assert.AreEqual( list[1].z, newList[1].z );
+			Assert.That(list[1].x, Is.EqualTo(newList[1].x));
+			Assert.That(list[1].y, Is.EqualTo(newList[1].y));
+			Assert.That(list[1].z, Is.EqualTo(newList[1].z));
 		}
 
 		[Test]
@@ -186,11 +186,11 @@ namespace Nez.Persistence.NsonTests
 			var settings = new NsonSettings { TypeConverters = new NsonTypeConverter[] { new ObjectFactoryConverter() } };
 			var newDoodle = Nson.FromNson<Doodle>( json, settings );
 
-			Assert.IsTrue( newDoodle.wasCreatedByObjectFactory );
+			Assert.That(newDoodle.wasCreatedByObjectFactory, Is.True);
 
-			Assert.AreEqual( newDoodle.x, doodle.x );
-			Assert.AreEqual( newDoodle.y, doodle.y );
-			Assert.AreEqual( newDoodle.z, doodle.z );
+			Assert.That(newDoodle.x, Is.EqualTo(doodle.x));
+			Assert.That(newDoodle.y, Is.EqualTo(doodle.y));
+			Assert.That(newDoodle.z, Is.EqualTo(doodle.z));
 		}
 
 		[Test]
@@ -206,16 +206,16 @@ namespace Nez.Persistence.NsonTests
 			var settings = new NsonSettings { TypeConverters = new NsonTypeConverter[] { new ObjectFactoryConverter() } };
 			var newContainer = Nson.FromNson<DoodleContainer>( json, settings );
 
-			Assert.IsTrue( newContainer.firstDoodle.wasCreatedByObjectFactory );
-			Assert.IsTrue( newContainer.secondDoodle.wasCreatedByObjectFactory );
+			Assert.That(newContainer.firstDoodle.wasCreatedByObjectFactory, Is.True);
+			Assert.That(newContainer.secondDoodle.wasCreatedByObjectFactory, Is.True);
 
-			Assert.AreEqual( container.firstDoodle.x, newContainer.firstDoodle.x );
-			Assert.AreEqual( container.firstDoodle.y, newContainer.firstDoodle.y );
-			Assert.AreEqual( container.firstDoodle.z, newContainer.firstDoodle.z );
+			Assert.That(container.firstDoodle.x, Is.EqualTo(newContainer.firstDoodle.x));
+			Assert.That(container.firstDoodle.y, Is.EqualTo(newContainer.firstDoodle.y));
+			Assert.That(container.firstDoodle.z, Is.EqualTo(newContainer.firstDoodle.z));
 
-			Assert.AreEqual( container.secondDoodle.x, newContainer.secondDoodle.x );
-			Assert.AreEqual( container.secondDoodle.y, newContainer.secondDoodle.y );
-			Assert.AreEqual( container.secondDoodle.z, newContainer.secondDoodle.z );
+			Assert.That(container.secondDoodle.x, Is.EqualTo(newContainer.secondDoodle.x));
+			Assert.That(container.secondDoodle.y, Is.EqualTo(newContainer.secondDoodle.y));
+			Assert.That(container.secondDoodle.z, Is.EqualTo(newContainer.secondDoodle.z));
 		}
 
 		[Test]
@@ -231,16 +231,16 @@ namespace Nez.Persistence.NsonTests
 			var settings = new NsonSettings { TypeConverters = new NsonTypeConverter[] { new ObjectFactoryConverter() } };
 			var newList = Nson.FromNson<List<Doodle>>( json, settings );
 
-			Assert.IsTrue( newList[0].wasCreatedByObjectFactory );
-			Assert.IsTrue( newList[1].wasCreatedByObjectFactory );
+			Assert.That(newList[0].wasCreatedByObjectFactory, Is.True);
+			Assert.That(newList[1].wasCreatedByObjectFactory, Is.True);
 
-			Assert.AreEqual( list[0].x, newList[0].x );
-			Assert.AreEqual( list[0].y, newList[0].y );
-			Assert.AreEqual( list[0].z, newList[0].z );
+			Assert.That(list[0].x, Is.EqualTo(newList[0].x));
+			Assert.That(list[0].y, Is.EqualTo(newList[0].y));
+			Assert.That(list[0].z, Is.EqualTo(newList[0].z));
 
-			Assert.AreEqual( list[1].x, newList[1].x );
-			Assert.AreEqual( list[1].y, newList[1].y );
-			Assert.AreEqual( list[1].z, newList[1].z );
+			Assert.That(list[1].x, Is.EqualTo(newList[1].x));
+			Assert.That(list[1].y, Is.EqualTo(newList[1].y));
+			Assert.That(list[1].z, Is.EqualTo(newList[1].z));
 		}
 
 	}

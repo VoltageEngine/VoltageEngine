@@ -16,6 +16,7 @@
 		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
 		<OutputPath>bin\Release\Monogame</OutputPath>
 		<GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -79,7 +80,6 @@
 
 	<ItemGroup>
 		<PackageReference Include="ImGui.NET" Version="1.89.5" />
-		<PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.4" />
 		<PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.4" />
 	</ItemGroup>
 

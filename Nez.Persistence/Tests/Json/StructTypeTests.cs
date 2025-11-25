@@ -31,7 +31,7 @@ namespace Nez.Persistence.JsonTests
 		{
 			var testStruct = new TestStruct { x = 5, y = 7, z = 0 };
 
-			Assert.AreEqual( "{\"x\":5,\"y\":7}", Json.ToJson( testStruct ) );
+			Assert.That("{\"x\":5,\"y\":7}", Is.EqualTo(Json.ToJson(testStruct)));
 		}
 
 
@@ -40,11 +40,11 @@ namespace Nez.Persistence.JsonTests
 		{
 			var testStruct = Json.FromJson<TestStruct>( "{\"x\":5,\"y\":7,\"z\":3}" );
 
-			Assert.AreEqual( 5, testStruct.x );
-			Assert.AreEqual( 7, testStruct.y );
-			Assert.AreEqual( 0, testStruct.z ); // should not get assigned
+			Assert.That(5, Is.EqualTo(testStruct.x));
+			Assert.That(7, Is.EqualTo(testStruct.y));
+			Assert.That(0, Is.EqualTo(testStruct.z)); // should not get assigned
 
-			Assert.IsTrue( LoadCallbackFired );
+			Assert.That(LoadCallbackFired, Is.True);
 		}
 	}
 }

@@ -1,7 +1,7 @@
 ﻿using FarseerPhysics.Dynamics;
 using FarseerPhysics.Dynamics.Joints;
 using Microsoft.Xna.Framework;
-using Nez.Analysis;
+using Nez.Utils;
 
 
 namespace Nez.Farseer

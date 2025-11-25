@@ -9,33 +9,33 @@ namespace Nez.Persistence.JsonTests
 		[Test]
 		public void DumpBoolean()
 		{
-			Assert.AreEqual( "true", Json.ToJson( true ) );
-			Assert.AreEqual( "false", Json.ToJson( false ) );
+			Assert.That( "true", Is.EqualTo(Json.ToJson(true)));
+			Assert.That("false", Is.EqualTo(Json.ToJson(false)));
 		}
 
 		[Test]
 		public void DumpNumber()
 		{
-			Assert.AreEqual( "12345", Json.ToJson( 12345 ) );
-			Assert.AreEqual( "12.34", Json.ToJson( 12.34 ) );
+			Assert.That("12345", Is.EqualTo(Json.ToJson(12345)));
+			Assert.That("12.34", Is.EqualTo(Json.ToJson(12.34)));
 		}
 
 		[Test]
 		public void DumpString()
 		{
-			Assert.AreEqual( "\"string\"", Json.ToJson( "string" ) );
+			Assert.That("\"string\"", Is.EqualTo(Json.ToJson("string")));
 		}
 
 		[Test]
 		public void DumpArray()
 		{
-			Assert.AreEqual( "[1,true,\"three\"]", Json.ToJson( Json.FromJson( "[1,true,\"three\"]" ) ) );
+			Assert.That("[1,true,\"three\"]", Is.EqualTo(Json.ToJson(Json.FromJson("[1,true,\"three\"]"))));
 		}
 
 		[Test]
 		public void DumpObject()
 		{
-			Assert.AreEqual( "{\"x\":1,\"y\":2}", Json.ToJson( Json.FromJson( "{\"x\":1,\"y\":2}" ) ) );
+			Assert.That("{\"x\":1,\"y\":2}", Is.EqualTo(Json.ToJson(Json.FromJson("{\"x\":1,\"y\":2}"))));
 		}
 	}
 }

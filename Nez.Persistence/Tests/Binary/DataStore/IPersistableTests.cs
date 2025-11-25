@@ -42,7 +42,7 @@ namespace Nez.Persistence.Binary.Tests
 
 			var newObj = new PersistableExample();
 
-			Assert.AreNotEqual( obj, newObj );
+			Assert.That( obj, Is.Not.EqualTo(newObj) );
 		}
 
 
@@ -61,7 +61,7 @@ namespace Nez.Persistence.Binary.Tests
 			var newObj = new PersistableExample();
 			_store.Load( "persist-me.bin", newObj );
 
-			Assert.AreEqual( obj, newObj );
+			Assert.That(obj, Is.EqualTo(newObj) );
 		}
 
 	}

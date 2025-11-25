@@ -32,7 +32,7 @@ namespace Nez.Persistence.NsonTests
 			var testStruct = new TestStruct { x = 5, y = 7, z = 0 };
             var json = Nson.ToNson(testStruct);
 
-            Assert.AreEqual("Nez.Persistence.NsonTests.StructTypeTests+TestStruct(x:5,y:7)", json );
+            Assert.That("Nez.Persistence.NsonTests.StructTypeTests+TestStruct(x:5,y:7)", Is.EqualTo(json) );
 		}
 
 
@@ -41,11 +41,11 @@ namespace Nez.Persistence.NsonTests
 		{
 			var testStruct = Nson.FromNson<TestStruct>("Nez.Persistence.NsonTests.StructTypeTests+TestStruct(x:5,y:7)");
 
-			Assert.AreEqual( 5, testStruct.x );
-			Assert.AreEqual( 7, testStruct.y );
-			Assert.AreEqual( 0, testStruct.z ); // should not get assigned
+			Assert.That(5, Is.EqualTo(testStruct.x));
+			Assert.That(7, Is.EqualTo(testStruct.y));
+			Assert.That(0, Is.EqualTo(testStruct.z)); // should not get assigned
 
-			Assert.IsTrue( LoadCallbackFired );
+			Assert.That( LoadCallbackFired, Is.True);
 		}
 	}
 }

@@ -25,7 +25,7 @@ namespace Nez.Persistence.JsonTests
 
 			System.Diagnostics.Debug.WriteLine( json );
 			var obj = Json.FromJson<NullableMembers>( json );
-			Assert.AreEqual( hasNull.nullableBool, obj.nullableBool );
+			Assert.That( hasNull.nullableBool, Is.EqualTo(obj.nullableBool) );
         }
 
 		[Test]
@@ -38,7 +38,7 @@ namespace Nez.Persistence.JsonTests
 			System.Diagnostics.Debug.WriteLine( json );
 
 			var obj = Json.FromJson<NullableMembers>( json );
-            Assert.AreEqual( hasNull.nullableBool, obj.nullableBool );
+            Assert.That(hasNull.nullableBool, Is.EqualTo(obj.nullableBool));
         }
 
 		[Test]
@@ -51,7 +51,7 @@ namespace Nez.Persistence.JsonTests
 			System.Diagnostics.Debug.WriteLine( json );
 
 			var obj = Json.FromJson<NullableMembers>( json );
-			Assert.AreEqual( hasNull.nullableBool, obj.nullableBool );
+			Assert.That(hasNull.nullableBool, Is.EqualTo(obj.nullableBool));
         }
 
 		[Test]
@@ -62,7 +62,7 @@ namespace Nez.Persistence.JsonTests
 
 			System.Diagnostics.Debug.WriteLine( json );
 			var obj = Json.FromJson<NullableMembers>( json );
-			Assert.AreEqual( hasNull.nullableInt, obj.nullableInt );
+			Assert.That(hasNull.nullableInt, Is.EqualTo(obj.nullableInt));
         }
 
 		[Test]
@@ -75,7 +75,7 @@ namespace Nez.Persistence.JsonTests
 			System.Diagnostics.Debug.WriteLine( json );
 
 			var obj = Json.FromJson<NullableMembers>( json );
-			Assert.AreEqual( hasNull.nullableInt, obj.nullableInt );
+			Assert.That(hasNull.nullableInt, Is.EqualTo(obj.nullableInt));
         }
 
 		[Test]
@@ -88,7 +88,7 @@ namespace Nez.Persistence.JsonTests
 			System.Diagnostics.Debug.WriteLine( json );
 
 			var obj = Json.FromJson<NullableMembers>( json );
-			Assert.AreEqual( hasNull.nullableFloat, obj.nullableFloat );
+			Assert.That(hasNull.nullableFloat, Is.EqualTo(obj.nullableFloat));
         }
 
 		[Test]
@@ -101,7 +101,7 @@ namespace Nez.Persistence.JsonTests
 			System.Diagnostics.Debug.WriteLine( json );
 
 			var obj = Json.FromJson<NullableMembers>( json );
-			Assert.AreEqual( hasNull.nullableFloat, obj.nullableFloat );
+			Assert.That(hasNull.nullableFloat, Is.EqualTo(obj.nullableFloat));
         }
 	}
 }

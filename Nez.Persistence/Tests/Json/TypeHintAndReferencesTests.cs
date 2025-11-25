@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 
-
 namespace Nez.Persistence.JsonTests
 {
 	[TestFixture]
@@ -36,7 +35,6 @@ namespace Nez.Persistence.JsonTests
 		class Sprite : Component
 		{ }
 
-
 		[Test]
 		public void TypeHintAuto()
 		{
@@ -51,11 +49,10 @@ namespace Nez.Persistence.JsonTests
 			} );
 
 			var outEntity = Json.FromJson<Entity>( json );
-			Assert.IsInstanceOf( typeof( Sprite ), outEntity.components[1] );
-
+			Assert.That(outEntity.components[1], Is.InstanceOf(typeof(Sprite)));
 
 			outEntity = Json.FromJson<Entity>( json );
-			Assert.IsInstanceOf( typeof( Sprite ), outEntity.components[1] );
+			Assert.That(outEntity.components[1], Is.InstanceOf(typeof(Sprite)));
 		}
 
 		[Test]
@@ -72,7 +69,7 @@ namespace Nez.Persistence.JsonTests
 			} );
 
 			var outEntity = Json.FromJson<Entity>( json );
-			Assert.AreEqual( outEntity, outEntity.components[1].entity );
+			Assert.That(outEntity.components[1].entity, Is.EqualTo(outEntity));
 		}
 
 		[Test]
@@ -89,7 +86,7 @@ namespace Nez.Persistence.JsonTests
 			} );
 
 			var outEntity = Json.FromJson<Entity>( json );
-			Assert.IsInstanceOf( typeof( Sprite ), outEntity.components[1] );
+			Assert.That(outEntity.components[1], Is.InstanceOf(typeof(Sprite)));
 		}
 
 		[Test]
@@ -104,7 +101,7 @@ namespace Nez.Persistence.JsonTests
 			} );
 
 			var outEntity = Json.FromJson<Entity>( json );
-			Assert.IsNotInstanceOf( typeof( Sprite ), outEntity.components[1] );
+			Assert.That(outEntity.components[1], Is.Not.InstanceOf(typeof(Sprite)));
 		}
 
 	}

@@ -45,9 +45,9 @@ namespace Nez.Persistence.NsonTests
 			testClass.list = new List<int> { 3, 1, 4 };
 
 			var json = Nson.ToNson( testClass );
-			Assert.AreEqual("Nez.Persistence.NsonTests.ClassTypeTests+TestClass(date:\"2020-01-01T00:00:00Z\",x:5,y:7,list:[3,1,4])", json );
+			Assert.That("Nez.Persistence.NsonTests.ClassTypeTests+TestClass(date:\"2020-01-01T00:00:00Z\",x:5,y:7,list:[3,1,4])", Is.EqualTo(json));
 
-			Assert.IsTrue( BeforeEncodeCallbackFired );
+			Assert.That(BeforeEncodeCallbackFired, Is.True);
 		}
 
 		[Test]
@@ -62,7 +62,7 @@ namespace Nez.Persistence.NsonTests
 			};
             var json = Nson.ToNson(testClass, settings);
 
-            Assert.AreEqual(@"Nez.Persistence.NsonTests.ClassTypeTests+TestClass(
+            Assert.That(@"Nez.Persistence.NsonTests.ClassTypeTests+TestClass(
     date: ""2020-01-01T00:00:00Z"",
     x: 5,
     y: 7,
@@ -71,7 +71,7 @@ namespace Nez.Persistence.NsonTests
         1,
         4
     ]
-)".Replace("    ", "\t"), json);
+)".Replace("    ", "\t"), Is.EqualTo(json));
 		}
 
 		[Test]
@@ -79,17 +79,17 @@ namespace Nez.Persistence.NsonTests
         {
             var testClass = Nson.FromNson<TestClass>("Nez.Persistence.NsonTests.ClassTypeTests+TestClass(date:\"2020-01-01T00:00:00Z\",x:5,y:7,list:[3,1,4])");
 
-			Assert.AreEqual( new DateTime( 2020, 1, 1 ), testClass.date );
-			Assert.AreEqual( 5, testClass.x );
-			Assert.AreEqual( 7, testClass.y );
-			Assert.AreEqual( 0, testClass.z ); // should not get assigned
+			Assert.That(new DateTime(2020, 1, 1), Is.EqualTo(testClass.date));
+			Assert.That(5, Is.EqualTo(testClass.x));
+			Assert.That(7, Is.EqualTo(testClass.y));
+			Assert.That(0, Is.EqualTo(testClass.z)); // should not get assigned
 
-			Assert.AreEqual( 3, testClass.list.Count );
-			Assert.AreEqual( 3, testClass.list[0] );
-			Assert.AreEqual( 1, testClass.list[1] );
-			Assert.AreEqual( 4, testClass.list[2] );
+			Assert.That(3, Is.EqualTo(testClass.list.Count));
+			Assert.That(3, Is.EqualTo(testClass.list[0]));
+			Assert.That(1, Is.EqualTo(testClass.list[1]));
+			Assert.That(4, Is.EqualTo(testClass.list[2]));
 
-			Assert.IsTrue( AfterDecodeCallbackFired );
+			Assert.That( AfterDecodeCallbackFired, Is.True);
 		}
 
 
@@ -107,10 +107,10 @@ namespace Nez.Persistence.NsonTests
 			outerClass.inner = new InnerClass();
             var nson = Nson.ToNson(outerClass);
 
-            Assert.AreEqual("Nez.Persistence.NsonTests.ClassTypeTests+OuterClass(inner:Nez.Persistence.NsonTests.ClassTypeTests+InnerClass())", nson );
+            Assert.That("Nez.Persistence.NsonTests.ClassTypeTests+OuterClass(inner:Nez.Persistence.NsonTests.ClassTypeTests+InnerClass())", Is.EqualTo(nson));
 
             var back = Nson.FromNson(nson);
-            Assert.IsTrue(back.GetType() == typeof(OuterClass));
+            Assert.That(back.GetType() == typeof(OuterClass), Is.True);
 		}
 
 	}
