@@ -1,9 +1,9 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
-using Nez.Utils;
+using Voltage.Utils;
 
 
-namespace Nez.Textures
+namespace Voltage.Textures
 {
 	public class RenderTarget : GlobalManager
 	{

@@ -2,11 +2,11 @@
 using System.Text;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Utils.Extensions;
-using Nez.Utils.Fonts;
+using Voltage.Utils.Extensions;
+using Voltage.Utils.Fonts;
 
 
-namespace Nez.BitmapFonts
+namespace Voltage.BitmapFonts
 {
 	public partial class BitmapFont
 	{

@@ -2,7 +2,7 @@
 using System.Text;
 
 
-namespace Nez.AI.GOAP
+namespace Voltage.AI.GOAP
 {
 	public struct WorldState : IEquatable<WorldState>
 	{

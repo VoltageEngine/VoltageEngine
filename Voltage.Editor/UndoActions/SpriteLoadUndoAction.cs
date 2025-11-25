@@ -1,5 +1,5 @@
-using Nez.Sprites;
-using Nez.Textures;
+using Voltage.Sprites;
+using Voltage.Textures;
 
 namespace Voltage.Editor.UndoActions;
 

@@ -1,7 +1,7 @@
 ﻿using System;
 using Microsoft.Xna.Framework;
 
-namespace Nez.Utils.Extensions
+namespace Voltage.Utils.Extensions
 {
 	public static class ColorExt
 	{

@@ -2,11 +2,11 @@
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Nez.Utils.Collections;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
+using Voltage.Utils.Collections;
 
 
-namespace Nez.Shadows
+namespace Voltage.Shadows
 {
 	/// <summary>
 	/// Point light that also casts shadows
@@ -123,7 +123,7 @@ namespace Nez.Shadows
 
 		public override void OnAddedToEntity()
 		{
-			_lightEffect = Entity.Scene.Content.LoadNezEffect<PolygonLightEffect>();
+			_lightEffect = Entity.Scene.Content.LoadVoltageEffect<PolygonLightEffect>();
 			_lightEffect.LightRadius = Radius;
 			_visibility = new VisibilityComputer();
 		}

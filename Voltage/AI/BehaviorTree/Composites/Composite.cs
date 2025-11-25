@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 
 
-namespace Nez.AI.BehaviorTrees
+namespace Voltage.AI.BehaviorTrees
 {
 	/// <summary>
 	/// any Composite nodes must subclass this. Provides storage for children and helpers to deal with AbortTypes

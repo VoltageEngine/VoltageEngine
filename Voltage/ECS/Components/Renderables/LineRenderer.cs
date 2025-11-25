@@ -1,12 +1,12 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
-using Nez.PhysicsShapes;
 using System.Runtime.CompilerServices;
-using Nez.Utils.Collections;
-using Nez.Utils.Extensions;
+using Voltage.PhysicsShapes;
+using Voltage.Utils.Collections;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez
+namespace Voltage
 {
 	public enum EndCapType
 	{

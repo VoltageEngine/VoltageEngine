@@ -1,7 +1,4 @@
 ﻿<Project>
-	<PropertyGroup>
-		<BaseIntermediateOutputPath>obj\Voltage</BaseIntermediateOutputPath>
-	</PropertyGroup>
 	<Import Sdk="Microsoft.NET.Sdk" Project="Sdk.props" />
 
 	<PropertyGroup>
@@ -9,6 +6,7 @@
 		<AssemblyName>Voltage</AssemblyName>
 		<RootNamespace>Voltage</RootNamespace>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<BaseIntermediateOutputPath>obj\Voltage</BaseIntermediateOutputPath>
 		<GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
 	</PropertyGroup>
 
@@ -30,13 +28,14 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<None Remove="Content\VoltageDefaultBMFont.xnb" />
+	  <None Remove="Content\VoltageDefaultBMFont.fnt" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<EmbeddedResource Include="Content\VoltageDefaultBMFont.xnb">
-		</EmbeddedResource>
-	</ItemGroup>
+	  <Content Include="Content\VoltageDefaultBMFont.fnt">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	</ItemGroup>		
 
 	<ItemGroup>
 		<PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.4" />

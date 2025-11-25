@@ -1,10 +1,10 @@
 ﻿using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
-using Nez.Utils;
+using Voltage.Utils;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	public class SelectBoxList<T> : ScrollPane where T : class
 	{

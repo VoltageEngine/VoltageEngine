@@ -3,7 +3,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
 
-namespace Nez.DeferredLighting
+namespace Voltage.DeferredLighting
 {
 	/// <summary>
 	/// builds a Polygon from the passed in verts. Verts should be relative to 0,0 and contain the outer perimeter of the polygon. A center

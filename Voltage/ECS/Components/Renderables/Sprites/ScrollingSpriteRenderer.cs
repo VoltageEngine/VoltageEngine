@@ -1,10 +1,10 @@
-﻿using Nez.Textures;
-using Microsoft.Xna.Framework.Graphics;
+﻿using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
-using Nez.Utils;
+using Voltage.Textures;
+using Voltage.Utils;
 
 
-namespace Nez.Sprites
+namespace Voltage.Sprites
 {
 	/// <summary>
 	/// Scrolling sprite. Note that ScrollingSprite overrides the Material so that it can wrap the UVs. This class requires the texture

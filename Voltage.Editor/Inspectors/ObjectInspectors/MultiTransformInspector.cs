@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using ImGuiNET;
-using Nez;
+using Voltage;
 using Num = System.Numerics;
 
 namespace Voltage.Editor.Inspectors.ObjectInspectors;

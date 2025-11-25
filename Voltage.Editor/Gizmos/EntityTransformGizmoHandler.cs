@@ -1,7 +1,7 @@
 using ImGuiNET;
 using Microsoft.Xna.Framework;
-using Nez;
-using Nez.Utils;
+using Voltage;
+using Voltage.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;

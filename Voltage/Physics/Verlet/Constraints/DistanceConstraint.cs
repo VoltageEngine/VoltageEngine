@@ -1,10 +1,10 @@
 using System;
 using System.Runtime.CompilerServices;
 using Microsoft.Xna.Framework;
-using Nez.PhysicsShapes;
+using Voltage.PhysicsShapes;
 
 
-namespace Nez.Verlet
+namespace Voltage.Verlet
 {
 	/// <summary>
 	/// maintains a specified distance betweeen two Particles. The stiffness adjusts how rigid or springy the constraint will be.

@@ -2,10 +2,10 @@
 using Microsoft.Xna.Framework;
 using System.Collections;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Utils.Tweens.Easing;
+using Voltage.Utils.Tweens.Easing;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// sweeps wind accross the screen revealing the new Scene
@@ -49,7 +49,7 @@ namespace Nez
 			_destinationRect = PreviousSceneRender.Bounds;
 
 			// load Effect and set defaults
-			_windEffect = Core.Content.LoadEffect("Content/nez/effects/transitions/Wind.mgfxo");
+			_windEffect = Core.Content.LoadEffect("Content/voltage/effects/transitions/Wind.mgfxo");
 			Size = 0.3f;
 			WindSegments = 100;
 		}

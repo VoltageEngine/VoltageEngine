@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework;
 
 
-namespace Nez.Svg
+namespace Voltage.Svg
 {
 	/// <summary>
 	/// helper class used to parse paths and also fetch the drawing points from a series of SvgPathSegments. This is an insanely slow way

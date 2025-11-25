@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using ImGuiNET;
-using Nez;
-using Nez.Sprites;
-using Nez.Utils.Extensions;
+using Voltage;
+using Voltage.Sprites;
+using Voltage.Utils.Extensions;
 using Voltage.Editor.Core;
 using Voltage.Editor.Inspectors.Attributes;
 using Voltage.Editor.Inspectors.CustomInspectors;
@@ -81,7 +81,7 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 		public override void Draw()
 		{
 			if(_imGuiManager == null)
-				_imGuiManager = Nez.Core.GetGlobalManager<ImGuiManager>();
+				_imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
 
 			ImGui.PushID(_scopeId);
 			var isHeaderOpen = ImGui.CollapsingHeader(_name);

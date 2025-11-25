@@ -1,4 +1,4 @@
-﻿namespace Nez.Verlet
+﻿namespace Voltage.Verlet
 {
 	public class Ragdoll : Composite
 	{

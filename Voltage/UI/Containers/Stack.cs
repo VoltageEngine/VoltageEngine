@@ -1,7 +1,7 @@
 ﻿using System;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	/// <summary>
 	/// A stack is a container that sizes its children to its size and positions them at 0,0 on top of each other.

@@ -1,7 +1,7 @@
 ﻿using System;
 
 
-namespace Nez.BitmapFonts
+namespace Voltage.BitmapFonts
 {
 	/// <summary>
 	/// Represents the font kerning between two characters.

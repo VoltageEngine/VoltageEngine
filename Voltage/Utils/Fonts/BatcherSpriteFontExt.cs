@@ -2,14 +2,14 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace Nez.Utils.Fonts
+namespace Voltage.Utils.Fonts
 {
 	/// <summary>
-	/// helper methods for drawing text with NezSpriteFonts
+	/// helper methods for drawing text with VoltageSpriteFonts
 	/// </summary>
 	public static class BatcherSpriteFontExt
 	{
-		public static void DrawString(this Batcher batcher, NezSpriteFont spriteFont, StringBuilder text,
+		public static void DrawString(this Batcher batcher, VoltageSpriteFont spriteFont, StringBuilder text,
 		                              Vector2 position, Color color)
 		{
 			batcher.DrawString(spriteFont, text, position, color, 0.0f, Vector2.Zero, new Vector2(1.0f),
@@ -17,7 +17,7 @@ namespace Nez.Utils.Fonts
 		}
 
 
-		public static void DrawString(this Batcher batcher, NezSpriteFont spriteFont, StringBuilder text,
+		public static void DrawString(this Batcher batcher, VoltageSpriteFont spriteFont, StringBuilder text,
 		                              Vector2 position, Color color,
 		                              float rotation, Vector2 origin, float scale, SpriteEffects effects,
 		                              float layerDepth)
@@ -27,7 +27,7 @@ namespace Nez.Utils.Fonts
 		}
 
 
-		public static void DrawString(this Batcher batcher, NezSpriteFont spriteFont, string text, Vector2 position,
+		public static void DrawString(this Batcher batcher, VoltageSpriteFont spriteFont, string text, Vector2 position,
 		                              Color color)
 		{
 			batcher.DrawString(spriteFont, text, position, color, 0.0f, Vector2.Zero, new Vector2(1.0f),
@@ -35,7 +35,7 @@ namespace Nez.Utils.Fonts
 		}
 
 
-		public static void DrawString(this Batcher batcher, NezSpriteFont spriteFont, string text, Vector2 position,
+		public static void DrawString(this Batcher batcher, VoltageSpriteFont spriteFont, string text, Vector2 position,
 		                              Color color, float rotation,
 		                              Vector2 origin, float scale, SpriteEffects effects, float layerDepth)
 		{
@@ -44,7 +44,7 @@ namespace Nez.Utils.Fonts
 		}
 
 
-		public static void DrawString(this Batcher batcher, NezSpriteFont spriteFont, StringBuilder text,
+		public static void DrawString(this Batcher batcher, VoltageSpriteFont spriteFont, StringBuilder text,
 		                              Vector2 position, Color color,
 		                              float rotation, Vector2 origin, Vector2 scale, SpriteEffects effects,
 		                              float layerDepth)
@@ -59,7 +59,7 @@ namespace Nez.Utils.Fonts
 		}
 
 
-		public static void DrawString(this Batcher batcher, NezSpriteFont spriteFont, string text, Vector2 position,
+		public static void DrawString(this Batcher batcher, VoltageSpriteFont spriteFont, string text, Vector2 position,
 		                              Color color, float rotation,
 		                              Vector2 origin, Vector2 scale, SpriteEffects effects, float layerDepth)
 		{

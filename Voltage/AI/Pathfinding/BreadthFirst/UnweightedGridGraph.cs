@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
 using Microsoft.Xna.Framework;
-using Nez.Tiled;
+using Voltage.Tiled;
 
 
-namespace Nez.AI.Pathfinding
+namespace Voltage.AI.Pathfinding
 {
 	/// <summary>
 	/// basic unweighted grid graph for use with the BreadthFirstPathfinder

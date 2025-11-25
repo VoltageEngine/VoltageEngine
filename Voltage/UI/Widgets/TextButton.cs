@@ -1,9 +1,9 @@
 ﻿using System;
-using Nez.BitmapFonts;
 using Microsoft.Xna.Framework;
+using Voltage.BitmapFonts;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	public class TextButton : Button
 	{

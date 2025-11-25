@@ -1,8 +1,8 @@
 ﻿using System;
-using Nez.Data;
+using Voltage.Data;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// Renderer that renders using its own Camera which doesnt move.

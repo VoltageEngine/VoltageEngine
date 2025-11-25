@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	public class TabPane : Table
 	{

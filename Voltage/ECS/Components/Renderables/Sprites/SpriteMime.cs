@@ -1,6 +1,6 @@
-﻿using Nez.Utils.Extensions;
+﻿using Voltage.Utils.Extensions;
 
-namespace Nez.Sprites
+namespace Voltage.Sprites
 {
 	/// <summary>
 	/// this component will draw the same frame of spriteToMime every frame. The only difference in rendering is that SpriteMime uses its own

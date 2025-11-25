@@ -1,15 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
-using Nez.Textures;
 using Microsoft.Xna.Framework;
-using Nez.BitmapFonts;
-using Nez.Systems;
 using System.Linq;
-using Nez.Sprites;
-using Nez.Utils;
+using Voltage.BitmapFonts;
+using Voltage.Sprites;
+using Voltage.Systems;
+using Voltage.Textures;
+using Voltage.Utils;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	public class Skin
 	{
@@ -183,7 +183,7 @@ namespace Nez.UI
 		/// <param name="styleDict">A dictionary that represents one style name within the style config class (i.e. 'default').</param>
 		/// <param name="styleName">The style name that the dictionary represents (i.e. 'default').</param>
 		/// <typeparam name="T">The style config class type (i.e. SelectBoxStyle)</typeparam>
-		public T SetStylesForStyleClass<T>(T styleClass, Dictionary<string, object> styleDict, NezContentManager contentManager, string styleName)
+		public T SetStylesForStyleClass<T>(T styleClass, Dictionary<string, object> styleDict, VoltageContentManager contentManager, string styleName)
 		{
 			foreach (var styleConfig in styleDict)
 			{

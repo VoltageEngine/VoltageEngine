@@ -2,11 +2,11 @@
 using Microsoft.Xna.Framework;
 using System.Collections;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Utils;
-using Nez.Utils.Tweens.Easing;
+using Voltage.Utils;
+using Voltage.Utils.Tweens.Easing;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// uses a texture (transitionTexture) to control a wipe animation. the blue channel of the texture determines if color is shown or the
@@ -74,19 +74,19 @@ namespace Nez
 			_destinationRect = PreviousSceneRender.Bounds;
 
 			// load Effect and set defaults
-			_textureWipeEffect = Core.Content.LoadEffect("Content/nez/effects/transitions/TextureWipe.mgfxo");
+			_textureWipeEffect = Core.Content.LoadEffect("Content/voltage/effects/transitions/TextureWipe.mgfxo");
 			Opacity = 1f;
 			Color = Color.Black;
 			TransitionTexture = transitionTexture;
 		}
 
 		public TextureWipeTransition(Func<Scene> sceneLoadAction) : this(sceneLoadAction,
-			Core.Content.Load<Texture2D>("nez/textures/textureWipeTransition/angular"))
+			Core.Content.Load<Texture2D>("voltage/textures/textureWipeTransition/angular"))
 		{
 		}
 
 		public TextureWipeTransition() : this(null,
-			Core.Content.Load<Texture2D>("nez/textures/textureWipeTransition/angular"))
+			Core.Content.Load<Texture2D>("voltage/textures/textureWipeTransition/angular"))
 		{
 		}
 

@@ -1,4 +1,4 @@
-﻿namespace Nez.DeferredLighting
+﻿namespace Voltage.DeferredLighting
 {
 	public abstract class DeferredLight : RenderableComponent
 	{

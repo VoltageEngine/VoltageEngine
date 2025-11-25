@@ -2,12 +2,12 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections;
-using Nez.Utils;
-using Nez.Utils.Coroutines;
-using Nez.Utils.Tweens.Easing;
+using Voltage.Utils;
+using Voltage.Utils.Coroutines;
+using Voltage.Utils.Tweens.Easing;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// uses an image to mask out part of the scene scaling it from max-to-min then from min-to-max with rotation. Note that the Texture

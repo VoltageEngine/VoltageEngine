@@ -1,7 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	public struct DebugRectangleF
 	{

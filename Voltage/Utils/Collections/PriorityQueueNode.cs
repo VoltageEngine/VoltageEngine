@@ -1,4 +1,4 @@
-﻿namespace Nez.Utils.Collections
+﻿namespace Voltage.Utils.Collections
 {
 	public class PriorityQueueNode
 	{

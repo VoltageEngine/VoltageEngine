@@ -1,6 +1,6 @@
-﻿using Nez.Utils.Extensions;
+﻿using Voltage.Utils.Extensions;
 
-namespace Nez.AI.BehaviorTrees
+namespace Voltage.AI.BehaviorTrees
 {
 	/// <summary>
 	/// Same as Selector except it shuffles the children when started

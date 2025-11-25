@@ -1,10 +1,10 @@
 ﻿using Microsoft.Xna.Framework;
 using System;
-using Nez.Utils;
-using Nez.Utils.Extensions;
+using Voltage.Utils;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	/// <summary>
 	/// A group that scrolls a child widget using scrollbars and/or mouse or touch dragging.

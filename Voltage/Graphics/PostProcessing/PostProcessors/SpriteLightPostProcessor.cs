@@ -1,9 +1,9 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
-using Nez.Textures;
+using Voltage.Textures;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// post processor to assist with making blended sprite lights. Usage is as follows:

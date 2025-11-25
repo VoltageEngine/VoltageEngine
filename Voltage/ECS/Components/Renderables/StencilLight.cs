@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// Light that works with the StencilLightRenderer. This uses a texture-less shader with a simple falloff calculation to draw a light.
@@ -89,7 +89,7 @@ namespace Nez
 
 		public override void OnAddedToEntity()
 		{
-			_lightEffect = Entity.Scene.Content.LoadNezEffect<StencilLightEffect>();
+			_lightEffect = Entity.Scene.Content.LoadVoltageEffect<StencilLightEffect>();
 			_lightEffect.Radius = _radius * MathHelper.Max(Entity.Transform.Scale.X, Entity.Transform.Scale.Y);
 
 			SetMaterial(Material.StencilRead(0));

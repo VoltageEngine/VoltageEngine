@@ -1,7 +1,7 @@
-using Nez.Textures;
+using Voltage.Textures;
 
 
-namespace Nez.BitmapFonts
+namespace Voltage.BitmapFonts
 {
 	public class BitmapFontRegion
 	{

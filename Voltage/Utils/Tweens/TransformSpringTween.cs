@@ -1,8 +1,8 @@
 ﻿using System;
 using Microsoft.Xna.Framework;
-using Nez.Utils.Tweens.Easing;
+using Voltage.Utils.Tweens.Easing;
 
-namespace Nez.Utils.Tweens
+namespace Voltage.Utils.Tweens
 {
 	public class TransformSpringTween : AbstractTweenable
 	{

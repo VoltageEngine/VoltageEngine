@@ -1,10 +1,10 @@
 ﻿using Microsoft.Xna.Framework;
-using Nez.UI;
 using System.Globalization;
+using Voltage.UI;
 
 
 #if DEBUG
-namespace Nez
+namespace Voltage
 {
 	public class Vector2Inspector : Inspector
 	{

@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
 
-namespace Nez.Utils
+namespace Voltage.Utils
 {
 	/// <summary>
 	/// helper class to fetch property delegates

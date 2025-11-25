@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using System.Text;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
 
-namespace Nez.Utils.Fonts
+namespace Voltage.Utils.Fonts
 {
 #if !FNA
-	public class NezSpriteFont : IFont
+	public class VoltageSpriteFont : IFont
 	{
 		public float LineSpacing => _font.LineSpacing;
 
@@ -21,7 +21,7 @@ namespace Nez.Utils.Fonts
 		Matrix2D _transformationMatrix = Matrix2D.Identity;
 
 
-		public NezSpriteFont(SpriteFont font)
+		public VoltageSpriteFont(SpriteFont font)
 		{
 			_font = font;
 			_glyphs = font.GetGlyphs();
@@ -305,7 +305,7 @@ namespace Nez.Utils.Fonts
 	}
 
 #else
-	public class NezSpriteFont : IFont
+	public class VoltageSpriteFont : IFont
 	{
 		public float LineSpacing { get { return _font.LineSpacing; } }
 
@@ -319,7 +319,7 @@ namespace Nez.Utils.Fonts
 #pragma warning restore 0414
 
 
-		public NezSpriteFont( SpriteFont font )
+		public VoltageSpriteFont( SpriteFont font )
 		{
 			_font = font;
 		}
@@ -341,13 +341,13 @@ namespace Nez.Utils.Fonts
 
 		public void DrawInto( Batcher batcher, ref FontCharacterSource text, Vector2 position, Color color, float rotation, Vector2 origin, Vector2 scale, SpriteEffects effect, float depth )
 		{
-			throw new NotImplementedException("NezSpriteFont is not implemented on FNA, we recommend using BitmapFont instead.");
+			throw new NotImplementedException("VoltageSpriteFont is not implemented on FNA, we recommend using BitmapFont instead.");
 		}
 
 
 		bool IFont.HasCharacter( char c )
 		{
-			throw new NotImplementedException("NezSpriteFont is not implemented on FNA, we recommend using BitmapFont instead.");
+			throw new NotImplementedException("VoltageSpriteFont is not implemented on FNA, we recommend using BitmapFont instead.");
 		}
 
 

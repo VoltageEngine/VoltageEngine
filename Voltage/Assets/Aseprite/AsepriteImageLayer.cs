@@ -1,4 +1,4 @@
-namespace Nez.Aseprite
+namespace Voltage.Aseprite
 {
 	/// <summary>
 	/// Represents a layer in an Aseprite file that image cels are placed on.

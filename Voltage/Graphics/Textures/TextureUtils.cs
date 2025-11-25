@@ -1,9 +1,9 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 using System.IO;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
 
-namespace Nez.Textures
+namespace Voltage.Textures
 {
 	/// <summary>
 	/// various utilties for creating textures on the fly. These can be pretty heavy on the CPU so it's best to not try to use them every frame.

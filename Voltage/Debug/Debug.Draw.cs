@@ -1,13 +1,13 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.BitmapFonts;
-using Nez.PhysicsShapes;
-using Nez.Utils.Fonts;
+using Voltage.PhysicsShapes;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Voltage.BitmapFonts;
+using Voltage.Utils.Fonts;
 
-namespace Nez
+namespace Voltage
 {
 	public static partial class Debug
 	{
@@ -198,7 +198,7 @@ namespace Nez
 		}
 
 		[Conditional("DEBUG")]
-		public static void DrawText(NezSpriteFont font, string text, Vector2 position, Color color, float duration = 0f,
+		public static void DrawText(VoltageSpriteFont font, string text, Vector2 position, Color color, float duration = 0f,
 									float scale = 1f)
 		{
 			if (!Core.DebugRenderEnabled)

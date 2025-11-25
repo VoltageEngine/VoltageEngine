@@ -1,6 +1,6 @@
-﻿using Nez.Utils.Tweens.Interfaces;
+﻿using Voltage.Utils.Tweens.Interfaces;
 
-namespace Nez.Utils.Tweens
+namespace Voltage.Utils.Tweens
 {
 	/// <summary>
 	/// AbstractTweenable serves as a base for any custom classes you might want to make that can be ticked. These differ from

@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
-using Nez.Utils.Collections;
+using Voltage.Utils.Collections;
 
-namespace Nez.Tiled
+namespace Voltage.Tiled
 {
     public partial class TmxLayer : ITmxLayer
     {

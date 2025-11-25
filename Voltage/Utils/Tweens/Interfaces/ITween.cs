@@ -1,7 +1,7 @@
 ﻿using System;
-using Nez.Utils.Tweens.Easing;
+using Voltage.Utils.Tweens.Easing;
 
-namespace Nez.Utils.Tweens.Interfaces
+namespace Voltage.Utils.Tweens.Interfaces
 {
 	/// <summary>
 	/// a series of strongly typed, chainable methods to setup various tween properties

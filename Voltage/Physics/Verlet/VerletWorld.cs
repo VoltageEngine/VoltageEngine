@@ -1,11 +1,11 @@
 using System.Runtime.CompilerServices;
 using Microsoft.Xna.Framework;
-using Nez.PhysicsShapes;
-using Nez.Utils;
-using Nez.Utils.Collections;
+using Voltage.PhysicsShapes;
+using Voltage.Utils;
+using Voltage.Utils.Collections;
 
 
-namespace Nez.Verlet
+namespace Voltage.Verlet
 {
 	/// <summary>
 	/// the root of the Verlet simulation. Create a World and call its update method each frame.
@@ -86,7 +86,7 @@ namespace Nez.Verlet
 					// do the verlet integration
 					composite.UpdateParticles(_fixedDeltaTimeSq, Gravity);
 
-					// handle collisions with Nez Colliders
+					// handle collisions with Voltage Colliders
 					composite.HandleConstraintCollisions();
 
 					for (var j = 0; j < composite.Particles.Length; j++)
@@ -97,7 +97,7 @@ namespace Nez.Verlet
 						if (SimulationBounds.HasValue)
 							ConstrainParticleToBounds(p);
 
-						// optionally handle collisions with Nez Colliders
+						// optionally handle collisions with Voltage Colliders
 						if (p.CollidesWithColliders)
 							HandleCollisions(p, composite.CollidesWithLayers);
 					}

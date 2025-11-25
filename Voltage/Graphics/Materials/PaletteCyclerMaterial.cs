@@ -1,4 +1,4 @@
-﻿namespace Nez.Materials
+﻿namespace Voltage.Materials
 {
 	public class PaletteCyclerMaterial : Material<PaletteCyclerEffect>
 	{

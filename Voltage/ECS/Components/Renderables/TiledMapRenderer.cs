@@ -1,14 +1,14 @@
 ﻿using System;
 using Microsoft.Xna.Framework;
-using Nez.Systems;
-using Nez.Tiled;
-using Nez.Utils.Extensions;
+using Voltage.Systems;
+using Voltage.Utils.Extensions;
 using System.Collections.Generic;
 using System.IO;
+using Voltage.Tiled;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 
-namespace Nez
+namespace Voltage
 {
 	public class TiledMapRenderer : RenderableComponent, IUpdatable
 	{

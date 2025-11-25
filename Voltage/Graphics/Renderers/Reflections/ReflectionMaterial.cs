@@ -1,8 +1,8 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
-using Nez.Textures;
+using Voltage.Textures;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// used in conjunction with the ReflectionRenderer

@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using FarseerPhysics.Dynamics;
 using Microsoft.Xna.Framework;
-using Nez;
+using Voltage;
 
 
 namespace Voltage.Farseer

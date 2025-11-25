@@ -1,4 +1,4 @@
-using Nez;
+using Voltage;
 
 namespace Voltage.Editor.Inspectors.ObjectInspectors
 {

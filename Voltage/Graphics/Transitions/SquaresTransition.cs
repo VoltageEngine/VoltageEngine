@@ -2,12 +2,12 @@
 using Microsoft.Xna.Framework;
 using System.Collections;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Utils;
-using Nez.Utils.Coroutines;
-using Nez.Utils.Tweens.Easing;
+using Voltage.Utils;
+using Voltage.Utils.Coroutines;
+using Voltage.Utils.Tweens.Easing;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// builds up a cover of squares then removes them
@@ -67,7 +67,7 @@ namespace Nez
 			_destinationRect = PreviousSceneRender.Bounds;
 
 			// load Effect and set defaults
-			_squaresEffect = Core.Content.LoadEffect("Content/nez/effects/transitions/Squares.mgfxo");
+			_squaresEffect = Core.Content.LoadEffect("Content/voltage/effects/transitions/Squares.mgfxo");
 			SquareColor = Color.Black;
 			Smoothness = 0.5f;
 

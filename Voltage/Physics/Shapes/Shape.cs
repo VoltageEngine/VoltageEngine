@@ -1,7 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 
 
-namespace Nez.PhysicsShapes
+namespace Voltage.PhysicsShapes
 {
 	public abstract class Shape
 	{

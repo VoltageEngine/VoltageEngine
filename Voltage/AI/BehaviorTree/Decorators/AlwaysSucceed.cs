@@ -1,4 +1,4 @@
-﻿namespace Nez.AI.BehaviorTrees
+﻿namespace Voltage.AI.BehaviorTrees
 {
 	/// <summary>
 	/// will always return success except when the child task is running

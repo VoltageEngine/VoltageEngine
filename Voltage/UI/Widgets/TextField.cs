@@ -1,16 +1,16 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
-using Nez.BitmapFonts;
 using System;
 using System.Collections.Generic;
 using System.Text;
-using Nez.Utils;
-using Nez.Utils.Extensions;
-using Nez.Utils.Fonts;
-using Nez.Utils.Timers;
+using Voltage.BitmapFonts;
+using Voltage.Utils;
+using Voltage.Utils.Extensions;
+using Voltage.Utils.Fonts;
+using Voltage.Utils.Timers;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	/// <summary>
 	/// A single-line text input field.

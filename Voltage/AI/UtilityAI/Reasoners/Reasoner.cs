@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 
 
-namespace Nez.AI.UtilityAI
+namespace Voltage.AI.UtilityAI
 {
 	/// <summary>
 	/// the root of UtilityAI.

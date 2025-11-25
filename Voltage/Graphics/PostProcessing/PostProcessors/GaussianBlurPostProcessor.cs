@@ -1,8 +1,8 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
-using Nez.Textures;
+using Voltage.Textures;
 
 
-namespace Nez
+namespace Voltage
 {
 	public class GaussianBlurPostProcessor : PostProcessor<GaussianBlurEffect>
 	{
@@ -32,7 +32,7 @@ namespace Nez
 		public override void OnAddedToScene(Scene scene)
 		{
 			base.OnAddedToScene(scene);
-			Effect = _scene.Content.LoadNezEffect<GaussianBlurEffect>();
+			Effect = _scene.Content.LoadVoltageEffect<GaussianBlurEffect>();
 		}
 
 		public override void Unload()

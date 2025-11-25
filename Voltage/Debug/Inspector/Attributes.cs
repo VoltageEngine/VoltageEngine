@@ -1,7 +1,7 @@
 using System;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// Attribute that is used to indicate that the field/property should be present in the inspector

@@ -1,6 +1,6 @@
 ﻿using Microsoft.Xna.Framework.Input;
 
-namespace Nez.Utils.Extensions
+namespace Voltage.Utils.Extensions
 {
 	public static class KeysExt
 	{

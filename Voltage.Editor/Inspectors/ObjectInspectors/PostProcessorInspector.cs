@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using ImGuiNET;
-using Nez;
-using Nez.Utils;
+using Voltage;
+using Voltage.Utils;
 using Voltage.Editor.Inspectors.TypeInspectors;
 using Voltage.Editor.Utils;
 using EffectInspector = Voltage.Editor.Inspectors.TypeInspectors.EffectInspector;
@@ -63,7 +63,7 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 				if (ImGui.Selectable("Remove PostProcessor"))
 				{
 					isOpen = false;
-					Nez.Core.Scene.RemovePostProcessor(_postProcessor);
+					Voltage.Core.Scene.RemovePostProcessor(_postProcessor);
 					ImGui.CloseCurrentPopup();
 				}
 

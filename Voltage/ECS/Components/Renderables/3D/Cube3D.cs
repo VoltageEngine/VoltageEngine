@@ -1,7 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 
 
-namespace Nez
+namespace Voltage
 {
 	public class Cube3D : GeometricPrimitive3D
 	{

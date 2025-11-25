@@ -1,13 +1,13 @@
 using ImGuiNET;
-using Nez.Aseprite;
-using Nez.Textures;
-using Nez.UI;
-using Nez.Utils;
+using Voltage.Aseprite;
+using Voltage.Textures;
+using Voltage.UI;
+using Voltage.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Nez;
+using Voltage;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.Utils;
 using Num = System.Numerics;
@@ -194,7 +194,7 @@ namespace Voltage.Editor.FilePickers
             try
             {
                 string relativePath = Path.GetRelativePath(Environment.CurrentDirectory, filePath).Replace('\\', '/');
-                var aseFile = Core.Content.LoadAsepriteFile(relativePath);
+                var aseFile = Voltage.Core.Content.LoadAsepriteFile(relativePath);
                 
                 _availableLayers.Clear();
                 _totalFrames = aseFile.Frames.Count;

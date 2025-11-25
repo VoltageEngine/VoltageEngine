@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 
 
-namespace Nez.AI.Pathfinding
+namespace Voltage.AI.Pathfinding
 {
 	/// <summary>
 	/// calculates paths given an IUnweightedGraph and start/goal positions

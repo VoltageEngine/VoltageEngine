@@ -5,9 +5,9 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using ImGuiNET;
-using Nez;
-using Nez.Utils;
-using Nez.Utils.Coroutines;
+using Voltage;
+using Voltage.Utils;
+using Voltage.Utils.Coroutines;
 using Voltage.Editor.Core;
 using Voltage.Editor.Inspectors.ObjectInspectors;
 using Voltage.Editor.UndoActions;
@@ -275,7 +275,7 @@ public class MainEntityInspector
 	{
 		if (_imGuiManager == null)
 		{
-			_imGuiManager = Nez.Core.GetGlobalManager<ImGuiManager>();
+			_imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
 			return;
 		}
 
@@ -312,7 +312,7 @@ public class MainEntityInspector
 			return;
 
 		if (_imGuiManager == null)
-			_imGuiManager = Nez.Core.GetGlobalManager<ImGuiManager>();
+			_imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
 
 		var windowPosX = Screen.Width - _imGuiManager.InspectorTabWidth + _imGuiManager.InspectorWidthOffset;
 		var windowPosY = _imGuiManager.MainWindowPositionY + 32f;
@@ -671,7 +671,7 @@ public class MainEntityInspector
 		ImGui.PopStyleColor();
 
 		if (!open)
-			Nez.Core.GetGlobalManager<ImGuiManager>().CloseMainEntityInspector();
+			Voltage.Core.GetGlobalManager<ImGuiManager>().CloseMainEntityInspector();
 	}
 
 	/// <summary>
@@ -950,7 +950,7 @@ public class MainEntityInspector
 	/// <param name="time"></param>
 	public void DelayedSetEntity(Entity entity, float time = 0.05f)
 	{
-		Nez.Core.StartCoroutine(ShowInspector(entity, time));
+		Voltage.Core.StartCoroutine(ShowInspector(entity, time));
 	}
 
 	private IEnumerator ShowInspector(Entity entity, float time)
@@ -967,7 +967,7 @@ public class MainEntityInspector
 		if (Entity == null || Entity.Type != Entity.InstanceType.Prefab || string.IsNullOrEmpty(Entity.OriginalPrefabName))
 			return;
 
-		_prefabCopiesToModify = Nez.Core.Scene.Entities
+		_prefabCopiesToModify = Voltage.Core.Scene.Entities
 			.Where(e => e != Entity &&
 						e.Type == Entity.InstanceType.Prefab && 
 						e.OriginalPrefabName == Entity.OriginalPrefabName)
@@ -1115,7 +1115,7 @@ public class MainEntityInspector
 		if (Entity != null && Entity.Type == Entity.InstanceType.Prefab && !string.IsNullOrEmpty(Entity.OriginalPrefabName))
 		{
 			// Save the prefab using the async event system
-			bool saveSuccessful = await Nez.Core.GetGlobalManager<ImGuiManager>().InvokePrefabCreated(Entity, true);
+			bool saveSuccessful = await Voltage.Core.GetGlobalManager<ImGuiManager>().InvokePrefabCreated(Entity, true);
 
 			if (saveSuccessful)
 			{

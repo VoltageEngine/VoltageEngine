@@ -1,14 +1,14 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Materials;
-using Nez.Textures;
-using Nez.Utils;
+using Voltage.Materials;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Nez.DeferredLighting;
+using Voltage.DeferredLighting;
+using Voltage.Textures;
+using Voltage.Utils;
 
-namespace Nez.Sprites;
+namespace Voltage.Sprites;
 
 public class AnimationEvent
 {

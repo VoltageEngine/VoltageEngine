@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
-namespace Nez.Utils.Extensions
+namespace Voltage.Utils.Extensions
 {
 	public static class ComponentExt
 	{

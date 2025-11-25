@@ -1,8 +1,8 @@
 ﻿using System;
-using Nez.Utils.Collections;
+using Voltage.Utils.Collections;
 
 
-namespace Nez.AI.GOAP
+namespace Voltage.AI.GOAP
 {
 	public class AStarStorage
 	{

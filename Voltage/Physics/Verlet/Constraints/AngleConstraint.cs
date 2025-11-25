@@ -1,7 +1,7 @@
 using Microsoft.Xna.Framework;
 
 
-namespace Nez.Verlet
+namespace Voltage.Verlet
 {
 	/// <summary>
 	/// constrains 3 particles to an angle

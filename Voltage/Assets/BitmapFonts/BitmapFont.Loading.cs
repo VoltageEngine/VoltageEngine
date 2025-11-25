@@ -5,10 +5,10 @@ using System.Text;
 using System.Xml;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Textures;
+using Voltage.Textures;
 
 
-namespace Nez.BitmapFonts
+namespace Voltage.BitmapFonts
 {
 	public partial class BitmapFont
 	{

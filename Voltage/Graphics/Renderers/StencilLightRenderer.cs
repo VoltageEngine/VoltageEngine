@@ -1,12 +1,12 @@
 ﻿using System.Runtime.CompilerServices;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.PhysicsShapes;
-using Nez.Textures;
-using Nez.Utils;
-using Nez.Utils.Extensions;
+using Voltage.Utils;
+using Voltage.Utils.Extensions;
+using Voltage.PhysicsShapes;
+using Voltage.Textures;
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// StencilLightRenderer is used for 2d lights and shadows. This works by taking each light and doing the following:

@@ -2,13 +2,13 @@
 using System.Reflection;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.UI;
-using Nez.Utils;
-using Nez.Utils.Extensions;
+using Voltage.Utils;
+using Voltage.Utils.Extensions;
+using Voltage.UI;
 
 
 #if DEBUG
-namespace Nez
+namespace Voltage
 {
 	public class EffectInspector : Inspector
 	{

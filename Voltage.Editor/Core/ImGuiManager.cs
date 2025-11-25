@@ -1,26 +1,26 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using Nez.Data;
-using Nez.Sprites;
-using Nez.UI;
-using Nez.Utils;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Mime;
-using System.Threading.Tasks;
-using Nez;
-using Num = System.Numerics;
+using Voltage;
+using Voltage.Data;
+using Voltage.Sprites;
+using Voltage.Utils;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Inspectors;
 using Voltage.Editor.Inspectors.CustomInspectors;
+using Voltage.Editor.Persistence;
+using Voltage.Editor.Tools;
 using Voltage.Editor.UndoActions;
 using Voltage.Editor.Utils;
+using Num = System.Numerics;
 
 
-namespace Voltage.Editor;
+namespace Voltage.Editor.Core;
 
 public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDisposable
 {
@@ -218,10 +218,10 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		LoadSettings();
 
-		_renderer = new ImGuiRenderer(Core.Instance, _input);
+		_renderer = new ImGuiRenderer(Voltage.Core.Instance, _input);
 		_renderer.RebuildFontAtlas(options);
 
-		Core.Emitter.AddObserver(CoreEvents.SceneChanged, OnSceneChanged);
+		Voltage.Core.Emitter.AddObserver(CoreEvents.SceneChanged, OnSceneChanged);
 		VoltageEditorThemes.DarkTheme1();
 
 		// find all Scenes
@@ -251,10 +251,10 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		// Create default Main Entity Inspector window when current scene is finished loading the entities
 		Scene.OnFinishedAddingEntitiesWithData += OpenMainEntityInspector;
-		Core.EmitterWithPending.AddObserver(CoreEvents.Exiting, OnAppExitSaveChanges);
+		Voltage.Core.EmitterWithPending.AddObserver(CoreEvents.Exiting, OnAppExitSaveChanges);
 
-		Core.OnResetScene += RequestResetScene;
-		Core.OnSwitchEditMode += OnEditModeSwitched;
+		Voltage.Core.OnResetScene += RequestResetScene;
+		Voltage.Core.OnSwitchEditMode += OnEditModeSwitched;
 
 		MainEntityInspector = new MainEntityInspector(this, null);
 	}
@@ -323,10 +323,10 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	public void GlobalKeyCommands()
 	{
 		if (ImGui.IsKeyPressed(ImGuiKey.F5, false))
-			Core.InvokeResetScene();
+			Voltage.Core.InvokeResetScene();
 
 		if (ImGui.IsKeyPressed(ImGuiKey.F1, false) || ImGui.IsKeyPressed(ImGuiKey.F2, false))
-			Core.InvokeSwitchEditMode(!Core.IsEditMode);
+			Voltage.Core.InvokeSwitchEditMode(!Voltage.Core.IsEditMode);
 
 		if (ImGui.GetIO().KeyCtrl && ImGui.IsKeyPressed(ImGuiKey.S, false))
 			InvokeSaveSceneChanges();
@@ -392,7 +392,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 				if (ImGui.MenuItem("Exit"))
 				{
-					Core.ConfirmAndExit();
+					Voltage.Core.ConfirmAndExit();
 				}
 
 				ImGui.EndMenu();
@@ -476,7 +476,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				entity.Position = new Vector2(col * 100, row * 100); // Adjust spacing as needed
 
 				// Add to scene
-				Core.Scene.AddEntity(entity);
+				Voltage.Core.Scene.AddEntity(entity);
 			}
 
 			var layerInfo = selection.LayerNames != null && selection.LayerNames.Count > 0
@@ -692,7 +692,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	{
 		ManageCameraZoom();
 
-		if (Core.IsEditMode)
+		if (Voltage.Core.IsEditMode)
 		{
 			// Camera Dragging with Middle Mouse
 			var mousePos = Input.ScaledMousePosition;
@@ -713,7 +713,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			}
 
 			if (_cameraTargetPosition == default)
-				_cameraTargetPosition = Core.Scene.Camera.Position;
+				_cameraTargetPosition = Voltage.Core.Scene.Camera.Position;
 
 			bool isMovingCamera = Input.IsKeyDown(Keys.W) || Input.IsKeyDown(Keys.A) ||
 			                      Input.IsKeyDown(Keys.S) || Input.IsKeyDown(Keys.D);
@@ -746,7 +746,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 					_cameraTargetPosition += new Vector2(0, CurrentCameraSpeed) * Time.DeltaTime;
 			}
 
-			Core.Scene.Camera.Position = Vector2.Lerp(Core.Scene.Camera.Position, _cameraTargetPosition, _cameraLerp);
+			Voltage.Core.Scene.Camera.Position = Vector2.Lerp(Voltage.Core.Scene.Camera.Position, _cameraTargetPosition, _cameraLerp);
 		}
 
 		// Remove entity selection logic from here
@@ -754,7 +754,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void ManageCameraZoom()
 	{
-		if (Core.IsEditMode && Input.MouseWheelDelta != 0)
+		if (Voltage.Core.IsEditMode && Input.MouseWheelDelta != 0)
 		{
 			bool isShiftHeld = Input.IsKeyDown(Keys.LeftShift);
 
@@ -771,18 +771,18 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				// Normal zoom behavior
 				if (Input.MouseWheelDelta > 0)
 				{
-					Core.Scene.Camera.Zoom += EditorCameraZoomSpeed * Time.DeltaTime;
+					Voltage.Core.Scene.Camera.Zoom += EditorCameraZoomSpeed * Time.DeltaTime;
 				}
 				else if (Input.MouseWheelDelta < 0)
 				{
-					if (Core.Scene.Camera.Zoom - EditorCameraZoomSpeed * Time.DeltaTime > -0.9)
-						Core.Scene.Camera.Zoom -= EditorCameraZoomSpeed * Time.DeltaTime;
+					if (Voltage.Core.Scene.Camera.Zoom - EditorCameraZoomSpeed * Time.DeltaTime > -0.9)
+						Voltage.Core.Scene.Camera.Zoom -= EditorCameraZoomSpeed * Time.DeltaTime;
 				}
 			}
 		}
-		else if (!Core.IsEditMode)
+		else if (!Voltage.Core.IsEditMode)
 		{
-			Core.Scene.Camera.Zoom = Camera.DefaultZoom;
+			Voltage.Core.Scene.Camera.Zoom = Camera.DefaultZoom;
 		}
 	}
 
@@ -951,7 +951,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			if (EditorChangeTracker.IsDirty)
 				_pendingExit = true;
 			else
-				Core.ConfirmAndExit();
+				Voltage.Core.ConfirmAndExit();
 		}
 	}
 
@@ -977,13 +977,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private void ChangeScene(Type sceneType)
 	{
 		var scene = (Scene)Activator.CreateInstance(sceneType);
-		Core.StartSceneTransition(new FadeTransition(() => scene));
+		Voltage.Core.StartSceneTransition(new FadeTransition(() => scene));
 	}
 
 	private void OnEditModeSwitched(bool isEditMode)
 	{
 		// Only reset scene if switching to EditMode from PlayMode
-		if (isEditMode && Core.ResetSceneAutomatically)
+		if (isEditMode && Voltage.Core.ResetSceneAutomatically)
 		{
 			ResetScene();
 		}
@@ -994,7 +994,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (EditorChangeTracker.IsDirty)
 		{
 			_pendingResetScene = true;
-			_requestedResetSceneType = Core.Scene.GetType();
+			_requestedResetSceneType = Voltage.Core.Scene.GetType();
 		}
 		else
 		{
@@ -1004,8 +1004,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void ResetScene()
 	{
-		var newScene = (Scene)Activator.CreateInstance(_requestedResetSceneType ?? Core.Scene.GetType());
-		Core.Scene = newScene;
+		var newScene = (Scene)Activator.CreateInstance(_requestedResetSceneType ?? Voltage.Core.Scene.GetType());
+		Voltage.Core.Scene = newScene;
 		EditorChangeTracker.Clear();
 		ShowAnimationEventInspector = false;
 	}

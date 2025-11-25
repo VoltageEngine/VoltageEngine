@@ -2,9 +2,9 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 using ImGuiNET;
-using Nez;
-using Nez.Sprites;
-using Nez.Utils;
+using Voltage;
+using Voltage.Sprites;
+using Voltage.Utils;
 using Voltage.Editor.Core;
 using Voltage.Editor.UndoActions;
 using Num = System.Numerics;
@@ -57,7 +57,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
         public void Draw()
         {
             if (_imGuiManager == null)
-                _imGuiManager = Core.GetGlobalManager<ImGuiManager>();
+                _imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
 
             float left = _imGuiManager.SceneGraphWindow.SceneGraphWidth;
             float right = Screen.Width - _imGuiManager.InspectorTabWidth;
@@ -84,7 +84,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                     // Handle window close when no animator is selected
                     if (!open)
                     {
-                        var imGuiManager = Core.GetGlobalManager<ImGuiManager>();
+                        var imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
                         imGuiManager.ShowAnimationEventInspector = false;
                         imGuiManager.UnregisterDrawCommand(Draw);
                         SpriteAnimatorFileInspector.AnimationEventInspectorInstance = null;
@@ -373,7 +373,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             // Handle window close when animator is selected
             if (!open)
             {
-                var imGuiManager = Core.GetGlobalManager<ImGuiManager>();
+                var imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
                 imGuiManager.ShowAnimationEventInspector = false;
                 imGuiManager.UnregisterDrawCommand(Draw);
                 SpriteAnimatorFileInspector.AnimationEventInspectorInstance = null;

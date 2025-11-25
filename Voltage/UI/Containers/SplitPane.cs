@@ -1,9 +1,9 @@
 ﻿using Microsoft.Xna.Framework;
 using System;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	public class SplitPane : Group, IInputListener
 	{

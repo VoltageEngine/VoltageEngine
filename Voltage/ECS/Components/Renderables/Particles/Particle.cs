@@ -1,10 +1,10 @@
 ﻿using Microsoft.Xna.Framework;
-using Nez.PhysicsShapes;
-using Nez.Utils;
-using Nez.Utils.Extensions;
+using Voltage.PhysicsShapes;
+using Voltage.Utils;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez.Particles
+namespace Voltage.Particles
 {
 	/// <summary>
 	/// the internal fields are required for the ParticleEmitter to be able to render the Particle

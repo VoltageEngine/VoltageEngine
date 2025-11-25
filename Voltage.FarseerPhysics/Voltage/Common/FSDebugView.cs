@@ -12,7 +12,7 @@ using FarseerPhysics.Dynamics.Contacts;
 using FarseerPhysics.Dynamics.Joints;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez;
+using Voltage;
 
 
 namespace Voltage.Farseer
@@ -735,7 +735,7 @@ namespace Voltage.Farseer
 
 			// Create directional reference
 			var rotation = (start - end);
-			Nez.Vector2Ext.Normalize(ref rotation);
+			Voltage.Vector2Ext.Normalize(ref rotation);
 
 			// Calculate angle of directional vector
 			var angle = (float) Math.Atan2(rotation.X, -rotation.Y);

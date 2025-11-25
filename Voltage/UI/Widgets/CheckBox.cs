@@ -1,8 +1,8 @@
-﻿using Nez.BitmapFonts;
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
+using Voltage.BitmapFonts;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	/// <summary>
 	/// A checkbox is a button that contains an image indicating the checked or unchecked state and a label

@@ -1,8 +1,8 @@
 ﻿using Microsoft.Xna.Framework;
 using System.Collections.Generic;
-using Nez.Utils.Collections;
+using Voltage.Utils.Collections;
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// helper class illustrating one way to handle movement taking into account all Collisions including triggers. The ITriggerListener

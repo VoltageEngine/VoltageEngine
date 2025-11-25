@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 
-namespace Nez.Tiled
+namespace Voltage.Tiled
 {
 	public class TmxObjectGroup : ITmxLayer
 	{

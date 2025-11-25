@@ -1,10 +1,10 @@
-﻿using Nez.Textures;
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
+using Voltage.Textures;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	/// <summary>
 	/// Drawable for a {@link Sprite}

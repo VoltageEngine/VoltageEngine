@@ -1,4 +1,4 @@
-namespace Nez.Aseprite
+namespace Voltage.Aseprite
 {
 	/// <summary>
 	/// Represents a layer in an Aseprite file that tilemap cels are placed on.

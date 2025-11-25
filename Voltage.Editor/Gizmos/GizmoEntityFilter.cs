@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
-using Nez;
+using Voltage;
 
 namespace Voltage.Editor.Gizmos
 {
@@ -12,7 +12,7 @@ namespace Voltage.Editor.Gizmos
         public static List<Entity> GetValidEntities(IEnumerable<Entity> entities)
         {
             return entities
-                .Where(entity => entity != null && entity.Transform != null && !Nez.Utils.MathUtils.IsVectorNaNOrInfinite(entity.Transform.Position))
+                .Where(entity => entity != null && entity.Transform != null && !Voltage.Utils.MathUtils.IsVectorNaNOrInfinite(entity.Transform.Position))
                 .ToList();
         }
     }

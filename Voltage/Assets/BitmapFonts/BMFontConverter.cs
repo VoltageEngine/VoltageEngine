@@ -7,7 +7,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
 
-namespace Nez.BitmapFonts
+namespace Voltage.BitmapFonts
 {
     public static class BMFontConverter
 	{
@@ -61,7 +61,7 @@ namespace Nez.BitmapFonts
 		}
 
 #if SPRITEFONTPLUS
-		public static Nez.BitmapFonts.BitmapFont NezBitmapFromBakedTTF(SpriteFontPlus.TtfFontBakerResult ttf)
+		public static Voltage.BitmapFonts.BitmapFont VoltageBitmapFromBakedTTF(SpriteFontPlus.TtfFontBakerResult ttf)
 		{
 			var rgb = new Color[ttf.Width * ttf.Height];
 			for (var i = 0; i < ttf.Pixels.Length; ++i)
@@ -92,7 +92,7 @@ namespace Nez.BitmapFonts
 				regions[index++] = region;
 			}
 
-			return new Nez.BitmapFonts.BitmapFont(regions, ttf.Height);
+			return new Voltage.BitmapFonts.BitmapFont(regions, ttf.Height);
 		}
 #endif
 	}

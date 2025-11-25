@@ -1,11 +1,11 @@
 ﻿using Microsoft.Xna.Framework;
-using Nez.BitmapFonts;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Utils.Extensions;
-using Nez.Utils.Fonts;
+using Voltage.BitmapFonts;
+using Voltage.Utils.Extensions;
+using Voltage.Utils.Fonts;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	public class Label : Element
 	{

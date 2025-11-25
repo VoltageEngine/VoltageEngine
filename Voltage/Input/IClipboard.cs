@@ -1,4 +1,4 @@
-﻿namespace Nez
+﻿namespace Voltage
 {
 	public interface IClipboard
 	{

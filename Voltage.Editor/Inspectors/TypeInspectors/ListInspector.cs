@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
-using Nez;
+using Voltage;
 using Voltage.Editor.Utils;
 
 

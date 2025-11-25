@@ -3,10 +3,10 @@ using System.IO;
 using System.Xml.Serialization;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Systems;
+using Voltage.Systems;
 
 
-namespace Nez.Svg
+namespace Voltage.Svg
 {
 	/// <summary>
 	/// represents the image tag in an SVG document. This class will do its best to load the image from the href attribute. It will check for
@@ -50,7 +50,7 @@ namespace Nez.Svg
 		/// </summary>
 		/// <returns>The texture.</returns>
 		/// <param name="content">Content.</param>
-		public Texture2D GetTexture(NezContentManager content)
+		public Texture2D GetTexture(VoltageContentManager content)
 		{
 			if (_didAttemptTextureLoad || _texture != null)
 				return _texture;

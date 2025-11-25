@@ -1,7 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 
 
-namespace Nez.PhysicsShapes
+namespace Voltage.PhysicsShapes
 {
 	/// <summary>
 	/// special case of a Polygon. When doing SAT collision checks we only need to check 2 axes instead of 8

@@ -1,13 +1,13 @@
 ﻿using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework;
 using System.Collections.Generic;
-using Nez.Systems;
+using Voltage.Systems;
 using System.Runtime.CompilerServices;
-using Nez.Utils.Collections;
-using Nez.Utils;
+using Voltage.Utils;
+using Voltage.Utils.Collections;
 
 
-namespace Nez
+namespace Voltage
 {
 	public static class Input
 	{
@@ -136,8 +136,8 @@ namespace Nez
 
 		/// <summary>
 		/// to be used with great care! This lets you override the current MouseState. This is useful
-		/// when the Nez render is embedded in a larger window so that mouse coordinates can be translated
-		/// to Nez space from the outer window coordinates and for simulating mouse input.
+		/// when the Voltage render is embedded in a larger window so that mouse coordinates can be translated
+		/// to Voltage space from the outer window coordinates and for simulating mouse input.
 		/// </summary>
 		/// <param name="state"></param>
 		public static void SetCurrentMouseState(MouseState state)

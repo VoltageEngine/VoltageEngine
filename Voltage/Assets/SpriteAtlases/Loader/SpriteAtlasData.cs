@@ -2,9 +2,9 @@
 using System.IO;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Textures;
+using Voltage.Textures;
 
-namespace Nez.Sprites
+namespace Voltage.Sprites
 {
 	/// <summary>
 	/// temporary class used when loading a SpriteAtlas and by the sprite atlas editor

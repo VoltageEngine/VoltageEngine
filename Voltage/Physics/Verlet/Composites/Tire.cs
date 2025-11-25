@@ -1,7 +1,7 @@
 using Microsoft.Xna.Framework;
 
 
-namespace Nez.Verlet
+namespace Voltage.Verlet
 {
 	public class Tire : Composite
 	{

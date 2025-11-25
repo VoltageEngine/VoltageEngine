@@ -1,7 +1,7 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
-using Nez.DeferredLighting;
+using Voltage.DeferredLighting;
 
-namespace Nez.Materials
+namespace Voltage.Materials
 {
 	public class DeferredSpriteMaterial : Material<DeferredSpriteEffect>
 	{

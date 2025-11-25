@@ -1,4 +1,4 @@
-using Nez.Sprites;
+using Voltage.Sprites;
 
 namespace Voltage.Editor.UndoActions;
 

@@ -1,6 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 
-namespace Nez.Utils
+namespace Voltage.Utils
 {
 	/// <summary>
 	/// provides frame timing information

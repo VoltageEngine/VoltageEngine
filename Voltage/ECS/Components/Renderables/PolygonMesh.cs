@@ -1,8 +1,8 @@
 ﻿using Microsoft.Xna.Framework;
-using Nez.Utils;
+using Voltage.Utils;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// renders a basic, CCW, convex polygon

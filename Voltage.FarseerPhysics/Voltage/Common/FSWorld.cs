@@ -1,8 +1,8 @@
 ﻿using FarseerPhysics.Dynamics;
 using FarseerPhysics.Dynamics.Joints;
 using Microsoft.Xna.Framework;
-using Nez;
-using Nez.Utils;
+using Voltage;
+using Voltage.Utils;
 
 
 namespace Voltage.Farseer

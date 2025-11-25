@@ -327,7 +327,7 @@ namespace FarseerPhysics.Common
 		}
 
 
-		public static Vertices CreatePolygonFromTextureData(Nez.Textures.Sprite sprite)
+		public static Vertices CreatePolygonFromTextureData(Voltage.Textures.Sprite sprite)
 		{
 			var data = new uint[sprite.SourceRect.Width * sprite.SourceRect.Height];
 			sprite.Texture2D.GetData(0, sprite.SourceRect, data, 0, data.Length);

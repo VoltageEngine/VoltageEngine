@@ -1,8 +1,8 @@
-using Nez.Data;
 using System;
 using System.Collections.Generic;
+using Voltage.Data;
 
-namespace Nez.ECS;
+namespace Voltage.ECS;
 
 /// <summary>
 /// Helps to register and create entities based on their type names.

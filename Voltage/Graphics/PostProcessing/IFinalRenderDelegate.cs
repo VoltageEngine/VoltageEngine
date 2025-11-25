@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// optional interface that can be added to any object for special cases where the final render to screen needs to be overridden. Note that

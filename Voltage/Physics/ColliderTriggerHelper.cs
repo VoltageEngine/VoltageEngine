@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using Nez.Utils.Collections;
+using Voltage.Utils.Collections;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// helper class used by the Movers to manage trigger colliders interactions and calling ITriggerListeners.

@@ -3,7 +3,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
 
-namespace Nez.DeferredLighting
+namespace Voltage.DeferredLighting
 {
 	public class QuadMesh : IDisposable
 	{

@@ -1,4 +1,4 @@
-﻿namespace Nez
+﻿namespace Voltage
 {
 	public class ScanlinesPostProcessor : PostProcessor<ScanlinesEffect>
 	{
@@ -9,7 +9,7 @@
 		public override void OnAddedToScene(Scene scene)
 		{
 			base.OnAddedToScene(scene);
-			Effect = _scene.Content.LoadNezEffect<ScanlinesEffect>();
+			Effect = _scene.Content.LoadVoltageEffect<ScanlinesEffect>();
 		}
 
 		public override void Unload()

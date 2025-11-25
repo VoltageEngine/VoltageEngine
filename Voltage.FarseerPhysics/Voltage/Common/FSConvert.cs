@@ -1,7 +1,7 @@
 using Microsoft.Xna.Framework;
 
 
-namespace Nez.Farseer
+namespace Voltage.Farseer
 {
 	/// <summary>
 	/// Convert units between display and simulation units

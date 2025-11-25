@@ -1,9 +1,9 @@
 using System;
 using System.IO;
 using Microsoft.Xna.Framework;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
 
-namespace Nez
+namespace Voltage
 {
 	public static class EffectResource
 	{

@@ -1,7 +1,7 @@
 using System;
 using Microsoft.Xna.Framework.Graphics;
-using Nez;
-using Nez.Utils;
+using Voltage;
+using Voltage.Utils;
 
 namespace Voltage.Editor.Inspectors
 {

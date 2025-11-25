@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 
 
-namespace Nez.Shadows
+namespace Voltage.Shadows
 {
 	/// <summary>    
 	/// The end-point of a segment    

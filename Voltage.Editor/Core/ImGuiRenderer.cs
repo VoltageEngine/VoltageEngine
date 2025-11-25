@@ -98,7 +98,7 @@ namespace Voltage.Editor.Core
 			Marshal.Copy(new IntPtr(pixelData), pixels, 0, pixels.Length);
 
 			// Create and register the texture as an XNA texture
-			var tex2d = new Texture2D(Nez.Core.GraphicsDevice, width, height, false, SurfaceFormat.Color);
+			var tex2d = new Texture2D(Voltage.Core.GraphicsDevice, width, height, false, SurfaceFormat.Color);
 			tex2d.SetData(pixels);
 
 			// Should a texture already have been built previously, unbind it first so it can be deallocated
@@ -172,7 +172,7 @@ namespace Voltage.Editor.Core
 		/// </summary>
 		Effect UpdateEffect(Texture2D texture)
 		{
-			_effect = _effect ?? new BasicEffect(Nez.Core.GraphicsDevice);
+			_effect = _effect ?? new BasicEffect(Voltage.Core.GraphicsDevice);
 
 			var io = ImGui.GetIO();
 
@@ -196,28 +196,28 @@ namespace Voltage.Editor.Core
 		void RenderDrawData(ImDrawDataPtr drawData)
 		{
 			// Setup render state: alpha-blending enabled, no face culling, no depth testing, scissor enabled, vertex/texcoord/color pointers
-			var lastViewport = Nez.Core.GraphicsDevice.Viewport;
-			var lastScissorBox = Nez.Core.GraphicsDevice.ScissorRectangle;
+			var lastViewport = Voltage.Core.GraphicsDevice.Viewport;
+			var lastScissorBox = Voltage.Core.GraphicsDevice.ScissorRectangle;
 
-			Nez.Core.GraphicsDevice.BlendFactor = Color.White;
-			Nez.Core.GraphicsDevice.BlendState = BlendState.NonPremultiplied;
-			Nez.Core.GraphicsDevice.RasterizerState = _rasterizerState;
-			Nez.Core.GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+			Voltage.Core.GraphicsDevice.BlendFactor = Color.White;
+			Voltage.Core.GraphicsDevice.BlendState = BlendState.NonPremultiplied;
+			Voltage.Core.GraphicsDevice.RasterizerState = _rasterizerState;
+			Voltage.Core.GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
 
 			// Handle cases of screen coordinates != from framebuffer coordinates (e.g. retina displays)
 			drawData.ScaleClipRects(ImGui.GetIO().DisplayFramebufferScale);
 
 			// Setup projection
-			Nez.Core.GraphicsDevice.Viewport = new Viewport(0, 0,
-				Nez.Core.GraphicsDevice.PresentationParameters.BackBufferWidth,
-				Nez.Core.GraphicsDevice.PresentationParameters.BackBufferHeight);
+			Voltage.Core.GraphicsDevice.Viewport = new Viewport(0, 0,
+				Voltage.Core.GraphicsDevice.PresentationParameters.BackBufferWidth,
+				Voltage.Core.GraphicsDevice.PresentationParameters.BackBufferHeight);
 
 			UpdateBuffers(drawData);
 			RenderCommandLists(drawData);
 
 			// Restore modified state
-			Nez.Core.GraphicsDevice.Viewport = lastViewport;
-			Nez.Core.GraphicsDevice.ScissorRectangle = lastScissorBox;
+			Voltage.Core.GraphicsDevice.Viewport = lastViewport;
+			Voltage.Core.GraphicsDevice.ScissorRectangle = lastScissorBox;
 		}
 
 		unsafe void UpdateBuffers(ImDrawDataPtr drawData)
@@ -233,7 +233,7 @@ namespace Voltage.Editor.Core
 				_vertexBuffer?.Dispose();
 
 				_vertexBufferSize = (int)(drawData.TotalVtxCount * 1.5f);
-				_vertexBuffer = new VertexBuffer(Nez.Core.GraphicsDevice, _vertexDeclaration, _vertexBufferSize,
+				_vertexBuffer = new VertexBuffer(Voltage.Core.GraphicsDevice, _vertexDeclaration, _vertexBufferSize,
 					BufferUsage.None);
 				_vertexData = new byte[_vertexBufferSize * _vertexDeclarationSize];
 			}
@@ -243,7 +243,7 @@ namespace Voltage.Editor.Core
 				_indexBuffer?.Dispose();
 
 				_indexBufferSize = (int)(drawData.TotalIdxCount * 1.5f);
-				_indexBuffer = new IndexBuffer(Nez.Core.GraphicsDevice, IndexElementSize.SixteenBits, _indexBufferSize,
+				_indexBuffer = new IndexBuffer(Voltage.Core.GraphicsDevice, IndexElementSize.SixteenBits, _indexBufferSize,
 					BufferUsage.None);
 				_indexData = new byte[_indexBufferSize * sizeof(ushort)];
 			}
@@ -276,8 +276,8 @@ namespace Voltage.Editor.Core
 
 		unsafe void RenderCommandLists(ImDrawDataPtr drawData)
 		{
-			Nez.Core.GraphicsDevice.SetVertexBuffer(_vertexBuffer);
-			Nez.Core.GraphicsDevice.Indices = _indexBuffer;
+			Voltage.Core.GraphicsDevice.SetVertexBuffer(_vertexBuffer);
+			Voltage.Core.GraphicsDevice.Indices = _indexBuffer;
 
 			int vtxOffset = 0;
 			int idxOffset = 0;
@@ -294,7 +294,7 @@ namespace Voltage.Editor.Core
 							$"Could not find a texture with id '{drawCmd.TextureId}', please check your bindings");
 					}
 
-					Nez.Core.GraphicsDevice.ScissorRectangle = new Rectangle(
+					Voltage.Core.GraphicsDevice.ScissorRectangle = new Rectangle(
 						(int)drawCmd.ClipRect.X,
 						(int)drawCmd.ClipRect.Y,
 						(int)(drawCmd.ClipRect.Z - drawCmd.ClipRect.X),
@@ -307,7 +307,7 @@ namespace Voltage.Editor.Core
 						pass.Apply();
 
 #pragma warning disable CS0618 // FNA does not expose an alternative method.
-						Nez.Core.GraphicsDevice.DrawIndexedPrimitives(
+						Voltage.Core.GraphicsDevice.DrawIndexedPrimitives(
 							primitiveType: PrimitiveType.TriangleList,
 							baseVertex: vtxOffset,
 							minVertexIndex: 0,

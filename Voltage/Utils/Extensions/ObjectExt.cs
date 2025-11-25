@@ -1,9 +1,9 @@
 ﻿using System.Runtime.CompilerServices;
 using Microsoft.Xna.Framework;
-using Nez.Utils.Tweens;
-using Nez.Utils.Tweens.Interfaces;
+using Voltage.Utils.Tweens;
+using Voltage.Utils.Tweens.Interfaces;
 
-namespace Nez.Utils.Extensions
+namespace Voltage.Utils.Extensions
 {
 	public static class ObjectExt
 	{

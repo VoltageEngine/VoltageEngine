@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using Nez;
+using Voltage;
 using Voltage.Editor.Inspectors.TypeInspectors;
 using Voltage.Editor.Utils;
 

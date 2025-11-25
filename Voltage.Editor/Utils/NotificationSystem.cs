@@ -1,6 +1,5 @@
 using ImGuiNET;
-using Nez;
-using Nez.Utils;
+using Voltage.Utils;
 
 namespace Voltage.Editor.Utils;
 

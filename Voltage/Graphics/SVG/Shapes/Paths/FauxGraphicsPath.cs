@@ -1,13 +1,13 @@
 ﻿using Microsoft.Xna.Framework;
-using Nez.Utils;
+using Voltage.Utils;
 
 
-namespace Nez.Svg
+namespace Voltage.Svg
 {
 	/// <summary>
 	/// THIS IS A HORRIBLE ABOMINATION! PCLs dont have access to System.Drawing so this class is a wrapper for accessing the GraphicsPath class.
-	/// It has the full public API that Nez needs for SVG files but the whole mess is all accessed via reflection. It is slow as all hell and not
-	/// recommended for production use. It's only purpose is so that Nez works with SVG files out of the box to get up and running fast.
+	/// It has the full public API that Voltage needs for SVG files but the whole mess is all accessed via reflection. It is slow as all hell and not
+	/// recommended for production use. It's only purpose is so that Voltage works with SVG files out of the box to get up and running fast.
 	/// </summary>
 	public class FauxGraphicsPath
 	{

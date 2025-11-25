@@ -1,9 +1,9 @@
-﻿using Nez.Textures;
+﻿using Voltage.Textures;
 using Microsoft.Xna.Framework;
-using Nez.Data;
+using Voltage.Data;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// assists in creating a mirror effect. To use the ReflectionRenderer do the following:

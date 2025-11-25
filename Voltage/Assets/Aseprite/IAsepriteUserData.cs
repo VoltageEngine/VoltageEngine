@@ -1,4 +1,4 @@
-namespace Nez.Aseprite
+namespace Voltage.Aseprite
 {
 	/// <summary>
 	/// Represents an element that can contain custom users data in Aseprite.

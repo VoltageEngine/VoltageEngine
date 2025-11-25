@@ -7,22 +7,23 @@ using Microsoft.Xna.Framework.Content;
 using System.Threading.Tasks;
 using System.IO;
 using Microsoft.Xna.Framework;
-using Nez.ParticleDesigner;
-using Nez.Sprites;
-using Nez.Textures;
-using Nez.Tiled;
 using Microsoft.Xna.Framework.Audio;
-using Nez.BitmapFonts;
-using Nez.Aseprite;
-using Nez.Utils;
+using Voltage;
+using Voltage.Aseprite;
+using Voltage.BitmapFonts;
+using Voltage.ParticleDesigner;
+using Voltage.Sprites;
+using Voltage.Textures;
+using Voltage.Tiled;
+using Voltage.Utils;
 
 
-namespace Nez.Systems;
+namespace Voltage.Systems;
 
 /// <summary>
 /// ContentManager subclass that also manages Effects from ogl files. Adds asynchronous loading of assets as well.
 /// </summary>
-public class NezContentManager : ContentManager
+public class VoltageContentManager : ContentManager
 {
 	private Dictionary<string, Effect> _loadedEffects = new();
 
@@ -59,16 +60,16 @@ public class NezContentManager : ContentManager
 #endif
 
 
-	public NezContentManager(IServiceProvider serviceProvider, string rootDirectory) : base(serviceProvider,
+	public VoltageContentManager(IServiceProvider serviceProvider, string rootDirectory) : base(serviceProvider,
 		rootDirectory)
 	{
 	}
 
-	public NezContentManager(IServiceProvider serviceProvider) : base(serviceProvider)
+	public VoltageContentManager(IServiceProvider serviceProvider) : base(serviceProvider)
 	{
 	}
 
-	public NezContentManager() : base(((Game)Core._instance).Services, ((Game)Core._instance).Content.RootDirectory)
+	public VoltageContentManager() : base(((Game)Core._instance).Services, ((Game)Core._instance).Content.RootDirectory)
 	{
 	}
 
@@ -255,12 +256,12 @@ public class NezContentManager : ContentManager
 	}
 
 	/// <summary>
-	/// loads an embedded Nez effect. These are any of the Effect subclasses in the Nez/Graphics/Effects folder.
+	/// loads an embedded voltage effect. These are any of the Effect subclasses in the voltage/Graphics/Effects folder.
 	/// Note that this will return a unique instance if you attempt to load the same Effect twice to avoid Effect duplication.
 	/// </summary>
-	/// <returns>The nez effect.</returns>
+	/// <returns>The voltage effect.</returns>
 	/// <typeparam name="T">The 1st type parameter.</typeparam>
-	public T LoadNezEffect<T>() where T : Effect, new()
+	public T LoadVoltageEffect<T>() where T : Effect, new()
 	{
 		var cacheKey = typeof(T).Name + "-" + Utils.Utils.RandomString(5);
 		var effect = new T();
@@ -412,7 +413,7 @@ public class NezContentManager : ContentManager
 	}
 
 	/// <summary>
-	/// unloads an Effect that was loaded via loadEffect, loadNezEffect or loadMonoGameEffect
+	/// unloads an Effect that was loaded via loadEffect, loadvoltageEffect or loadMonoGameEffect
 	/// </summary>
 	/// <param name="effectName">Effect.name</param>
 	public bool UnloadEffect(string effectName)
@@ -428,7 +429,7 @@ public class NezContentManager : ContentManager
 	}
 
 	/// <summary>
-	/// unloads an Effect that was loaded via loadEffect, loadNezEffect or loadMonoGameEffect
+	/// unloads an Effect that was loaded via loadEffect, loadvoltageEffect or loadMonoGameEffect
 	/// </summary>
 	public bool UnloadEffect(Effect effect)
 	{
@@ -491,37 +492,20 @@ public class NezContentManager : ContentManager
 }
 
 /// <summary>
-/// the only difference between this class and NezContentManager is that this one can load embedded resources from the Nez.dll
+/// the only difference between this class and VoltageContentManager is that this one can load embedded resources from the voltage.dll
 /// </summary>
-internal sealed class NezGlobalContentManager : NezContentManager
+internal sealed class VoltageGlobalContentManager : VoltageContentManager
 {
-	public NezGlobalContentManager(IServiceProvider serviceProvider, string rootDirectory) : base(serviceProvider,
+	public VoltageGlobalContentManager(IServiceProvider serviceProvider, string rootDirectory) : base(serviceProvider,
 		rootDirectory)
 	{
 	}
 
-	/// <summary>
-	/// override that will load embedded resources if they have the "nez://" prefix
-	/// </summary>
-	/// <returns>The stream.</returns>
-	/// <param name="assetName">Asset name.</param>
 	protected override Stream OpenStream(string assetName)
 	{
-		if (assetName.StartsWith("nez://"))
+		if (assetName.StartsWith("voltage://"))
 		{
 			var assembly = GetType().Assembly;
-
-#if FNA
-				// for FNA, we will just search for the file by name since the assembly name will not be known at runtime
-				foreach (var item in assembly.GetManifestResourceNames())
-				{
-					if (item.EndsWith(assetName.Substring(assetName.Length - 20)))
-					{
-						assetName = "nez://" + item;
-						break;
-					}
-				}
-#endif
 			return assembly.GetManifestResourceStream(assetName.Substring(6));
 		}
 

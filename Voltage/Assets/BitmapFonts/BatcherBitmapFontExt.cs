@@ -1,10 +1,10 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Text;
-using Nez.Utils.Fonts;
+using Voltage.Utils.Fonts;
 
 
-namespace Nez.BitmapFonts
+namespace Voltage.BitmapFonts
 {
 	/// <summary>
 	/// provides the full SpriteFont assortment of drawString methods

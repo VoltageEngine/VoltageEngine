@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-namespace Nez.Utils.Fonts
+namespace Voltage.Utils.Fonts
 {
 	/// <summary>
 	/// helper that wraps either a string or StringBuilder and provides a common API to read them for measuring/drawing

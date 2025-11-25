@@ -1,4 +1,4 @@
-﻿namespace Nez.AI.BehaviorTrees
+﻿namespace Voltage.AI.BehaviorTrees
 {
 	/// <summary>
 	/// returns success when the random probability is above the successProbability probability. It will otherwise return failure.

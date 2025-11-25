@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
-namespace Nez.Data
+namespace Voltage.Data
 {
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
     public class EntityData
@@ -9,7 +9,7 @@ namespace Nez.Data
         [HideAttributeInInspector]
         public List<ComponentDataEntry> ComponentDataList;
 
-        [InspectableAttribute]
+        [Inspectable]
         public int NumberOfSerializedComponents => ComponentDataList?.Count ?? 0;
 
 		public EntityData()

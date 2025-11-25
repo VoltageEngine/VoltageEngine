@@ -1,7 +1,7 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 
 
-namespace Nez.DeferredLighting
+namespace Voltage.DeferredLighting
 {
 	/// <summary>
 	/// effect used to render sprites that take part in deferred lighting. A normal map is required. The normal map can optionally use the alpha

@@ -1,8 +1,8 @@
 ﻿using Microsoft.Xna.Framework;
-using Nez.Systems;
+using Voltage.Systems;
 
 
-namespace Nez.DeferredLighting
+namespace Voltage.DeferredLighting
 {
 	/// <summary>
 	/// AreaLights work like DirLights except they only affect a specific area specified by the width/height. Note that Transform.scale

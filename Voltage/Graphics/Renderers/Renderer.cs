@@ -1,10 +1,10 @@
 ﻿using System;
-using Nez.Textures;
 using Microsoft.Xna.Framework;
 using System.Runtime.CompilerServices;
+using Voltage.Textures;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// Renderers are added to a Scene and handle all of the actual calls to RenderableComponent.render and Entity.debugRender.

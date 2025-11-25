@@ -1,9 +1,9 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
-using Nez.Textures;
+using Voltage.Textures;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// post processor to assist with making blended poly lights. Usage is as follows:
@@ -100,7 +100,7 @@ namespace Nez
 
 				if (_blurEnabled && _blurEffect == null && _scene != null)
 				{
-					_blurEffect = _scene.Content.LoadNezEffect<GaussianBlurEffect>();
+					_blurEffect = _scene.Content.LoadVoltageEffect<GaussianBlurEffect>();
 					if (_scene.SceneRenderTarget != null)
 						UpdateBlurEffectDeltas();
 				}
@@ -141,7 +141,7 @@ namespace Nez
 			Effect.Parameters["_multiplicativeFactor"].SetValue(_multiplicativeFactor);
 
 			if (_blurEnabled)
-				_blurEffect = scene.Content.LoadNezEffect<GaussianBlurEffect>();
+				_blurEffect = scene.Content.LoadVoltageEffect<GaussianBlurEffect>();
 		}
 
 		public override void Unload()

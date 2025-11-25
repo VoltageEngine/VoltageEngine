@@ -3,24 +3,24 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections;
-using Nez.Systems;
-using Nez.Console;
-using Nez.BitmapFonts;
-using Nez.Textures;
 using System.Diagnostics;
-using Nez.Sprites;
-using Nez.Utils;
-using Nez.Utils.Collections;
-using Nez.Utils.Coroutines;
-using Nez.Utils.Timers;
-using Nez.Utils.Tweens;
+using Voltage.Sprites;
+using Voltage.BitmapFonts;
+using Voltage.Console;
+using Voltage.Systems;
+using Voltage.Textures;
+using Voltage.Utils;
+using Voltage.Utils.Collections;
+using Voltage.Utils.Coroutines;
+using Voltage.Utils.Timers;
+using Voltage.Utils.Tweens;
 
 
-[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Nez.ImGui")]
-[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Nez.Persistence")]
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Voltage.Editor")]
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Voltage.Persistence")]
 
 
-namespace Nez;
+namespace Voltage;
 
 public class Core : Game
 {
@@ -62,7 +62,7 @@ public class Core : Game
 	/// <summary>
 	/// global content manager for loading any assets that should stick around between scenes
 	/// </summary>
-	public new static NezContentManager Content;
+	public new static VoltageContentManager Content;
 
 	/// <summary>
 	/// default SamplerState used by Materials. Note that this must be set at launch! Changing it after that time will result in only
@@ -145,7 +145,7 @@ public class Core : Game
 	}
 
 
-	public Core(int width = 1280, int height = 720, bool isFullScreen = false, string windowTitle = "Nez",
+	public Core(int width = 1280, int height = 720, bool isFullScreen = false, string windowTitle = "Voltage",
 		string contentDirectory = "Content", bool hardwareModeSwitch = true)
 	{
 #if DEBUG
@@ -174,7 +174,7 @@ public class Core : Game
 		Window.OrientationChanged += OnOrientationChanged;
 
 		base.Content.RootDirectory = contentDirectory;
-		Content = new NezGlobalContentManager(Services, base.Content.RootDirectory);
+		Content = new VoltageGlobalContentManager(Services, base.Content.RootDirectory);
 		IsMouseVisible = true;
 		IsFixedTimeStep = false;
 
@@ -225,9 +225,17 @@ public class Core : Game
 	{
 		base.Initialize();
 
-		// prep the default Graphics system
 		GraphicsDevice = base.GraphicsDevice;
-		var font = Content.Load<BitmapFont>("nez://Nez.Content.NezDefaultBMFont.xnb");
+		// Get the correct assembly - the Voltage assembly, not the executing (JoltMono) assembly
+		var voltageAssembly = typeof(Core).Assembly; // This gets Voltage.dll
+		var resourceNames = voltageAssembly.GetManifestResourceNames();
+
+		foreach (var name in resourceNames)
+		{
+			System.Console.WriteLine($"Embedded resource: {name}");
+		}
+
+		var font = Content.LoadBitmapFont("Content/VoltageDefaultBMFont.fnt");
 		Graphics.Instance = new Graphics(font);
 	}
 

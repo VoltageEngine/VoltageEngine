@@ -2,7 +2,7 @@
 using System;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	public class Slider : ProgressBar, IInputListener, IGamepadFocusable
 	{

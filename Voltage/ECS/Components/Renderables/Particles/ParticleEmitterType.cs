@@ -1,4 +1,4 @@
-﻿namespace Nez.Particles
+﻿namespace Voltage.Particles
 {
 	public enum ParticleEmitterType
 	{

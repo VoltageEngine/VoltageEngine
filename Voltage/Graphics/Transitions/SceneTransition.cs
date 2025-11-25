@@ -3,14 +3,14 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections;
 using System.Threading.Tasks;
-using Nez.Utils;
-using Nez.Utils.Tweens.Easing;
+using Voltage.Utils;
+using Voltage.Utils.Tweens.Easing;
 
 
-namespace Nez;
+namespace Voltage;
 
 /// <summary>
-/// SceneTransition is used to transition from one Scene to another or within a scene with an effect. If sceneLoadAction is null Nez
+/// SceneTransition is used to transition from one Scene to another or within a scene with an effect. If sceneLoadAction is null Voltage
 /// will perform an in-Scene transition as opposed to loading a new Scene mid transition.
 ///
 /// The general gist of a transition is the following:
@@ -27,7 +27,7 @@ public abstract class SceneTransition
 	public RenderTarget2D PreviousSceneRender;
 
 	/// <summary>
-	/// if true, Nez will render the previous scene into previousSceneRender so that you can use it with your transition
+	/// if true, Voltage will render the previous scene into previousSceneRender so that you can use it with your transition
 	/// </summary>
 	public bool WantsPreviousSceneRender;
 

@@ -1,9 +1,9 @@
-﻿using Nez.Textures;
+﻿using Voltage.Textures;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// overlays a mosaic on top of the final render. Useful only for pixel perfect pixel art.

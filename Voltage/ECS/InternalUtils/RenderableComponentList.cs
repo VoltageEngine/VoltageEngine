@@ -1,7 +1,8 @@
 using System.Collections.Generic;
-using Nez.Utils.Collections;
+using Voltage;
+using Voltage.Utils.Collections;
 
-namespace Nez;
+namespace Voltage;
 
 public class RenderableComponentList
 {

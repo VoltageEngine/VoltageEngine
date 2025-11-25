@@ -2,10 +2,10 @@
 using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.Xna.Framework;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez.Svg
+namespace Voltage.Svg
 {
 	public static class SvgPathParser
 	{

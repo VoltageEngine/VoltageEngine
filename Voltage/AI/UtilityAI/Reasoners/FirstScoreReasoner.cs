@@ -1,4 +1,4 @@
-﻿namespace Nez.AI.UtilityAI
+﻿namespace Voltage.AI.UtilityAI
 {
 	/// <summary>
 	/// The first Consideration to score above the score of the Default Consideration is selected

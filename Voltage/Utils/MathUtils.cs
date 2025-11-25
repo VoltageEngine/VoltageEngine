@@ -1,7 +1,7 @@
 ﻿using System;
 using Microsoft.Xna.Framework;
 
-namespace Nez.Utils
+namespace Voltage.Utils
 {
     public class MathUtils
     {

@@ -1,10 +1,10 @@
 using Microsoft.Xna.Framework;
-using Nez.BitmapFonts;
 using System;
-using Nez.Utils.Extensions;
+using Voltage.BitmapFonts;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	/// <summary>
 	/// A table that can be dragged and resized. The top padding is used as the window's title height.

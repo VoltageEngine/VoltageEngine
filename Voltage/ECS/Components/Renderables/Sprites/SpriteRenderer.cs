@@ -1,18 +1,18 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Data;
-using Nez.DeferredLighting;
-using Nez.Materials;
-using Nez.Systems;
-using Nez.Textures;
-using Nez.Tiled;
-using Nez.Utils;
+using Voltage.Data;
+using Voltage.Systems;
+using Voltage.Tiled;
 using System;
 using System.IO;
 using System.Reflection.Metadata;
+using Voltage.DeferredLighting;
+using Voltage.Materials;
+using Voltage.Textures;
+using Voltage.Utils;
 
 
-namespace Nez.Sprites
+namespace Voltage.Sprites
 {
 	/// <summary>
 	/// the most basic and common Renderable. Renders a Sprite/Texture.
@@ -684,7 +684,7 @@ namespace Nez.Sprites
 
 			try
 			{
-				// Ensure the path is properly formatted for NezContentManager
+				// Ensure the path is properly formatted for VoltageContentManager
 				var normalizedPath = filepath.Replace('\\', '/');
 				
 				var texture = contentManager.LoadTexture(normalizedPath);

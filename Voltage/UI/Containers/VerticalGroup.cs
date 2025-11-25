@@ -1,7 +1,7 @@
 ﻿using System;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	/// <summary>
 	/// A group that lays out its children on top of each other in a single column. This can be easier than using {@link Table} when

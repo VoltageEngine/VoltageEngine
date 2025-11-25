@@ -2,7 +2,7 @@
 using System.Runtime.CompilerServices;
 using Voltage.Persistence;
 
-namespace Nez;
+namespace Voltage;
 
 /// <summary>
 /// ComponentData class for Components. This is used to serialize Component data to JSON.

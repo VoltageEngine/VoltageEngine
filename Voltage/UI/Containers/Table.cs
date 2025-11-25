@@ -2,11 +2,11 @@
 using Microsoft.Xna.Framework;
 using System.Collections.Generic;
 using System.Linq;
-using Nez.Utils.Collections;
-using Nez.Utils.Extensions;
+using Voltage.Utils.Collections;
+using Voltage.Utils.Extensions;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	/// <summary>
 	/// A group that sizes and positions children using table constraints. By default, {@link #getTouchable()} is

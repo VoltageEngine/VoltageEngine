@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 
 
-namespace Nez
+namespace Voltage
 {
 	public static class Insist
 	{

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Nez.Aseprite
+namespace Voltage.Aseprite
 {
 	/// <summary>
 	/// Represents a slice element in an Aseprite file.

@@ -1,4 +1,4 @@
-﻿namespace Nez.Utils.Timers
+﻿namespace Voltage.Utils.Timers
 {
 	public interface ITimer
 	{

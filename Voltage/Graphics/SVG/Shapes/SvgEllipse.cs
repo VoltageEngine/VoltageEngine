@@ -1,7 +1,7 @@
 ﻿using System.Xml.Serialization;
 
 
-namespace Nez.Svg
+namespace Voltage.Svg
 {
 	public class SvgEllipse : SvgElement
 	{

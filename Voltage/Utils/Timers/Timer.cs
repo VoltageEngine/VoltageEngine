@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Nez.Utils.Timers
+namespace Voltage.Utils.Timers
 {
 	/// <summary>
 	/// private class hiding the implementation of ITimer

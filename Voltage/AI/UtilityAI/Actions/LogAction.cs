@@ -1,4 +1,4 @@
-﻿namespace Nez.AI.UtilityAI
+﻿namespace Voltage.AI.UtilityAI
 {
 	/// <summary>
 	/// Action that logs text

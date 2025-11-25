@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework;
 
 
-namespace Nez.Textures
+namespace Voltage.Textures
 {
 	public class NinePatchSprite : Sprite
 	{

@@ -1,7 +1,7 @@
 ﻿using System;
 using Microsoft.Xna.Framework.Input;
 
-namespace Nez
+namespace Voltage
 {
 	public static class InputUtils
 	{

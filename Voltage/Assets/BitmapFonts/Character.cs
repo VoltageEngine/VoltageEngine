@@ -1,7 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 
 
-namespace Nez.BitmapFonts
+namespace Voltage.BitmapFonts
 {
     /// <summary>
     /// Represents the definition of a single character in a <see cref="BitmapFont"/>

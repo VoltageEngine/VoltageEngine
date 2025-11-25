@@ -1,4 +1,4 @@
-﻿namespace Nez.AI.UtilityAI
+﻿namespace Voltage.AI.UtilityAI
 {
 	/// <summary>
 	/// encapsulates an Action and generates a score that a Reasoner can use to decide which Consideration to use

@@ -3,7 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using System;
 
 
-namespace Nez.DeferredLighting
+namespace Voltage.DeferredLighting
 {
 	public class DeferredLightEffect : Effect
 	{

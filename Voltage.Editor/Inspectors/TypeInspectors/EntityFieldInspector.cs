@@ -1,4 +1,4 @@
-﻿using Nez;
+﻿using Voltage;
 using Voltage.Editor.Core;
 using Voltage.Editor.Utils;
 
@@ -14,7 +14,7 @@ public class EntityFieldInspector : AbstractTypeInspector
 		var entity = GetValue<Entity>();
 
 		if (VoltageEditorUtils.LabelButton(_name, entity.Name))
-			Nez.Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(entity);
+			Voltage.Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(entity);
 		HandleTooltip();
 	}
 }

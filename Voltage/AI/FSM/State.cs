@@ -1,4 +1,4 @@
-﻿namespace Nez.AI.FSM
+﻿namespace Voltage.AI.FSM
 {
 	public abstract class State<T>
 	{

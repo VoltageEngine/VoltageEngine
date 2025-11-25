@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework.Input.Touch;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// to enable touch input you must first call enableTouchSupport()

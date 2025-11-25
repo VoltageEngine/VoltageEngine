@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
-using Nez.Utils.Collections;
+using Voltage.Utils.Collections;
 
 
-namespace Nez.AI.GOAP
+namespace Voltage.AI.GOAP
 {
 	/// <summary>
 	/// Agent provides a simple and concise way to use the planner. It is not necessary to use at all since it is just a convenince wrapper

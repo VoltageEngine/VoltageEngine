@@ -1,9 +1,9 @@
 ﻿using Microsoft.Xna.Framework;
-using Nez.Textures;
 using Microsoft.Xna.Framework.Graphics;
+using Voltage.Textures;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	/// <summary>
 	/// Draws a {@link Sprite} repeatedly to fill the area, instead of stretching it

@@ -2,11 +2,11 @@
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
-using Nez.Utils;
-using Nez.Utils.Collections;
+using Voltage.Utils;
+using Voltage.Utils.Collections;
 
 
-namespace Nez.Particles
+namespace Voltage.Particles
 {
 	public class ParticleEmitter : RenderableComponent, IUpdatable
 	{

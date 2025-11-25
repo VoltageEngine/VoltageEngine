@@ -1,4 +1,4 @@
-namespace Nez.Aseprite
+namespace Voltage.Aseprite
 {
 	/// <summary>
 	/// Defines the options to adhere to when generating a sprite atlas from an Aseprite file.

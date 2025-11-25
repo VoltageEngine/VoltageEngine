@@ -5,7 +5,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// implements some methods available in MonoGame that do not exist in FNA/XNA to make transitioning a codebase from MG/XNA to FNA

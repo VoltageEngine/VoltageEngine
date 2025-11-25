@@ -3,7 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using System;
 
 
-namespace Nez
+namespace Voltage
 {
 	/// <summary>
 	/// concrete implementation of IRenderable. Contains convenience methods.

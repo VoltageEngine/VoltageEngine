@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework;
 
 
-namespace Nez.Farseer
+namespace Voltage.Farseer
 {
 	public class FSCollisionEdge : FSCollisionShape
 	{

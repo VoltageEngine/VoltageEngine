@@ -1,7 +1,7 @@
 ﻿using System;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	[Flags]
 	public enum Align

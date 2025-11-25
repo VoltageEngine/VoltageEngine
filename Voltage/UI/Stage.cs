@@ -1,12 +1,12 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
-using Nez.Utils.Extensions;
-using Nez.Utils;
+using Voltage.Utils.Extensions;
 using System.Collections.Generic;
-using Nez.Utils.Timers;
+using Voltage.Utils;
+using Voltage.Utils.Timers;
 
 
-namespace Nez.UI
+namespace Voltage.UI
 {
 	public class Stage
 	{

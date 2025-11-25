@@ -3,10 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Nez.Utils.Fonts;
+using Voltage.Utils.Fonts;
 
 
-namespace Nez.BitmapFonts
+namespace Voltage.BitmapFonts
 {
 	public struct BitmapFontGlyph
 	{
