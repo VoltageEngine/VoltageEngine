@@ -11,44 +11,44 @@ namespace Nez.Persistence.JsonTests
 		[Test]
 		public void DumpBool()
 		{
-			Assert.AreEqual( "true", Json.ToJson( true ) );
-			Assert.AreEqual( "false", Json.ToJson( false ) );
+			Assert.That("true", Is.EqualTo(Json.ToJson(true)));
+			Assert.That("false", Is.EqualTo(Json.ToJson(false)));
 		}
 
 
 		[Test]
 		public void LoadBool()
 		{
-			Assert.AreEqual( true, (bool)Json.FromJson( "true" ) );
-			Assert.AreEqual( false, (bool)Json.FromJson( "false" ) );
+			Assert.That(true, Is.EqualTo((bool)Json.FromJson("true")));
+			Assert.That(false, Is.EqualTo((bool)Json.FromJson("false")));
 		}
 
 
 		[Test]
 		public void DumpIntegerTypes()
 		{
-			Assert.AreEqual( "-12345", Json.ToJson( (short)( -12345 ) ) );
-			Assert.AreEqual( "-12345", Json.ToJson( (int)( -12345 ) ) );
-			Assert.AreEqual( "-12345", Json.ToJson( (long)( -12345 ) ) );
+			Assert.That("-12345", Is.EqualTo(Json.ToJson((short)(-12345))));
+			Assert.That("-12345", Is.EqualTo(Json.ToJson((int)(-12345))));
+			Assert.That("-12345", Is.EqualTo(Json.ToJson((long)(-12345))));
 
-			Assert.AreEqual( "12345", Json.ToJson( (ushort)12345 ) );
-			Assert.AreEqual( "12345", Json.ToJson( (uint)12345 ) );
-			Assert.AreEqual( "12345", Json.ToJson( (ulong)12345 ) );
+			Assert.That("12345", Is.EqualTo(Json.ToJson((ushort)12345)));
+			Assert.That("12345", Is.EqualTo(Json.ToJson((uint)12345)));
+			Assert.That("12345", Is.EqualTo(Json.ToJson((ulong)12345)));
 		}
 
 
 		[Test]
 		public void LoadIntegerTypes()
 		{
-			Assert.AreEqual( -12345, Json.FromJson<int>( "-12345" ) );
+			Assert.That(-12345, Is.EqualTo(Json.FromJson<int>("-12345")));
 		}
 
 
 		[Test]
 		public void DumpFloatTypes()
 		{
-			Assert.AreEqual( "123.45", Json.ToJson( (float)123.45 ) );
-			Assert.AreEqual( "123.45", Json.ToJson( (double)123.45 ) );
+			Assert.That("123.45", Is.EqualTo(Json.ToJson((float)123.45)));
+			Assert.That("123.45", Is.EqualTo(Json.ToJson((double)123.45)));
 		}
 
 
@@ -57,8 +57,8 @@ namespace Nez.Persistence.JsonTests
 		{
 			var currentCulture = CultureInfo.CurrentCulture;
 			CultureInfo.CurrentCulture = new CultureInfo( "de", false );
-			Assert.AreEqual( "123.45", Json.ToJson( (float)123.45 ) );
-			Assert.AreEqual( "123.45", Json.ToJson( (double)123.45 ) );
+			Assert.That("123.45", Is.EqualTo(Json.ToJson((float)123.45)));
+			Assert.That("123.45", Is.EqualTo(Json.ToJson((double)123.45)));
 			CultureInfo.CurrentCulture = currentCulture;
 		}
 
@@ -66,44 +66,44 @@ namespace Nez.Persistence.JsonTests
 		[Test]
 		public void DumpDecimalType()
 		{
-			Assert.AreEqual( "79228162514264337593543950335", Json.ToJson( decimal.MaxValue ) );
-			Assert.AreEqual( "-79228162514264337593543950335", Json.ToJson( decimal.MinValue ) );
+			Assert.That("79228162514264337593543950335", Is.EqualTo(Json.ToJson(decimal.MaxValue)));
+			Assert.That("-79228162514264337593543950335", Is.EqualTo(Json.ToJson(decimal.MinValue)));
 		}
 
 
 		[Test]
 		public void LoadFloatTypes()
 		{
-			Assert.AreEqual( 123.45f, Json.FromJson<float>( "123.45" ) );
+			Assert.That(123.45f, Is.EqualTo(Json.FromJson<float>("123.45")));
 		}
 
 
 		[Test]
 		public void DumpString()
 		{
-			Assert.AreEqual( "\"OHAI! Can haz ball of strings?\"", Json.ToJson( "OHAI! Can haz ball of strings?" ) );
-			Assert.AreEqual( "\"\\\"\"", Json.ToJson( "\"" ) );
-			Assert.AreEqual( "\"\\\\\"", Json.ToJson( "\\" ) );
-			Assert.AreEqual( "\"\\b\"", Json.ToJson( "\b" ) );
-			Assert.AreEqual( "\"\\f\"", Json.ToJson( "\f" ) );
-			Assert.AreEqual( "\"\\n\"", Json.ToJson( "\n" ) );
-			Assert.AreEqual( "\"\\r\"", Json.ToJson( "\r" ) );
-			Assert.AreEqual( "\"\\t\"", Json.ToJson( "\t" ) );
-			Assert.AreEqual( "\"c\"", Json.ToJson( 'c' ) );
+			Assert.That("\"OHAI! Can haz ball of strings?\"", Is.EqualTo(Json.ToJson("OHAI! Can haz ball of strings?")));
+			Assert.That("\"\\\"\"", Is.EqualTo(Json.ToJson("\"")));
+			Assert.That("\"\\\\\"", Is.EqualTo(Json.ToJson("\\")));
+			Assert.That("\"\\b\"", Is.EqualTo(Json.ToJson("\b")));
+			Assert.That("\"\\f\"", Is.EqualTo(Json.ToJson("\f")));
+			Assert.That("\"\\n\"", Is.EqualTo(Json.ToJson("\n")));
+			Assert.That("\"\\r\"", Is.EqualTo(Json.ToJson("\r")));
+			Assert.That("\"\\t\"", Is.EqualTo(Json.ToJson("\t")));
+			Assert.That("\"c\"", Is.EqualTo(Json.ToJson('c')));
 		}
 
 
 		[Test]
 		public void LoadString()
 		{
-			Assert.AreEqual( "OHAI! Can haz ball of strings?", (string)Json.FromJson( "\"OHAI! Can haz ball of strings?\"" ) );
-			Assert.AreEqual( "\"", (string)Json.FromJson( "\"\\\"\"" ) );
-			Assert.AreEqual( "\\", (string)Json.FromJson( "\"\\\\\"" ) );
-			Assert.AreEqual( "\b", (string)Json.FromJson( "\"\\b\"" ) );
-			Assert.AreEqual( "\f", (string)Json.FromJson( "\"\\f\"" ) );
-			Assert.AreEqual( "\n", (string)Json.FromJson( "\"\\n\"" ) );
-			Assert.AreEqual( "\r", (string)Json.FromJson( "\"\\r\"" ) );
-			Assert.AreEqual( "\t", (string)Json.FromJson( "\"\\t\"" ) );
+			Assert.That("OHAI! Can haz ball of strings?", Is.EqualTo((string)Json.FromJson("\"OHAI! Can haz ball of strings?\"")));
+			Assert.That("\"", Is.EqualTo((string)Json.FromJson("\"\\\"\"")));
+			Assert.That("\\", Is.EqualTo((string)Json.FromJson("\"\\\\\"")));
+			Assert.That("\b", Is.EqualTo((string)Json.FromJson("\"\\b\"")));
+			Assert.That("\f", Is.EqualTo((string)Json.FromJson("\"\\f\"")));
+			Assert.That("\n", Is.EqualTo((string)Json.FromJson("\"\\n\"")));
+			Assert.That("\r", Is.EqualTo((string)Json.FromJson("\"\\r\"")));
+			Assert.That("\t", Is.EqualTo((string)Json.FromJson("\"\\t\"")));
 		}
 
 
@@ -111,15 +111,15 @@ namespace Nez.Persistence.JsonTests
 		public void DumpNull()
 		{
 			List<int> list = null;
-			Assert.AreEqual( "null", Json.ToJson( list ) );
-			Assert.AreEqual( "null", Json.ToJson( null ) );
+			Assert.That("null", Is.EqualTo(Json.ToJson(list)));
+			Assert.That("null", Is.EqualTo(Json.ToJson(null)));
 		}
 
 
 		[Test]
 		public void LoadNull()
 		{
-			Assert.AreEqual( null, Json.FromJson( "null" ) );
+			Assert.That(null, Is.EqualTo(Json.FromJson("null")));
 		}
 
 

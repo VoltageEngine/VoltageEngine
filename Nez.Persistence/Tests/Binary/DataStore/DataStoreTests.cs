@@ -1,5 +1,6 @@
 using System.IO;
 using NUnit.Framework;
+using NUnit.Framework.Legacy;
 
 namespace Nez.Persistence.Binary.Tests
 {
@@ -73,7 +74,7 @@ namespace Nez.Persistence.Binary.Tests
 		public void KeyValueDataStore_StartsNotDirty()
 		{
 			var kvStore = new KeyValueDataStore( _filename );
-			Assert.IsFalse( kvStore.IsDirty );
+			Assert.That( kvStore.IsDirty, Is.False);
 		}
 
 		[Test]
@@ -81,7 +82,7 @@ namespace Nez.Persistence.Binary.Tests
 		{
 			var kvStore = new KeyValueDataStore( _filename );
 			kvStore.DeleteBoolKey( "doesnt-exist" );
-			Assert.IsFalse( kvStore.IsDirty );
+			Assert.That( kvStore.IsDirty, Is.False );
 		}
 
 		[Test]
@@ -89,7 +90,7 @@ namespace Nez.Persistence.Binary.Tests
 		{
 			var kvStore = new KeyValueDataStore( _filename );
 			kvStore.Set( "key", true );
-			Assert.IsTrue( kvStore.IsDirty );
+			Assert.That( kvStore.IsDirty, Is.True);
 		}
 
 		[Test]
@@ -108,10 +109,10 @@ namespace Nez.Persistence.Binary.Tests
 			kvStore.DeleteAll();
 			_store.Load( "kv-dump", kvStore );
 
-			Assert.AreEqual( kvStore.GetBool( "bool" ), TestValues.aBool );
-			Assert.AreEqual( kvStore.GetString( "string" ), TestValues.aString );
-			Assert.AreEqual( kvStore.GetFloat( "float" ), TestValues.aFloat );
-			Assert.AreEqual( kvStore.GetInt( "int" ), TestValues.aInt );
+			Assert.That( kvStore.GetBool( "bool" ), Is.EqualTo(TestValues.aBool) );
+			Assert.That( kvStore.GetString( "string" ), Is.EqualTo(TestValues.aString ));
+			Assert.That( kvStore.GetFloat( "float" ), Is.EqualTo(TestValues.aFloat));
+			Assert.That( kvStore.GetInt( "int" ), Is.EqualTo(TestValues.aInt));
 		}
 
 		#endregion

@@ -1,5 +1,4 @@
 ﻿using NUnit.Framework;
-using System;
 using System.Collections.Generic;
 
 
@@ -17,13 +16,13 @@ namespace Nez.Persistence.NsonTests
 			[BeforeEncode]
 			public void BeforeDecode()
 			{
-                Console.WriteLine( "Entity.BeforeEncode" );
+                System.Console.WriteLine( "Entity.BeforeEncode" );
 			}
 
 			[AfterDecode]
 			public void AfterDecode()
 			{
-                Console.WriteLine( "Entity.AfterDecode" );
+				System.Console.WriteLine( "Entity.AfterDecode" );
 			}
 		}
 
@@ -50,11 +49,11 @@ namespace Nez.Persistence.NsonTests
 			} );
 
 			var outEntity = Nson.FromNson<Entity>( json );
-			Assert.IsInstanceOf( typeof( Sprite ), outEntity.components[1] );
+			Assert.That( outEntity.components[1], Is.InstanceOf(typeof( Sprite )) );
 
 
 			outEntity = Nson.FromNson<Entity>( json );
-			Assert.IsInstanceOf( typeof( Sprite ), outEntity.components[1] );
+			Assert.That( outEntity.components[1], Is.InstanceOf(typeof( Sprite )) );
 		}
 
 		[Test]
@@ -70,7 +69,7 @@ namespace Nez.Persistence.NsonTests
 			} );
 
 			var outEntity = Nson.FromNson<Entity>( json );
-			Assert.AreEqual( outEntity, outEntity.components[1].entity );
+			Assert.That( outEntity, Is.EqualTo(outEntity.components[1].entity) );
 		}
 
 		[Test]
@@ -86,7 +85,7 @@ namespace Nez.Persistence.NsonTests
 			} );
 
 			var outEntity = Nson.FromNson<Entity>( json );
-			Assert.IsInstanceOf( typeof( Sprite ), outEntity.components[1] );
+			Assert.That( outEntity.components[1], Is.InstanceOf(typeof( Sprite )) );
 		}
 
 	}

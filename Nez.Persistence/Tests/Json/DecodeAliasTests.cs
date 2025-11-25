@@ -31,10 +31,10 @@ namespace Nez.Persistence.JsonTests
 			const string json = "{ \"numberFieldAlias\" : 1, \"NumberPropertyAlias\" : 2, \"anotherNumberFieldAliasOne\" : 3, \"anotherNumberFieldAliasTwo\" : 4, \"AnotherNumberPropertyAliasOne\" : 5, \"AnotherNumberPropertyAliasTwo\" : 6 }";
 			var aliasData = Json.FromJson<AliasData>( json );
 
-			Assert.AreEqual( 1, aliasData.NumberField );
-			Assert.AreEqual( 2, aliasData.NumberProperty );
-			Assert.IsTrue( aliasData.AnotherNumberField == 3 || aliasData.AnotherNumberField == 4 );
-			Assert.IsTrue( aliasData.YetAnotherNumberField == 5 || aliasData.YetAnotherNumberField == 6 );
+			Assert.That( 1, Is.EqualTo(aliasData.NumberField) );
+			Assert.That(2, Is.EqualTo(aliasData.NumberProperty));
+			Assert.That( aliasData.AnotherNumberField == 3 || aliasData.AnotherNumberField == 4, Is.True );
+			Assert.That( aliasData.YetAnotherNumberField == 5 || aliasData.YetAnotherNumberField == 6, Is.True );
 		}
 	}
 }

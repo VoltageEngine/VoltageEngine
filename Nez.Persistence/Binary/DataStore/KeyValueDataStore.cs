@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 
-
 namespace Nez.Persistence.Binary
 {
 	/// <summary>
