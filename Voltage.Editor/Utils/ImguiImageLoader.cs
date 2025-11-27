@@ -1,8 +1,6 @@
 ﻿using System;
-using Voltage;
 using Voltage.Utils;
-using Voltage;
-using Voltage.Editor.Core;
+using Voltage.Editor.ImGuiCore;
 
 namespace Voltage.Editor.Utils
 {

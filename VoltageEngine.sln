@@ -1,15 +1,15 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36414.22 d17.14
+VisualStudioVersion = 17.14.36414.22
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Voltage", "Voltage\Voltage.csproj", "{0C76FE50-F42F-3E59-E366-1A6E9E393B77}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Voltage.Editor", "Voltage.Editor\Voltage.Editor.csproj", "{8553248E-9E10-C7CA-D710-F6859BC318D0}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Voltage.Persistence", "Voltage.Persistence\Voltage.Persistence.csproj", "{50ECB157-3EE6-77E6-E267-E690D13B9DAD}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Voltage.FarseerPhysics", "Voltage.FarseerPhysics\Voltage.FarseerPhysics.csproj", "{0C31E400-0C96-5047-9368-29209166D2A4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Voltage.Engine", "Voltage.Engine\Voltage.Engine.csproj", "{8F675E39-BD14-1156-CBF2-6AE91271724C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,10 +17,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{0C76FE50-F42F-3E59-E366-1A6E9E393B77}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{0C76FE50-F42F-3E59-E366-1A6E9E393B77}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{0C76FE50-F42F-3E59-E366-1A6E9E393B77}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{0C76FE50-F42F-3E59-E366-1A6E9E393B77}.Release|Any CPU.Build.0 = Release|Any CPU
 		{8553248E-9E10-C7CA-D710-F6859BC318D0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{8553248E-9E10-C7CA-D710-F6859BC318D0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8553248E-9E10-C7CA-D710-F6859BC318D0}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -33,6 +29,10 @@ Global
 		{0C31E400-0C96-5047-9368-29209166D2A4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0C31E400-0C96-5047-9368-29209166D2A4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0C31E400-0C96-5047-9368-29209166D2A4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8F675E39-BD14-1156-CBF2-6AE91271724C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8F675E39-BD14-1156-CBF2-6AE91271724C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8F675E39-BD14-1156-CBF2-6AE91271724C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8F675E39-BD14-1156-CBF2-6AE91271724C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

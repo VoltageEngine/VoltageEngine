@@ -4,7 +4,7 @@ using ImGuiNET;
 using Num = System.Numerics;
 
 
-namespace Voltage.Editor.Core;
+namespace Voltage.Editor.ImGuiCore;
 
 public class ImGuiOptions
 {

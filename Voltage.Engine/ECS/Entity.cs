@@ -323,19 +323,10 @@ public class Entity : IComparable<Entity>
 		Components.OnEntityTransformChanged(comp);
 	}
 
-	/// <summary>
-	/// This method is called by the Scene when the Entity is added to the Scene. It is used to initialize any parameters that are needed for the Entity to function properly.
-	/// (e.g. setting up physics colliders, initializing components, etc.), before the Entity is used in the Scene.
-	/// </summary>
-	public virtual void InitParams(params object[] args)
-	{
-	}
-
 	public virtual void FinishInit()
 	{
 
 	}
-
 
 	#region Fluent setters
 

@@ -3,7 +3,6 @@ using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using Voltage;
 using Voltage.Console;
 using Voltage.Utils;
 using Voltage.Utils.Extensions;
@@ -11,8 +10,9 @@ using Voltage.Editor.UndoActions;
 using Voltage.Editor.Utils;
 using Voltage.Persistence.Binary;
 using Num = System.Numerics;
+using Voltage;
 
-namespace Voltage.Editor.Core;
+namespace Voltage.Editor.ImGuiCore;
 
 /// <summary>
 /// Manages the ImGui game window specifically

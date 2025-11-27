@@ -6,7 +6,6 @@ using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using Voltage;
 using Voltage.Data;
 using Voltage.Sprites;
 using Voltage.Utils;
@@ -18,9 +17,10 @@ using Voltage.Editor.Tools;
 using Voltage.Editor.UndoActions;
 using Voltage.Editor.Utils;
 using Num = System.Numerics;
+using Voltage;
 
 
-namespace Voltage.Editor.Core;
+namespace Voltage.Editor.ImGuiCore;
 
 public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDisposable
 {

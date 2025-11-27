@@ -2,7 +2,7 @@ using System;
 using ImGuiNET;
 using Microsoft.Xna.Framework.Graphics;
 using Voltage.Utils;
-using Voltage.Editor.Core;
+using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Utils;
 using Num = System.Numerics;
 

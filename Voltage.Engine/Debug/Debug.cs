@@ -68,7 +68,7 @@ namespace Voltage
         {
             string msg = args != null && args.Length > 0 ? string.Format(format, args) : format;
             string callerClass = System.IO.Path.GetFileNameWithoutExtension(callerFile);
-            
+
             var key = (type, msg, callerClass, callerLine);
 
             lock (_logLock)
@@ -95,6 +95,11 @@ namespace Voltage
 
                 if (_logEntries.Count > 500)
                     _logEntries.RemoveAt(0);
+
+#if DEBUG
+				// Bonus output in case the editor can't start for some reason
+                System.Console.WriteLine($"[{type}] {msg} (at {callerClass}:{callerLine})");
+#endif
             }
         }
 
