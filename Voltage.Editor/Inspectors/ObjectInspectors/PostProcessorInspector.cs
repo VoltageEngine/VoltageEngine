@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using ImGuiNET;
-using Voltage;
 using Voltage.Utils;
 using Voltage.Editor.Inspectors.TypeInspectors;
 using Voltage.Editor.Utils;

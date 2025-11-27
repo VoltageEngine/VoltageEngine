@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using System.IO;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Audio;
-using Voltage;
 using Voltage.Aseprite;
 using Voltage.BitmapFonts;
 using Voltage.ParticleDesigner;

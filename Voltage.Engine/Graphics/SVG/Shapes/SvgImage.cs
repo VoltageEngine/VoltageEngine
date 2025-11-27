@@ -4,6 +4,7 @@ using System.Xml.Serialization;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using Voltage.Systems;
+using Voltage.Utils.Fonts;
 
 
 namespace Voltage.Svg

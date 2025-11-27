@@ -1,7 +1,6 @@
 using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Voltage;
 using Voltage.Tiled;
 using Voltage.Sprites;
 using Voltage.Textures;

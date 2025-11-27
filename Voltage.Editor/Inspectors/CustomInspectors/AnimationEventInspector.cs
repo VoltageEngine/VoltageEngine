@@ -2,10 +2,9 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 using ImGuiNET;
-using Voltage;
 using Voltage.Sprites;
 using Voltage.Utils;
-using Voltage.Editor.Core;
+using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.UndoActions;
 using Num = System.Numerics;
 

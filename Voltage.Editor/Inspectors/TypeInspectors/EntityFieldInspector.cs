@@ -1,5 +1,4 @@
-﻿using Voltage;
-using Voltage.Editor.Core;
+﻿using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Utils;
 
 namespace Voltage.Editor.Inspectors.TypeInspectors;

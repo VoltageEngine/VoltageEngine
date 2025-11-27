@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using ImGuiNET;
-using Voltage;
 using Voltage.Sprites;
 using Voltage.Textures;
 using Voltage.Tiled;

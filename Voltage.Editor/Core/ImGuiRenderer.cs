@@ -5,7 +5,7 @@ using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace Voltage.Editor.Core
+namespace Voltage.Editor.ImGuiCore
 {
 	/// <summary>
 	/// ImGui renderer for use with XNA-likes (FNA & MonoGame)

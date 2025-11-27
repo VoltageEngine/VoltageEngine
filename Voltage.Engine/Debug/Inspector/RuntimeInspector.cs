@@ -4,6 +4,7 @@ using System.Linq;
 using Microsoft.Xna.Framework;
 using Voltage.Utils;
 using Voltage.UI;
+using Voltage;
 
 
 #if DEBUG

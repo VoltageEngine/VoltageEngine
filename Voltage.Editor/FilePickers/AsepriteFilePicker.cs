@@ -7,8 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Voltage;
 using Voltage.Editor.Persistence;
+using Voltage.Editor.ProjectManagement;
 using Voltage.Editor.Utils;
 using Num = System.Numerics;
 
@@ -27,6 +27,10 @@ namespace Voltage.Editor.FilePickers
             public List<Sprite> Sprites { get; set; }
             public bool ShowHiddenLayers;
             public bool IsLayerMergeOn;
+
+			// When we create entities from this selection, assign layers in descending order between min and max
+			public int MinRenderingLayer;
+            public int MaxRenderingLayer;
         }
 
 		private readonly object _owner;
@@ -50,6 +54,8 @@ namespace Voltage.Editor.FilePickers
         private string _layerSearchFilter = "";
         private PersistentBool _isLayerMergeOn;
         private PersistentBool _showHiddenLayers;
+        private PersistentInt _minRenderingLayer;
+		private PersistentInt _maxRenderingLayer;
 		public string PopupId => _popupId;
         public bool IsOpen => _isOpen;
 
@@ -130,7 +136,17 @@ namespace Voltage.Editor.FilePickers
                     }
                 }
 
-                if (_availableLayers.Count > 0)
+				int minRenderingLayer = _minRenderingLayer.Value;
+                if (ImGui.InputInt("Merge Layers", ref minRenderingLayer))
+	                _isLayerMergeOn.Value = layerMergeOn;
+
+                if (ImGui.IsItemHovered())
+                {
+	                ImGui.SetTooltip("If FALSE, then for each selected layer, a SpriteEntity will be created.\n " +
+	                                 "If TRUE, all visible layers will be merged into a single SpriteEntity.");
+                }
+
+				if (_availableLayers.Count > 0)
                 {
                     if (ImGui.BeginChild("selection-section", new Num.Vector2(800, 300), true))
                     {
@@ -162,8 +178,10 @@ namespace Voltage.Editor.FilePickers
                             FrameNumbers = _selectedFrames.Count > 0 ? new List<int>(_selectedFrames) : new List<int> { 0 },
                             Sprites = GenerateSprites(relativePath),
                             IsLayerMergeOn = _isLayerMergeOn.Value,
-                            ShowHiddenLayers = _showHiddenLayers.Value
-                        };
+                            ShowHiddenLayers = _showHiddenLayers.Value,
+							MinRenderingLayer = _minRenderingLayer.Value,
+							MaxRenderingLayer = _maxRenderingLayer.Value
+						};
 
                         ImGui.CloseCurrentPopup();
                         FilePicker.RemoveFilePicker(picker);
@@ -328,7 +346,25 @@ namespace Voltage.Editor.FilePickers
             {
                 ImGui.TextColored(new Num.Vector4(0.7f, 0.7f, 0.7f, 1.0f), "Frame 0 will be used by default");
             }
-        }
+
+			var renderingLayers = GameSettings.Instance.Rendering.RenderingLayers;
+			var layerNames = renderingLayers.Keys.ToList();
+			var layerValues = renderingLayers.Values.ToList();
+
+			int minSelectedIndex = layerValues.IndexOf(_minRenderingLayer.Value);
+			if (minSelectedIndex < 0) minSelectedIndex = 0;
+			if (ImGui.Combo("Min Rendering Layer", ref minSelectedIndex, string.Join('\0', layerNames) + '\0'))
+			{
+				_minRenderingLayer.Value = layerValues[minSelectedIndex];
+			}
+
+			int maxSelectedIndex = layerValues.IndexOf(_maxRenderingLayer.Value);
+			if (maxSelectedIndex < 0) maxSelectedIndex = 0;
+			if (ImGui.Combo("Max Rendering Layer", ref maxSelectedIndex, string.Join('\0', layerNames) + '\0'))
+			{
+				_maxRenderingLayer.Value = layerValues[maxSelectedIndex];
+			}
+		}
 
         private List<Sprite> GenerateSprites(string relativePath)
         {

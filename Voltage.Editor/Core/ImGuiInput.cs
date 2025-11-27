@@ -2,9 +2,8 @@
 using System.Collections.Generic;
 using ImGuiNET;
 using Microsoft.Xna.Framework.Input;
-using Voltage;
 
-namespace Voltage.Editor.Core
+namespace Voltage.Editor.ImGuiCore
 {
 	public class ImGuiInput
 	{

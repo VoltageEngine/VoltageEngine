@@ -1,9 +1,9 @@
 ﻿using System;
-using Voltage;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Voltage.UI;
 using Voltage.Utils;
+using Voltage;
 
 public class ScreenUtils
 {

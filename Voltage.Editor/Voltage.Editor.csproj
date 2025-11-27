@@ -7,7 +7,7 @@
 	<PropertyGroup>
 		<Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
 		<Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-		<OutputType>Library</OutputType>
+		<OutputType>Exe</OutputType>
 		<RootNamespace>Voltage.Editor</RootNamespace>
 		<AssemblyName>Voltage.Editor</AssemblyName>
 		<TargetFramework>net8.0</TargetFramework>
@@ -62,6 +62,17 @@
 		</Content>
 	</ItemGroup>
 
+	<!-- Specify OS types to use in the codebase (e.g. #if OS_WINDOWS #endif )-->
+	<PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+		<DefineConstants>OS_WINDOWS</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+		<DefineConstants>OS_LINUX</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+		<DefineConstants>OS_MAC</DefineConstants>
+	</PropertyGroup>
+
 	<ItemGroup>
 	  <Content Include="ImGuiContent\CursorSelection-UI-Normal.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -83,8 +94,8 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <ProjectReference Include="..\Voltage.Engine\Voltage.Engine.csproj" />
 	  <ProjectReference Include="..\Voltage.Persistence\Voltage.Persistence.csproj" />
-	  <ProjectReference Include="..\Voltage\Voltage.csproj" />
 	</ItemGroup>
 
 	<Import Sdk="Microsoft.NET.Sdk" Project="Sdk.targets" />

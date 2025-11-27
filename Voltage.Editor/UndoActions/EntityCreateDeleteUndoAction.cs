@@ -1,5 +1,4 @@
 using System;
-using Voltage;
 using Voltage.ECS;
 
 namespace Voltage.Editor.UndoActions;

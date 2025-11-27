@@ -2,13 +2,12 @@ using System;
 using System.Collections.Generic;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
-using Voltage;
 using Voltage.DeferredLighting;
 using Voltage.Sprites;
 using Voltage.Utils;
 using Voltage.Editor.Gizmos;
 
-namespace Voltage.Editor.Core
+namespace Voltage.Editor.ImGuiCore
 {
 	public enum CursorSelectionMode
 	{

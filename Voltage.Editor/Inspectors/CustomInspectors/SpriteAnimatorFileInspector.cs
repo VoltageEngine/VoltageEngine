@@ -2,12 +2,11 @@
 using System.Collections.Generic;
 using System.IO;
 using ImGuiNET;
-using Voltage;
 using Voltage.Aseprite;
 using Voltage.Sprites;
 using Voltage.Textures;
 using Voltage.Utils;
-using Voltage.Editor.Core;
+using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Inspectors.TypeInspectors;
 using Voltage.Editor.UndoActions;

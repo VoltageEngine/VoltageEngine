@@ -218,7 +218,6 @@ public class Core : Game
 
 	#endregion
 
-
 	#region Game overides
 
 	protected override void Initialize()
@@ -271,8 +270,8 @@ public class Core : Game
 			// 		- unless it is SceneTransition that doesn't change Scenes (no reason not to update)
 			//		- or it is a SceneTransition that has already switched to the new Scene (the new Scene needs to do its thing)
 			if (_sceneTransition == null ||
-			    (_sceneTransition != null &&
-			     (!_sceneTransition._loadsNewScene || _sceneTransition._isNewSceneLoaded)))
+			    _sceneTransition != null &&
+			     (!_sceneTransition._loadsNewScene || _sceneTransition._isNewSceneLoaded))
 				_scene.Update();
 
 			if (_nextScene != null)
@@ -580,7 +579,7 @@ public class Core : Game
 	}
 	public static void InvokeSwitchEditMode(bool isEditMode)
 	{
-		Core.IsEditMode = isEditMode;
+		IsEditMode = isEditMode;
 		OnSwitchEditMode?.Invoke(isEditMode);
 	}
 

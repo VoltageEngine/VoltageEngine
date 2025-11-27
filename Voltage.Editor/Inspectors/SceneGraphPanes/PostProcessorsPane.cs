@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using ImGuiNET;
-using Voltage;
 using Voltage.Utils;
 using Voltage.Editor.Inspectors.ObjectInspectors;
 using Voltage.Editor.Utils;
