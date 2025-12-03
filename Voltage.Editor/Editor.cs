@@ -24,39 +24,34 @@ public class Editor : Core
             .BaseDirectory); //For some reason, on Mac directory needs to be set manually or it won't find the Content folder
 #endif
 
-		ScreenUtils.SetFullScreenMode();
 		var options = new ImGuiOptions();
-		
-		// if (Screen.MonitorWidth <= 1920)
-		// 	options.AddFont("Content/Fonts/Lexend-Regular.ttf", 13);
-		// else if (Screen.MonitorWidth < 3840)
-		// 	options.AddFont("Content/Fonts/Lexend-Regular.ttf", 15);
-		// else
-		// 	options.AddFont("Content/Fonts/Lexend-Regular.ttf", 18);
-		
-		options.IncludeDefaultFont(false);
-		var imGuiManager = new ImGuiManager(options);
 
-		if (Screen.MonitorWidth <= 1920)
+		if (Screen.ActualMonitorWidth <= 1920)
 		{
-			ImGui.GetIO().FontGlobalScale = 1f;
+			options.AddFont("Content/Fonts/Lexend-Medium.ttf", 12);
+			options.FontSizeMultiplier = 1f;
 			DebugConsole.RenderScale = 2f;
 		}
-		else if (Screen.MonitorWidth < 3840)
+		else if (Screen.ActualMonitorWidth < 3840)
 		{
-			ImGui.GetIO().FontGlobalScale = 1.3f;
+			options.AddFont("Content/Fonts/Lexend-Medium.ttf", 16);
+			options.FontSizeMultiplier = 1.2f;
 			DebugConsole.RenderScale = 3f;
 		}
 		else
 		{
-			ImGui.GetIO().FontGlobalScale = 1.5f;
+			options.AddFont("Content/Fonts/Lexend-Medium.ttf", 20);
+			options.FontSizeMultiplier = 1.5f;
 			DebugConsole.RenderScale = 4f;
 		}
+
+		options.IncludeDefaultFont(true);
+		var imGuiManager = new ImGuiManager(options);
 
 		RegisterGlobalManager(imGuiManager);
 
         Scene.OnSceneBegin += SetImGuiEditor; //Make sure all values of ImGuiEditor are reset when changing scenes
-        Scene.OnSceneBegin += TrackSceneChange; //Track scene changes for persistence
+        Scene.OnSceneBegin += TrackSceneChange;
 
 #if DEBUG
 		DebugRenderEnabled = true;
@@ -67,12 +62,13 @@ public class Editor : Core
         ExitOnEscapeKeypress = false;
         IsFixedTimeStep = true; //Run Update() every 60 frames
         Screen.SynchronizeWithVerticalRetrace = false; //Vsync = off
-        DefaultSamplerState = SamplerState.PointClamp; // pixel perfect rendering
+        //DefaultSamplerState = SamplerState.PointClamp; // pixel perfect rendering
 
         Scene = LoadLastOrDefaultScene();
+        ScreenUtils.SetWindowedMode(true);
 	}
 
-    protected override void EndRun()
+	protected override void EndRun()
     {
         base.EndRun();
         Scene.OnSceneBegin -= SetImGuiEditor;
@@ -84,7 +80,7 @@ public class Editor : Core
         StartCoroutine(StartInEditMode());
     }
 
-	// TODO: Refactor ImGuiEditor to not rely on a hacky coroutine like this, and instead load the entities correctly
+	// TODO: Refactor ImGuiEditor to NOT rely on a hacky coroutine like this, and instead load the entities correctly
 	private IEnumerator StartInEditMode()
     {
         IsEditMode = false;
@@ -128,7 +124,7 @@ public class Editor : Core
         {
             if (ScreenUtils.IsFullscreen)
             {
-                ScreenUtils.SetWindowedMode();
+                ScreenUtils.SetWindowedMode(false);
             }
             else
             {
