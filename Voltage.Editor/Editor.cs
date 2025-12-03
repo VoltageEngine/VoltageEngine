@@ -10,6 +10,11 @@ using Voltage.Editor.Scenes;
 using Voltage.Utils;
 using Voltage.Utils.Coroutines;
 
+#if OS_MAC
+using System;
+using System.IO;
+#endif
+
 namespace Voltage.Editor;
 
 public class Editor : Core
@@ -135,7 +140,7 @@ public class Editor : Core
     if (Input.IsKeyDown(Keys.LeftControl) && Input.IsKeyDown(Keys.LeftWindows) && Input.IsKeyPressed(Keys.F))
     {
         if (ScreenUtils.IsFullscreen)
-            ScreenUtils.SetWindowedMode();
+            ScreenUtils.SetWindowedMode(false);
         else
             ScreenUtils.SetFullScreenMode();
     }
