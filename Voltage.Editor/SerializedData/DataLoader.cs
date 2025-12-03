@@ -110,8 +110,6 @@ public class DataLoader
 
     #region Save Methods
 
-#if DEBUG
-    
     private async Task SaveSceneChanges()
     {
         await SaveSceneDataAsync(Core.Scene, HasExitedEditorMode);
@@ -330,8 +328,6 @@ public class DataLoader
             throw new Exception($"Failed to save scene {scene.GetType().Name}", ex);
         }
     }
-#endif
-
 
     #endregion
     
@@ -492,7 +488,6 @@ public class DataLoader
 
     #region Prefab Methods
 
-#if DEBUG
     /// <summary>
     /// Saves a prefab entity to a JSON file, organized into subdirectories by EntityType.
     /// </summary>
@@ -686,7 +681,6 @@ public class DataLoader
             throw new Exception($"Failed to load prefab {prefabName}: {ex.Message}");
         }
     }
-#endif
 
     public static void LoadPrefabEntityData(Entity newEntity, PrefabData prefabData)
     {

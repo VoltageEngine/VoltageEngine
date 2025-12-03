@@ -9,7 +9,12 @@ namespace Voltage.Editor.ProjectManagement
 		string ProjectName { get; }
 		string ProjectPath { get; }
 		GameSettings Settings { get; }
-		Version Version { get; } 
+		Version Version { get; }
+
+		// Asset folders
+		string ScriptsFolder { get; }
+		string EffectsFolder { get; }
+		string ContentsFolder { get; }
 
 		void Initialize();
 		Scene CreateInitialScene();

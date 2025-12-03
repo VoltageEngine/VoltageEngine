@@ -311,7 +311,7 @@ public class MainEntityInspector
 			return;
 
 		if (_imGuiManager == null)
-			_imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
+			_imGuiManager = Core.GetGlobalManager<ImGuiManager>();
 
 		var windowPosX = Screen.Width - _imGuiManager.InspectorTabWidth + _imGuiManager.InspectorWidthOffset;
 		var windowPosY = _imGuiManager.MainWindowPositionY + 32f;

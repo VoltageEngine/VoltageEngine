@@ -23,7 +23,7 @@
 	</PropertyGroup>
 
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-		<DefineConstants></DefineConstants>
+		<DefineConstants>TRACE;BUILD</DefineConstants>
 	</PropertyGroup>
 
 	<!-- Only enable this when you want to compile the Effects source files with mgfxc when running the program -->
@@ -38,13 +38,6 @@
 	<!--   </ItemGroup> -->
 	<!--   <Exec Command="mgfxc %(ShaderFiles.Identity) &quot;$(ShaderOutDir)%(Filename).mgfxo&quot;" /> -->
 	<!-- </Target> -->
-
-	<!-- The EDITOR constant is true when we are running the Voltage.Editor -->
-	<ItemGroup>
-		<ProjectReference Include="..\Voltage.Engine\Voltage.Engine.csproj">
-			<Properties>DefineConstants=EDITOR;$(DefineConstants)</Properties>
-		</ProjectReference>
-	</ItemGroup>
 
 	<PropertyGroup>
 		<IsOSX Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' == 'true'">true</IsOSX>

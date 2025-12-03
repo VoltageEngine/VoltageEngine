@@ -46,7 +46,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	public float GameWindowWidth { get; private set; }
 	public float GameWindowHeight { get; private set; }
 
-	public float FontSizeMultiplier => ImGui.GetIO().FontGlobalScale;
+	public float FontSizeMultiplier;
 
 	// Public instances
 	public GizmoSelectionManager CursorSelectionManager => _cursorSelectionManager;
@@ -213,6 +213,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (options == null)
 			options = new ImGuiOptions();
 
+		FontSizeMultiplier = options.FontSizeMultiplier;
 		_gameWindowTitle = options._gameWindowTitle;
 		_gameWindowFlags = options._gameWindowFlags;
 		_gameViewForcedPos = WindowPosition.Top;
@@ -252,10 +253,10 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		// Create default Main Entity Inspector window when current scene is finished loading the entities
 		Scene.OnFinishedAddingEntitiesWithData += OpenMainEntityInspector;
-		Voltage.Core.EmitterWithPending.AddObserver(CoreEvents.Exiting, OnAppExitSaveChanges);
+		Core.EmitterWithPending.AddObserver(CoreEvents.Exiting, OnAppExitSaveChanges);
 
-		Voltage.Core.OnResetScene += RequestResetScene;
-		Voltage.Core.OnSwitchEditMode += OnEditModeSwitched;
+		Core.OnResetScene += RequestResetScene;
+		Core.OnSwitchEditMode += OnEditModeSwitched;
 
 		MainEntityInspector = new MainEntityInspector(this, null);
 	}

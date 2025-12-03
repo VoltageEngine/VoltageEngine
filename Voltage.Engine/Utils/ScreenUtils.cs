@@ -19,40 +19,63 @@ public class ScreenUtils
         _isFullscreen = true;
         _isBorderless = false;
         Core.Instance.Window.Position = Point.Zero;
-        ApplyFullscreenChange(false);
+        ApplyFullscreenChange();
     }
 
 	/// <summary>
 	/// Used for the game window, not the editor window.
 	/// </summary>
-	public static void SetWindowedMode()
+	public static void SetWindowedMode(bool maximizedVersion)
     {
         _isFullscreen = false;
         _isBorderless = false;
 
-#if EDITOR
-		int defaultWidth = 1920;
-		int defaultHeight = 1080;
-		Core.Instance.Window.Position = new Point(Screen.MonitorWidth / 6, Screen.MonitorHeight / 6);
-		Screen.SetSize(defaultWidth, defaultHeight);
-		Core.Instance.Window.IsBorderless = false;
-		Screen.IsFullscreen = false;
+#if !BUILD
+	    if (maximizedVersion)
+	    {
+		    int titleBarHeight = 32;
+		    int topBorder = 1;
+		    int taskbarHeight = 48;
+		    
+		    int maxWidth = (int)(Screen.ActualMonitorWidth / 1.75);
+		    int maxHeight = Screen.ActualMonitorHeight - titleBarHeight - topBorder - taskbarHeight;
+		    
+		    Core.Instance.Window.Position = new Point(0, titleBarHeight);
+		    Core.Instance.Window.IsBorderless = false;
+		    Screen.IsFullscreen = false;
+		    Screen.SetSize(maxWidth, maxHeight);
+		}
+	    else
+	    {
+		    int defaultWidth = 1920;
+		    int defaultHeight = 1080;
+		    
+		    // Center the window using actual monitor dimensions
+		    int posX = (Screen.ActualMonitorWidth - defaultWidth) / 2;
+		    int posY = (Screen.ActualMonitorHeight - defaultHeight) / 2;
+		    
+		    Core.Instance.Window.Position = new Point(posX, posY);
+		    Core.Instance.Window.IsBorderless = false;
+		    Screen.IsFullscreen = false;
+		    Screen.SetSize(defaultWidth, defaultHeight);
+		}
+
 		Screen.ApplyChanges();
 		return;
 #endif
-		Core.Instance.Window.Position = new Point(Screen.MonitorWidth / 4, Screen.MonitorHeight / 4);
-		ApplyFullscreenChange(true);
+		Core.Instance.Window.Position = new Point(Screen.ActualMonitorWidth / 4, Screen.ActualMonitorHeight / 4);
+		ApplyFullscreenChange();
     }
 
 	public static void SetBorderlessMode()
 	{
 		_isFullscreen = false;
 		_isBorderless = true;
-		Core.Instance.Window.Position = new Point(Screen.MonitorWidth / 4, Screen.MonitorHeight / 4);
-		ApplyFullscreenChange(true);
+		Core.Instance.Window.Position = new Point(Screen.ActualMonitorWidth / 4, Screen.ActualMonitorHeight / 4);
+		ApplyFullscreenChange();
 	}
 
-    private static void ApplyFullscreenChange(bool oldIsFullscreen)
+    private static void ApplyFullscreenChange()
     {
         if (_isFullscreen)
         {
@@ -62,7 +85,7 @@ public class ScreenUtils
                 // Borderless fullscreen
                 Screen.IsFullscreen = false;
                 Core.Instance.Window.IsBorderless = true;
-                Screen.SetSize(Screen.MonitorWidth, Screen.MonitorHeight);
+                Screen.SetSize(Screen.ActualMonitorWidth, Screen.ActualMonitorHeight);
                 Screen.ApplyChanges();
             }
             else
@@ -80,14 +103,8 @@ public class ScreenUtils
             // Windowed mode
             Screen.IsFullscreen = false;
             Core.Instance.Window.IsBorderless = false;
-#if EDITOR
 	        Core.Instance.Window.Position = new Point(0, 0);
-	        Screen.SetSize(Screen.MonitorWidth, Screen.MonitorHeight);
-			System.Console.WriteLine("Editor-Yes");
-#else
-			Screen.SetSize(_width > 0 ? _width : 1280, _height > 0 ? _height : 720);
-			System.Console.WriteLine("Editor-Not");
-#endif
+	        Screen.SetSize(Screen.ActualMonitorWidth, Screen.ActualMonitorHeight);
 			Screen.ApplyChanges();
         }
     }

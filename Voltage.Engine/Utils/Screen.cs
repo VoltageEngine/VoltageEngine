@@ -60,6 +60,42 @@ namespace Voltage.Utils
 
 		public static int MonitorHeight => GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height;
 
+		/// <summary>
+		/// Gets the actual physical monitor width, accounting for DPI scaling
+		/// </summary>
+		public static int ActualMonitorWidth
+		{
+			get
+			{
+				var adapter = GraphicsAdapter.DefaultAdapter;
+				var maxWidth = 0;
+				foreach (var mode in adapter.SupportedDisplayModes)
+				{
+					if (mode.Width > maxWidth)
+						maxWidth = mode.Width;
+				}
+				return maxWidth > 0 ? maxWidth : adapter.CurrentDisplayMode.Width;
+			}
+		}
+
+		/// <summary>
+		/// Gets the actual physical monitor height, accounting for DPI scaling
+		/// </summary>
+		public static int ActualMonitorHeight
+		{
+			get
+			{
+				var adapter = GraphicsAdapter.DefaultAdapter;
+				var maxHeight = 0;
+				foreach (var mode in adapter.SupportedDisplayModes)
+				{
+					if (mode.Height > maxHeight)
+						maxHeight = mode.Height;
+				}
+				return maxHeight > 0 ? maxHeight : adapter.CurrentDisplayMode.Height;
+			}
+		}
+
 		public static SurfaceFormat BackBufferFormat =>
 			_graphicsManager.GraphicsDevice.PresentationParameters.BackBufferFormat;
 
@@ -88,13 +124,11 @@ namespace Voltage.Utils
 			set => _graphicsManager.IsFullScreen = value;
 		}
 
-#if MONOGAME_38
 		public static bool HardwareModeSwitch
 		{
 			get => _graphicsManager.HardwareModeSwitch;
 			set => _graphicsManager.HardwareModeSwitch = value;
 		}
-#endif
 
 		public static DisplayOrientation SupportedOrientations
 		{

@@ -85,11 +85,42 @@ namespace Voltage.Editor.ImGuiCore
 			// Get font texture from ImGui
 			var io = ImGui.GetIO();
 
+			// Set proper font rendering settings BEFORE building atlas
+			io.FontGlobalScale = 1.0f;
+			
+			// Configure font settings for better rendering
+			var fontConfig = new ImFontConfig
+			{
+				OversampleH = 3,  // Horizontal oversampling for better quality
+				OversampleV = 1,  // Vertical oversampling
+				PixelSnapH = 1 // Snap to pixel grid to reduce blur
+			};
+
 			if (options._includeDefaultFont)
-				DefaultFontPtr = io.Fonts.AddFontDefault();
+			{
+				unsafe
+				{
+					DefaultFontPtr = io.Fonts.AddFontDefault(ImGuiNative.ImFontConfig_ImFontConfig());
+				}
+			}
 
 			foreach (var font in options._fonts)
-				io.Fonts.AddFontFromFileTTF(font.Item1, font.Item2);
+			{
+				unsafe
+				{
+					var config = ImGuiNative.ImFontConfig_ImFontConfig();
+					var configPtr = new ImFontConfigPtr(config);
+					configPtr.OversampleH = 3;
+					configPtr.OversampleV = 1;
+					configPtr.PixelSnapH = true;
+					
+					io.Fonts.AddFontFromFileTTF(font.Item1, font.Item2, configPtr);
+				}
+			}
+
+			// Build with proper flags for crisp rendering
+			io.Fonts.Flags = ImFontAtlasFlags.NoPowerOfTwoHeight;
+			io.Fonts.Build();
 
 			io.Fonts.GetTexDataAsRGBA32(out byte* pixelData, out int width, out int height, out int bytesPerPixel);
 
@@ -97,8 +128,12 @@ namespace Voltage.Editor.ImGuiCore
 			var pixels = new byte[width * height * bytesPerPixel];
 			Marshal.Copy(new IntPtr(pixelData), pixels, 0, pixels.Length);
 
-			// Create and register the texture as an XNA texture
-			var tex2d = new Texture2D(Voltage.Core.GraphicsDevice, width, height, false, SurfaceFormat.Color);
+			// Create texture with proper settings to avoid blur
+			var tex2d = new Texture2D(Core.GraphicsDevice, width, height, false, SurfaceFormat.Color);
+			
+			// Use Point sampling for crisp pixel-perfect rendering
+			Core.GraphicsDevice.SamplerStates[0] = SamplerState.PointClamp;
+			
 			tex2d.SetData(pixels);
 
 			// Should a texture already have been built previously, unbind it first so it can be deallocated
@@ -172,7 +207,7 @@ namespace Voltage.Editor.ImGuiCore
 		/// </summary>
 		Effect UpdateEffect(Texture2D texture)
 		{
-			_effect = _effect ?? new BasicEffect(Voltage.Core.GraphicsDevice);
+			_effect = _effect ?? new BasicEffect(Core.GraphicsDevice);
 
 			var io = ImGui.GetIO();
 
@@ -182,6 +217,9 @@ namespace Voltage.Editor.ImGuiCore
 			_effect.TextureEnabled = true;
 			_effect.Texture = texture;
 			_effect.VertexColorEnabled = true;
+			
+			// // Ensure point sampling for crisp text
+			// Core.GraphicsDevice.SamplerStates[0] = SamplerState.PointClamp;
 
 			return _effect;
 		}
@@ -196,28 +234,33 @@ namespace Voltage.Editor.ImGuiCore
 		void RenderDrawData(ImDrawDataPtr drawData)
 		{
 			// Setup render state: alpha-blending enabled, no face culling, no depth testing, scissor enabled, vertex/texcoord/color pointers
-			var lastViewport = Voltage.Core.GraphicsDevice.Viewport;
-			var lastScissorBox = Voltage.Core.GraphicsDevice.ScissorRectangle;
+			var lastViewport = Core.GraphicsDevice.Viewport;
+			var lastScissorBox = Core.GraphicsDevice.ScissorRectangle;
+			var lastSamplerState = Core.GraphicsDevice.SamplerStates[0];
 
-			Voltage.Core.GraphicsDevice.BlendFactor = Color.White;
-			Voltage.Core.GraphicsDevice.BlendState = BlendState.NonPremultiplied;
-			Voltage.Core.GraphicsDevice.RasterizerState = _rasterizerState;
-			Voltage.Core.GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+			Core.GraphicsDevice.BlendFactor = Color.White;
+			Core.GraphicsDevice.BlendState = BlendState.NonPremultiplied;
+			Core.GraphicsDevice.RasterizerState = _rasterizerState;
+			Core.GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+			
+			// Set point sampling for crisp ImGui text rendering
+			Core.GraphicsDevice.SamplerStates[0] = SamplerState.PointClamp;
 
 			// Handle cases of screen coordinates != from framebuffer coordinates (e.g. retina displays)
 			drawData.ScaleClipRects(ImGui.GetIO().DisplayFramebufferScale);
 
 			// Setup projection
-			Voltage.Core.GraphicsDevice.Viewport = new Viewport(0, 0,
-				Voltage.Core.GraphicsDevice.PresentationParameters.BackBufferWidth,
-				Voltage.Core.GraphicsDevice.PresentationParameters.BackBufferHeight);
+			Core.GraphicsDevice.Viewport = new Viewport(0, 0,
+				Core.GraphicsDevice.PresentationParameters.BackBufferWidth,
+				Core.GraphicsDevice.PresentationParameters.BackBufferHeight);
 
 			UpdateBuffers(drawData);
 			RenderCommandLists(drawData);
 
 			// Restore modified state
-			Voltage.Core.GraphicsDevice.Viewport = lastViewport;
-			Voltage.Core.GraphicsDevice.ScissorRectangle = lastScissorBox;
+			Core.GraphicsDevice.Viewport = lastViewport;
+			Core.GraphicsDevice.ScissorRectangle = lastScissorBox;
+			Core.GraphicsDevice.SamplerStates[0] = lastSamplerState;
 		}
 
 		unsafe void UpdateBuffers(ImDrawDataPtr drawData)
@@ -233,7 +276,7 @@ namespace Voltage.Editor.ImGuiCore
 				_vertexBuffer?.Dispose();
 
 				_vertexBufferSize = (int)(drawData.TotalVtxCount * 1.5f);
-				_vertexBuffer = new VertexBuffer(Voltage.Core.GraphicsDevice, _vertexDeclaration, _vertexBufferSize,
+				_vertexBuffer = new VertexBuffer(Core.GraphicsDevice, _vertexDeclaration, _vertexBufferSize,
 					BufferUsage.None);
 				_vertexData = new byte[_vertexBufferSize * _vertexDeclarationSize];
 			}
@@ -243,7 +286,7 @@ namespace Voltage.Editor.ImGuiCore
 				_indexBuffer?.Dispose();
 
 				_indexBufferSize = (int)(drawData.TotalIdxCount * 1.5f);
-				_indexBuffer = new IndexBuffer(Voltage.Core.GraphicsDevice, IndexElementSize.SixteenBits, _indexBufferSize,
+				_indexBuffer = new IndexBuffer(Core.GraphicsDevice, IndexElementSize.SixteenBits, _indexBufferSize,
 					BufferUsage.None);
 				_indexData = new byte[_indexBufferSize * sizeof(ushort)];
 			}
@@ -276,8 +319,8 @@ namespace Voltage.Editor.ImGuiCore
 
 		unsafe void RenderCommandLists(ImDrawDataPtr drawData)
 		{
-			Voltage.Core.GraphicsDevice.SetVertexBuffer(_vertexBuffer);
-			Voltage.Core.GraphicsDevice.Indices = _indexBuffer;
+			Core.GraphicsDevice.SetVertexBuffer(_vertexBuffer);
+			Core.GraphicsDevice.Indices = _indexBuffer;
 
 			int vtxOffset = 0;
 			int idxOffset = 0;
@@ -294,7 +337,7 @@ namespace Voltage.Editor.ImGuiCore
 							$"Could not find a texture with id '{drawCmd.TextureId}', please check your bindings");
 					}
 
-					Voltage.Core.GraphicsDevice.ScissorRectangle = new Rectangle(
+					Core.GraphicsDevice.ScissorRectangle = new Rectangle(
 						(int)drawCmd.ClipRect.X,
 						(int)drawCmd.ClipRect.Y,
 						(int)(drawCmd.ClipRect.Z - drawCmd.ClipRect.X),
@@ -307,7 +350,7 @@ namespace Voltage.Editor.ImGuiCore
 						pass.Apply();
 
 #pragma warning disable CS0618 // FNA does not expose an alternative method.
-						Voltage.Core.GraphicsDevice.DrawIndexedPrimitives(
+						Core.GraphicsDevice.DrawIndexedPrimitives(
 							primitiveType: PrimitiveType.TriangleList,
 							baseVertex: vtxOffset,
 							minVertexIndex: 0,
