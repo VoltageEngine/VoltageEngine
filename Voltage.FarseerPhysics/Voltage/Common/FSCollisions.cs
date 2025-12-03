@@ -7,6 +7,7 @@ using FarseerPhysics.Common;
 using FarseerPhysics.Dynamics;
 using FarseerPhysics.Dynamics.Contacts;
 using Microsoft.Xna.Framework;
+using Voltage.Utils.Extensions;
 using FSTransform = FarseerPhysics.Common.Transform;
 
 

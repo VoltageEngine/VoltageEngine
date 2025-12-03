@@ -26,6 +26,7 @@ using System.Diagnostics;
 using FarseerPhysics.Common;
 using FarseerPhysics.Dynamics;
 using Microsoft.Xna.Framework;
+using Voltage.Utils.Extensions;
 
 
 namespace FarseerPhysics.Collision
@@ -361,7 +362,7 @@ namespace FarseerPhysics.Collision
 			var p2 = input.Point2;
 			var r = p2 - p1;
 			Debug.Assert(r.LengthSquared() > 0.0f);
-			Voltage.Vector2Ext.Normalize(ref r);
+			Vector2Ext.Normalize(ref r);
 
 			// v is perpendicular to the segment.
 			var absV = MathUtils.Abs(new Vector2(-r.Y, r.X)); //FPE: Inlined the 'v' variable

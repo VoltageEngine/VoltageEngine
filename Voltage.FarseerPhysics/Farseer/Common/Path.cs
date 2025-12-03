@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using Microsoft.Xna.Framework;
+using Voltage.Utils.Extensions;
 
 
 namespace FarseerPhysics.Common
@@ -247,7 +248,7 @@ namespace FarseerPhysics.Common
 			output.X = -temp.Y;
 			output.Y = temp.X;
 
-			Voltage.Vector2Ext.Normalize(ref output);
+			Vector2Ext.Normalize(ref output);
 
 			return output;
 		}

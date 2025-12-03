@@ -7,7 +7,6 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
-
 using Microsoft.Xna.Framework;
 using Voltage.ECS;
 using Voltage.Utils.Extensions;
@@ -23,12 +22,6 @@ public class DataLoader
 {
     public bool HasExitedEditorMode = false;
 
-    public DataLoader()
-    {
-       
-    }
-
-#if DEBUG
     public DataLoader(ImGuiManager imGuiManager)
     {
         _imGuiManager = imGuiManager;
@@ -78,7 +71,6 @@ public class DataLoader
             LoadPrefabEntityData(entity, prefabData);
         }
     }
-#endif
 
     #region Load Methods
 

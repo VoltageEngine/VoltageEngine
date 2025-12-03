@@ -151,7 +151,6 @@ public class Core : Game
 #if DEBUG
 		_windowTitle = windowTitle;
 #endif
-
 		_instance = this;
 		Emitter = new Emitter<CoreEvents>(new CoreEventsComparer());
 

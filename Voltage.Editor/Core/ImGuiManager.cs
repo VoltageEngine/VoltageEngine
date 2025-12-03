@@ -18,6 +18,7 @@ using Voltage.Editor.UndoActions;
 using Voltage.Editor.Utils;
 using Num = System.Numerics;
 using Voltage;
+using Voltage.Editor.Gizmos;
 
 
 namespace Voltage.Editor.ImGuiCore;
@@ -48,7 +49,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	public float FontSizeMultiplier => ImGui.GetIO().FontGlobalScale;
 
 	// Public instances
-	public ImGuiCursorSelectionManager CursorSelectionManager => _cursorSelectionManager;
+	public GizmoSelectionManager CursorSelectionManager => _cursorSelectionManager;
 	public ImguiImageLoader ImageLoader => _imageLoader;
 	public SceneGraphWindow SceneGraphWindow { get; private set; }
 	public MainEntityInspector MainEntityInspector { get; private set; }
@@ -74,7 +75,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private List<Action> _drawCommands = new();
 	private ImGuiRenderer _renderer;
 	private ImGuiInput _input = new ImGuiInput();
-	private ImGuiCursorSelectionManager _cursorSelectionManager;
+	private GizmoSelectionManager _cursorSelectionManager;
 	private ImguiImageLoader _imageLoader;
 	private string _gameWindowTitle;
 	private ImGuiWindowFlags _gameWindowFlags = 0;
@@ -235,7 +236,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_themes = typeof(VoltageEditorThemes).GetMethods(System.Reflection.BindingFlags.Static |
 		                                            System.Reflection.BindingFlags.Public);
 		SceneGraphWindow = new SceneGraphWindow();
-		_cursorSelectionManager = new ImGuiCursorSelectionManager(this);
+		_cursorSelectionManager = new GizmoSelectionManager(this);
 
 		_imageLoader = new ImguiImageLoader();
 		_imageLoader.LoadImages(_renderer);
