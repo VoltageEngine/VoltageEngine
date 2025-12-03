@@ -24,6 +24,7 @@ using System.Diagnostics;
 using FarseerPhysics.Common;
 using FarseerPhysics.Common.ConvexHull;
 using Microsoft.Xna.Framework;
+using Voltage.Utils.Extensions;
 
 
 namespace FarseerPhysics.Collision.Shapes
@@ -123,7 +124,7 @@ namespace FarseerPhysics.Collision.Shapes
 
 				// FPE optimization: Normals.Add(MathHelper.Cross(edge, 1.0f));
 				var temp = new Vector2(edge.Y, -edge.X);
-				Voltage.Vector2Ext.Normalize(ref temp);
+				Vector2Ext.Normalize(ref temp);
 				_normals.Add(temp);
 			}
 

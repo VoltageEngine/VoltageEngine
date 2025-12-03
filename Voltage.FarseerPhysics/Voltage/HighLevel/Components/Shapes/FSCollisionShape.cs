@@ -1,5 +1,6 @@
 ﻿using FarseerPhysics.Dynamics;
 using Voltage;
+using Voltage.Utils.Extensions;
 
 
 namespace Voltage.Farseer

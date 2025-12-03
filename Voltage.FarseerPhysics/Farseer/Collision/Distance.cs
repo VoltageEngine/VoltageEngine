@@ -25,6 +25,7 @@ using System.Diagnostics;
 using FarseerPhysics.Collision.Shapes;
 using FarseerPhysics.Common;
 using Microsoft.Xna.Framework;
+using Voltage.Utils.Extensions;
 
 
 namespace FarseerPhysics.Collision
@@ -772,7 +773,7 @@ namespace FarseerPhysics.Collision
 					// Move the witness points to the outer surface.
 					output.Distance -= rA + rB;
 					var normal = output.PointB - output.PointA;
-					Voltage.Vector2Ext.Normalize(ref normal);
+					Vector2Ext.Normalize(ref normal);
 					output.PointA += rA * normal;
 					output.PointB -= rB * normal;
 				}

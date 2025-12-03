@@ -5,9 +5,9 @@ using Microsoft.Xna.Framework;
 using Voltage.DeferredLighting;
 using Voltage.Sprites;
 using Voltage.Utils;
-using Voltage.Editor.Gizmos;
+using Voltage.Editor.ImGuiCore;
 
-namespace Voltage.Editor.ImGuiCore
+namespace Voltage.Editor.Gizmos
 {
 	public enum CursorSelectionMode
 	{
@@ -20,7 +20,7 @@ namespace Voltage.Editor.ImGuiCore
 	/// <summary>
 	/// Handles entity selection in the ImGui game window via cursor, including box selection and gizmo manipulation.
 	/// </summary>
-	public class ImGuiCursorSelectionManager
+	public class GizmoSelectionManager
 	{
 		public CursorSelectionMode SelectionMode = CursorSelectionMode.Normal;
 
@@ -51,7 +51,7 @@ namespace Voltage.Editor.ImGuiCore
 
 		public bool IsMouseOverGizmo { get; private set; }
 
-		public ImGuiCursorSelectionManager(ImGuiManager imGuiManager)
+		public GizmoSelectionManager(ImGuiManager imGuiManager)
 		{
 			_imGuiManager = imGuiManager;
 			_transformGizmoHandler = new EntityTransformGizmoHandler();
@@ -92,7 +92,7 @@ namespace Voltage.Editor.ImGuiCore
 			// Check for timeout on cycling selection
 			if (_selectableCandidates.Count > 0)
 			{
-				float currentTime = (float)Time.TotalTime;
+				float currentTime = Time.TotalTime;
 				if (currentTime - _lastDoubleClickTime > DOUBLE_CLICK_TIMEOUT)
 				{
 					ResetCyclingSelection();
@@ -101,11 +101,11 @@ namespace Voltage.Editor.ImGuiCore
 
 			if (_imGuiManager.IsGameWindowFocused && IsCursorWithinGameWindow())
 			{
-				var camera = Voltage.Core.Scene.Camera;
+				var camera = Core.Scene.Camera;
 				var worldMouse = camera.ScreenToWorldPoint(Input.ScaledMousePosition);
 				var selectedEntities = _imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities;
 
-				if (Voltage.Core.IsEditMode)
+				if (Core.IsEditMode)
 				{
 					if (SelectionMode == CursorSelectionMode.Normal)
 					{
@@ -128,7 +128,7 @@ namespace Voltage.Editor.ImGuiCore
 					}
 				}
 
-				if (!IsMouseOverGizmo && Voltage.Core.IsEditMode && 
+				if (!IsMouseOverGizmo && Core.IsEditMode && 
 					!_polygonGizmoHandler.IsDragging && !_rectangleGizmoHandler.IsDragging &&
 					!_transformGizmoHandler.IsDragging && !_rotateGizmoHandler.IsDragging && !_scaleGizmoHandler.IsDragging)
 					HandleBoxSelection();
@@ -180,7 +180,7 @@ namespace Voltage.Editor.ImGuiCore
 
 		private void HandleBoxSelection()
 		{
-			mouseScreen = Voltage.Core.Scene.Camera.ScreenToWorldPoint(Input.ScaledMousePosition);
+			mouseScreen = Core.Scene.Camera.ScreenToWorldPoint(Input.ScaledMousePosition);
 
 			if (!_isBoxSelecting && Input.LeftMouseButtonPressed)
 			{
@@ -191,19 +191,19 @@ namespace Voltage.Editor.ImGuiCore
 				}
 
 				_isBoxSelecting = true;
-				_boxSelectStartWorld = Voltage.Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
+				_boxSelectStartWorld = Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
 				_boxSelectEndWorld = _boxSelectStartWorld;
 			}
 
 			if (_isBoxSelecting && Input.LeftMouseButtonDown)
 			{
-				_boxSelectEndWorld = Voltage.Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
+				_boxSelectEndWorld = Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
 				DrawSelectionBoxNez(_boxSelectStartWorld, _boxSelectEndWorld);
 			}
 
 			if (_isBoxSelecting && Input.LeftMouseButtonReleased)
 			{
-				_boxSelectEndWorld = Voltage.Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
+				_boxSelectEndWorld = Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
 				SelectEntitiesInBox(_boxSelectStartWorld, _boxSelectEndWorld);
 				_isBoxSelecting = false;
 			}
@@ -211,7 +211,7 @@ namespace Voltage.Editor.ImGuiCore
 
 		private void DrawSelectionBoxNez(Vector2 worldStart, Vector2 worldEnd)
 		{
-			var camera = Voltage.Core.Scene.Camera;
+			var camera = Core.Scene.Camera;
 			var min = new Vector2(Math.Min(worldStart.X, worldEnd.X), Math.Min(worldStart.Y, worldEnd.Y));
 			var max = new Vector2(Math.Max(worldStart.X, worldEnd.X), Math.Max(worldStart.Y, worldEnd.Y));
 			var rect = new RectangleF(min.X, min.Y, max.X - min.X, max.Y - min.Y);
@@ -220,16 +220,16 @@ namespace Voltage.Editor.ImGuiCore
 
 		private void SelectEntitiesInBox(Vector2 worldStart, Vector2 worldEnd)
 		{
-			var camera = Voltage.Core.Scene.Camera;
+			var camera = Core.Scene.Camera;
 			var min = new Vector2(Math.Min(worldStart.X, worldEnd.X), Math.Min(worldStart.Y, worldEnd.Y));
 			var max = new Vector2(Math.Max(worldStart.X, worldEnd.X), Math.Max(worldStart.Y, worldEnd.Y));
 			var rect = new RectangleF(min.X, min.Y, max.X - min.X, max.Y - min.Y);
 			var selectionRect = camera.WorldToScreenRect(rect);
 			var selectedEntities = new List<Entity>();
 
-			for (int i = Voltage.Core.Scene.Entities.Count - 1; i >= 0; i--)
+			for (int i = Core.Scene.Entities.Count - 1; i >= 0; i--)
 			{
-				var entity = Voltage.Core.Scene.Entities[i];
+				var entity = Core.Scene.Entities[i];
 
 				if(!entity.IsSelectableInEditor)
 					continue;
@@ -339,9 +339,9 @@ namespace Voltage.Editor.ImGuiCore
 
 		private void TrySelectEntityAtMouse()
 		{
-			var mouseWorld = Voltage.Core.Scene.Camera.ScreenToWorldPoint(Input.ScaledMousePosition);
+			var mouseWorld = Core.Scene.Camera.ScreenToWorldPoint(Input.ScaledMousePosition);
 			var mouseScreen = Input.ScaledMousePosition;
-			float currentTime = (float)Time.TotalTime;
+			float currentTime = Time.TotalTime;
 			
 			// Check if this is a continuation of the cycling selection
 			bool isCyclingContinuation = false;
@@ -391,9 +391,9 @@ namespace Voltage.Editor.ImGuiCore
 
 			// Priority 1: Entities with Colliders
 			var collidersAtPosition = new List<(Entity entity, float distance)>();
-			for (int i = Voltage.Core.Scene.Entities.Count - 1; i >= 0; i--)
+			for (int i = Core.Scene.Entities.Count - 1; i >= 0; i--)
 			{
-				var entity = Voltage.Core.Scene.Entities[i];
+				var entity = Core.Scene.Entities[i];
 				
 				if (MathUtils.IsVectorNaNOrInfinite(entity.Transform.Position))
 					continue;
@@ -422,9 +422,9 @@ namespace Voltage.Editor.ImGuiCore
 
 			// Priority 2: Entities with SpriteRenderer
 			var spritesAtPosition = new List<(Entity entity, int renderLayer, float distance)>();
-			for (int i = Voltage.Core.Scene.Entities.Count - 1; i >= 0; i--)
+			for (int i = Core.Scene.Entities.Count - 1; i >= 0; i--)
 			{
-				var entity = Voltage.Core.Scene.Entities[i];
+				var entity = Core.Scene.Entities[i];
 				
 				if (MathUtils.IsVectorNaNOrInfinite(entity.Transform.Position))
 					continue;
@@ -460,9 +460,9 @@ namespace Voltage.Editor.ImGuiCore
 
 			// Priority 3: Entities with DeferredLight
 			var lightsAtPosition = new List<(Entity entity, float distance)>();
-			for (int i = Voltage.Core.Scene.Entities.Count - 1; i >= 0; i--)
+			for (int i = Core.Scene.Entities.Count - 1; i >= 0; i--)
 			{
-				var entity = Voltage.Core.Scene.Entities[i];
+				var entity = Core.Scene.Entities[i];
 				
 				if (MathUtils.IsVectorNaNOrInfinite(entity.Transform.Position))
 					continue;
@@ -496,9 +496,9 @@ namespace Voltage.Editor.ImGuiCore
 
 			// Priority 4: Fallback to entities without sprites/colliders/lights
 			var fallbackEntities = new List<(Entity entity, float distance)>();
-			for (int i = Voltage.Core.Scene.Entities.Count - 1; i >= 0; i--)
+			for (int i = Core.Scene.Entities.Count - 1; i >= 0; i--)
 			{
-				var entity = Voltage.Core.Scene.Entities[i];
+				var entity = Core.Scene.Entities[i];
 				
 				if (MathUtils.IsVectorNaNOrInfinite(entity.Transform.Position))
 					continue;
@@ -554,10 +554,10 @@ namespace Voltage.Editor.ImGuiCore
 			var entityPane = _imGuiManager.SceneGraphWindow.EntityPane;
 			IsMouseOverGizmo = false;
 
-			if (entityPane.SelectedEntities.Count == 0 || !Voltage.Core.IsEditMode)
+			if (entityPane.SelectedEntities.Count == 0 || !Core.IsEditMode)
 				return;
 
-			var camera = Voltage.Core.Scene.Camera;
+			var camera = Core.Scene.Camera;
 			var mousePos = Input.ScaledMousePosition;
 			var worldMouse = camera.ScreenToWorldPoint(mousePos);
 

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using Microsoft.Xna.Framework;
+using Voltage.Utils.Extensions;
 
 
 namespace FarseerPhysics.Common.TextureTools
@@ -880,7 +881,7 @@ namespace FarseerPhysics.Common.TextureTools
 					if (edgeFound)
 					{
 						slope = polygon[nearestEdgeVertex2Index] - polygon[nearestEdgeVertex1Index];
-						Voltage.Vector2Ext.Normalize(ref slope);
+						Vector2Ext.Normalize(ref slope);
 
 						var tempVector = polygon[nearestEdgeVertex1Index];
 						distance = Vector2.Distance(tempVector, foundEdgeCoord);

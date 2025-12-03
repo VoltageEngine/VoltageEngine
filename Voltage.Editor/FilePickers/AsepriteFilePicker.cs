@@ -1,7 +1,5 @@
 using ImGuiNET;
-using Voltage.Aseprite;
 using Voltage.Textures;
-using Voltage.UI;
 using Voltage.Utils;
 using System;
 using System.Collections.Generic;
@@ -72,6 +70,8 @@ namespace Voltage.Editor.FilePickers
             _startingPath = startingPath ?? Path.Combine(Environment.CurrentDirectory, "Content");
 			_isLayerMergeOn = new($"{PopupId}_IsLayerMergeOn", false);
 			_showHiddenLayers = new($"{PopupId}_ShowHiddenLayers", false);
+			_minRenderingLayer = new($"{PopupId}_MinRenderingLayer", -89);
+			_maxRenderingLayer = new($"{PopupId}_MaxRenderingLayer", 89);
 			_isAnimation = isAnimation;
         }
 

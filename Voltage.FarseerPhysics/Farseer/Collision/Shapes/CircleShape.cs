@@ -24,6 +24,7 @@ using System;
 using System.Diagnostics;
 using FarseerPhysics.Common;
 using Microsoft.Xna.Framework;
+using Voltage.Utils.Extensions;
 
 
 namespace FarseerPhysics.Collision.Shapes
@@ -116,7 +117,7 @@ namespace FarseerPhysics.Collision.Shapes
 
 				//TODO: Check results here
 				output.Normal = s + a * r;
-				Voltage.Vector2Ext.Normalize(ref output.Normal);
+				Vector2Ext.Normalize(ref output.Normal);
 				return true;
 			}
 

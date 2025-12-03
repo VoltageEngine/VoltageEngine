@@ -30,7 +30,7 @@ public class ScreenUtils
         _isFullscreen = false;
         _isBorderless = false;
 
-#if DEBUG
+#if EDITOR
 		int defaultWidth = 1920;
 		int defaultHeight = 1080;
 		Core.Instance.Window.Position = new Point(Screen.MonitorWidth / 6, Screen.MonitorHeight / 6);
@@ -80,11 +80,13 @@ public class ScreenUtils
             // Windowed mode
             Screen.IsFullscreen = false;
             Core.Instance.Window.IsBorderless = false;
-#if DEBUG
+#if EDITOR
 	        Core.Instance.Window.Position = new Point(0, 0);
 	        Screen.SetSize(Screen.MonitorWidth, Screen.MonitorHeight);
+			System.Console.WriteLine("Editor-Yes");
 #else
-            Screen.SetSize(_width > 0 ? _width : 1280, _height > 0 ? _height : 720);
+			Screen.SetSize(_width > 0 ? _width : 1280, _height > 0 ? _height : 720);
+			System.Console.WriteLine("Editor-Not");
 #endif
 			Screen.ApplyChanges();
         }
