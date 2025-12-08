@@ -6,12 +6,12 @@ using Voltage.Persistence;
 
 namespace Voltage.Editor.Persistence
 {
-	public static class ImGuiSettingsLoader
+	public static class EditorSettingsLoader
 	{
 		private static readonly string SettingsFilePath = GetSettingsFilePath();
 		private static Dictionary<string, object> _settings;
 
-		static ImGuiSettingsLoader()
+		static EditorSettingsLoader()
 		{
 			LoadSettingsFromFile();
 		}
