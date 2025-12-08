@@ -67,7 +67,7 @@ public class Editor : Core
         ExitOnEscapeKeypress = false;
         IsFixedTimeStep = true; //Run Update() every 60 frames
         Screen.SynchronizeWithVerticalRetrace = false; //Vsync = off
-        //DefaultSamplerState = SamplerState.PointClamp; // pixel perfect rendering
+        // DefaultSamplerState = SamplerState.PointClamp; // pixel perfect rendering
 
         Scene = LoadLastOrDefaultScene();
         ScreenUtils.SetWindowedMode(true);
@@ -100,7 +100,7 @@ public class Editor : Core
     {
         if (Scene != null)
         {
-            LastOpenScene.SetLastScene(Scene);
+            PersistentScene.SetLastScene(Scene);
         }
     }
 
@@ -109,7 +109,7 @@ public class Editor : Core
     /// </summary>
     private Scene LoadLastOrDefaultScene()
     {
-        var lastScene = LastOpenScene.CreateLastScene();
+        var lastScene = PersistentScene.CreateLastScene();
         
         if (lastScene != null)
         {

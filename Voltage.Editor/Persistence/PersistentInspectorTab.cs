@@ -20,7 +20,7 @@ namespace Voltage.Editor.Persistence
             Key = key;
             
             // Load the saved value as a string and parse it to enum
-            var savedValue = ImGuiSettingsLoader.LoadSetting(key, defaultValue.ToString());
+            var savedValue = EditorSettingsLoader.LoadSetting(key, defaultValue.ToString());
             if (System.Enum.TryParse<InspectorTabType>(savedValue, out var parsedValue))
             {
                 _value = parsedValue;
@@ -39,7 +39,7 @@ namespace Voltage.Editor.Persistence
                 if (_value != value)
                 {
                     _value = value;
-                    ImGuiSettingsLoader.SaveSetting(Key, _value.ToString());
+                    EditorSettingsLoader.SaveSetting(Key, _value.ToString());
                 }
             }
         }

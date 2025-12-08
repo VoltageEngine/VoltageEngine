@@ -4,11 +4,11 @@ using Voltage;
 namespace Voltage.Editor.Persistence
 {
 	/// <summary>
-	/// Tracks and persists the last opened scene across sessions using ImGuiSettingsLoader.
+	/// Tracks and persists the last opened scene across sessions using EditorSettingsLoader.
 	/// </summary>
-	public static class LastOpenScene
+	public static class PersistentScene
 	{
-		private const string SettingsKey = "LastOpenScene";
+		private const string SettingsKey = "PersistentScene";
 		private const string DefaultSceneName = "";
 
 		/// <summary>
@@ -16,7 +16,7 @@ namespace Voltage.Editor.Persistence
 		/// </summary>
 		public static string GetLastSceneName()
 		{
-			return ImGuiSettingsLoader.LoadSetting(SettingsKey, DefaultSceneName);
+			return EditorSettingsLoader.LoadSetting(SettingsKey, DefaultSceneName);
 		}
 
 		/// <summary>
@@ -29,7 +29,7 @@ namespace Voltage.Editor.Persistence
 				return;
 
 			var sceneTypeName = scene.GetType().AssemblyQualifiedName;
-			ImGuiSettingsLoader.SaveSetting(SettingsKey, sceneTypeName);
+			EditorSettingsLoader.SaveSetting(SettingsKey, sceneTypeName);
 		}
 
 		/// <summary>
@@ -64,7 +64,7 @@ namespace Voltage.Editor.Persistence
 		/// </summary>
 		public static void Clear()
 		{
-			ImGuiSettingsLoader.SaveSetting(SettingsKey, DefaultSceneName);
+			EditorSettingsLoader.SaveSetting(SettingsKey, DefaultSceneName);
 		}
 	}
 }
