@@ -15,6 +15,9 @@ namespace Voltage.Editor.Layouts
         private readonly string _defaultContentLayoutPath;
         private List<string> _availableLayouts = new();
         private string _currentLayoutName = "Default";
+        
+        private bool _pendingLayoutReload = false;
+        private string _pendingLayoutContent = null;
 
         public LayoutManager(string defaultLayoutPath)
         {
@@ -27,8 +30,8 @@ namespace Voltage.Editor.Layouts
             
             Directory.CreateDirectory(_layoutsDirectory);
             
-            // Initialize default layout if needed
             InitializeDefaultLayout();
+            CreateCustomLayoutIfNeeded();
             
             SetDefaultContentLayoutReadOnly();
             
@@ -39,6 +42,34 @@ namespace Voltage.Editor.Layouts
         /// Gets the name of the currently active layout
         /// </summary>
         public string CurrentLayoutName => _currentLayoutName;
+
+        /// <summary>
+        /// Creates a "Custom" layout if no user-defined layouts exist in Content/Layouts
+        /// </summary>
+        private void CreateCustomLayoutIfNeeded()
+        {
+            try
+            {
+                // Check if any user-defined layouts exist
+                if (Directory.Exists(_layoutsDirectory))
+                {
+                    var existingLayouts = Directory.GetFiles(_layoutsDirectory, "*.ini");
+                    
+                    // If no layouts exist, create a "Custom" layout from the default
+                    if (existingLayouts.Length == 0 && File.Exists(_defaultContentLayoutPath))
+                    {
+                        string customLayoutPath = Path.Combine(_layoutsDirectory, "Custom.ini");
+                        File.Copy(_defaultContentLayoutPath, customLayoutPath, overwrite: false);
+                        Debug.Log($"Created default 'Custom' layout at: {customLayoutPath}");
+                        NotificationSystem.ShowTimedNotification("Created default 'Custom' layout for you to modify.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.Error($"Failed to create Custom layout: {ex.Message}");
+            }
+        }
 
         /// <summary>
         /// Sets the DefaultContent layout file to read-only to prevent accidental modification
@@ -171,6 +202,37 @@ namespace Voltage.Editor.Layouts
         }
 
         /// <summary>
+        /// Gets whether a layout reload is pending
+        /// </summary>
+        public bool HasPendingReload => _pendingLayoutReload;
+
+        /// <summary>
+        /// Applies the pending layout reload (call this early in frame, before any windows are created)
+        /// </summary>
+        public void ApplyPendingReload()
+        {
+            if (_pendingLayoutReload && _pendingLayoutContent != null)
+            {
+                try
+                {
+                    // Apply the layout NOW, before any windows are created this frame
+                    ImGui.LoadIniSettingsFromMemory(_pendingLayoutContent);
+                    
+                    _pendingLayoutReload = false;
+                    _pendingLayoutContent = null;
+                    
+                    Debug.Log("Applied pending layout reload");
+                }
+                catch (Exception ex)
+                {
+                    Debug.Error($"Failed to apply pending layout reload: {ex.Message}");
+                    _pendingLayoutReload = false;
+                    _pendingLayoutContent = null;
+                }
+            }
+        }
+
+        /// <summary>
         /// Loads a saved layout by name
         /// </summary>
         public void LoadLayout(string layoutName)
@@ -208,23 +270,20 @@ namespace Voltage.Editor.Layouts
                     return;
                 }
 
-                // Read the layout content into memory first
+                // Read the layout content into memory
                 string layoutContent = File.ReadAllText(sourcePath);
 
-                // Tell ImGui to clear its current settings and load from memory
-                // This releases any file handles ImGui might have
-                ImGui.LoadIniSettingsFromMemory(layoutContent);
+                // Schedule layout reload for NEXT FRAME (before windows are created)
+                _pendingLayoutContent = layoutContent;
+                _pendingLayoutReload = true;
 
-                // Now save it to the default location for persistence
-                // Use a small delay to ensure ImGui has released any handles
-                System.Threading.Thread.Sleep(50);
-                
-                // Write directly to avoid handle conflicts
+                // Also write to disk for persistence
                 File.WriteAllText(_defaultLayoutPath, layoutContent);
 
                 _currentLayoutName = layoutName;
 
-                Debug.Log($"Layout '{layoutName}' loaded successfully from: {sourcePath}");
+                Debug.Log($"Layout '{layoutName}' scheduled for reload on next frame");
+                NotificationSystem.ShowTimedNotification($"Layout '{layoutName}' will be applied on next frame...");
             }
             catch (Exception ex)
             {
@@ -282,17 +341,16 @@ namespace Voltage.Editor.Layouts
                     // Read from the read-only source
                     string defaultContent = File.ReadAllText(_defaultContentLayoutPath);
                     
-                    // Load into ImGui memory
-                    ImGui.LoadIniSettingsFromMemory(defaultContent);
-                    
-                    // Wait for ImGui to release handles
-                    System.Threading.Thread.Sleep(50);
+                    // Schedule for next frame
+                    _pendingLayoutContent = defaultContent;
+                    _pendingLayoutReload = true;
                     
                     // Write to active layout file
                     File.WriteAllText(_defaultLayoutPath, defaultContent);
                     
                     _currentLayoutName = "Default";
-                    Debug.Log("Layout reset to DefaultContent default");
+                    Debug.Log("Default layout scheduled for reload on next frame");
+                    NotificationSystem.ShowTimedNotification("Default layout will be applied on next frame...");
                 }
                 else
                 {

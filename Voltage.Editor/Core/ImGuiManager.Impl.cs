@@ -663,8 +663,6 @@ private void OverrideMouseInput()
 			if (disposing)
 			{
 				Voltage.Core.Emitter.RemoveObserver(CoreEvents.SceneChanged, OnSceneChanged);
-
-				// Auto-save only if not on Default layout
 				_layoutManager.AutoSaveCurrentLayout();
 
 				// Always save the default .ini for next startup
