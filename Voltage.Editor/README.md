@@ -1,7 +1,7 @@
 Dear ImGui Integration
 ==========
 
-Dear ImGui is available via the Nez.ImGui project. The API is a wip and will be changing over time. As of now, the way it works is via a `GlobalManager`. You can toggle ImGui rendering via the `toggle-imgui` command in the debug console or by manually adding the manager:
+Dear ImGui is available via the Voltage.ImGui project. The API is a wip and will be changing over time. As of now, the way it works is via a `GlobalManager`. You can toggle ImGui rendering via the `toggle-imgui` command in the debug console or by manually adding the manager:
 
 ```csharp
 var imGuiManager = new ImGuiManager();

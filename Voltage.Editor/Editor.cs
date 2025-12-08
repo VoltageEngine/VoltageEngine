@@ -24,33 +24,38 @@ public class Editor : Core
         base.Initialize();
 
         Content.RootDirectory = "Content";
-#if OS_MAC
-        Directory.SetCurrentDirectory(AppContext
-            .BaseDirectory); //For some reason, on Mac directory needs to be set manually or it won't find the Content folder
-#endif
+	
+	var options = new ImGuiOptions();
 
-		var options = new ImGuiOptions();
+	if (Screen.ActualMonitorWidth <= 1920)
+	{
+		options.AddFont("Content/Fonts/Lexend-Medium.ttf", 12);  // Normal
+		options.AddFont("Content/Fonts/Lexend-Medium.ttf", 14);  // Info
+		options.AddFont("Content/Fonts/Lexend-Medium.ttf", 16);  // Warn
+		options.AddFont("Content/Fonts/Lexend-Medium.ttf", 18);  // Error
+		options.FontSizeMultiplier = 1f;
+		DebugConsole.RenderScale = 2f;
+	}
+	else if (Screen.ActualMonitorWidth < 3840)
+	{
+		options.AddFont("Content/Fonts/Lexend-Medium.ttf", 16);  // Normal
+		options.AddFont("Content/Fonts/Lexend-Medium.ttf", 18);  // Info
+		options.AddFont("Content/Fonts/Lexend-Medium.ttf", 20);  // Warn
+		options.AddFont("Content/Fonts/Lexend-Medium.ttf", 22);  // Error
+		options.FontSizeMultiplier = 1.2f;
+		DebugConsole.RenderScale = 3f;
+	}
+	else
+	{
+		options.AddFont("Content/Fonts/Lexend-Medium.ttf", 20);  // Normal
+		options.AddFont("Content/Fonts/Lexend-Medium.ttf", 22);  // Info
+		options.AddFont("Content/Fonts/Lexend-Medium.ttf", 24);  // Warn
+		options.AddFont("Content/Fonts/Lexend-Medium.ttf", 26);  // Error
+		options.FontSizeMultiplier = 1.5f;
+		DebugConsole.RenderScale = 4f;
+	}
 
-		if (Screen.ActualMonitorWidth <= 1920)
-		{
-			options.AddFont("Content/Fonts/Lexend-Medium.ttf", 12);
-			options.FontSizeMultiplier = 1f;
-			DebugConsole.RenderScale = 2f;
-		}
-		else if (Screen.ActualMonitorWidth < 3840)
-		{
-			options.AddFont("Content/Fonts/Lexend-Medium.ttf", 16);
-			options.FontSizeMultiplier = 1.2f;
-			DebugConsole.RenderScale = 3f;
-		}
-		else
-		{
-			options.AddFont("Content/Fonts/Lexend-Medium.ttf", 20);
-			options.FontSizeMultiplier = 1.5f;
-			DebugConsole.RenderScale = 4f;
-		}
-
-		options.IncludeDefaultFont(true);
+	options.IncludeDefaultFont(true);
 		var imGuiManager = new ImGuiManager(options);
 
 		RegisterGlobalManager(imGuiManager);

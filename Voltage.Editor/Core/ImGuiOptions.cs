@@ -10,7 +10,6 @@ public class ImGuiOptions
 {
 	internal bool _includeDefaultFont = true;
 	internal List<Tuple<string, float>> _fonts = new();
-	internal string _gameWindowTitle = "Game Window";
 	internal Num.Vector2 _gameWindowFirstPosition = new(345f, 25f);
 	internal ImGuiWindowFlags _gameWindowFlags = ImGuiWindowFlags.NoCollapse;
 	public float FontSizeMultiplier = 1.0f;
@@ -24,24 +23,6 @@ public class ImGuiOptions
 	public ImGuiOptions IncludeDefaultFont(bool include)
 	{
 		_includeDefaultFont = include;
-		return this;
-	}
-
-	public ImGuiOptions SetGameWindowTitle(string title)
-	{
-		_gameWindowTitle = title;
-		return this;
-	}
-
-	public ImGuiOptions SetGameWindowFirstPosition(float x, float y)
-	{
-		_gameWindowFirstPosition = new Num.Vector2(x, y);
-		return this;
-	}
-
-	public ImGuiOptions SetGameWindowFlag(ImGuiWindowFlags flag)
-	{
-		_gameWindowFlags |= flag;
 		return this;
 	}
 }

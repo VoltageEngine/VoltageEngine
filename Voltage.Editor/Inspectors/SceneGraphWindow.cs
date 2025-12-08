@@ -145,12 +145,12 @@ public class SceneGraphWindow : IEditorWindow
 		}
 	}
 
-	public void Show(ref bool isOpen)
+	public bool Show(bool isOpen)
 	{
 		IsOpen = isOpen;
 
 		if (Core.Scene == null || !isOpen)
-			return;
+			return false;
 
 		if (_imGuiManager == null)
 			_imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
@@ -162,7 +162,7 @@ public class SceneGraphWindow : IEditorWindow
 		
 		var windowFlags = ImGuiWindowFlags.None; 
 
-		if (ImGui.Begin("Scene Graph", ref isOpen, windowFlags))
+		if (ImGui.Begin("Scene Graph ###SceneGraphWindow", ref isOpen, windowFlags))
 		{
 			// Update width after user resizes
 			var currentWidth = ImGui.GetWindowSize().X;
@@ -281,6 +281,8 @@ public class SceneGraphWindow : IEditorWindow
 		{
 			EntityPane.DeselectAllEntities();
 		}
+
+		return isOpen;
 	}
 
 	/// <summary>

@@ -10,7 +10,7 @@ namespace Voltage.Farseer
 	public static partial class Farseer
 	{
 		/// <summary>
-		/// exactly the same as FarseerPhysics.Factories.BodyFactory except all units are in display/Nez space as opposed to simulation space
+		/// exactly the same as FarseerPhysics.Factories.BodyFactory except all units are in display/Voltage space as opposed to simulation space
 		/// </summary>
 		public static class BodyFactory
 		{

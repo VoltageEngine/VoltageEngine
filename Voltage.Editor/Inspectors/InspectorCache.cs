@@ -29,16 +29,16 @@ namespace Voltage.Editor.Inspectors
 						subclasses.RemoveAt(i);
 				}
 
-				// sort so the Nez entities are after user entities, then by name
+				// sort so the Voltage entities are after user entities, then by name
 				subclasses.Sort((t, u) =>
 				{
-					var tIsNez = t.Namespace != null && t.Namespace.StartsWith("Nez");
-					var uIsNez = u.Namespace != null && u.Namespace.StartsWith("Nez");
+					var tIsVoltage = t.Namespace != null && t.Namespace.StartsWith("Voltage");
+					var uIsVoltage = u.Namespace != null && u.Namespace.StartsWith("Voltage");
 
-					if (tIsNez && uIsNez || !tIsNez && !uIsNez)
+					if (tIsVoltage && uIsVoltage || !tIsVoltage && !uIsVoltage)
 						return t.Name.CompareTo(u.Name);
 
-					if (tIsNez && !uIsNez)
+					if (tIsVoltage && !uIsVoltage)
 						return 1;
 
 					return -1;
@@ -78,13 +78,13 @@ namespace Voltage.Editor.Inspectors
 
 					if (!tIsCollider && !uIsCollider)
 					{
-						var tIsNez = t.Namespace.StartsWith("Nez");
-						var uIsNez = u.Namespace.StartsWith("Nez");
+						var tIsVoltage = t.Namespace.StartsWith("Voltage");
+						var uIsVoltage = u.Namespace.StartsWith("Voltage");
 
-						if (tIsNez && uIsNez || !tIsNez && !uIsNez)
+						if (tIsVoltage && uIsVoltage || !tIsVoltage && !uIsVoltage)
 							return t.Name.CompareTo(u.Name);
 
-						if (tIsNez && !uIsNez)
+						if (tIsVoltage && !uIsVoltage)
 							return 1;
 
 						return -1;

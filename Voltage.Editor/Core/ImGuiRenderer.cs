@@ -362,10 +362,13 @@ namespace Voltage.Editor.ImGuiCore
 				for (int cmdi = 0; cmdi < cmdList.CmdBuffer.Size; cmdi++)
 				{
 					var drawCmd = cmdList.CmdBuffer[cmdi];
+					
+					// Skip rendering if texture doesn't exist
 					if (!_loadedTextures.ContainsKey(drawCmd.TextureId))
 					{
-						throw new InvalidOperationException(
-							$"Could not find a texture with id '{drawCmd.TextureId}', please check your bindings");
+						Debug.Warn($"Could not find a texture with id '{drawCmd.TextureId}'. Skipping draw call. This may happen after application restart.");
+						idxOffset += (int)drawCmd.ElemCount;
+						continue;
 					}
 
 					Core.GraphicsDevice.ScissorRectangle = new Rectangle(
