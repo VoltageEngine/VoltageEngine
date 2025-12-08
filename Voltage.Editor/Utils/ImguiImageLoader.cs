@@ -14,7 +14,6 @@ namespace Voltage.Editor.Utils
 		public IntPtr LockedInspectorIconId;
 		public IntPtr UnlockedInspectorIconId;
 
-
 		public void LoadImages(ImGuiRenderer renderer)
 		{
 			// Bind textures to ImGui

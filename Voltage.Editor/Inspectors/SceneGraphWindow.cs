@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using ImGuiNET;
+using Microsoft.Xna.Framework;
 using Voltage.ECS;
 using Voltage.Utils;
 using Voltage.Editor.ImGuiCore;
@@ -12,6 +13,7 @@ using Voltage.Editor.ProjectManagement;
 using Voltage.Editor.UndoActions;
 using Voltage.Editor.Utils;
 using Num = System.Numerics;
+using Voltage.Editor.Interfaces;
 
 namespace Voltage.Editor.Inspectors;
 
@@ -30,7 +32,7 @@ public class PrefabCategory
 	public Dictionary<string, PrefabCategory> SubCategories { get; set; } = new Dictionary<string, PrefabCategory>();
 }
 
-public class SceneGraphWindow
+public class SceneGraphWindow : IEditorWindow
 {
 	/// <summary>
 	/// A copy of a component that can be pasted to another entity
@@ -147,22 +149,18 @@ public class SceneGraphWindow
 	{
 		IsOpen = isOpen;
 
-		if (Voltage.Core.Scene == null || !isOpen)
+		if (Core.Scene == null || !isOpen)
 			return;
 
 		if (_imGuiManager == null)
 			_imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
 
-		var windowHeight = Screen.Height - SceneGraphPosY;
 		SceneGraphPosY = _imGuiManager.MainWindowPositionY;
 
 		ImGui.PushStyleVar(ImGuiStyleVar.GrabMinSize, 0.0f);
 		ImGui.PushStyleColor(ImGuiCol.ResizeGrip, new Num.Vector4(0, 0, 0, 0));
-
-		ImGui.SetNextWindowPos(new Num.Vector2(0, SceneGraphPosY), ImGuiCond.Always);
-		ImGui.SetNextWindowSize(new Num.Vector2(_sceneGraphWidth, windowHeight), ImGuiCond.FirstUseEver);
-
-		var windowFlags = ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoCollapse;
+		
+		var windowFlags = ImGuiWindowFlags.None; 
 
 		if (ImGui.Begin("Scene Graph", ref isOpen, windowFlags))
 		{
@@ -172,7 +170,7 @@ public class SceneGraphWindow
 				_sceneGraphWidth = Math.Clamp(currentWidth, _minSceneGraphWidth, _maxSceneGraphWidth);
 
 			VoltageEditorUtils.SmallVerticalSpace();
-			if (Voltage.Core.IsEditMode)
+			if (Core.IsEditMode)
 			{
 				ImGui.TextWrapped("Press F1/F2 to switch to Play mode.");
 				VoltageEditorUtils.SmallVerticalSpace();
@@ -209,6 +207,7 @@ public class SceneGraphWindow
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
+			//TODO: Fix this to account for custom folder where we keep the script for entities
 			// IMPORTANT: This assumes that Entities are registered under the "Dynamic" namespace or its sub-namespaces \
 			// (e.g. Dynamic.Interactables.Platforms). Adjust the logic in OrganizeEntitiesByNamespace if your project uses a different structure.
 			if (VoltageEditorUtils.CenteredButton("Add Entity", 0.6f))
@@ -220,7 +219,8 @@ public class SceneGraphWindow
 				OrganizePrefabsByNamespaceAndType();
 			}
 
-			// Open file pickers when needed
+			#region FilePickers
+
 			if (TmxFilePicker.IsOpen)
 			{
 				ImGui.OpenPopup(TmxFilePicker.PopupId);
@@ -230,6 +230,8 @@ public class SceneGraphWindow
 			{
 				ImGui.OpenPopup(AsepriteFilePicker.PopupId);
 			}
+
+			#endregion
 
 			VoltageEditorUtils.MediumVerticalSpace();
 			if (CopiedComponent != null)
@@ -1104,4 +1106,9 @@ public class SceneGraphWindow
 	}
 
 	#endregion
+
+	public void ResetPosition()
+	{
+		ImGui.SetWindowPos(new Num.Vector2(Screen.ActualMonitorWidth/2f, Screen.ActualMonitorHeight/2f));
+	}
 }

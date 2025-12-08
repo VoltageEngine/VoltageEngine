@@ -89,33 +89,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_lastRenderTarget = null;
 	}
 
-	private void ManualWindowResize(System.Numerics.Vector2 maxSize, System.Numerics.Vector2 minSize, float rtAspectRatio)
-	{
-		unsafe
-		{
-			ImGui.SetNextWindowSizeConstraints(minSize, maxSize, data =>
-			{
-				var aspect = rtAspectRatio;
-				var size = (*data).CurrentSize;
-				var desired = (*data).DesiredSize;
-		
-				// Calculate which axis changed more
-				float widthFromHeight = desired.Y * aspect;
-				float heightFromWidth = desired.X / aspect;
-		
-				// If user changed width more, lock height to width
-				if (Math.Abs(desired.X - size.X) > Math.Abs(desired.Y - size.Y))
-				{
-					(*data).DesiredSize.Y = heightFromWidth;
-				}
-				else
-				{
-					(*data).DesiredSize.X = widthFromHeight;
-				}
-			});
-		}
-	}
-
 	/// <summary>
 	/// draws the game window and deals with overriding Nez.Input when appropriate
 	/// </summary>
@@ -124,31 +97,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (_lastRenderTarget == null)
 			return;
 
-		var rtAspectRatio = (float)_lastRenderTarget.Width / (float)_lastRenderTarget.Height;
-
-		// Adjust game window size based on available panels around it
-		float left = SceneGraphWindow.IsOpen ? SceneGraphWindow.SceneGraphWidth : 0f;
-		float right = MainEntityInspector != null ? Screen.Width - _inspectorTabWidth : Screen.Width;
-		float availableWidth = right - left;
-		float posX = left;
-		float posY = Math.Max(SceneGraphWindow.SceneGraphPosY, MainWindowPositionY);
-
-		// Use all available width, and scale height to maintain aspect ratio
-		float gameWindowWidth = availableWidth;
-		float gameWindowHeight = gameWindowWidth / rtAspectRatio;
-
-		// Clamp height to available vertical space if needed
-		float maxHeight = Screen.Height - posY;
-		if (gameWindowHeight > maxHeight)
-		{
-			gameWindowHeight = maxHeight;
-			gameWindowWidth = gameWindowHeight * rtAspectRatio;
-			posX = left + (availableWidth - gameWindowWidth) / 2f;
-		}
-
-		ImGui.SetNextWindowPos(new Num.Vector2(posX, posY), ImGuiCond.Always);
-		ImGui.SetNextWindowSize(new Num.Vector2(gameWindowWidth, gameWindowHeight), ImGuiCond.Always);
-
+		// Remove fixed positioning and sizing - let docking handle it
+		// Only apply HandleForcedGameViewParams if explicitly requested
 		HandleForcedGameViewParams();
 
 		string gameWindowState = Voltage.Core.IsEditMode ? "Paused" : "Playing";

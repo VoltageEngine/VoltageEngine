@@ -70,7 +70,7 @@ public class Editor : Core
         // DefaultSamplerState = SamplerState.PointClamp; // pixel perfect rendering
 
         Scene = LoadLastOrDefaultScene();
-        ScreenUtils.SetWindowedMode(true);
+        ScreenUtils.SetEditorWindowedMode(true);
 	}
 
 	protected override void EndRun()
@@ -129,7 +129,7 @@ public class Editor : Core
         {
             if (ScreenUtils.IsFullscreen)
             {
-                ScreenUtils.SetWindowedMode(false);
+                ScreenUtils.SetEditorWindowedMode(false);
             }
             else
             {

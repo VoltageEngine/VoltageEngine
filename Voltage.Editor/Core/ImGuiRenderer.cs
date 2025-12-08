@@ -85,22 +85,23 @@ namespace Voltage.Editor.ImGuiCore
 			// Get font texture from ImGui
 			var io = ImGui.GetIO();
 
-			// Set proper font rendering settings BEFORE building atlas
-			io.FontGlobalScale = 1.0f;
+			// Get DPI scale from the primary monitor
+			float dpiScale = GetPrimaryMonitorDpiScale();
 			
-			// Configure font settings for better rendering
-			var fontConfig = new ImFontConfig
-			{
-				OversampleH = 3,  // Horizontal oversampling for better quality
-				OversampleV = 1,  // Vertical oversampling
-				PixelSnapH = 1 // Snap to pixel grid to reduce blur
-			};
+			// Set proper font rendering settings BEFORE building atlas
+			io.FontGlobalScale = 1.0f / dpiScale; // Adjust for DPI scaling
 
 			if (options._includeDefaultFont)
 			{
 				unsafe
 				{
-					DefaultFontPtr = io.Fonts.AddFontDefault(ImGuiNative.ImFontConfig_ImFontConfig());
+					var config = ImGuiNative.ImFontConfig_ImFontConfig();
+					var configPtr = new ImFontConfigPtr(config);
+					configPtr.OversampleH = 3;
+					configPtr.OversampleV = 1;
+					configPtr.PixelSnapH = true;
+					
+					DefaultFontPtr = io.Fonts.AddFontDefault(config);
 				}
 			}
 
@@ -114,7 +115,10 @@ namespace Voltage.Editor.ImGuiCore
 					configPtr.OversampleV = 1;
 					configPtr.PixelSnapH = true;
 					
-					io.Fonts.AddFontFromFileTTF(font.Item1, font.Item2, configPtr);
+					// Scale font size by DPI
+					float scaledSize = font.Item2 * dpiScale;
+					
+					io.Fonts.AddFontFromFileTTF(font.Item1, scaledSize, config);
 				}
 			}
 
@@ -130,10 +134,6 @@ namespace Voltage.Editor.ImGuiCore
 
 			// Create texture with proper settings to avoid blur
 			var tex2d = new Texture2D(Core.GraphicsDevice, width, height, false, SurfaceFormat.Color);
-			
-			// Use Point sampling for crisp pixel-perfect rendering
-			Core.GraphicsDevice.SamplerStates[0] = SamplerState.PointClamp;
-			
 			tex2d.SetData(pixels);
 
 			// Should a texture already have been built previously, unbind it first so it can be deallocated
@@ -147,6 +147,43 @@ namespace Voltage.Editor.ImGuiCore
 			io.Fonts.SetTexID(_fontTextureId.Value);
 			io.Fonts.ClearTexData(); // Clears CPU side texture data
 		}
+
+		/// <summary>
+		/// Gets the DPI scale factor for the primary monitor
+		/// </summary>
+		private float GetPrimaryMonitorDpiScale()
+		{
+			try
+			{
+#if OS_WINDOWS
+				// P/Invoke to get DPI
+				IntPtr hdc = GetDC(IntPtr.Zero);
+				int dpiX = GetDeviceCaps(hdc, LOGPIXELSX);
+				ReleaseDC(IntPtr.Zero, hdc);
+				return dpiX / 96.0f; // 96 DPI is 100% scaling
+#else
+				return 1.0f; // Default for non-Windows platforms
+#endif
+			}
+			catch
+			{
+				return 1.0f; // Fallback
+			}
+		}
+
+#if OS_WINDOWS
+		// Windows API constants and imports for DPI detection
+		private const int LOGPIXELSX = 88;
+		
+		[DllImport("user32.dll")]
+		private static extern IntPtr GetDC(IntPtr hWnd);
+		
+		[DllImport("user32.dll")]
+		private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+		
+		[DllImport("gdi32.dll")]
+		private static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
+#endif
 
 		/// <summary>
 		/// Creates a pointer to a texture, which can be passed through ImGui calls such as <see cref="ImGui.Image" />. That pointer is then used by ImGui to let us know what texture to draw
@@ -217,9 +254,6 @@ namespace Voltage.Editor.ImGuiCore
 			_effect.TextureEnabled = true;
 			_effect.Texture = texture;
 			_effect.VertexColorEnabled = true;
-			
-			// // Ensure point sampling for crisp text
-			// Core.GraphicsDevice.SamplerStates[0] = SamplerState.PointClamp;
 
 			return _effect;
 		}
@@ -242,9 +276,6 @@ namespace Voltage.Editor.ImGuiCore
 			Core.GraphicsDevice.BlendState = BlendState.NonPremultiplied;
 			Core.GraphicsDevice.RasterizerState = _rasterizerState;
 			Core.GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-			
-			// Set point sampling for crisp ImGui text rendering
-			Core.GraphicsDevice.SamplerStates[0] = SamplerState.PointClamp;
 
 			// Handle cases of screen coordinates != from framebuffer coordinates (e.g. retina displays)
 			drawData.ScaleClipRects(ImGui.GetIO().DisplayFramebufferScale);

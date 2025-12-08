@@ -29,16 +29,7 @@ namespace Voltage.Editor.Inspectors
 			if (_imguiManager == null)
 				_imguiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
 
-			var windowPosX = Screen.Width - _imguiManager.InspectorTabWidth + _imguiManager.InspectorWidthOffset;
-			var windowPosY = _imguiManager.MainWindowPositionY + 32f;
-			var windowWidth = _imguiManager.InspectorTabWidth - _imguiManager.InspectorWidthOffset;
-			var windowHeight = Screen.Height - windowPosY;
-
-			// Use a unique window name and prevent docking
-			ImGui.SetNextWindowPos(new Num.Vector2(windowPosX, windowPosY), ImGuiCond.Always);
-			ImGui.SetNextWindowSize(new Num.Vector2(windowWidth, windowHeight), ImGuiCond.Always);
-
-			ImGui.Begin("##NezCoreWindow", ref isOpen, ImGuiWindowFlags.NoDocking | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoResize);
+			ImGui.Begin("Core Settings", ref isOpen, ImGuiWindowFlags.None);
 
 			DrawSettings();
 			ImGui.End();

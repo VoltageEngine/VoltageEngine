@@ -304,8 +304,7 @@ public class MainEntityInspector
 	}
 
 	public void Draw(
-		ImGuiWindowFlags windowFlags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoCollapse |
-		                               ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize)
+		ImGuiWindowFlags windowFlags = ImGuiWindowFlags.None)
 	{
 		if (!IsOpen)
 			return;
@@ -313,364 +312,352 @@ public class MainEntityInspector
 		if (_imGuiManager == null)
 			_imGuiManager = Core.GetGlobalManager<ImGuiManager>();
 
-		var windowPosX = Screen.Width - _imGuiManager.InspectorTabWidth + _imGuiManager.InspectorWidthOffset;
-		var windowPosY = _imGuiManager.MainWindowPositionY + 32f;
-		var windowWidth = _imGuiManager.InspectorTabWidth - _imGuiManager.InspectorWidthOffset;
-		var windowHeight = Screen.Height - windowPosY;
-
-		ImGui.SetNextWindowPos(new Num.Vector2(windowPosX, windowPosY), ImGuiCond.Always);
-		ImGui.SetNextWindowSize(new Num.Vector2(windowWidth, windowHeight), ImGuiCond.Always);
-
 		var open = IsOpen;
 
-		if (ImGui.Begin("##MainEntityInspector", ref open, windowFlags))
+		ImGui.Begin("Entity Inspector", ref open, windowFlags);
+
+		// If more than one entity is selected
+		if (_imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities.Count > 1 && !_imGuiManager.IsInspectorTabLocked)
 		{
-			// If more than one entity is selected
-			if (_imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities.Count > 1 && !_imGuiManager.IsInspectorTabLocked)
+			ImGui.SetWindowFontScale(1.5f);
+			ImGui.Text("Multiple Entities Selected");
+			ImGui.SetWindowFontScale(1.0f);
+
+			ImGui.PushFont(ImGui.GetIO().FontDefault); // Use default font (smallest)
+			ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(0.8f, 0.8f, 0.8f, 1.0f));
+			for (int i = 0; i < _imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities.Count; i++)
 			{
-				ImGui.SetWindowFontScale(1.5f);
-				ImGui.Text("Multiple Entities Selected");
-				ImGui.SetWindowFontScale(1.0f);
-
-				ImGui.PushFont(ImGui.GetIO().FontDefault); // Use default font (smallest)
-				ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(0.8f, 0.8f, 0.8f, 1.0f));
-				for (int i = 0; i < _imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities.Count; i++)
-				{
-					ImGui.Text($"{i + 1}. {_imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities[i].Name}");
-				}
-
-				ImGui.PopStyleColor();
-				ImGui.PopFont();
-
-				VoltageEditorUtils.BigVerticalSpace();
-
-				// Show common Components
-				foreach (var inspector in _componentInspectors)
-				{
-					inspector.Draw();
-					VoltageEditorUtils.MediumVerticalSpace();
-				}
+				ImGui.Text($"{i + 1}. {_imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities[i].Name}");
 			}
-			else if ((_imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities.Count == 1 && Entity != null) 
-			         || _lockedEntity != null)
+
+			ImGui.PopStyleColor();
+			ImGui.PopFont();
+
+			VoltageEditorUtils.BigVerticalSpace();
+
+			// Show common Components
+			foreach (var inspector in _componentInspectors)
 			{
-				var entityName = Entity.Name;
-				ImGui.SetWindowFontScale(1.5f);
-				ImGui.Text(entityName);
-				ImGui.SetWindowFontScale(1.0f);
+				inspector.Draw();
+				VoltageEditorUtils.MediumVerticalSpace();
+			}
+		}
+		else if ((_imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities.Count == 1 && Entity != null) 
+		         || _lockedEntity != null)
+		{
+			var entityName = Entity.Name;
+			ImGui.SetWindowFontScale(1.5f);
+			ImGui.Text(entityName);
+			ImGui.SetWindowFontScale(1.0f);
 
-				float spacing = 12f * _imGuiManager.FontSizeMultiplier;
-				float iconSize = 20f * _imGuiManager.FontSizeMultiplier;
-				ImGui.SameLine(0, spacing);
+			float spacing = 12f * _imGuiManager.FontSizeMultiplier;
+			float iconSize = 20f * _imGuiManager.FontSizeMultiplier;
+			ImGui.SameLine(0, spacing);
 
-				// Lock Mode Button
-				System.Numerics.Vector4 lockedButtonColor;
-				if (_imGuiManager.IsInspectorTabLocked)
+			// Lock Mode Button
+			System.Numerics.Vector4 lockedButtonColor;
+			if (_imGuiManager.IsInspectorTabLocked)
+			{
+				lockedButtonColor = new System.Numerics.Vector4(0.2f, 0.5f, 1f, 1f); // blue
+				ImGui.PushStyleColor(ImGuiCol.Button, lockedButtonColor);
+				if(ImGui.ImageButton("Lock Off", _imGuiManager.ImageLoader.LockedInspectorIconId, new Num.Vector2(iconSize, iconSize)))
 				{
-					lockedButtonColor = new System.Numerics.Vector4(0.2f, 0.5f, 1f, 1f); // blue
-					ImGui.PushStyleColor(ImGuiCol.Button, lockedButtonColor);
-					if(ImGui.ImageButton("Lock Off", _imGuiManager.ImageLoader.LockedInspectorIconId, new Num.Vector2(iconSize, iconSize)))
-					{
-						_imGuiManager.IsInspectorTabLocked = false;
-						_lockedEntity = null;
-					}
-
-					if (ImGui.IsItemHovered())
-						ImGui.SetTooltip("Unlock the current inspector");
-				}
-				else
-				{
-					lockedButtonColor = ImGui.GetStyle().Colors[(int)ImGuiCol.Button];
-					ImGui.PushStyleColor(ImGuiCol.Button, lockedButtonColor);
-					if (ImGui.ImageButton("Lock On", _imGuiManager.ImageLoader.UnlockedInspectorIconId, new Num.Vector2(iconSize, iconSize)))
-					{
-						_imGuiManager.IsInspectorTabLocked = true;
-						_lockedEntity = Entity;
-					}
-
-					if (ImGui.IsItemHovered())
-						ImGui.SetTooltip("Lock the current inspector");
+					_imGuiManager.IsInspectorTabLocked = false;
+					_lockedEntity = null;
 				}
 
-				ImGui.PopStyleColor();
-				VoltageEditorUtils.BigVerticalSpace();
-
-				if (Entity == null)
-				{
-					ImGui.TextColored(new Num.Vector4(1, 1, 0, 1), "No entity selected.");
-				}
-				else
-				{
-					var type = Entity.Type.ToString();
-					ImGui.InputText("InstanceType", ref type, 30);
-
-					// Show OriginalPrefabName for Prefab entities (readonly)
-					if (Entity.Type == Entity.InstanceType.Prefab && !string.IsNullOrEmpty(Entity.OriginalPrefabName))
-					{
-						var originalPrefabName = Entity.OriginalPrefabName;
-						ImGui.InputText("Original Prefab Name", ref originalPrefabName, 50,
-							ImGuiInputTextFlags.ReadOnly);
-					}
-
-					#region Entity Basic Info
-					// Enabled
-					{
-						bool oldEnabled = Entity.Enabled;
-						bool enabled = oldEnabled;
-						if (ImGui.Checkbox("Enabled", ref enabled) && enabled != oldEnabled)
-						{
-							EditorChangeTracker.PushUndo(
-								new GenericValueChangeAction(
-									Entity,
-									typeof(Entity).GetProperty(nameof(Entity.Enabled)),
-									oldEnabled,
-									enabled,
-									$"{Entity.Name}.Enabled"
-								),
-								Entity,
-								$"{Entity.Name}.Enabled"
-							);
-							Entity.SetEnabled(enabled);
-						}
-					}
-
-					// Name (edit session)
-					{
-						string name = Entity.Name;
-						bool changed = ImGui.InputText("Name", ref name, 25);
-
-						if (ImGui.IsItemActive() && !_isEditingName)
-						{
-							_isEditingName = true;
-							_nameEditStartValue = Entity.Name;
-						}
-
-						if (_isEditingName && ImGui.IsItemDeactivatedAfterEdit())
-						{
-							_isEditingName = false;
-							Entity.Name = name;
-
-							if (Entity.Name != _nameEditStartValue)
-							{
-								EditorChangeTracker.PushUndo(
-									new GenericValueChangeAction(
-										Entity,
-										typeof(Entity).GetProperty(nameof(Entity.Name)),
-										_nameEditStartValue,
-										Entity.Name,
-										$"{_nameEditStartValue}.Name"
-									),
-									Entity,
-									$"{_nameEditStartValue}.Name"
-								);
-							}
-						}
-					}
-
-
-					// UpdateOrder
-					{
-						int oldUpdateOrder = Entity.UpdateOrder;
-						int updateOrder = oldUpdateOrder;
-						if (ImGui.InputInt("Update Order", ref updateOrder) && updateOrder != oldUpdateOrder)
-						{
-							EditorChangeTracker.PushUndo(
-								new GenericValueChangeAction(
-									Entity,
-									typeof(Entity).GetProperty(nameof(Entity.UpdateOrder)),
-									oldUpdateOrder,
-									updateOrder,
-									$"{Entity.Name}.UpdateOrder"
-								),
-								Entity,
-								$"{Entity.Name}.UpdateOrder"
-							);
-							Entity.SetUpdateOrder(updateOrder);
-						}
-					}
-
-					// UpdateInterval
-					{
-						int updateInterval = (int)Entity.UpdateInterval;
-
-						bool changed = ImGui.SliderInt("Update Interval", ref updateInterval, 1, 100);
-
-						// Start of edit session: store the initial value
-						if (ImGui.IsItemActive() && !_isEditingUpdateInterval)
-						{
-							_isEditingUpdateInterval = true;
-							_updateIntervalEditStartValue = Entity.UpdateInterval;
-						}
-
-						// Apply the value while dragging
-						if (changed)
-							Entity.UpdateInterval = (uint)updateInterval;
-
-						// End of edit session: push undo if value changed
-						if (_isEditingUpdateInterval && ImGui.IsItemDeactivatedAfterEdit())
-						{
-							_isEditingUpdateInterval = false;
-							if (Entity.UpdateInterval != _updateIntervalEditStartValue)
-							{
-								EditorChangeTracker.PushUndo(
-									new GenericValueChangeAction(
-										Entity,
-										(obj, val) => ((Entity)obj).UpdateInterval = (uint)val,
-										_updateIntervalEditStartValue,
-										Entity.UpdateInterval,
-										$"{Entity.Name}.UpdateInterval"
-									),
-									Entity,
-									$"{Entity.Name}.UpdateInterval"
-								);
-							}
-						}
-					}
-
-					// Tag
-					{
-						int oldTag = Entity.Tag;
-						int tag = oldTag;
-						if (ImGui.InputInt("Tag", ref tag) && tag != oldTag)
-						{
-							EditorChangeTracker.PushUndo(
-								new GenericValueChangeAction(
-									Entity,
-									typeof(Entity).GetProperty(nameof(Entity.Tag)),
-									oldTag,
-									tag,
-									$"{Entity.Name}.Tag"
-								),
-								Entity,
-								$"{Entity.Name}.Tag"
-							);
-							Entity.Tag = tag;
-						}
-					}
-
-					VoltageEditorUtils.MediumVerticalSpace();
-					
-					// IsSelectableInEditor
-					{
-						bool oldSelectable = Entity.IsSelectableInEditor;
-						bool isSelectable = oldSelectable;
-						if (ImGui.Checkbox("Can Be Selected", ref isSelectable) && isSelectable != oldSelectable)
-						{
-							EditorChangeTracker.PushUndo(
-								new GenericValueChangeAction(
-									Entity,
-									typeof(Entity).GetProperty(nameof(Entity.IsSelectableInEditor)),
-									oldSelectable,
-									isSelectable,
-									$"{Entity.Name}.IsSelectableInEditor"
-								),
-								Entity,
-								$"{Entity.Name}.IsSelectableInEditor"
-							);
-							Entity.IsSelectableInEditor = isSelectable;
-						}
-
-						if (ImGui.IsItemHovered())
-						{
-							ImGui.SetTooltip("If FALSE, you won't be able select this \n Entity with your cursor in the Editor.");
-						}
-					}
-
-					// DebugRenderEnabled
-					{
-						bool oldDebugEnabled = Entity.DebugRenderEnabled;
-						bool debugEnabled = oldDebugEnabled;
-						if (ImGui.Checkbox("Debug Render Enabled", ref debugEnabled) && debugEnabled != oldDebugEnabled)
-						{
-							EditorChangeTracker.PushUndo(
-								new GenericValueChangeAction(
-									Entity,
-									typeof(Entity).GetProperty(nameof(Entity.DebugRenderEnabled)),
-									oldDebugEnabled,
-									debugEnabled,
-									$"{Entity.Name}.DebugRenderEnabled"
-								),
-								Entity,
-								$"{Entity.Name}.DebugRenderEnabled"
-							);
-							Entity.DebugRenderEnabled = debugEnabled;
-						}
-					}
-					#endregion
-
-					VoltageEditorUtils.MediumVerticalSpace();
-
-					if (_transformInspector != null)
-					{
-						_transformInspector.Draw();
-					}
-
-					VoltageEditorUtils.MediumVerticalSpace();
-
-					for (var i = _componentInspectors.Count - 1; i >= 0; i--)
-					{
-						if (_componentInspectors[i].Entity == null)
-						{
-							_componentInspectors.RemoveAt(i);
-							continue;
-						}
-
-						_componentInspectors[i].Draw();
-						VoltageEditorUtils.MediumVerticalSpace();
-					}
-
-					// Add Component button
-					if (VoltageEditorUtils.CenteredButton("Add Component", 0.6f))
-					{
-						_showAddComponentPopup = true;
-						_componentFilterText = "";
-					}
-
-					VoltageEditorUtils.MediumVerticalSpace();
-
-					if (Entity.Type != Entity.InstanceType.HardCoded && VoltageEditorUtils.CenteredButton("Create Prefab", 0.6f))
-					{
-						_prefabName = Entity.Name + "_Prefab";
-						ImGui.OpenPopup("prefab-creator");
-					}
-
-					if (Entity.Type == Entity.InstanceType.Prefab && !string.IsNullOrEmpty(Entity.OriginalPrefabName))
-					{
-						VoltageEditorUtils.MediumVerticalSpace();
-						if (VoltageEditorUtils.CenteredButton("Apply to Prefab Copies", 0.8f))
-						{
-							ShowApplyToPrefabCopiesConfirmation();
-						}
-					}
-
-					if (Entity.Type == Entity.InstanceType.Prefab && !string.IsNullOrEmpty(Entity.OriginalPrefabName))
-					{
-						VoltageEditorUtils.MediumVerticalSpace();
-						if (VoltageEditorUtils.CenteredButton("Apply to Original Prefab", 0.8f))
-						{
-							_showApplyToOriginalPrefabConfirmation = true;
-						}
-					}
-
-					DrawAddComponentPopup();
-					DrawPrefabCreatorPopup();
-					DrawApplyToPrefabCopiesConfirmationPopup();
-					DrawApplyToOriginalPrefabConfirmationPopup();
-				}
+				if (ImGui.IsItemHovered())
+					ImGui.SetTooltip("Unlock the current inspector");
 			}
 			else
 			{
-				ImGui.TextColored(new Num.Vector4(1, 1, 0, 1), "No entity selected.");
+				lockedButtonColor = ImGui.GetStyle().Colors[(int)ImGuiCol.Button];
+				ImGui.PushStyleColor(ImGuiCol.Button, lockedButtonColor);
+				if (ImGui.ImageButton("Lock On", _imGuiManager.ImageLoader.UnlockedInspectorIconId, new Num.Vector2(iconSize, iconSize)))
+				{
+					_imGuiManager.IsInspectorTabLocked = true;
+					_lockedEntity = Entity;
+				}
+
+				if (ImGui.IsItemHovered())
+					ImGui.SetTooltip("Lock the current inspector");
 			}
 
+			ImGui.PopStyleColor();
+			VoltageEditorUtils.BigVerticalSpace();
+
+			if (Entity == null)
+			{
+				ImGui.TextColored(new Num.Vector4(1, 1, 0, 1), "No entity selected.");
+			}
+			else
+			{
+				var type = Entity.Type.ToString();
+				ImGui.InputText("InstanceType", ref type, 30);
+
+				// Show OriginalPrefabName for Prefab entities (readonly)
+				if (Entity.Type == Entity.InstanceType.Prefab && !string.IsNullOrEmpty(Entity.OriginalPrefabName))
+				{
+					var originalPrefabName = Entity.OriginalPrefabName;
+					ImGui.InputText("Original Prefab Name", ref originalPrefabName, 50,
+						ImGuiInputTextFlags.ReadOnly);
+				}
+
+				#region Entity Basic Info
+				// Enabled
+				{
+					bool oldEnabled = Entity.Enabled;
+					bool enabled = oldEnabled;
+					if (ImGui.Checkbox("Enabled", ref enabled) && enabled != oldEnabled)
+					{
+						EditorChangeTracker.PushUndo(
+							new GenericValueChangeAction(
+								Entity,
+								typeof(Entity).GetProperty(nameof(Entity.Enabled)),
+								oldEnabled,
+								enabled,
+								$"{Entity.Name}.Enabled"
+							),
+							Entity,
+							$"{Entity.Name}.Enabled"
+						);
+						Entity.SetEnabled(enabled);
+					}
+				}
+
+				// Name (edit session)
+				{
+					string name = Entity.Name;
+					bool changed = ImGui.InputText("Name", ref name, 25);
+
+					if (ImGui.IsItemActive() && !_isEditingName)
+					{
+						_isEditingName = true;
+						_nameEditStartValue = Entity.Name;
+					}
+
+					if (_isEditingName && ImGui.IsItemDeactivatedAfterEdit())
+					{
+						_isEditingName = false;
+						Entity.Name = name;
+
+						if (Entity.Name != _nameEditStartValue)
+						{
+							EditorChangeTracker.PushUndo(
+								new GenericValueChangeAction(
+									Entity,
+									typeof(Entity).GetProperty(nameof(Entity.Name)),
+									_nameEditStartValue,
+									Entity.Name,
+									$"{_nameEditStartValue}.Name"
+								),
+								Entity,
+								$"{_nameEditStartValue}.Name"
+							);
+						}
+					}
+				}
+
+
+				// UpdateOrder
+				{
+					int oldUpdateOrder = Entity.UpdateOrder;
+					int updateOrder = oldUpdateOrder;
+					if (ImGui.InputInt("Update Order", ref updateOrder) && updateOrder != oldUpdateOrder)
+					{
+						EditorChangeTracker.PushUndo(
+							new GenericValueChangeAction(
+								Entity,
+								typeof(Entity).GetProperty(nameof(Entity.UpdateOrder)),
+								oldUpdateOrder,
+								updateOrder,
+								$"{Entity.Name}.UpdateOrder"
+							),
+							Entity,
+							$"{Entity.Name}.UpdateOrder"
+						);
+						Entity.SetUpdateOrder(updateOrder);
+					}
+				}
+
+				// UpdateInterval
+				{
+					int updateInterval = (int)Entity.UpdateInterval;
+
+					bool changed = ImGui.SliderInt("Update Interval", ref updateInterval, 1, 100);
+
+					// Start of edit session: store the initial value
+					if (ImGui.IsItemActive() && !_isEditingUpdateInterval)
+					{
+						_isEditingUpdateInterval = true;
+						_updateIntervalEditStartValue = Entity.UpdateInterval;
+					}
+
+					// Apply the value while dragging
+					if (changed)
+						Entity.UpdateInterval = (uint)updateInterval;
+
+					// End of edit session: push undo if value changed
+					if (_isEditingUpdateInterval && ImGui.IsItemDeactivatedAfterEdit())
+					{
+						_isEditingUpdateInterval = false;
+						if (Entity.UpdateInterval != _updateIntervalEditStartValue)
+						{
+							EditorChangeTracker.PushUndo(
+								new GenericValueChangeAction(
+									Entity,
+									(obj, val) => ((Entity)obj).UpdateInterval = (uint)val,
+									_updateIntervalEditStartValue,
+									Entity.UpdateInterval,
+									$"{Entity.Name}.UpdateInterval"
+								),
+								Entity,
+								$"{Entity.Name}.UpdateInterval"
+							);
+						}
+					}
+				}
+
+				// Tag
+				{
+					int oldTag = Entity.Tag;
+					int tag = oldTag;
+					if (ImGui.InputInt("Tag", ref tag) && tag != oldTag)
+					{
+						EditorChangeTracker.PushUndo(
+							new GenericValueChangeAction(
+								Entity,
+								typeof(Entity).GetProperty(nameof(Entity.Tag)),
+								oldTag,
+								tag,
+								$"{Entity.Name}.Tag"
+							),
+							Entity,
+							$"{Entity.Name}.Tag"
+						);
+						Entity.Tag = tag;
+					}
+				}
+
+				VoltageEditorUtils.MediumVerticalSpace();
+				
+				// IsSelectableInEditor
+				{
+					bool oldSelectable = Entity.IsSelectableInEditor;
+					bool isSelectable = oldSelectable;
+					if (ImGui.Checkbox("Can Be Selected", ref isSelectable) && isSelectable != oldSelectable)
+					{
+						EditorChangeTracker.PushUndo(
+							new GenericValueChangeAction(
+								Entity,
+								typeof(Entity).GetProperty(nameof(Entity.IsSelectableInEditor)),
+								oldSelectable,
+								isSelectable,
+								$"{Entity.Name}.IsSelectableInEditor"
+							),
+							Entity,
+							$"{Entity.Name}.IsSelectableInEditor"
+						);
+						Entity.IsSelectableInEditor = isSelectable;
+					}
+
+					if (ImGui.IsItemHovered())
+					{
+						ImGui.SetTooltip("If FALSE, you won't be able select this \n Entity with your cursor in the Editor.");
+					}
+				}
+
+				// DebugRenderEnabled
+				{
+					bool oldDebugEnabled = Entity.DebugRenderEnabled;
+					bool debugEnabled = oldDebugEnabled;
+					if (ImGui.Checkbox("Debug Render Enabled", ref debugEnabled) && debugEnabled != oldDebugEnabled)
+					{
+						EditorChangeTracker.PushUndo(
+							new GenericValueChangeAction(
+								Entity,
+								typeof(Entity).GetProperty(nameof(Entity.DebugRenderEnabled)),
+								oldDebugEnabled,
+								debugEnabled,
+								$"{Entity.Name}.DebugRenderEnabled"
+							),
+							Entity,
+							$"{Entity.Name}.DebugRenderEnabled"
+						);
+						Entity.DebugRenderEnabled = debugEnabled;
+					}
+				}
+				#endregion
+
+				VoltageEditorUtils.MediumVerticalSpace();
+
+				if (_transformInspector != null)
+				{
+					_transformInspector.Draw();
+				}
+
+				VoltageEditorUtils.MediumVerticalSpace();
+
+				for (var i = _componentInspectors.Count - 1; i >= 0; i--)
+				{
+					if (_componentInspectors[i].Entity == null)
+					{
+						_componentInspectors.RemoveAt(i);
+						continue;
+					}
+
+					_componentInspectors[i].Draw();
+					VoltageEditorUtils.MediumVerticalSpace();
+				}
+
+				// Add Component button
+				if (VoltageEditorUtils.CenteredButton("Add Component", 0.6f))
+				{
+					_showAddComponentPopup = true;
+					_componentFilterText = "";
+				}
+
+				VoltageEditorUtils.MediumVerticalSpace();
+
+				if (Entity.Type != Entity.InstanceType.HardCoded && VoltageEditorUtils.CenteredButton("Create Prefab", 0.6f))
+				{
+					_prefabName = Entity.Name + "_Prefab";
+					ImGui.OpenPopup("prefab-creator");
+				}
+
+				if (Entity.Type == Entity.InstanceType.Prefab && !string.IsNullOrEmpty(Entity.OriginalPrefabName))
+				{
+					VoltageEditorUtils.MediumVerticalSpace();
+					if (VoltageEditorUtils.CenteredButton("Apply to Prefab Copies", 0.8f))
+					{
+						ShowApplyToPrefabCopiesConfirmation();
+					}
+				}
+
+				if (Entity.Type == Entity.InstanceType.Prefab && !string.IsNullOrEmpty(Entity.OriginalPrefabName))
+				{
+					VoltageEditorUtils.MediumVerticalSpace();
+					if (VoltageEditorUtils.CenteredButton("Apply to Original Prefab", 0.8f))
+					{
+						_showApplyToOriginalPrefabConfirmation = true;
+					}
+				}
+
+				DrawAddComponentPopup();
+				DrawPrefabCreatorPopup();
+				DrawApplyToPrefabCopiesConfirmationPopup();
+				DrawApplyToOriginalPrefabConfirmationPopup();
+			}
+		}
+		else
+		{
+			ImGui.TextColored(new Num.Vector4(1, 1, 0, 1), "No entity selected.");
 		}
 
 		ImGui.End();
-		ImGui.PopStyleVar();
-		ImGui.PopStyleColor();
 
 		if (!open)
-			Voltage.Core.GetGlobalManager<ImGuiManager>().CloseMainEntityInspector();
+			Core.GetGlobalManager<ImGuiManager>().CloseMainEntityInspector();
 	}
 
 	/// <summary>
