@@ -7,7 +7,7 @@
 	<PropertyGroup>
 		<Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
 		<Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-		<OutputType>Library</OutputType>
+		<OutputType>Exe</OutputType>
 		<RootNamespace>Voltage.Editor</RootNamespace>
 		<AssemblyName>Voltage.Editor</AssemblyName>
 		<TargetFramework>net8.0</TargetFramework>
@@ -23,8 +23,21 @@
 	</PropertyGroup>
 
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-		<DefineConstants></DefineConstants>
+		<DefineConstants>TRACE;</DefineConstants>
 	</PropertyGroup>
+
+	<!-- Only enable this when you want to compile the Effects source files with mgfxc when running the program -->
+	<!-- <Target Name="CompileEffects" AfterTargets="Build"> -->
+	<!--   <PropertyGroup> -->
+	<!--     <ShaderSrcDir>$(ProjectDir)DefaultContentSource\</ShaderSrcDir> -->
+	<!--     <ShaderOutDir>$(ProjectDir)Content\Effects\</ShaderOutDir> -->
+	<!--   </PropertyGroup> -->
+	<!--   <MakeDir Directories="$(ShaderOutDir)" /> -->
+	<!--   <ItemGroup> -->
+	<!--     <ShaderFiles Include="$(ShaderSrcDir)**\*.fx" /> -->
+	<!--   </ItemGroup> -->
+	<!--   <Exec Command="mgfxc %(ShaderFiles.Identity) &quot;$(ShaderOutDir)%(Filename).mgfxo&quot;" /> -->
+	<!-- </Target> -->
 
 	<PropertyGroup>
 		<IsOSX Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' == 'true'">true</IsOSX>
@@ -33,7 +46,7 @@
 
 	<ItemGroup>
 		<!-- Copy all files and subdirectories from ImGuiContent to output directory -->
-		<Content Include="ImGuiContent\**\*">
+		<Content Include="Content\**\*">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
 	</ItemGroup>
@@ -62,17 +75,33 @@
 		</Content>
 	</ItemGroup>
 
+	<!-- Specify OS types to use in the codebase (e.g. #if OS_WINDOWS #endif )-->
+	<PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+		<DefineConstants>OS_WINDOWS</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+		<DefineConstants>OS_LINUX</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+		<DefineConstants>OS_MAC</DefineConstants>
+	</PropertyGroup>
 	<ItemGroup>
-	  <Content Include="ImGuiContent\CursorSelection-UI-Normal.png">
+	  <Content Include="DefaultContent\UI\CursorSelection-UI-ColliderResize.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
-	  <Content Include="ImGuiContent\CursorSelection-UI-Resize.png">
+	  <Content Include="DefaultContent\UI\CursorSelection-UI-Normal.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
-	  <Content Include="ImGuiContent\CursorSelection-UI-Rotate.png">
+	  <Content Include="DefaultContent\UI\CursorSelection-UI-Resize.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
-	  <Content Include="ImGuiContent\CursorSelection-UI.aseprite">
+	  <Content Include="DefaultContent\UI\CursorSelection-UI-Rotate.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="DefaultContent\UI\CursorSelection-UI.aseprite">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="DefaultContent\UI\Inspector-LockMode.aseprite">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
 	</ItemGroup>
@@ -83,8 +112,38 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <ProjectReference Include="..\Voltage.Engine\Voltage.Engine.csproj" />
 	  <ProjectReference Include="..\Voltage.Persistence\Voltage.Persistence.csproj" />
-	  <ProjectReference Include="..\Voltage\Voltage.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Update="DefaultContent\Fonts\BungeeSpice-Regular.ttf">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\Fonts\Lexend-Black.ttf">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\Fonts\Lexend-Bold.ttf">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\Fonts\Lexend-Light.ttf">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\Fonts\Lexend-Medium.ttf">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\Fonts\Lexend-Regular.ttf">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\Fonts\VoltageDefaultBMFont.fnt">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\Fonts\VoltageDefaultBMFont.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\Layouts\DefaultLayout.ini">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
 	</ItemGroup>
 
 	<Import Sdk="Microsoft.NET.Sdk" Project="Sdk.targets" />

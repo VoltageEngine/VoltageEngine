@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using ImGuiNET;
-using Voltage;
 using Voltage.Utils;
-using Voltage.Editor.Core;
+using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.Utils;
 using Num = System.Numerics;
@@ -47,20 +46,7 @@ namespace Voltage.Editor.Inspectors
             if (_imguiManager == null)
                 _imguiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
 
-            var windowPosX = Screen.Width - _imguiManager.InspectorTabWidth + _imguiManager.InspectorWidthOffset;
-            var windowPosY = _imguiManager.MainWindowPositionY + 32f;
-            var windowWidth = _imguiManager.InspectorTabWidth - _imguiManager.InspectorWidthOffset;
-            var windowHeight = Screen.Height - windowPosY;
-
-            ImGui.SetNextWindowPos(new Num.Vector2(windowPosX, windowPosY), ImGuiCond.Always);
-            ImGui.SetNextWindowSize(new Num.Vector2(windowWidth, windowHeight), ImGuiCond.Always);
-
-            ImGui.Begin("##DebugLog",
-                ImGuiWindowFlags.NoDocking |
-                ImGuiWindowFlags.NoCollapse |
-                ImGuiWindowFlags.NoTitleBar |
-                ImGuiWindowFlags.NoResize |
-                ImGuiWindowFlags.HorizontalScrollbar);
+            ImGui.Begin("Debug Log ###DebugWindow", ImGuiWindowFlags.HorizontalScrollbar);
 
             // Controls row
             ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Num.Vector2(4, 4));
@@ -155,8 +141,21 @@ namespace Voltage.Editor.Inspectors
                 text += count > 99 ? "  (x100+)" : $"  (x{count})";
             }
 
-            float fontScale = GetFontScale(type);
-            ImGui.SetWindowFontScale(fontScale);
+			// Get appropriate font index based on log type
+			int fontIndex = type switch
+			{
+				Debug.LogType.Error => 3,
+				Debug.LogType.Warn => 2,
+				Debug.LogType.Info => 1,
+				_ => 0
+			};
+
+			// Push the appropriate font (if available)
+			var io = ImGui.GetIO();
+			if (io.Fonts.Fonts.Size > fontIndex)
+			{
+				ImGui.PushFont(io.Fonts.Fonts[fontIndex]);
+			}
 
             var cursorScreenPos = ImGui.GetCursorScreenPos();
             
@@ -170,6 +169,12 @@ namespace Voltage.Editor.Inspectors
             {
                 ImGui.TextColored(color, text);
             }
+
+            // Pop font if we pushed one
+            if (io.Fonts.Fonts.Size > fontIndex)
+			{
+				ImGui.PopFont();
+			}
 
             var itemRectMin = cursorScreenPos;
             var itemRectMax = ImGui.GetItemRectMax();

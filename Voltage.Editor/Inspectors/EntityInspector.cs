@@ -3,9 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using ImGuiNET;
-using Voltage;
 using Voltage.Utils;
-using Voltage.Editor.Core;
+using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Inspectors.ObjectInspectors;
 using Voltage.Editor.UndoActions;
 using Voltage.Editor.Utils;
@@ -95,7 +94,7 @@ public class EntityInspector
 			ImGuiCond.FirstUseEver);
 
 		var open = true;
-		if (ImGui.Begin($"Inspector: {Entity.Name}###{_entityWindowId}", ref open))
+		if (ImGui.Begin($"Inspector: {Entity.Name}##{_entityWindowId}", ref open))
 		{
 			if (Entity == null)
 			{

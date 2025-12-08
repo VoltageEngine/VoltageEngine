@@ -10,7 +10,7 @@ namespace Voltage.Editor.Persistence
 		public PersistentInt(string key, int defaultValue = 0)
 		{
 			Key = key;
-			_value = ImGuiSettingsLoader.LoadSetting(key, defaultValue);
+			_value = EditorSettingsLoader.LoadSetting(key, defaultValue);
 		}
 
 		public int Value
@@ -21,7 +21,7 @@ namespace Voltage.Editor.Persistence
 				if (_value != value)
 				{
 					_value = value;
-					ImGuiSettingsLoader.SaveSetting(Key, _value);
+					EditorSettingsLoader.SaveSetting(Key, _value);
 				}
 			}
 		}

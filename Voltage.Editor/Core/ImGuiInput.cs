@@ -2,9 +2,8 @@
 using System.Collections.Generic;
 using ImGuiNET;
 using Microsoft.Xna.Framework.Input;
-using Voltage;
 
-namespace Voltage.Editor.Core
+namespace Voltage.Editor.ImGuiCore
 {
 	public class ImGuiInput
 	{
@@ -126,9 +125,15 @@ namespace Voltage.Editor.Core
 			io.KeyAlt = keyboard.IsKeyDown(Keys.LeftAlt) || keyboard.IsKeyDown(Keys.RightAlt);
 			io.KeySuper = keyboard.IsKeyDown(Keys.LeftWindows) || keyboard.IsKeyDown(Keys.RightWindows);
 
-			io.DisplaySize = new System.Numerics.Vector2(Voltage.Core.GraphicsDevice.PresentationParameters.BackBufferWidth,
-				Voltage.Core.GraphicsDevice.PresentationParameters.BackBufferHeight);
-			io.DisplayFramebufferScale = new System.Numerics.Vector2(1f, 1f);
+			// Get actual backbuffer size (accounts for DPI scaling)
+			var backBufferWidth = Voltage.Core.GraphicsDevice.PresentationParameters.BackBufferWidth;
+			var backBufferHeight = Voltage.Core.GraphicsDevice.PresentationParameters.BackBufferHeight;
+
+			io.DisplaySize = new System.Numerics.Vector2(backBufferWidth, backBufferHeight);
+			
+			// Get DPI scale for proper framebuffer scaling
+			float dpiScale = GetDpiScale();
+			io.DisplayFramebufferScale = new System.Numerics.Vector2(dpiScale, dpiScale);
 
 			io.MousePos = new System.Numerics.Vector2(mouse.X, mouse.Y);
 
@@ -139,6 +144,28 @@ namespace Voltage.Editor.Core
 			var scrollDelta = mouse.ScrollWheelValue - _scrollWheelValue;
 			io.MouseWheel = scrollDelta > 0 ? 1 : scrollDelta < 0 ? -1 : 0;
 			_scrollWheelValue = mouse.ScrollWheelValue;
+		}
+
+		/// <summary>
+		/// Gets the current DPI scale factor
+		/// </summary>
+		private float GetDpiScale()
+		{
+			try
+			{
+#if OS_WINDOWS
+				using (var graphics = System.Drawing.Graphics.FromHwnd(IntPtr.Zero))
+				{
+					return graphics.DpiX / 96.0f;
+				}
+#else
+				return 1.0f;
+#endif
+			}
+			catch
+			{
+				return 1.0f;
+			}
 		}
 	}
 }

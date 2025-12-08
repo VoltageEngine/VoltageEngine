@@ -27,6 +27,7 @@ using System.Runtime.InteropServices;
 using FarseerPhysics.Collision.Shapes;
 using FarseerPhysics.Common;
 using Microsoft.Xna.Framework;
+using Voltage.Utils.Extensions;
 
 
 namespace FarseerPhysics.Collision
@@ -885,7 +886,7 @@ namespace FarseerPhysics.Collision
 			var v12 = poly1.Vertices[iv2];
 
 			var localTangent = v12 - v11;
-			Voltage.Vector2Ext.Normalize(ref localTangent);
+			Vector2Ext.Normalize(ref localTangent);
 
 			var localNormal = new Vector2(localTangent.Y, -localTangent.X);
 			var planePoint = 0.5f * (v11 + v12);
@@ -1076,7 +1077,7 @@ namespace FarseerPhysics.Collision
 			var n = new Vector2(-e.Y, e.X);
 			if (Vector2.Dot(n, Q - A) < 0.0f)
 				n = new Vector2(-n.X, -n.Y);
-			Voltage.Vector2Ext.Normalize(ref n);
+			Vector2Ext.Normalize(ref n);
 
 			cf.IndexA = 0;
 			cf.TypeA = (byte) ContactFeatureType.Face;
@@ -1146,7 +1147,7 @@ namespace FarseerPhysics.Collision
 				var hasVertex3 = edgeA.HasVertex3;
 
 				var edge1 = _v2 - _v1;
-				Voltage.Vector2Ext.Normalize(ref edge1);
+				Vector2Ext.Normalize(ref edge1);
 				_normal1 = new Vector2(edge1.Y, -edge1.X);
 				var offset1 = Vector2.Dot(_normal1, _centroidB - _v1);
 				float offset0 = 0.0f, offset2 = 0.0f;
@@ -1156,7 +1157,7 @@ namespace FarseerPhysics.Collision
 				if (hasVertex0)
 				{
 					var edge0 = _v1 - _v0;
-					Voltage.Vector2Ext.Normalize(ref edge0);
+					Vector2Ext.Normalize(ref edge0);
 					_normal0 = new Vector2(edge0.Y, -edge0.X);
 					convex1 = MathUtils.Cross(edge0, edge1) >= 0.0f;
 					offset0 = Vector2.Dot(_normal0, _centroidB - _v0);
@@ -1166,7 +1167,7 @@ namespace FarseerPhysics.Collision
 				if (hasVertex3)
 				{
 					var edge2 = _v3 - _v2;
-					Voltage.Vector2Ext.Normalize(ref edge2);
+					Vector2Ext.Normalize(ref edge2);
 					_normal2 = new Vector2(edge2.Y, -edge2.X);
 					convex2 = MathUtils.Cross(edge1, edge2) > 0.0f;
 					offset2 = Vector2.Dot(_normal2, _centroidB - _v2);

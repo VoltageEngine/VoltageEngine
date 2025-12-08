@@ -5,11 +5,10 @@ using System.IO;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Voltage;
 using Voltage.Sprites;
 using Voltage.Utils;
 using Voltage.Utils.Extensions;
-using Voltage.Editor.Core;
+using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Utils;
 using Debug = Voltage.Debug;
@@ -36,9 +35,9 @@ namespace Voltage.Editor.Tools
 		struct StartEndInt { public int Start, End; }
 
 		/// <summary>
-		/// default location of SpriteAtlasPacker.exe. If you use a non-standard Nez install location set this before using the atlas editor
+		/// default location of SpriteAtlasPacker.exe. If you use a non-standard Voltage install location set this before using the atlas editor
 		/// </summary>
-		public static string PathToSpritePacker = "../../../Nez/Nez.SpriteAtlasPacker/PrebuiltExecutable/SpriteAtlasPacker.exe";
+		public static string PathToSpritePacker = "../../../Voltage/Voltage.SpriteAtlasPacker/PrebuiltExecutable/SpriteAtlasPacker.exe";
 
 		/// <summary>
 		/// default export path for atlases generated from a folder

@@ -25,7 +25,7 @@
 		<PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.4" />
 	</ItemGroup>
 	<ItemGroup>
-	  <ProjectReference Include="..\Voltage\Voltage.csproj" />
+	  <ProjectReference Include="..\Voltage.Engine\Voltage.Engine.csproj" />
 	</ItemGroup>
 	<Import Sdk="Microsoft.NET.Sdk" Project="Sdk.targets" />
 </Project>

@@ -24,6 +24,7 @@ using System;
 using System.Diagnostics;
 using FarseerPhysics.Common;
 using Microsoft.Xna.Framework;
+using Voltage.Utils.Extensions;
 
 
 namespace FarseerPhysics.Dynamics.Joints
@@ -283,7 +284,7 @@ namespace FarseerPhysics.Dynamics.Joints
 			{
 				_axis1 = value;
 				LocalXAxis = BodyA.GetLocalVector(_axis1);
-				Voltage.Vector2Ext.Normalize(ref LocalXAxis);
+				Vector2Ext.Normalize(ref LocalXAxis);
 				_localYAxisA = MathUtils.Cross(1.0f, LocalXAxis);
 			}
 		}

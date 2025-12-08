@@ -1,10 +1,9 @@
 using System;
 using System.Collections.Generic;
 using ImGuiNET;
-using Voltage;
 using Voltage.Sprites;
 using Voltage.Utils.Extensions;
-using Voltage.Editor.Core;
+using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Inspectors.Attributes;
 using Voltage.Editor.Inspectors.CustomInspectors;
 using Voltage.Editor.Inspectors.TypeInspectors;

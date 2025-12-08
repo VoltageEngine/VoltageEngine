@@ -1,4 +1,4 @@
-Nez Persistence
+Voltage Persistence
 ==========
 
 Zero dependency persistence. Different persistence strategies are included so you can choose based on your specific needs. If you need human-readable, hand-editable persistence JSON is a good candidate. If you need ultra high performance persistence then the binary route is the way to go.

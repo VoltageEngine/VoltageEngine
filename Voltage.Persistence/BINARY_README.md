@@ -1,4 +1,4 @@
-﻿Nez Persistence: Binary
+﻿Voltage Persistence: Binary
 ==========
 
 ## Features
@@ -12,12 +12,12 @@
 
 ## Usage: FileDataStore
 
-The API is namespaced under `Nez.Persistence.Binary` and the primary class is `FileDataStore`. There are only a few methods you need to know, listed below. The `FileDataStore` can save any class that implements `IPersistable`. By default, it stores the data in a very effiecient binary format. You can optionally store data in text format for debugging by passing in `FileFormat.Text` to the constructor. The constructor also takes in an optional `persistantDataPath` that will be used for saving files. If no `persistantDataPath` is provided `Utils.GetStorageRoot()` will be used.
+The API is namespaced under `Voltage.Persistence.Binary` and the primary class is `FileDataStore`. There are only a few methods you need to know, listed below. The `FileDataStore` can save any class that implements `IPersistable`. By default, it stores the data in a very effiecient binary format. You can optionally store data in text format for debugging by passing in `FileFormat.Text` to the constructor. The constructor also takes in an optional `persistantDataPath` that will be used for saving files. If no `persistantDataPath` is provided `Utils.GetStorageRoot()` will be used.
 
 It is recommended to create a single `FileDataStore` and store it in the `GameServiceContainer` for easy access.
 
 ```csharp
-namespace Nez.Persistence
+namespace Voltage.Persistence
 {
 	public class FileDataStore
 	{

@@ -166,7 +166,7 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 			    ListInspector.KSupportedTypes.Contains(valueType.GetGenericArguments()[0]))
 				return new TypeInspectors_ListInspector();
 
-			// check for custom inspectors before checking Nez types in case a subclass implemented one
+			// check for custom inspectors before checking Voltage types in case a subclass implemented one
 			var customInspectorType = valueType.GetTypeInfo().GetAttribute<CustomInspectorAttribute>();
 			if (customInspectorType != null)
 			{
@@ -174,7 +174,7 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 					return (AbstractTypeInspector) Activator.CreateInstance(customInspectorType.InspectorType);
 			}
 
-			// Nez types
+			// Voltage types
 			if (valueType == materialType || valueType.IsSubclassOf(materialType))
 				return GetMaterialInspector(target, memberInfo);
 			if (valueType == effectType || valueType.IsSubclassOf(effectType))
