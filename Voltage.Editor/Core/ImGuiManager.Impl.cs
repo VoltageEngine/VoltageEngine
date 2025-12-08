@@ -557,85 +557,71 @@ private void OverrideMouseInput()
 	#region IFinalRenderDelegate
 
 	void IFinalRenderDelegate.HandleFinalRender(RenderTarget2D finalRenderTarget, Color letterboxColor,
-		RenderTarget2D source, Rectangle finalRenderDestinationRect,
-		SamplerState samplerState)
-	{
-		if (ShowSeparateGameWindow)
-		{
-			if (_lastRenderTarget != source)
-			{
-				// unbind the old texture if we had one
-				if (_lastRenderTarget != null)
-					_renderer.UnbindTexture(_renderTargetId);
+    RenderTarget2D source, Rectangle finalRenderDestinationRect,
+    SamplerState samplerState)
+{
+    if (ShowSeparateGameWindow)
+    {
+        // SAFETY CHECK: Don't bind texture on first frame or during layout reload
+        if (_isFirstFrame || _layoutManager.HasPendingReload)
+        {
+            // Just render normally without separate game window
+            Voltage.Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
+            Voltage.Core.GraphicsDevice.Clear(letterboxColor);
+            Graphics.Instance.Batcher.Begin(BlendState.Opaque, samplerState, null, null);
+            Graphics.Instance.Batcher.Draw(source, finalRenderDestinationRect, Color.White);
+            Graphics.Instance.Batcher.End();
+            _renderer.AfterLayout();
+            return;
+        }
 
-				// bind the new texture
-				_lastRenderTarget = source;
-				_renderTargetId = _renderer.BindTexture(source);
-			}
+        if (_lastRenderTarget != source)
+        {
+            // unbind the old texture if we had one
+            if (_lastRenderTarget != null && _renderTargetId != IntPtr.Zero)
+            {
+                try
+                {
+                    _renderer.UnbindTexture(_renderTargetId);
+                }
+                catch (Exception ex)
+                {
+                    Debug.Error($"Error unbinding render target: {ex.Message}");
+                }
+                _renderTargetId = IntPtr.Zero;
+            }
 
-			// Use the SAME ID as DrawGameWindow - just "GameWindow" without spaces
-			string gameWindowState = Voltage.Core.IsEditMode ? "Paused" : "Playing";
-			string windowTitle = $"Game: {gameWindowState}###GameWindow";
+            // bind the new texture
+            _lastRenderTarget = source;
+            
+            try
+            {
+                _renderTargetId = _renderer.BindTexture(source);
+            }
+            catch (Exception ex)
+            {
+                Debug.Error($"Error binding render target: {ex.Message}");
+                _renderTargetId = IntPtr.Zero;
+            }
+        }
 
-			ImGui.Begin(windowTitle, _gameWindowFlags);
+        DrawGameWindow();
 
-			IsGameWindowFocused = ImGui.IsWindowFocused(ImGuiFocusedFlags.None);
-			GameWindowSize = ImGui.GetWindowSize();
-			GameWindowPosition = ImGui.GetWindowPos();
+        Voltage.Core.GraphicsDevice.SamplerStates[0] = samplerState;
+        Voltage.Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
+        Voltage.Core.GraphicsDevice.Clear(letterboxColor);
+    }
+    else
+    {
+        Voltage.Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
+        Voltage.Core.GraphicsDevice.Clear(letterboxColor);
+        Graphics.Instance.Batcher.Begin(BlendState.Opaque, samplerState, null, null);
+        Graphics.Instance.Batcher.Draw(source, finalRenderDestinationRect, Color.White);
+        Graphics.Instance.Batcher.End();
+    }
 
-			// Calculate aspect-ratio-preserving image size if enabled
-			Num.Vector2 imageSize;
-			Num.Vector2 cursorOffset = Num.Vector2.Zero;
-
-			var availableRegion = ImGui.GetContentRegionAvail();
-
-			if (PreserveGameWindowAspectRatio && _lastRenderTarget != null)
-			{
-				var targetAspect = (float)_lastRenderTarget.Width / _lastRenderTarget.Height;
-				var availableAspect = availableRegion.X / availableRegion.Y;
-
-				if (availableAspect > targetAspect)
-				{
-					imageSize = new Num.Vector2(availableRegion.Y * targetAspect, availableRegion.Y);
-					cursorOffset.X = (availableRegion.X - imageSize.X) * 0.5f;
-				}
-				else
-				{
-					imageSize = new Num.Vector2(availableRegion.X, availableRegion.X / targetAspect);
-					cursorOffset.Y = (availableRegion.Y - imageSize.Y) * 0.5f;
-				}
-
-				if (cursorOffset.X > 0 || cursorOffset.Y > 0)
-				{
-					var currentCursor = ImGui.GetCursorPos();
-					ImGui.SetCursorPos(currentCursor + cursorOffset);
-				}
-			}
-			else
-			{
-				imageSize = availableRegion;
-			}
-
-			ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, Num.Vector2.Zero);
-			ImGui.ImageButton("SeparateGameWindowImageButton", _renderTargetId, imageSize);
-			ImGui.PopStyleVar();
-			ImGui.End();
-
-			Voltage.Core.GraphicsDevice.SamplerStates[0] = samplerState;
-			Voltage.Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
-			Voltage.Core.GraphicsDevice.Clear(letterboxColor);
-		}
-		else
-		{
-			Voltage.Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
-			Voltage.Core.GraphicsDevice.Clear(letterboxColor);
-			Graphics.Instance.Batcher.Begin(BlendState.Opaque, samplerState, null, null);
-			Graphics.Instance.Batcher.Draw(source, finalRenderDestinationRect, Color.White);
-			Graphics.Instance.Batcher.End();
-		}
-
-		_renderer.AfterLayout();
-	}
+    _renderer.AfterLayout();
+}
 
 	void IFinalRenderDelegate.OnAddedToScene(Scene scene)
 	{
