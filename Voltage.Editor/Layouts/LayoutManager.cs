@@ -30,6 +30,8 @@ namespace Voltage.Editor.Layouts
             // Initialize default layout if needed
             InitializeDefaultLayout();
             
+            SetDefaultContentLayoutReadOnly();
+            
             RefreshLayoutList();
         }
 
@@ -39,19 +41,36 @@ namespace Voltage.Editor.Layouts
         public string CurrentLayoutName => _currentLayoutName;
 
         /// <summary>
-        /// Initializes the default layout from DefaultContent if Content/Layouts is empty
+        /// Sets the DefaultContent layout file to read-only to prevent accidental modification
+        /// </summary>
+        private void SetDefaultContentLayoutReadOnly()
+        {
+            try
+            {
+                if (File.Exists(_defaultContentLayoutPath))
+                {
+                    var fileInfo = new FileInfo(_defaultContentLayoutPath);
+                    if (!fileInfo.IsReadOnly)
+                    {
+                        fileInfo.IsReadOnly = true;
+                        Debug.Log($"Set DefaultLayout.ini to read-only: {_defaultContentLayoutPath}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.Warn($"Could not set DefaultLayout.ini to read-only: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Initializes the default layout from DefaultContent if needed
         /// </summary>
         private void InitializeDefaultLayout()
         {
             try
             {
-                // Check if Content/Layouts has any .ini files
-                var existingLayouts = Directory.Exists(_layoutsDirectory) 
-                    ? Directory.GetFiles(_layoutsDirectory, "*.ini") 
-                    : Array.Empty<string>();
-
-                // If no layouts exist and DefaultContent layout exists, copy it as the active layout
-                if (existingLayouts.Length == 0 && File.Exists(_defaultContentLayoutPath))
+                if (File.Exists(_defaultContentLayoutPath))
                 {
                     if (!File.Exists(_defaultLayoutPath))
                     {
@@ -136,8 +155,9 @@ namespace Voltage.Editor.Layouts
                 // Force ImGui to save current state to its configured ini file
                 ImGui.SaveIniSettingsToDisk(_defaultLayoutPath);
                 
-                // Copy the default layout to the target location
-                File.Copy(_defaultLayoutPath, targetPath, overwrite: true);
+                // Read the content and write to target (not File.Copy to avoid handle issues)
+                string layoutContent = File.ReadAllText(_defaultLayoutPath);
+                File.WriteAllText(targetPath, layoutContent);
 
                 _currentLayoutName = layoutName;
 
@@ -199,7 +219,7 @@ namespace Voltage.Editor.Layouts
                 // Use a small delay to ensure ImGui has released any handles
                 System.Threading.Thread.Sleep(50);
                 
-                // Write directly instead of File.Copy to avoid handle conflicts
+                // Write directly to avoid handle conflicts
                 File.WriteAllText(_defaultLayoutPath, layoutContent);
 
                 _currentLayoutName = layoutName;
@@ -259,7 +279,7 @@ namespace Voltage.Editor.Layouts
             {
                 if (File.Exists(_defaultContentLayoutPath))
                 {
-                    // Read content first
+                    // Read from the read-only source
                     string defaultContent = File.ReadAllText(_defaultContentLayoutPath);
                     
                     // Load into ImGui memory
