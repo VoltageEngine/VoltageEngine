@@ -46,20 +46,7 @@ namespace Voltage.Editor.Inspectors
             if (_imguiManager == null)
                 _imguiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
 
-            var windowPosX = Screen.Width - _imguiManager.InspectorTabWidth + _imguiManager.InspectorWidthOffset;
-            var windowPosY = _imguiManager.MainWindowPositionY + 32f;
-            var windowWidth = _imguiManager.InspectorTabWidth - _imguiManager.InspectorWidthOffset;
-            var windowHeight = Screen.Height - windowPosY;
-
-            ImGui.SetNextWindowPos(new Num.Vector2(windowPosX, windowPosY), ImGuiCond.Always);
-            ImGui.SetNextWindowSize(new Num.Vector2(windowWidth, windowHeight), ImGuiCond.Always);
-
-            ImGui.Begin("##DebugLog",
-                ImGuiWindowFlags.NoDocking |
-                ImGuiWindowFlags.NoCollapse |
-                ImGuiWindowFlags.NoTitleBar |
-                ImGuiWindowFlags.NoResize |
-                ImGuiWindowFlags.HorizontalScrollbar);
+            ImGui.Begin("Debug Log", ImGuiWindowFlags.HorizontalScrollbar);
 
             // Controls row
             ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Num.Vector2(4, 4));

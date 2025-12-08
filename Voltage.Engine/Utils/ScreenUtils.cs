@@ -25,12 +25,11 @@ public class ScreenUtils
 	/// <summary>
 	/// Used for the game window, not the editor window.
 	/// </summary>
-	public static void SetWindowedMode(bool maximizedVersion)
+	public static void SetEditorWindowedMode(bool maximizedVersion)
     {
         _isFullscreen = false;
         _isBorderless = false;
 
-#if !BUILD
 	    if (maximizedVersion)
 	    {
 		    int titleBarHeight = 32;
@@ -62,10 +61,16 @@ public class ScreenUtils
 
 		Screen.ApplyChanges();
 		return;
-#endif
+    }
+
+	public static void SetGameWindowedMode(bool maximizedVersion)
+	{
+		_isFullscreen = false;
+		_isBorderless = false;
+
 		Core.Instance.Window.Position = new Point(Screen.ActualMonitorWidth / 4, Screen.ActualMonitorHeight / 4);
 		ApplyFullscreenChange();
-    }
+	}
 
 	public static void SetBorderlessMode()
 	{

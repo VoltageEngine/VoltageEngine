@@ -1,24 +1,25 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Voltage;
 using Voltage.Data;
-using Voltage.Sprites;
-using Voltage.Utils;
 using Voltage.Editor.FilePickers;
+using Voltage.Editor.Gizmos;
 using Voltage.Editor.Inspectors;
 using Voltage.Editor.Inspectors.CustomInspectors;
+using Voltage.Editor.Interfaces;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.Tools;
 using Voltage.Editor.UndoActions;
 using Voltage.Editor.Utils;
+using Voltage.Sprites;
+using Voltage.Utils;
 using Num = System.Numerics;
-using Voltage;
-using Voltage.Editor.Gizmos;
 
 
 namespace Voltage.Editor.ImGuiCore;
@@ -259,6 +260,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		Core.OnSwitchEditMode += OnEditModeSwitched;
 
 		MainEntityInspector = new MainEntityInspector(this, null);
+
+		ImGui.GetIO().ConfigFlags |= ImGuiConfigFlags.DockingEnable;
 	}
 
 	/// <summary>
@@ -267,6 +270,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private void LayoutGui()
 	{
 		ImGui.GetIO().ConfigWindowsResizeFromEdges = true;
+
+		CreateDockspace();
 
 		if (ShowMenuBar)
 			DrawMainMenuBar();
@@ -320,6 +325,31 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				_animationEventInspector = null;
 			}
 		}
+	}
+
+	private void CreateDockspace()
+	{
+		var viewport = ImGui.GetMainViewport();
+		ImGui.SetNextWindowPos(viewport.WorkPos);
+		ImGui.SetNextWindowSize(viewport.WorkSize);
+		ImGui.SetNextWindowViewport(viewport.ID);
+		
+		ImGuiWindowFlags windowFlags = ImGuiWindowFlags.MenuBar | ImGuiWindowFlags.NoDocking;
+		windowFlags |= ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoCollapse;
+		windowFlags |= ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove;
+		windowFlags |= ImGuiWindowFlags.NoBringToFrontOnFocus | ImGuiWindowFlags.NoNavFocus;
+		
+		ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 0.0f);
+		ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 0.0f);
+		ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Num.Vector2(0.0f, 0.0f));
+		
+		ImGui.Begin("DockSpaceWindow", windowFlags);
+		ImGui.PopStyleVar(3);
+		
+		var dockspaceId = ImGui.GetID("MainDockSpace");
+		ImGui.DockSpace(dockspaceId, new Num.Vector2(0.0f, 0.0f), ImGuiDockNodeFlags.None);
+		
+		ImGui.End();
 	}
 
 	public void GlobalKeyCommands()
@@ -432,10 +462,67 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				}
 
 				ImGui.Separator();
+				
+				// Core Window with context menu
 				ImGui.MenuItem("Core Window", null, ref ShowCoreWindow);
+				if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
+				{
+					ImGui.OpenPopup("CoreWindowContextMenu");
+				}
+				if (ImGui.BeginPopup("CoreWindowContextMenu"))
+				{
+					if (ImGui.MenuItem("Reset Window Position"))
+					{
+						//ResetWindowPosition("Core Settings");
+					}
+					ImGui.EndPopup();
+				}
+				
+				// Scene Graph Window with context menu
 				ImGui.MenuItem("Scene Graph Window", null, ref ShowSceneGraphWindow);
+				if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
+				{
+					ImGui.OpenPopup("SceneGraphWindowContextMenu");
+				}
+				if (ImGui.BeginPopup("SceneGraphWindowContextMenu"))
+				{
+					if (ImGui.MenuItem("Reset Window Position"))
+					{
+						//ResetWindowPosition("Scene Graph");
+					}
+					ImGui.EndPopup();
+				}
+				
+				// Separate Game Window with context menu
 				ImGui.MenuItem("Separate Game Window", null, ref ShowSeparateGameWindow);
+				if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
+				{
+					ImGui.OpenPopup("SeparateGameWindowContextMenu");
+				}
+				if (ImGui.BeginPopup("SeparateGameWindowContextMenu"))
+				{
+					if (ImGui.MenuItem("Reset Window Position"))
+					{
+						//ResetWindowPosition($"Game: {gameWindowState}###{_gameWindowTitle}");
+					}
+					ImGui.EndPopup();
+				}
+				
+				// Animation Event Inspector with context menu
 				ImGui.MenuItem("Animation Event Inspector", null, ref ShowAnimationEventInspector);
+				if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
+				{
+					ImGui.OpenPopup("AnimationEventInspectorContextMenu");
+				}
+				if (ImGui.BeginPopup("AnimationEventInspectorContextMenu"))
+				{
+					if (ImGui.MenuItem("Reset Window Position"))
+					{
+						ResetWindowPosition(SceneGraphWindow);
+					}
+					ImGui.EndPopup();
+				}
+				
 				ImGui.EndMenu();
 			}
 
@@ -444,75 +531,21 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	}
 
 	/// <summary>
-	/// Handles the sprites selected from the Aseprite file picker.
-	/// Creates entities with SpriteRenderer components for each selected sprite.
+	/// Resets a window's position by toggling its visibility, which clears stored positioning.
 	/// </summary>
-	private void HandleAsepriteSelection(AsepriteFilePicker.AsepriteSelection selection)
+	/// <param name="windowName">Display name of the window</param>
+	private void ResetWindowPosition(IEditorWindow window)
 	{
-		if (selection == null || selection.Sprites == null || selection.Sprites.Count == 0)
-		{
-			NotificationSystem.ShowTimedNotification("No sprites were generated from the Aseprite file.");
-			return;
-		}
-
-		try
-		{
-			// Create entities for each sprite
-			for (int i = 0; i < selection.Sprites.Count; i++)
-			{
-				var sprite = selection.Sprites[i];
-				if (sprite == null)
-					continue;
-
-				// Create a new entity
-				var entityName = $"{System.IO.Path.GetFileNameWithoutExtension(selection.FilePath)}_Frame{selection.FrameNumbers[i]}";
-				var entity = new Entity(entityName);
-
-				// Add SpriteRenderer component
-				var spriteRenderer = entity.AddComponent(new SpriteRenderer(sprite));
-
-				// Position entities in a grid layout for easier viewing
-				int entitiesPerRow = 5;
-				int row = i / entitiesPerRow;
-				int col = i % entitiesPerRow;
-				entity.Position = new Vector2(col * 100, row * 100); // Adjust spacing as needed
-
-				// Add to scene
-				Voltage.Core.Scene.AddEntity(entity);
-			}
-
-			var layerInfo = selection.LayerNames != null && selection.LayerNames.Count > 0
-				? $" (Layers: {string.Join(", ", selection.LayerNames)})"
-				: "";
-
-			NotificationSystem.ShowTimedNotification(
-				$"Successfully loaded {selection.Sprites.Count} sprite(s) from {System.IO.Path.GetFileName(selection.FilePath)}{layerInfo}"
-			);
-		}
-		catch (Exception ex)
-		{
-			NotificationSystem.ShowTimedNotification($"Error creating entities from Aseprite selection: {ex.Message}");
-		}
+		window.ResetPosition();
 	}
+
 
 	private void DrawEditorToolsBar()
 	{
-		ImGui.SetNextWindowPos(new Num.Vector2(0, _mainMenuBarHeight), ImGuiCond.Always);
-		ImGui.SetNextWindowSize(new Num.Vector2(Screen.Width, _editorToolsBarHeight * FontSizeMultiplier), ImGuiCond.Always);
+		ImGui.Begin("Editor Tools", ImGuiWindowFlags.None);
 
-		ImGui.Begin("EditorToolsBar",
-			ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove |
-			ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoSavedSettings);
-
-		float buttonWidth = 80f * FontSizeMultiplier;
 		float spacing = 12f * FontSizeMultiplier;
-		float totalWidth = buttonWidth * 3 + spacing * 2;
-		float windowWidth = ImGui.GetWindowWidth();
 		float iconSize = 24f * FontSizeMultiplier;
-
-		float windowHeight = ImGui.GetWindowHeight();
-		float iconRowY = (windowHeight - iconSize) * 0.5f;
-		ImGui.SetCursorPos(new Num.Vector2((windowWidth - totalWidth) * 0.5f, iconRowY));
 
 		// Normal Button
 		System.Numerics.Vector4 normalButtonColor;
@@ -596,87 +629,21 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	}
 
 	/// <summary>
-	/// Inspector tabs for Entity Inspector and Core Window
+	/// Inspector tabs for Entity Inspector, Core Window and Debug Window
 	/// </summary>
 	private void DrawInspectorWindows()
 	{
-		var inspectorPosX = Screen.Width - _inspectorTabWidth;
-		var inspectorPosY = MainWindowPositionY;
-		var inspectorSize = new Num.Vector2(_inspectorTabWidth, Screen.Height - MainWindowPositionY);
-		var inspectorPos = new Num.Vector2(inspectorPosX, inspectorPosY);
-
-		ImGui.SetNextWindowPos(inspectorPos, ImGuiCond.FirstUseEver);
-		ImGui.SetNextWindowSize(inspectorSize, ImGuiCond.FirstUseEver);
-		ImGui.Begin("##InspectorArea",
-			ImGuiWindowFlags.NoTitleBar |
-			ImGuiWindowFlags.NoMove |
-			ImGuiWindowFlags.NoBringToFrontOnFocus |
-			ImGuiWindowFlags.NoScrollbar);
-
-		var currentWidth = ImGui.GetWindowSize().X;
-		if (Math.Abs(currentWidth - _inspectorTabWidth) > 0.01f)
-			_inspectorTabWidth = Math.Clamp(currentWidth, _minInspectorWidth, _maxInspectorWidth);
-
-		float tabSpacing = 8f * FontSizeMultiplier;
-		Num.Vector4 selectedColor = new Num.Vector4(0.2f, 0.5f, 1f, 1f); // blue
-		Num.Vector4 defaultColor = ImGui.GetStyle().Colors[(int)ImGuiCol.Button];
-
-		// Entity Inspector Tab
-		if (SelectedInspectorTab == InspectorTab.EntityInspector)
-			ImGui.PushStyleColor(ImGuiCol.Button, selectedColor);
-		else
-			ImGui.PushStyleColor(ImGuiCol.Button, defaultColor);
-
-		if (ImGui.Button("Inspector"))
-			SelectedInspectorTab = InspectorTab.EntityInspector;
-		if (ImGui.IsItemHovered())
-			ImGui.SetTooltip("Show Entity Inspector");
-
-		ImGui.PopStyleColor();
-		ImGui.SameLine(0, tabSpacing);
-
-		if (ShowCoreWindow)
-		{
-			if (SelectedInspectorTab == InspectorTab.Core)
-				ImGui.PushStyleColor(ImGuiCol.Button, selectedColor);
-			else
-				ImGui.PushStyleColor(ImGuiCol.Button, defaultColor);
-
-			if (ImGui.Button("Core"))
-				SelectedInspectorTab = InspectorTab.Core;
-			if (ImGui.IsItemHovered())
-				ImGui.SetTooltip("Show Core Window");
-
-			ImGui.PopStyleColor();
-			ImGui.SameLine(0, tabSpacing);
-		}
-
-		if (SelectedInspectorTab == InspectorTab.Debug)
-			ImGui.PushStyleColor(ImGuiCol.Button, selectedColor);
-		else
-			ImGui.PushStyleColor(ImGuiCol.Button, defaultColor);
-
-		if (ImGui.Button("Debug"))
-			SelectedInspectorTab = InspectorTab.Debug;
-		if (ImGui.IsItemHovered())
-			ImGui.SetTooltip("Show Debug messages");
-
-		ImGui.PopStyleColor();
-		ImGui.Separator();
-		ImGui.End();
-
-		if (SelectedInspectorTab == InspectorTab.EntityInspector && MainEntityInspector != null && MainEntityInspector.IsOpen)
+		if (MainEntityInspector != null && MainEntityInspector.IsOpen)
 		{
 			MainEntityInspector.Draw();
 		}
-		else if(SelectedInspectorTab == InspectorTab.Core && ShowCoreWindow)
+		
+		if (ShowCoreWindow)
 		{
 			_coreWindow.Show(ref ShowCoreWindow);
 		}
-		else if (SelectedInspectorTab == InspectorTab.Debug)
-		{
-			_debugWindow.Draw();
-		}
+		
+		_debugWindow.Draw();
 	}
 
 	/// <summary>
@@ -773,18 +740,18 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				// Normal zoom behavior
 				if (Input.MouseWheelDelta > 0)
 				{
-					Voltage.Core.Scene.Camera.Zoom += EditorCameraZoomSpeed * Time.DeltaTime;
+					Core.Scene.Camera.Zoom += EditorCameraZoomSpeed * Time.DeltaTime;
 				}
 				else if (Input.MouseWheelDelta < 0)
 				{
-					if (Voltage.Core.Scene.Camera.Zoom - EditorCameraZoomSpeed * Time.DeltaTime > -0.9)
-						Voltage.Core.Scene.Camera.Zoom -= EditorCameraZoomSpeed * Time.DeltaTime;
+					if (Core.Scene.Camera.Zoom - EditorCameraZoomSpeed * Time.DeltaTime > -0.9)
+						Core.Scene.Camera.Zoom -= EditorCameraZoomSpeed * Time.DeltaTime;
 				}
 			}
 		}
-		else if (!Voltage.Core.IsEditMode)
+		else if (!Core.IsEditMode)
 		{
-			Voltage.Core.Scene.Camera.Zoom = Camera.DefaultZoom;
+			Core.Scene.Camera.Zoom = Camera.DefaultZoom;
 		}
 	}
 

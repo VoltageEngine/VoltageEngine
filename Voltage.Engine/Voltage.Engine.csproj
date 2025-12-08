@@ -23,7 +23,7 @@
 		<DefineConstants>TRACE</DefineConstants>
 	</PropertyGroup>
 
-	<!-- Define BUILD constant only when publishing -->
+	<!-- Define BUILD constant ONLY when publishing -->
 	<PropertyGroup Condition="'$(IsPublishing)' == 'true'">
 		<DefineConstants>$(DefineConstants);BUILD</DefineConstants>
 	</PropertyGroup>

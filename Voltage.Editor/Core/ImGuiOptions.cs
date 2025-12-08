@@ -12,7 +12,7 @@ public class ImGuiOptions
 	internal List<Tuple<string, float>> _fonts = new();
 	internal string _gameWindowTitle = "Game Window";
 	internal Num.Vector2 _gameWindowFirstPosition = new(345f, 25f);
-	internal ImGuiWindowFlags _gameWindowFlags = ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse;
+	internal ImGuiWindowFlags _gameWindowFlags = ImGuiWindowFlags.NoCollapse;
 	public float FontSizeMultiplier = 1.0f;
 
 	public ImGuiOptions AddFont(string path, float size)
