@@ -1,6 +1,5 @@
 using ImGuiNET;
-using Voltage;
-using Voltage.Editor.Core;
+using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Inspectors.TypeInspectors;
 using Voltage.Editor.Utils;
 

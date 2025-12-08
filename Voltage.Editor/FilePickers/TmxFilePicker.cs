@@ -2,7 +2,9 @@ using ImGuiNET;
 using Voltage.Utils;
 using System;
 using System.IO;
+using System.Linq;
 using Voltage.Editor.Persistence;
+using Voltage.Editor.ProjectManagement;
 using Voltage.Editor.Utils;
 using Num = System.Numerics;
 
@@ -22,9 +24,10 @@ namespace Voltage.Editor.FilePickers
 
         public class TmxSelection
         {
-            public string FilePath { get; set; }
-            public bool LoadColliders { get; set; }
-            public ImageLoadMode ImageMode { get; set; }
+	        public string FilePath; 
+	        public bool LoadColliders; 
+	        public ImageLoadMode ImageMode;
+            public int LayerToRenderTo;
         }
 
         private readonly object _owner;
@@ -36,6 +39,7 @@ namespace Voltage.Editor.FilePickers
         // UI state - persistent options
         private PersistentBool _loadColliders;
         private PersistentInt _imageLoadMode;
+        private PersistentInt _layerToRenderTo;
 
         public string PopupId => _popupId;
         public bool IsOpen => _isOpen;
@@ -115,12 +119,12 @@ namespace Voltage.Editor.FilePickers
                     ImGui.TextWrapped("Select Image Mode:");
                     if (ImGui.IsItemHovered())
                     {
-                        ImGui.SetTooltip(
-                            "Choose how image layers from the TMX file should be loaded:\n\n" +
-                            "• None: No image layers will be loaded\n" +
-                            "• Separate Layers: Each image layer becomes its own SpriteEntity\n" +
-                            "• Baked Layers: All image layers are merged into a single texture"
-                        );
+	                    ImGui.SetTooltip(
+		                    "Choose how image layers from the TMX file should be loaded:\n\n" +
+		                    "• None: No image layers will be loaded\n" +
+		                    "• Separate Layers: Each image layer becomes its own SpriteEntity\n" +
+		                    "• Baked Layers: All image layers are merged into a single texture"
+	                    );
                     }
 
                     int currentMode = _imageLoadMode.Value;
@@ -133,7 +137,18 @@ namespace Voltage.Editor.FilePickers
                     
                     if (ImGui.RadioButton("Bake Image Layers", ref currentMode, (int)ImageLoadMode.BakedLayers))
                         _imageLoadMode.Value = currentMode;
-                }
+
+                    var renderingLayers = GameSettings.Instance.Rendering.RenderingLayers;
+                    var layerNames = renderingLayers.Keys.ToList();
+                    var layerValues = renderingLayers.Values.ToList();
+
+                    int minSelectedIndex = layerValues.IndexOf(_layerToRenderTo.Value);
+                    if (minSelectedIndex < 0) minSelectedIndex = 0;
+                    if (ImGui.Combo("Layer To Render At:", ref minSelectedIndex, string.Join('\0', layerNames) + '\0'))
+                    {
+	                    _layerToRenderTo.Value = layerValues[minSelectedIndex];
+                    }
+				}
 
                 ImGui.Separator();
                 bool shouldLoad = DrawActionButtons(picker);
@@ -149,7 +164,8 @@ namespace Voltage.Editor.FilePickers
                         {
                             FilePath = relativePath,
                             LoadColliders = _loadColliders.Value,
-                            ImageMode = (ImageLoadMode)_imageLoadMode.Value
+                            ImageMode = (ImageLoadMode)_imageLoadMode.Value,
+							LayerToRenderTo = _layerToRenderTo.Value
                         };
 
                         ImGui.CloseCurrentPopup();

@@ -2,7 +2,7 @@ using System;
 using ImGuiNET;
 using Microsoft.Xna.Framework.Graphics;
 using Voltage.Utils;
-using Voltage.Editor.Core;
+using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Utils;
 using Num = System.Numerics;
 
@@ -21,27 +21,20 @@ namespace Voltage.Editor.Inspectors
 			_textureFilters = Enum.GetNames(typeof(TextureFilter));
 		}
 
-		public void Show(ref bool isOpen)
+		public bool Show(bool isOpen)
 		{
 			if (!isOpen)
-				return;
+				return false;
 
 			if (_imguiManager == null)
 				_imguiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
 
-			var windowPosX = Screen.Width - _imguiManager.InspectorTabWidth + _imguiManager.InspectorWidthOffset;
-			var windowPosY = _imguiManager.MainWindowPositionY + 32f;
-			var windowWidth = _imguiManager.InspectorTabWidth - _imguiManager.InspectorWidthOffset;
-			var windowHeight = Screen.Height - windowPosY;
-
-			// Use a unique window name and prevent docking
-			ImGui.SetNextWindowPos(new Num.Vector2(windowPosX, windowPosY), ImGuiCond.Always);
-			ImGui.SetNextWindowSize(new Num.Vector2(windowWidth, windowHeight), ImGuiCond.Always);
-
-			ImGui.Begin("##NezCoreWindow", ref isOpen, ImGuiWindowFlags.NoDocking | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoResize);
+			ImGui.Begin("Core Settings###CoreWindow", ref isOpen, ImGuiWindowFlags.None);
 
 			DrawSettings();
 			ImGui.End();
+
+			return isOpen;
 		}
 
 		void DrawSettings()

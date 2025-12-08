@@ -4,6 +4,7 @@ using FarseerPhysics.Collision.Shapes;
 using FarseerPhysics.Dynamics;
 using FarseerPhysics.Factories;
 using Microsoft.Xna.Framework;
+using Voltage.Utils.Extensions;
 
 
 namespace FarseerPhysics.Common.PolygonManipulation
@@ -113,7 +114,7 @@ namespace FarseerPhysics.Common.PolygonManipulation
 					offset = (newPolygon[n][cutAdded[n] - 1] - newPolygon[n][cutAdded[n]]);
 				else
 					offset = (newPolygon[n][newPolygon[n].Count - 1] - newPolygon[n][0]);
-				Voltage.Vector2Ext.Normalize(ref offset);
+				Vector2Ext.Normalize(ref offset);
 
 				if (!offset.IsValid())
 					offset = Vector2.One;
@@ -124,7 +125,7 @@ namespace FarseerPhysics.Common.PolygonManipulation
 					offset = (newPolygon[n][cutAdded[n] + 2] - newPolygon[n][cutAdded[n] + 1]);
 				else
 					offset = (newPolygon[n][0] - newPolygon[n][newPolygon[n].Count - 1]);
-				Voltage.Vector2Ext.Normalize(ref offset);
+				Vector2Ext.Normalize(ref offset);
 
 				if (!offset.IsValid())
 					offset = Vector2.One;

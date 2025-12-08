@@ -1,9 +1,9 @@
 using System;
+using System.Runtime.InteropServices;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using Voltage;
 using Voltage.Console;
 using Voltage.Utils;
 using Voltage.Utils.Extensions;
@@ -11,8 +11,9 @@ using Voltage.Editor.UndoActions;
 using Voltage.Editor.Utils;
 using Voltage.Persistence.Binary;
 using Num = System.Numerics;
+using Voltage;
 
-namespace Voltage.Editor.Core;
+namespace Voltage.Editor.ImGuiCore;
 
 /// <summary>
 /// Manages the ImGui game window specifically
@@ -23,6 +24,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private const string kShowSceneGraphWindow = "ImGui_ShowSceneGraphWindow";
 	private const string kShowCoreWindow = "ImGui_ShowCoreWindow";
 	private const string kShowSeperateGameWindow = "ImGui_ShowSeperateGameWindow";
+	private const string kPreserveGameWindowAspectRatio = "ImGui_PreserveGameWindowAspectRatio";
+	private Num.Vector2 _gameWindowCursorOffset;
 
 	[Flags]
 	private enum WindowPosition
@@ -47,6 +50,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		ShowSceneGraphWindow = KeyValueDataStore.Default.GetBool(kShowSceneGraphWindow, ShowSceneGraphWindow);
 		ShowCoreWindow = KeyValueDataStore.Default.GetBool(kShowCoreWindow, ShowCoreWindow);
 		ShowSeparateGameWindow = KeyValueDataStore.Default.GetBool(kShowSeperateGameWindow, ShowSeparateGameWindow);
+		PreserveGameWindowAspectRatio = KeyValueDataStore.Default.GetBool(kPreserveGameWindowAspectRatio, PreserveGameWindowAspectRatio);
 
 		Voltage.Core.Emitter.AddObserver(CoreEvents.Exiting, PersistSettings);
 	}
@@ -57,6 +61,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		KeyValueDataStore.Default.Set(kShowSceneGraphWindow, ShowSceneGraphWindow);
 		KeyValueDataStore.Default.Set(kShowCoreWindow, ShowCoreWindow);
 		KeyValueDataStore.Default.Set(kShowSeperateGameWindow, ShowSeparateGameWindow);
+		KeyValueDataStore.Default.Set(kPreserveGameWindowAspectRatio, PreserveGameWindowAspectRatio);
 
 		KeyValueDataStore.Default.Flush(Voltage.Core.Services.GetOrAddService<FileDataStore>());
 	}
@@ -89,91 +94,84 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_lastRenderTarget = null;
 	}
 
-	private void ManualWindowResize(System.Numerics.Vector2 maxSize, System.Numerics.Vector2 minSize, float rtAspectRatio)
-	{
-		unsafe
-		{
-			ImGui.SetNextWindowSizeConstraints(minSize, maxSize, data =>
-			{
-				var aspect = rtAspectRatio;
-				var size = (*data).CurrentSize;
-				var desired = (*data).DesiredSize;
-		
-				// Calculate which axis changed more
-				float widthFromHeight = desired.Y * aspect;
-				float heightFromWidth = desired.X / aspect;
-		
-				// If user changed width more, lock height to width
-				if (Math.Abs(desired.X - size.X) > Math.Abs(desired.Y - size.Y))
-				{
-					(*data).DesiredSize.Y = heightFromWidth;
-				}
-				else
-				{
-					(*data).DesiredSize.X = widthFromHeight;
-				}
-			});
-		}
-	}
-
 	/// <summary>
-	/// draws the game window and deals with overriding Nez.Input when appropriate
+	/// Draws the game window and deals with overriding Voltage.Input when appropriate
 	/// </summary>
 	private void DrawGameWindow()
 	{
 		if (_lastRenderTarget == null)
 			return;
 
-		var rtAspectRatio = (float)_lastRenderTarget.Width / (float)_lastRenderTarget.Height;
-
-		// Adjust game window size based on available panels around it
-		float left = SceneGraphWindow.IsOpen ? SceneGraphWindow.SceneGraphWidth : 0f;
-		float right = MainEntityInspector != null ? Screen.Width - _inspectorTabWidth : Screen.Width;
-		float availableWidth = right - left;
-		float posX = left;
-		float posY = Math.Max(SceneGraphWindow.SceneGraphPosY, MainWindowPositionY);
-
-		// Use all available width, and scale height to maintain aspect ratio
-		float gameWindowWidth = availableWidth;
-		float gameWindowHeight = gameWindowWidth / rtAspectRatio;
-
-		// Clamp height to available vertical space if needed
-		float maxHeight = Screen.Height - posY;
-		if (gameWindowHeight > maxHeight)
-		{
-			gameWindowHeight = maxHeight;
-			gameWindowWidth = gameWindowHeight * rtAspectRatio;
-			posX = left + (availableWidth - gameWindowWidth) / 2f;
-		}
-
-		ImGui.SetNextWindowPos(new Num.Vector2(posX, posY), ImGuiCond.Always);
-		ImGui.SetNextWindowSize(new Num.Vector2(gameWindowWidth, gameWindowHeight), ImGuiCond.Always);
-
 		HandleForcedGameViewParams();
 
 		string gameWindowState = Voltage.Core.IsEditMode ? "Paused" : "Playing";
 
+		ImGuiWindowFlags gameWindowFlags = _gameWindowFlags | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse;
+		
 		ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Num.Vector2(0, 0));
-		ImGui.Begin($"Game: {gameWindowState}###{_gameWindowTitle}", _gameWindowFlags);
+		
+		ImGui.Begin($"Game: {gameWindowState}###GameWindow", gameWindowFlags);
 
 		GameWindowWidth = ImGui.GetWindowSize().X;
 		GameWindowHeight = ImGui.GetWindowSize().Y;
 
-		// Camera control buttons at top-left
+		Num.Vector2 imageSize;
+		Num.Vector2 cursorOffset = Num.Vector2.Zero;
+
+		if (PreserveGameWindowAspectRatio)
+		{
+			var availableRegion = ImGui.GetContentRegionAvail();
+			var targetAspect = (float)_lastRenderTarget.Width / _lastRenderTarget.Height;
+			var availableAspect = availableRegion.X / availableRegion.Y;
+
+			if (availableAspect > targetAspect)
+			{
+				imageSize = new Num.Vector2(availableRegion.Y * targetAspect, availableRegion.Y);
+				cursorOffset.X = (availableRegion.X - imageSize.X) * 0.5f;
+			}
+			else
+			{
+				imageSize = new Num.Vector2(availableRegion.X, availableRegion.X / targetAspect);
+				cursorOffset.Y = (availableRegion.Y - imageSize.Y) * 0.5f;
+			}
+
+			if (cursorOffset.X > 0 || cursorOffset.Y > 0)
+			{
+				var currentCursor = ImGui.GetCursorPos();
+				ImGui.SetCursorPos(currentCursor + cursorOffset);
+			}
+		}
+		else
+		{
+			imageSize = ImGui.GetContentRegionAvail();
+		}
+
+		_gameWindowCursorOffset = cursorOffset;
+
+		// Only draw the image if we have a valid texture ID
+		if (_renderTargetId != IntPtr.Zero)
+		{
+			ImGui.Image(_renderTargetId, imageSize);
+		}
+		else
+		{
+			// Reserve the space even if we don't have a texture yet
+			ImGui.Dummy(imageSize);
+		}
+
+		// NOW draw buttons and text on top using screen coordinates
 		var camera = Voltage.Core.Scene?.Camera;
 		bool showZoomButton = camera != null && Math.Abs(camera.Zoom - Camera.DefaultZoom) > 0.01f;
 		bool showSpeedButton = Math.Abs(GetDynamicCameraSpeed() - EditModeCameraSpeed) > 0.1f;
 
 		if (showZoomButton || showSpeedButton)
 		{
-			// Place buttons at top-left of the window's content region
 			var windowPos = ImGui.GetWindowPos();
 			var contentMin = ImGui.GetWindowContentRegionMin();
-			var buttonStartPos = windowPos + contentMin + new Num.Vector2(8, 8) * ImGui.GetIO().FontGlobalScale;
+			var buttonStartPos = windowPos + contentMin + cursorOffset + new Num.Vector2(8, 8) * ImGui.GetIO().FontGlobalScale;
 
 			ImGui.SetCursorScreenPos(buttonStartPos);
 
-			// Reset Camera Zoom button
 			if (showZoomButton)
 			{
 				var zoomButtonText = "Reset Camera Zoom";
@@ -186,14 +184,12 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 					camera.Zoom = Camera.DefaultZoom;
 				}
 
-				// If both buttons are showing, put them on the same line
 				if (showSpeedButton)
 				{
-					ImGui.SameLine(0, 8f * ImGui.GetIO().FontGlobalScale); // Small spacing between buttons
+					ImGui.SameLine(0, 8f * ImGui.GetIO().FontGlobalScale); 
 				}
 			}
 
-			// Reset Camera Speed button
 			if (showSpeedButton)
 			{
 				var speedButtonText = "Reset Camera Speed";
@@ -208,26 +204,21 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			}
 		}
 
-		// Camera Speed Indicator at top-right (only in edit mode and when speed is modified)
+		// Camera Speed Indicator at top-right
 		if (Voltage.Core.IsEditMode && Math.Abs(GetDynamicCameraSpeed() - EditModeCameraSpeed) > 0.1f)
 		{
 			var speedText = $"Camera Speed: {(int)GetDynamicCameraSpeed()}";
 			var speedTextSize = ImGui.CalcTextSize(speedText);
 			
-			// Calculate position for top-right corner
 			var windowPos = ImGui.GetWindowPos();
 			var contentMin = ImGui.GetWindowContentRegionMin();
-			var contentMax = ImGui.GetWindowContentRegionMax();
 			var margin = new Num.Vector2(8, 8) * ImGui.GetIO().FontGlobalScale;
 			
 			var speedTextPos = new Num.Vector2(
-				windowPos.X + contentMax.X - speedTextSize.X - margin.X,
-				windowPos.Y + contentMin.Y + margin.Y
+				windowPos.X + contentMin.X + cursorOffset.X + imageSize.X - speedTextSize.X - margin.X,
+				windowPos.Y + contentMin.Y + cursorOffset.Y + margin.Y
 			);
 
-			ImGui.SetCursorScreenPos(speedTextPos);
-			
-			// Semi-transparent background
 			var drawList = ImGui.GetWindowDrawList();
 			var bgPadding = new Num.Vector2(8, 4) * ImGui.GetIO().FontGlobalScale;
 			var bgMin = speedTextPos - bgPadding;
@@ -236,12 +227,12 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			drawList.AddRectFilled(
 				bgMin, 
 				bgMax, 
-				ImGui.ColorConvertFloat4ToU32(new Num.Vector4(0.0f, 0.0f, 0.0f, 0.6f)), // Semi-transparent black
-				4.0f * ImGui.GetIO().FontGlobalScale // Rounded corners
+				ImGui.ColorConvertFloat4ToU32(new Num.Vector4(0.0f, 0.0f, 0.0f, 0.6f)),
+				4.0f * ImGui.GetIO().FontGlobalScale
 			);
 
-			// Draw the text in a contrasting color
-			ImGui.TextColored(new Num.Vector4(1.0f, 1.0f, 0.0f, 1.0f), speedText); // Yellow text
+			ImGui.SetCursorScreenPos(speedTextPos);
+			ImGui.TextColored(new Num.Vector4(1.0f, 1.0f, 0.0f, 1.0f), speedText);
 		}
 
 		// convert mouse input to the game windows coordinates
@@ -252,7 +243,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			var focusedWindow = false;
 			Mouse.SetCursor(MouseCursor.Arrow);
 
-			// if the window's being hovered and we click on it with any mouse button, optionally focus the window.
 			if (ImGui.IsWindowHovered())
 				if (ImGui.IsMouseClicked(ImGuiMouseButton.Left)
 				    || (ImGui.IsMouseClicked(ImGuiMouseButton.Right) && FocusGameWindowOnRightClick)
@@ -262,7 +252,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 					focusedWindow = true;
 				}
 
-			// if we failed to focus the window in the previous step, intercept mouse and keyboard input.
 			if (!focusedWindow)
 			{
 				var mouseState = new MouseState(
@@ -298,7 +287,10 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		if (_gameViewForcedPos.HasValue)
 		{
-			ImGui.Begin(_gameWindowTitle, _gameWindowFlags);
+			string gameWindowState = Voltage.Core.IsEditMode ? "Paused" : "Playing";
+			string windowTitle = $"Game: {gameWindowState}###GameWindow";
+			
+			ImGui.Begin(windowTitle, _gameWindowFlags);
 			var windowSize = ImGui.GetWindowSize();
 			ImGui.End();
 
@@ -349,13 +341,17 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	}
 
 	/// <summary>
-	/// converts the mouse position from global window position to the game window's coordinates and overrides Nez.Input with
+	/// converts the mouse position from global window position to the game window's coordinates and overrides Voltage.Input with
 	/// the new value. This keeps input working properly in the game window.
 	/// </summary>
-	private void OverrideMouseInput()
+private void OverrideMouseInput()
 	{
 		// ImGui.GetCursorScreenPos() is the position of top-left pixel in windows drawable area
-		var offset = new Vector2(ImGui.GetCursorScreenPos().X, ImGui.GetCursorScreenPos().Y);
+		// Account for the cursor offset when aspect ratio preservation is enabled
+		var offset = new Vector2(
+			ImGui.GetCursorScreenPos().X - _gameWindowCursorOffset.X, 
+			ImGui.GetCursorScreenPos().Y - _gameWindowCursorOffset.Y
+		);
 
 		// remove window position offset from our raw input. this gets us normalized back to the top-left origin.
 		// We are essentilly removing any input delta that is not in the game window.
@@ -363,24 +359,46 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		var scaleX = ImGui.GetContentRegionAvail().X / _lastRenderTarget.Width;
 		var scaleY = ImGui.GetContentRegionAvail().Y / _lastRenderTarget.Height;
-		var scale = new Vector2(scaleX, scaleY);
+		
+		// When preserving aspect ratio, use the uniform scale
+		float scale;
+		if (PreserveGameWindowAspectRatio)
+		{
+			scale = Math.Min(scaleX, scaleY);
+		}
+		else
+		{
+			// Non-uniform scaling when not preserving aspect ratio
+			normalizedPos.X /= scaleX;
+			normalizedPos.Y /= scaleY;
+			
+			var unNormalizedPos = normalizedPos / Input.ResolutionScale;
+			unNormalizedPos += Input.ResolutionOffset;
 
-		// scale the rest of the input since it is in a scaled window (the offset portion is not scaled since
-		// it is outside the scaled portion)
+			var mouseState = Input.CurrentMouseState;
+			var newMouseState = new MouseState((int)unNormalizedPos.X, (int)unNormalizedPos.Y,
+				mouseState.ScrollWheelValue,
+				mouseState.LeftButton, mouseState.MiddleButton, mouseState.RightButton, mouseState.XButton1,
+				mouseState.XButton2);
+			Input.SetCurrentMouseState(newMouseState);
+			return;
+		}
+
+		// Uniform scaling for aspect ratio preservation
 		normalizedPos /= scale;
 
 		// trick the input system. Take our normalizedPos and undo the scale and offsets (do the
 		// reverse of what Input.scaledPosition does) so that any consumers of mouse input can get
 		// the correct coordinates.
-		var unNormalizedPos = normalizedPos / Input.ResolutionScale;
-		unNormalizedPos += Input.ResolutionOffset;
+		var unNormalizedPos2 = normalizedPos / Input.ResolutionScale;
+		unNormalizedPos2 += Input.ResolutionOffset;
 
-		var mouseState = Input.CurrentMouseState;
-		var newMouseState = new MouseState((int)unNormalizedPos.X, (int)unNormalizedPos.Y,
-			mouseState.ScrollWheelValue,
-			mouseState.LeftButton, mouseState.MiddleButton, mouseState.RightButton, mouseState.XButton1,
-			mouseState.XButton2);
-		Input.SetCurrentMouseState(newMouseState);
+		var mouseState2 = Input.CurrentMouseState;
+		var newMouseState2 = new MouseState((int)unNormalizedPos2.X, (int)unNormalizedPos2.Y,
+			mouseState2.ScrollWheelValue,
+			mouseState2.LeftButton, mouseState2.MiddleButton, mouseState2.RightButton, mouseState2.XButton1,
+			mouseState2.XButton2);
+		Input.SetCurrentMouseState(newMouseState2);
 	}
 
 
@@ -471,7 +489,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 			ImGui.SameLine();
 
-			if (ImGui.Button("Discard", new Num.Vector2(120, 0)))
+			if (ImGui.Button("Discard", new Num.Vector2(120, 0))
+)
 			{
 				EditorChangeTracker.Revert();
 				ImGui.CloseCurrentPopup();
@@ -554,9 +573,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				_renderTargetId = _renderer.BindTexture(source);
 			}
 
-			// Use the same window name as DrawGameWindow
+			// Use the SAME ID as DrawGameWindow - just "GameWindow" without spaces
 			string gameWindowState = Voltage.Core.IsEditMode ? "Paused" : "Playing";
-			string windowTitle = $"Game: {gameWindowState}###{_gameWindowTitle}";
+			string windowTitle = $"Game: {gameWindowState}###GameWindow";
 
 			ImGui.Begin(windowTitle, _gameWindowFlags);
 
@@ -564,8 +583,41 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			GameWindowSize = ImGui.GetWindowSize();
 			GameWindowPosition = ImGui.GetWindowPos();
 
+			// Calculate aspect-ratio-preserving image size if enabled
+			Num.Vector2 imageSize;
+			Num.Vector2 cursorOffset = Num.Vector2.Zero;
+
+			var availableRegion = ImGui.GetContentRegionAvail();
+
+			if (PreserveGameWindowAspectRatio && _lastRenderTarget != null)
+			{
+				var targetAspect = (float)_lastRenderTarget.Width / _lastRenderTarget.Height;
+				var availableAspect = availableRegion.X / availableRegion.Y;
+
+				if (availableAspect > targetAspect)
+				{
+					imageSize = new Num.Vector2(availableRegion.Y * targetAspect, availableRegion.Y);
+					cursorOffset.X = (availableRegion.X - imageSize.X) * 0.5f;
+				}
+				else
+				{
+					imageSize = new Num.Vector2(availableRegion.X, availableRegion.X / targetAspect);
+					cursorOffset.Y = (availableRegion.Y - imageSize.Y) * 0.5f;
+				}
+
+				if (cursorOffset.X > 0 || cursorOffset.Y > 0)
+				{
+					var currentCursor = ImGui.GetCursorPos();
+					ImGui.SetCursorPos(currentCursor + cursorOffset);
+				}
+			}
+			else
+			{
+				imageSize = availableRegion;
+			}
+
 			ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, Num.Vector2.Zero);
-			ImGui.ImageButton("SeparateGameWindowImageButton", _renderTargetId, ImGui.GetContentRegionAvail());
+			ImGui.ImageButton("SeparateGameWindowImageButton", _renderTargetId, imageSize);
 			ImGui.PopStyleVar();
 			ImGui.End();
 
@@ -608,7 +660,17 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	{
 		if (!_isDisposed)
 		{
-			if (disposing) Voltage.Core.Emitter.RemoveObserver(CoreEvents.SceneChanged, OnSceneChanged);
+			if (disposing)
+			{
+				Voltage.Core.Emitter.RemoveObserver(CoreEvents.SceneChanged, OnSceneChanged);
+				_layoutManager.AutoSaveCurrentLayout();
+
+				// Always save the default .ini for next startup
+				if (!string.IsNullOrEmpty(_layoutFilePath))
+				{
+					ImGui.SaveIniSettingsToDisk(_layoutFilePath);
+				}
+			}
 
 			_isDisposed = true;
 		}

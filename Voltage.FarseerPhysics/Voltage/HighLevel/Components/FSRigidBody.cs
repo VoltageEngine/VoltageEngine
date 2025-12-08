@@ -2,6 +2,7 @@
 using FarseerPhysics.Dynamics;
 using Microsoft.Xna.Framework;
 using Voltage;
+using Voltage.Utils.Collections;
 
 
 namespace Voltage.Farseer

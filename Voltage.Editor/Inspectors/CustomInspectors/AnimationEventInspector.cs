@@ -2,10 +2,9 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 using ImGuiNET;
-using Voltage;
 using Voltage.Sprites;
 using Voltage.Utils;
-using Voltage.Editor.Core;
+using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.UndoActions;
 using Num = System.Numerics;
 
@@ -59,17 +58,9 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             if (_imGuiManager == null)
                 _imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
 
-            float left = _imGuiManager.SceneGraphWindow.SceneGraphWidth;
-            float right = Screen.Width - _imGuiManager.InspectorTabWidth;
-            float width = right - left;
-            float top = _imGuiManager.SceneGraphWindow.SceneGraphPosY + _imGuiManager.GameWindowHeight;
-            float height = Screen.Height - top;
-
-            ImGui.SetNextWindowPos(new Num.Vector2(left, top), ImGuiCond.Always);
-            ImGui.SetNextWindowSize(new Num.Vector2(width, height), ImGuiCond.Always);
-
             bool open = true;
-            if (ImGui.Begin("Animation Event Inspector", ref open, ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoCollapse))
+          
+            if (ImGui.Begin("Animation Event Inspector###AnimationEventInspector", ref open, ImGuiWindowFlags.None))
             {
                 if (_shouldFocusWindow)
                 {

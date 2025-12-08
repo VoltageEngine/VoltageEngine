@@ -1,8 +1,7 @@
 using System;
 using System.Linq;
 using ImGuiNET;
-using Voltage;
-using Voltage.Editor.Core;
+using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.UndoActions;
 using Voltage.Editor.Utils;
 using Num = System.Numerics;

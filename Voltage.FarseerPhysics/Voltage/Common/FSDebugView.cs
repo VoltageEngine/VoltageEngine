@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Text;
 using FarseerPhysics;
@@ -13,6 +14,12 @@ using FarseerPhysics.Dynamics.Joints;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Voltage;
+using Voltage.Utils;
+using Voltage.Utils.Extensions;
+using Voltage.Utils.Fonts;
+using Color = Microsoft.Xna.Framework.Color;
+using MathUtils = FarseerPhysics.Common.MathUtils;
+using Rectangle = Microsoft.Xna.Framework.Rectangle;
 
 
 namespace Voltage.Farseer
@@ -129,7 +136,7 @@ namespace Voltage.Farseer
 				world = Entity.Scene.GetOrCreateSceneComponent<FSWorld>();
 			world.ContactManager.OnPreSolve += PreSolve;
 
-			FarseerPhysics.Common.Transform.SetPosition(new Vector2(-float.MaxValue, -float.MaxValue) * 0.5f);
+			Transform.SetPosition(new Vector2(-float.MaxValue, -float.MaxValue) * 0.5f);
 			_primitiveBatch = new PrimitiveBatch(1000);
 
 			_localProjection = Matrix.CreateOrthographicOffCenter(0f, Core.GraphicsDevice.Viewport.Width,
@@ -735,7 +742,7 @@ namespace Voltage.Farseer
 
 			// Create directional reference
 			var rotation = (start - end);
-			Voltage.Vector2Ext.Normalize(ref rotation);
+			Vector2Ext.Normalize(ref rotation);
 
 			// Calculate angle of directional vector
 			var angle = (float) Math.Atan2(rotation.X, -rotation.Y);
@@ -821,8 +828,10 @@ namespace Voltage.Farseer
 
 			// draw any strings we have
 			for (int i = 0; i < _stringData.Count; i++)
+			{
 				batcher.DrawString(Graphics.Instance.BitmapFont, _stringData[i].Text, _stringData[i].Position,
 					_stringData[i].Color);
+			}
 
 			_stringData.Clear();
 		}

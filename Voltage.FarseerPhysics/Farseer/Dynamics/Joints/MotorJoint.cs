@@ -23,6 +23,7 @@
 using System.Diagnostics;
 using FarseerPhysics.Common;
 using Microsoft.Xna.Framework;
+using Voltage.Utils.Extensions;
 
 
 namespace FarseerPhysics.Dynamics.Joints
@@ -298,7 +299,7 @@ namespace FarseerPhysics.Dynamics.Joints
 				var maxImpulse = h * _maxForce;
 				if (_linearImpulse.LengthSquared() > maxImpulse * maxImpulse)
 				{
-					Voltage.Vector2Ext.Normalize(ref _linearImpulse);
+					Vector2Ext.Normalize(ref _linearImpulse);
 					_linearImpulse *= maxImpulse;
 				}
 

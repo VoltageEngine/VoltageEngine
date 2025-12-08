@@ -1,8 +1,6 @@
 ﻿using System;
-using Voltage;
 using Voltage.Utils;
-using Voltage;
-using Voltage.Editor.Core;
+using Voltage.Editor.ImGuiCore;
 
 namespace Voltage.Editor.Utils
 {
@@ -16,17 +14,16 @@ namespace Voltage.Editor.Utils
 		public IntPtr LockedInspectorIconId;
 		public IntPtr UnlockedInspectorIconId;
 
-
 		public void LoadImages(ImGuiRenderer renderer)
 		{
 			// Bind textures to ImGui
-			NormalCursorIconID = renderer.BindTexture(Voltage.Core.Content.LoadTexture("ImGuiContent/CursorSelection-UI-Normal.png"));
-			ResizeCursorIconID = renderer.BindTexture(Voltage.Core.Content.LoadTexture("ImGuiContent/CursorSelection-UI-Resize.png"));
-			RotateCursorIconID = renderer.BindTexture(Voltage.Core.Content.LoadTexture("ImGuiContent/CursorSelection-UI-Rotate.png"));
-			ColliderResizeCursorIconID = renderer.BindTexture(Voltage.Core.Content.LoadTexture("ImGuiContent/CursorSelection-UI-ColliderResize.png"));
+			NormalCursorIconID = renderer.BindTexture(Voltage.Core.Content.LoadTexture("DefaultContent/UI/CursorSelection-UI-Normal.png"));
+			ResizeCursorIconID = renderer.BindTexture(Voltage.Core.Content.LoadTexture("DefaultContent/UI/CursorSelection-UI-Resize.png"));
+			RotateCursorIconID = renderer.BindTexture(Voltage.Core.Content.LoadTexture("DefaultContent/UI/CursorSelection-UI-Rotate.png"));
+			ColliderResizeCursorIconID = renderer.BindTexture(Voltage.Core.Content.LoadTexture("DefaultContent/UI/CursorSelection-UI-ColliderResize.png"));
 
-			LockedInspectorIconId = renderer.BindTexture(Voltage.Core.Content.LoadAsepriteFile("ImGuiContent/Inspector-LockMode.aseprite").GetTextureFromLayers("Locked"));
-			UnlockedInspectorIconId = renderer.BindTexture(Voltage.Core.Content.LoadAsepriteFile("ImGuiContent/Inspector-LockMode.aseprite").GetTextureFromLayers("Unlocked"));
+			LockedInspectorIconId = renderer.BindTexture(Voltage.Core.Content.LoadAsepriteFile("DefaultContent/UI/Inspector-LockMode.aseprite").GetTextureFromLayers("Locked"));
+			UnlockedInspectorIconId = renderer.BindTexture(Voltage.Core.Content.LoadAsepriteFile("DefaultContent/UI/Inspector-LockMode.aseprite").GetTextureFromLayers("Unlocked"));
 		}
 	}
 }

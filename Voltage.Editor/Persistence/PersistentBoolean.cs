@@ -1,7 +1,7 @@
 ﻿namespace Voltage.Editor.Persistence
 {
 	/// <summary>
-	/// A boolean setting that persists its value across sessions using ImGuiSettingsLoader.
+	/// A boolean setting that persists its value across sessions using EditorSettingsLoader.
 	/// </summary>
 	public class PersistentBool
 	{
@@ -11,7 +11,7 @@
 		public PersistentBool(string key, bool defaultValue = false)
 		{
 			Key = key;
-			_value = ImGuiSettingsLoader.LoadSetting(key, defaultValue);
+			_value = EditorSettingsLoader.LoadSetting(key, defaultValue);
 		}
 
 		public bool Value
@@ -22,7 +22,7 @@
 				if (_value != value)
 				{
 					_value = value;
-					ImGuiSettingsLoader.SaveSetting(Key, _value);
+					EditorSettingsLoader.SaveSetting(Key, _value);
 				}
 			}
 		}
