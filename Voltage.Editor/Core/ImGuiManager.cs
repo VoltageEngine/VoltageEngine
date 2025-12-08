@@ -349,8 +349,10 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		DrawEditorToolsBar();
 
-		if (ShowSeparateGameWindow)
-			DrawGameWindow(); 
+		// REMOVED: Don't call DrawGameWindow() here anymore
+		// The game window is now ONLY rendered in IFinalRenderDelegate.HandleFinalRender()
+		// if (ShowSeparateGameWindow)
+		//     DrawGameWindow(); 
 
 		ShowSceneGraphWindow = SceneGraphWindow.Show(ShowSceneGraphWindow);
 		DrawInspectorWindows();
