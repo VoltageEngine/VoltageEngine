@@ -342,18 +342,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		ImGui.GetIO().ConfigWindowsResizeFromEdges = true;
 
-		CreateDockspace();
-
 		if (ShowMenuBar)
 			DrawMainMenuBar();
 
+		CreateDockspace();
 		DrawEditorToolsBar();
-
-		// REMOVED: Don't call DrawGameWindow() here anymore
-		// The game window is now ONLY rendered in IFinalRenderDelegate.HandleFinalRender()
-		// if (ShowSeparateGameWindow)
-		//     DrawGameWindow(); 
-
 		ShowSceneGraphWindow = SceneGraphWindow.Show(ShowSceneGraphWindow);
 		DrawInspectorWindows();
 		DrawEntityInspectors();
@@ -406,24 +399,30 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private void CreateDockspace()
 	{
 		var viewport = ImGui.GetMainViewport();
+		var dockspaceSize = viewport.WorkSize;
+		dockspaceSize.Y -= _mainMenuBarHeight;
+		
 		ImGui.SetNextWindowPos(viewport.WorkPos);
-		ImGui.SetNextWindowSize(viewport.WorkSize);
+		ImGui.SetNextWindowSize(dockspaceSize);
 		ImGui.SetNextWindowViewport(viewport.ID);
 		
-		ImGuiWindowFlags windowFlags = ImGuiWindowFlags.MenuBar | ImGuiWindowFlags.NoDocking;
+		ImGuiWindowFlags windowFlags = ImGuiWindowFlags.NoDocking;
 		windowFlags |= ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoCollapse;
 		windowFlags |= ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove;
 		windowFlags |= ImGuiWindowFlags.NoBringToFrontOnFocus | ImGuiWindowFlags.NoNavFocus;
+		windowFlags |= ImGuiWindowFlags.NoBackground;
 		
 		ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 0.0f);
 		ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 0.0f);
 		ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Num.Vector2(0.0f, 0.0f));
+		ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Num.Vector2(0.0f, 0.0f));
 		
 		ImGui.Begin("DockSpaceWindow", windowFlags);
-		ImGui.PopStyleVar(3);
+		ImGui.PopStyleVar(4);
 		
 		var dockspaceId = ImGui.GetID("MainDockSpace");
-		ImGui.DockSpace(dockspaceId, new Num.Vector2(0.0f, 0.0f), ImGuiDockNodeFlags.None);
+		ImGui.DockSpace(dockspaceId, new Num.Vector2(0.0f, 0.0f), 
+			ImGuiDockNodeFlags.PassthruCentralNode | ImGuiDockNodeFlags.NoDockingInCentralNode);
 		
 		ImGui.End();
 	}

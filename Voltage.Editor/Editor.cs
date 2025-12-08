@@ -38,20 +38,20 @@ public class Editor : Core
 		}
 		else if (Screen.ActualMonitorWidth < 3840)
 		{
-			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 16); // Normal
-			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 18); // Info
-			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 20); // Warn
-			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 22); // Error
-			options.FontSizeMultiplier = 1.2f;
+			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 16); 
+			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 18); 
+			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 20); 
+			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 22); 
+			options.FontSizeMultiplier = 1.1f;
 			DebugConsole.RenderScale = 3f;
 		}
 		else
 		{
-			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 20); // Normal
-			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 22); // Info
-			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 24); // Warn
-			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 26); // Error
-			options.FontSizeMultiplier = 1.5f;
+			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 20); 
+			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 22); 
+			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 24); 
+			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 26); 
+			options.FontSizeMultiplier = 1.2f;
 			DebugConsole.RenderScale = 4f;
 		}
 
