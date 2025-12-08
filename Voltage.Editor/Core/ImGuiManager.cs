@@ -74,6 +74,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		get => _preserveGameWindowAspectRatio.Value;
 		set => _preserveGameWindowAspectRatio.Value = value;
 	}
+
+	private PersistentString _lastSelectedLayout = new("ImGui_LastSelectedLayout", "Default");
 	#endregion
 
 	// Public values
@@ -103,6 +105,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		private set => _animationEventInspector = value;
 	}
 
+
+	//Private values
 	private List<Type> _sceneSubclasses = new();
 	private System.Reflection.MethodInfo[] _themes;
 	private CoreWindow _coreWindow = new();
@@ -128,22 +132,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private WindowPosition? _gameViewForcedPos;
 	private float _mainMenuBarHeight;
 	private readonly float _editorToolsBarHeight = 30f;
-
-	#region Inspector Tab
-	public float InspectorTabWidth => _inspectorTabWidth;
-	private float _inspectorTabWidth = 500f;
-	private readonly float _minInspectorWidth = 1f;
-	private readonly float _maxInspectorWidth = Screen.MonitorWidth;
-	public float InspectorWidthOffset = 4f; // offset the inner windows (core, entity inspector) to allow for edge selecting 
-	
-	public enum InspectorTab
-	{
-		EntityInspector,
-		Core,
-		Debug
-	}
-	#endregion
-
 
 	// Camera Params
 	public static float EditModeCameraSpeed = 250f;
@@ -185,7 +173,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private LayoutManager _layoutManager;
 	private string _newLayoutName = "";
 	private bool _showSaveLayoutPopup = false;
-	private bool _isFirstFrame;
+	private bool _isFirstFrame = true;
 
 	#region Event Handlers
 
@@ -272,11 +260,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			}
 		}
 		
-		// Load the saved layout
-		if (File.Exists(_layoutFilePath))
-		{
-			ImGui.LoadIniSettingsFromDisk(_layoutFilePath);
-		}
+		LoadLastSelectedLayout();
 
 		// find all themes
 		_themes = typeof(VoltageEditorThemes).GetMethods(System.Reflection.BindingFlags.Static |
@@ -295,6 +279,49 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		Core.OnSwitchEditMode += OnEditModeSwitched;
 
 		MainEntityInspector = new MainEntityInspector(this, null);
+	}
+
+	/// <summary>
+	/// Loads the last selected layout from persistent settings
+	/// </summary>
+	private void LoadLastSelectedLayout()
+	{
+		string lastLayout = _lastSelectedLayout.Value;
+		
+		if (!string.IsNullOrWhiteSpace(lastLayout) && !lastLayout.Equals("Default", StringComparison.OrdinalIgnoreCase))
+		{
+			// Try to load the saved layout
+			string layoutPath = _layoutManager.GetLayoutPath(lastLayout);
+			
+			if (File.Exists(layoutPath))
+			{
+				_layoutManager.LoadLayout(lastLayout);
+				Debug.Log($"Loaded last used layout: {lastLayout}");
+			}
+			else
+			{
+				// Layout file doesn't exist anymore, fall back to default
+				Debug.Warn($"Last used layout '{lastLayout}' not found, loading default");
+				LoadDefaultLayout();
+			}
+		}
+		else
+		{
+			// Load default layout
+			LoadDefaultLayout();
+		}
+	}
+
+	/// <summary>
+	/// Loads the default layout
+	/// </summary>
+	private void LoadDefaultLayout()
+	{
+		if (File.Exists(_layoutFilePath))
+		{
+			ImGui.LoadIniSettingsFromDisk(_layoutFilePath);
+			Debug.Log("Loaded default layout");
+		}
 	}
 
 	/// <summary>
@@ -495,6 +522,10 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 			if (ImGui.BeginMenu("Layout"))
 			{
+				// Show current layout at the top
+				ImGui.TextColored(new Num.Vector4(0.5f, 0.8f, 1.0f, 1.0f), $"Current: {_layoutManager.CurrentLayoutName}");
+				ImGui.Separator();
+				
 				if (ImGui.MenuItem("Save Layout As..."))
 				{
 					_newLayoutName = "";
@@ -507,10 +538,19 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				{
 					foreach (var layoutName in _layoutManager.GetLayoutNames())
 					{
-						if (ImGui.MenuItem(layoutName))
+						// Highlight the currently active layout
+						bool isCurrentLayout = layoutName.Equals(_layoutManager.CurrentLayoutName, StringComparison.OrdinalIgnoreCase);
+						
+						if (ImGui.MenuItem(layoutName, "", isCurrentLayout))
 						{
 							_layoutManager.LoadLayout(layoutName);
+							_lastSelectedLayout.Value = layoutName; 
 							Debug.Log($"Loaded layout: {layoutName}");
+							
+							if (!layoutName.Equals("Default", StringComparison.OrdinalIgnoreCase))
+							{
+								NotificationSystem.ShowTimedNotification($"Layout '{layoutName}' loaded. Some windows may require restart for full effect.");
+							}
 						}
 					}
 					ImGui.EndMenu();
@@ -518,28 +558,103 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				
 				if (ImGui.BeginMenu("Delete Layout"))
 				{
-					foreach (var layoutName in _layoutManager.GetLayoutNames())
+					var layoutNames = new List<string>(_layoutManager.GetLayoutNames());
+					string layoutToDelete = null;
+					
+					foreach (var layoutName in layoutNames)
 					{
 						if (layoutName != "Default" && ImGui.MenuItem(layoutName))
 						{
-							_layoutManager.DeleteLayout(layoutName);
-							_layoutManager.RefreshLayoutList();
+							layoutToDelete = layoutName;
+							break;
 						}
 					}
+					
+					// Delete outside of the enumeration
+					if (layoutToDelete != null)
+					{
+						// If deleting the currently active layout, switch to Default
+						if (layoutToDelete.Equals(_layoutManager.CurrentLayoutName, StringComparison.OrdinalIgnoreCase))
+						{
+							_lastSelectedLayout.Value = "Default";
+							_layoutManager.LoadLayout("Default");
+						}
+						
+						_layoutManager.DeleteLayout(layoutToDelete);
+						_layoutManager.RefreshLayoutList();
+					}
+					
 					ImGui.EndMenu();
 				}
 				
 				ImGui.Separator();
 				
-				if (ImGui.MenuItem("Reset to Default"))
+				// Show different text depending on current layout
+				string resetText = _layoutManager.CurrentLayoutName.Equals("Default", StringComparison.OrdinalIgnoreCase) 
+					? "Reset to Default" 
+					: "Switch to Default";
+				
+				if (ImGui.MenuItem(resetText))
 				{
-					_layoutManager.ResetToDefault();
+					_layoutManager.LoadLayout("Default");
+					_lastSelectedLayout.Value = "Default";
 				}
 				
 				ImGui.EndMenu();
 			}
 
 			if (ImGui.BeginMenu("Window"))
+			{
+				var showCoreWindow = ShowCoreWindow;
+				ImGui.MenuItem("Core Window", null, ref showCoreWindow);
+				ShowCoreWindow = showCoreWindow;
+
+				if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
+				{
+					ImGui.OpenPopup("CoreWindowContextMenu");
+				}
+				
+				// Scene Graph Window 
+				var showSceneGraphWindow = ShowSceneGraphWindow;
+				ImGui.MenuItem("Scene Graph Window", null, ref showSceneGraphWindow);
+				ShowSceneGraphWindow = showSceneGraphWindow;
+
+				if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
+				{
+					ImGui.OpenPopup("SceneGraphWindowContextMenu");
+				}
+				
+				// Separate Game Window
+				var showSeparateGameWindow = ShowSeparateGameWindow;
+				ImGui.MenuItem("Separate Game Window", null, ref showSeparateGameWindow);
+				ShowSeparateGameWindow = showSeparateGameWindow;
+
+				if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
+				{
+					ImGui.OpenPopup("SeparateGameWindowContextMenu");
+				}
+				
+				// Animation Event Inspector 
+				var showAnimationEventInspector = ShowAnimationEventInspector;
+				ImGui.MenuItem("Animation Event Inspector", null, ref showAnimationEventInspector);
+				ShowAnimationEventInspector = showAnimationEventInspector;
+
+				if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
+				{
+					ImGui.OpenPopup("AnimationEventInspectorContextMenu");
+				}
+
+				ImGui.Separator();
+				
+				// Game Window Aspect Ratio toggle
+				var preserveAspectRatio = PreserveGameWindowAspectRatio;
+				ImGui.MenuItem("Preserve Game Window Aspect Ratio", null, ref preserveAspectRatio);
+				PreserveGameWindowAspectRatio = preserveAspectRatio;
+
+				ImGui.EndMenu();
+			}
+
+			if (ImGui.BeginMenu("Help"))
 			{
 				ImGui.MenuItem("ImGui Demo Window", null, ref ShowDemoWindow);
 
@@ -554,88 +669,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 					System.Diagnostics.Process.Start(startInfo);
 				}
 
-				ImGui.Separator();
-				
-				var showCoreWindow = ShowCoreWindow;
-				ImGui.MenuItem("Core Window", null, ref showCoreWindow);
-				ShowCoreWindow = showCoreWindow;
-
-				if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
-				{
-					ImGui.OpenPopup("CoreWindowContextMenu");
-				}
-
-				//TODO: implement ResetWindowPosition correctly here and for other windows
-				if (ImGui.BeginPopup("CoreWindowContextMenu"))
-				{
-					if (ImGui.MenuItem("Reset Window Position"))
-					{
-						//ResetWindowPosition("Core Settings");
-					}
-					ImGui.EndPopup();
-				}
-				
-				// Scene Graph Window with context menu
-				var showSceneGraphWindow = ShowSceneGraphWindow;
-				ImGui.MenuItem("Scene Graph Window", null, ref showSceneGraphWindow);
-				ShowSceneGraphWindow = showSceneGraphWindow;
-
-				if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
-				{
-					ImGui.OpenPopup("SceneGraphWindowContextMenu");
-				}
-				if (ImGui.BeginPopup("SceneGraphWindowContextMenu"))
-				{
-					if (ImGui.MenuItem("Reset Window Position"))
-					{
-						//ResetWindowPosition("Scene Graph");
-					}
-					ImGui.EndPopup();
-				}
-				
-				// Separate Game Window with context menu
-				var showSeparateGameWindow = ShowSeparateGameWindow;
-				ImGui.MenuItem("Separate Game Window", null, ref showSeparateGameWindow);
-				ShowSeparateGameWindow = showSeparateGameWindow;
-
-				if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
-				{
-					ImGui.OpenPopup("SeparateGameWindowContextMenu");
-				}
-				if (ImGui.BeginPopup("SeparateGameWindowContextMenu"))
-				{
-					if (ImGui.MenuItem("Reset Window Position"))
-					{
-						//ResetWindowPosition($"Game: {gameWindowState}###{_gameWindowTitle}");
-					}
-					ImGui.EndPopup();
-				}
-				
-				// Animation Event Inspector with context menu
-				var showAnimationEventInspector = ShowAnimationEventInspector;
-				ImGui.MenuItem("Animation Event Inspector", null, ref showAnimationEventInspector);
-				ShowAnimationEventInspector = showAnimationEventInspector;
-
-				if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
-				{
-					ImGui.OpenPopup("AnimationEventInspectorContextMenu");
-				}
-				if (ImGui.BeginPopup("AnimationEventInspectorContextMenu"))
-				{
-					if (ImGui.MenuItem("Reset Window Position"))
-					{
-						ResetWindowPosition(SceneGraphWindow);
-					}
-					ImGui.EndPopup();
-				}
-
-				ImGui.Separator();
-				
-				// Game Window Aspect Ratio toggle
-				var preserveAspectRatio = PreserveGameWindowAspectRatio;
-				ImGui.MenuItem("Preserve Game Window Aspect Ratio", null, ref preserveAspectRatio);
-				PreserveGameWindowAspectRatio = preserveAspectRatio;
-
 				ImGui.EndMenu();
 			}
 
@@ -643,16 +676,15 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			ImGui.EndMainMenuBar();
 		}
 	}
-	
+
 	private void DrawSaveLayoutPopup()
 	{
 		if (_showSaveLayoutPopup)
 		{
 			ImGui.OpenPopup("SaveLayoutPopup");
-			_showSaveLayoutPopup = false; // Reset flag
+			_showSaveLayoutPopup = false;
 		}
 
-		// Center the popup
 		var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.4f);
 		ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
 		ImGui.SetNextWindowSize(new Num.Vector2(400, 0), ImGuiCond.Appearing);
@@ -667,7 +699,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			ImGui.SetNextItemWidth(350);
 			ImGui.InputText("##layoutname", ref _newLayoutName, 50);
 			
-			// Check if layout name already exists
 			bool layoutExists = _layoutManager.GetLayoutNames().Contains(_newLayoutName.Trim());
 			if (!string.IsNullOrWhiteSpace(_newLayoutName) && layoutExists)
 			{
@@ -677,7 +708,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
-			// Center the buttons
 			var buttonWidth = 100f;
 			var spacing = 10f;
 			var totalButtonWidth = (buttonWidth * 2) + spacing;
@@ -686,7 +716,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			
 			ImGui.SetCursorPosX(centerStart);
 			
-			// Disable Save button if name is empty
 			bool canSave = !string.IsNullOrWhiteSpace(_newLayoutName);
 			if (!canSave)
 				ImGui.BeginDisabled();
@@ -699,7 +728,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 					_layoutManager.SaveLayout(layoutName);
 					_layoutManager.RefreshLayoutList();
 					
-					// Log to debug output
+					// Update the last selected layout to the newly saved one
+					_lastSelectedLayout.Value = layoutName;
+					
 					Debug.Log($"Layout saved: {layoutName}");
 					
 					_newLayoutName = "";
@@ -720,15 +751,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 			ImGui.EndPopup();
 		}
-	}
-
-	/// <summary>
-	/// Resets a window's position by toggling its visibility, which clears stored positioning.
-	/// </summary>
-	/// <param name="windowName">Display name of the window</param>
-	private void ResetWindowPosition(IEditorWindow window)
-	{
-		window.ResetPosition();
 	}
 
 

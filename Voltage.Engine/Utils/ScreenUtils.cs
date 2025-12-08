@@ -11,8 +11,6 @@ public class ScreenUtils
 	public static bool IsBorderless => _isBorderless;
 	private static bool _isFullscreen = false;
     private static bool _isBorderless = false;
-    private static int _width = 0;
-    private static int _height = 0;
 
     public static void SetFullScreenMode()
     {
@@ -36,31 +34,26 @@ public class ScreenUtils
 		    int topBorder = 1;
 		    int taskbarHeight = 48;
 		    
-		    int maxWidth = (int)(Screen.ActualMonitorWidth / 1.75);
-		    int maxHeight = Screen.ActualMonitorHeight - titleBarHeight - topBorder - taskbarHeight;
+		    int maxWidth = Screen.MonitorWidth;
+		    int maxHeight = Screen.MonitorHeight;
 		    
 		    Core.Instance.Window.Position = new Point(0, titleBarHeight);
 		    Core.Instance.Window.IsBorderless = false;
 		    Screen.IsFullscreen = false;
-		    Screen.SetSize(maxWidth, maxHeight);
+		    Screen.SetSize(maxWidth, maxHeight - titleBarHeight * 2);
 		}
 	    else
 	    {
-		    int defaultWidth = 1920;
-		    int defaultHeight = 1080;
-		    
-		    // Center the window using actual monitor dimensions
-		    int posX = (Screen.ActualMonitorWidth - defaultWidth) / 2;
-		    int posY = (Screen.ActualMonitorHeight - defaultHeight) / 2;
-		    
-		    Core.Instance.Window.Position = new Point(posX, posY);
+			int posX = Screen.MonitorWidth / 2;
+			int posY = Screen.MonitorHeight / 2;
+
+			Core.Instance.Window.Position = new Point(posX, posY);
 		    Core.Instance.Window.IsBorderless = false;
 		    Screen.IsFullscreen = false;
-		    Screen.SetSize(defaultWidth, defaultHeight);
+		    Screen.SetSize(Screen.MonitorWidth / 4, Screen.MonitorHeight / 4);
 		}
 
 		Screen.ApplyChanges();
-		return;
     }
 
 	public static void SetGameWindowedMode(bool maximizedVersion)
@@ -68,7 +61,7 @@ public class ScreenUtils
 		_isFullscreen = false;
 		_isBorderless = false;
 
-		Core.Instance.Window.Position = new Point(Screen.ActualMonitorWidth / 4, Screen.ActualMonitorHeight / 4);
+		Core.Instance.Window.Position = new Point(Screen.MonitorWidth / 4, Screen.MonitorHeight / 4);
 		ApplyFullscreenChange();
 	}
 

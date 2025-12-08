@@ -11,18 +11,17 @@ MacTester/bin
 MacTester/Content/bin
 MacTester/Content/obj
 MacTester/obj
-Nez-PCL/bin
-Nez-PCL/obj
+Voltage-PCL/bin
+Voltage-PCL/obj
 *.userprefs
 UpgradeLog.htm
 Demos
 packages
-Nez.PipelineImporter/bin
-Nez.PipelineImporter/obj
+Voltage.PipelineImporter/bin
+Voltage.PipelineImporter/obj
 MacTester
 MacTester35
 iOSTester
-
 
 # User-specific files
 *.suo
@@ -62,7 +61,10 @@ bld/
 # NuGet v3's project.json files produces more ignoreable files
 *.nuget.props
 *.nuget.targets
-Nez.Portable/project.lock.json
-Nez.Portable/Nez.FNA.csproj.nuget.cache
+Voltage.Portable/project.lock.json
+Voltage.Portable/Voltage.FNA.csproj.nuget.cache
 .idea
 .DS_Store
+
+# Editor Specific
+Voltage.Editor/Content/

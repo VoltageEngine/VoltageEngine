@@ -17,13 +17,13 @@ namespace Voltage.Editor.Utils
 		public void LoadImages(ImGuiRenderer renderer)
 		{
 			// Bind textures to ImGui
-			NormalCursorIconID = renderer.BindTexture(Voltage.Core.Content.LoadTexture("Content/UI/CursorSelection-UI-Normal.png"));
-			ResizeCursorIconID = renderer.BindTexture(Voltage.Core.Content.LoadTexture("Content/UI/CursorSelection-UI-Resize.png"));
-			RotateCursorIconID = renderer.BindTexture(Voltage.Core.Content.LoadTexture("Content/UI/CursorSelection-UI-Rotate.png"));
-			ColliderResizeCursorIconID = renderer.BindTexture(Voltage.Core.Content.LoadTexture("Content/UI/CursorSelection-UI-ColliderResize.png"));
+			NormalCursorIconID = renderer.BindTexture(Voltage.Core.Content.LoadTexture("DefaultContent/UI/CursorSelection-UI-Normal.png"));
+			ResizeCursorIconID = renderer.BindTexture(Voltage.Core.Content.LoadTexture("DefaultContent/UI/CursorSelection-UI-Resize.png"));
+			RotateCursorIconID = renderer.BindTexture(Voltage.Core.Content.LoadTexture("DefaultContent/UI/CursorSelection-UI-Rotate.png"));
+			ColliderResizeCursorIconID = renderer.BindTexture(Voltage.Core.Content.LoadTexture("DefaultContent/UI/CursorSelection-UI-ColliderResize.png"));
 
-			LockedInspectorIconId = renderer.BindTexture(Voltage.Core.Content.LoadAsepriteFile("Content/UI/Inspector-LockMode.aseprite").GetTextureFromLayers("Locked"));
-			UnlockedInspectorIconId = renderer.BindTexture(Voltage.Core.Content.LoadAsepriteFile("Content/UI/Inspector-LockMode.aseprite").GetTextureFromLayers("Unlocked"));
+			LockedInspectorIconId = renderer.BindTexture(Voltage.Core.Content.LoadAsepriteFile("DefaultContent/UI/Inspector-LockMode.aseprite").GetTextureFromLayers("Locked"));
+			UnlockedInspectorIconId = renderer.BindTexture(Voltage.Core.Content.LoadAsepriteFile("DefaultContent/UI/Inspector-LockMode.aseprite").GetTextureFromLayers("Unlocked"));
 		}
 	}
 }
