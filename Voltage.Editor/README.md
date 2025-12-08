@@ -1,133 +1,77 @@
-Dear ImGui Integration
-==========
+# Voltage Engine
 
-Dear ImGui is available via the Voltage.ImGui project. The API is a wip and will be changing over time. As of now, the way it works is via a `GlobalManager`. You can toggle ImGui rendering via the `toggle-imgui` command in the debug console or by manually adding the manager:
+Voltage Engine is a MonoGame-based 2D game ENGINE with a separate WYSIWYG editor, evolved from Nez. It provides a complete Entity-Component-System architecture with ImGui-powered visual editing tools for rapid game development.
 
-```csharp
+Similar to popular engines like Unity and Godot, Voltage Engine combines a robust runtime with an intuitive editor, that allows you to create game projects with the help of the editor, and then build the game exectuable with its help for publishing,
+
+> [!WARNING]
+
+> Engine Status: Experimental. Using it for commercial release is not recommended yet.
+
+> Voltage Engine is NOT yet production-ready for 2D game development. Many features are still being rewritten, as is the core of the Editor itself. Expect breaking changes in the upcoming time. Contributions and feedback are welcome!
+
+This repository contains the complete engine and editor. Reference it from your game project to leverage both the powerful ECS runtime and the visual editing capabilities.
+
+<img width="3840" height="2160" alt="Jolt - Editor Showoff" src="https://github.com/user-attachments/assets/c63658a0-0e4e-4695-91da-daceb4c3359c" />
+
+---
+
+## Core Features
+
+### Runtime Foundation
+- **Entity-Component-System (ECS)** - Flexible, composable game object architecture
+- **Scene Management** - Hierarchical scene system with lifecycle hooks
+- **Rendering Pipeline** - Layered rendering with custom materials and effects
+- **Physics & Collisions** - AABB, circle, and polygon collision detection with spatial hashing
+- **Input Handling** - Unified input system for keyboard, mouse, gamepad, and touch
+- **Content Pipeline** - Asset loading and management via MonoGame Content Pipeline
+- **Coroutines & Timers** - Built-in async patterns for time-based logic
+
+### Visual Editor
+- **Editor Executable** - Full-featured editor as a standalone app to host your game projects
+- **Scene Graph Window** - Hierarchical entity browser with multi-select and drag-drop
+- **Entity Inspector** - Real-time property editing with custom inspectors
+- **Component System** - Add/remove/configure components at runtime
+- **Edit/Play Mode** - Toggle between editing and testing (F1/F2)
+- **Layout System** - Save and load custom editor layouts
+- **Debug Console** - Built-in command console for development tools
+
+### Data-Driven Workflow
+- **SceneData Serialization** - JSON-based scene persistence
+- **Entity Factory Registry** - Type-safe entity creation without reflection
+- **Prefab System** - Reusable entity templates
+- **EntityData Contracts** - Clean separation between editor and runtime data
+- **Undo/Redo** - Full undo stack for editor operations
+
+### Developer Experience
+- **Tiled Map Editor Integration** - Import and render Tiled (.tmx) maps
+- **Aseprite Support** - Load Aseprite sprite data and animations
+- **Animation Event Editor** - Timeline-based event authoring for sprite animations
+- **Sprite Atlas Support** - Texture packing and efficient rendering
+- **Notification System** - User-facing feedback for editor actions
+- **Content Browser** - File pickers rooted to your Content folder
+
+---
+
+## Project Structure
+
+- **Voltage.Engine** (`Voltage.Portable`) - Core runtime (ECS, rendering, physics, utilities)
+- **Voltage.Editor** (`Voltage.ImGui`) - Editor UI and tooling (scene graph, inspectors, gizmos)
+- **Voltage.Persistence** - Serialization systems (JSON, binary)
+- **Voltage.FarseerPhysics** - Optional full physics simulation (Box2D-based)
+
+---
+
+## Getting Started
+
+### Setting Up the ImGui Manager
+
+The editor is available via the `ImGuiManager` global manager. You can toggle ImGui rendering via the `toggle-imgui` command in the debug console or programmatically:
+
+````````markdown
 var imGuiManager = new ImGuiManager();
 Core.RegisterGlobalManager( imGuiManager );
 
 // toggle ImGui rendering on/off. It starts out enabled.
 imGuiManager.SetEnabled( false );
-```
-
-
-Placeholder/wip content...
-
-## Scene Graph Window
-
-- PostProcessors
-    - Add PostProcessor
-- Entities
-- double-click
-- right-click
-
-
-## Core Window
-
-- FPS graph
-- Core settings
-
-
-## Entity Inspector Window
-
-- Component inspectors
-- right-click
-- Add Component
-- Renderables
-    - Materials
-        - Add Material
-        - Add Effect
-            - Effects
-
-
-## Adding Data to the Component Inspector
-
-You can also display custom data in the inspector for your `Component` by putting an `InspectorDelegateAttribute` on any parameterless method in your class. Whenever your `Component` is visible in the inspector the method will be called in the context of the inspector. Anything you draw will appear after the normal `Component` data.
-
-```csharp
-[InspectorDelegate]
-public void testOtherMethod()
-{
-    ImGui.TextColored( new System.Numerics.Vector4( 0, 1, 0, 1 ), "Colored text..." );
-    ImGui.Combo( "Combo Box", ref privateInt, "First\0Second\0Third\0No Way\0Fifth Option" );
-}
-```
-
-
-## Useful Attributes
-
-- `TooltipAttribute`: displays a tooltip with the text when the item is hovered in the inspector
-- `RangeAttribute`: lets you specify a range and optionally choose between a slider or drag field for ints/floats
-- `NotInspectableAttribute`: forces the inspector to not inspect the field.property
-- `InspectableAttribute`: indicates a read-only/private field/property should be displayed. It will be grayed out and disabled.
-- `CustomInspectorAttribute`: lets you specify a custom `AbstractTypeInspector` subclass that will be used to inspect the field/property
-
-
-
-## Custom ImGui Windows
-
-Once the ImGui manager is installed and enabled you can register and issue ImGui commands from any `Component` by just fetching the ImGuiManager and calling `registerDrawCommand`:
-
-```csharp
-public override void onAddedToEntity()
-{
-    Core.getGlobalManager<ImGuiManager>().registerDrawCommand( imGuiDraw );
-}
-
-void imGuiDraw()
-{
-    ImGui.Begin( "Your ImGui Window" );
-    // your ImGui commands here
-    ImGui.End();
-}
-```
-
-You should deregister when your `Component` is no longer active by calling `unregisterDrawCommand`:
-
-```csharp
-public override void onRemovedFromEntity()
-{
-    Core.getGlobalManager<ImGuiManager>().unregisterDrawCommand( imGuiDraw );
-}
-```
-
-
-## Advanced: Creating a Custom Inspector
-
-If you have a type that you want to fully control the rendering of you can do that by decorating your class with the `CustomInspectorAttribute`. It requires a `Type` that is a subclass of `AbstractTypeInspector`.
-
-Below, we will illustrate an example. The `WontShowInInspectorByDefault` class by default would not be rendered in the inspector. We specify a `CustomInspectorAttribute` with the Type subclass of `AbstractTypeInspector` that we want to be instantiated and control the inspector rendering. `AbstractTypeInspector` provides us with some useful protected members to get and set the value for the class (works for structs automatically as well). We null check the current value and provide a button to create a new instance. If an instance exists, we display some ImGui controls.
-
-```csharp
-[CustomInspector( typeof( WontShowInInspectorByDefaultInspector ) )]
-public class WontShowInInspectorByDefault
-{
-	public string text = "the string";
-	public float speed = 54;
-	public int index = 10;
-}
-
-class WontShowInInspectorByDefaultInspector : AbstractTypeInspector
-{
-	public override void drawMutable()
-	{
-		var myObj = getValue<WontShowInInspectorByDefault>();
-		if( myObj == null )
-		{
-			if( ImGui.Button( "Create Object" ) )
-			{
-				myObj = new WontShowInInspectorByDefault();
-				setValue( myObj );
-			}
-		}
-		else
-		{
-			ImGui.InputText( "text", ref myObj.text, 50 );
-			ImGui.DragFloat( "speed", ref myObj.speed );
-			ImGui.DragInt( "index", ref myObj.index );
-		}
-	}
-}
-```
-
+````````
