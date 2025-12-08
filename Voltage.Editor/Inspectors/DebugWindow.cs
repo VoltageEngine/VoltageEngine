@@ -46,7 +46,7 @@ namespace Voltage.Editor.Inspectors
             if (_imguiManager == null)
                 _imguiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
 
-            ImGui.Begin("Debug Log", ImGuiWindowFlags.HorizontalScrollbar);
+            ImGui.Begin("Debug Log ###DebugWindow", ImGuiWindowFlags.HorizontalScrollbar);
 
             // Controls row
             ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Num.Vector2(4, 4));
@@ -141,8 +141,21 @@ namespace Voltage.Editor.Inspectors
                 text += count > 99 ? "  (x100+)" : $"  (x{count})";
             }
 
-            float fontScale = GetFontScale(type);
-            ImGui.SetWindowFontScale(fontScale);
+			// Get appropriate font index based on log type
+			int fontIndex = type switch
+			{
+				Debug.LogType.Error => 3,
+				Debug.LogType.Warn => 2,
+				Debug.LogType.Info => 1,
+				_ => 0
+			};
+
+			// Push the appropriate font (if available)
+			var io = ImGui.GetIO();
+			if (io.Fonts.Fonts.Size > fontIndex)
+			{
+				ImGui.PushFont(io.Fonts.Fonts[fontIndex]);
+			}
 
             var cursorScreenPos = ImGui.GetCursorScreenPos();
             
@@ -156,6 +169,12 @@ namespace Voltage.Editor.Inspectors
             {
                 ImGui.TextColored(color, text);
             }
+
+            // Pop font if we pushed one
+            if (io.Fonts.Fonts.Size > fontIndex)
+			{
+				ImGui.PopFont();
+			}
 
             var itemRectMin = cursorScreenPos;
             var itemRectMax = ImGui.GetItemRectMax();

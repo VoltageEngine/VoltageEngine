@@ -198,7 +198,7 @@ namespace Voltage.Editor.Gizmos
 			if (_isBoxSelecting && Input.LeftMouseButtonDown)
 			{
 				_boxSelectEndWorld = Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
-				DrawSelectionBoxNez(_boxSelectStartWorld, _boxSelectEndWorld);
+				DrawSelectionBoxVoltage(_boxSelectStartWorld, _boxSelectEndWorld);
 			}
 
 			if (_isBoxSelecting && Input.LeftMouseButtonReleased)
@@ -209,7 +209,7 @@ namespace Voltage.Editor.Gizmos
 			}
 		}
 
-		private void DrawSelectionBoxNez(Vector2 worldStart, Vector2 worldEnd)
+		private void DrawSelectionBoxVoltage(Vector2 worldStart, Vector2 worldEnd)
 		{
 			var camera = Core.Scene.Camera;
 			var min = new Vector2(Math.Min(worldStart.X, worldEnd.X), Math.Min(worldStart.Y, worldEnd.Y));

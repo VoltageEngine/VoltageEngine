@@ -278,8 +278,6 @@ public class MainEntityInspector
 			return;
 		}
 
-		_imGuiManager.SelectedInspectorTab = ImGuiManager.InspectorTab.EntityInspector;
-
 		if (_imGuiManager.IsInspectorTabLocked)
 			return;
 
@@ -314,7 +312,7 @@ public class MainEntityInspector
 
 		var open = IsOpen;
 
-		ImGui.Begin("Entity Inspector", ref open, windowFlags);
+		ImGui.Begin("Entity Inspector###MainEntityInspector", ref open, windowFlags);
 
 		// If more than one entity is selected
 		if (_imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities.Count > 1 && !_imGuiManager.IsInspectorTabLocked)

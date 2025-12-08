@@ -16,7 +16,7 @@ namespace Voltage.Farseer
 		/// </summary>
 		/// <returns><c>true</c>, if with any was collidesed, <c>false</c> otherwise.</returns>
 		/// <param name="self">Fixture a.</param>
-		/// <param name="motion">the delta movement in Nez pixel coordinates</param>
+		/// <param name="motion">the delta movement in Voltage pixel coordinates</param>
 		/// <param name="result">Result.</param>
 		public static bool CollidesWithAnyFixtures(this Fixture self, ref Vector2 motion, out FSCollisionResult result)
 		{

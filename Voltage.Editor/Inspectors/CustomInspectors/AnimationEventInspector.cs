@@ -59,7 +59,8 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                 _imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
 
             bool open = true;
-            if (ImGui.Begin("Animation Event Inspector", ref open, ImGuiWindowFlags.None))
+          
+            if (ImGui.Begin("Animation Event Inspector###AnimationEventInspector", ref open, ImGuiWindowFlags.None))
             {
                 if (_shouldFocusWindow)
                 {

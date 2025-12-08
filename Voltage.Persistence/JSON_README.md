@@ -1,4 +1,4 @@
-﻿Nez Persistence: JSON
+﻿Voltage Persistence: JSON
 ==========
 
 ## Description
@@ -23,10 +23,10 @@ A little JSON library that does big things.
 
 ## Usage
 
-The API is namespaced under `Nez.Persistence` and the primary class is `Json`. There are really only a few methods you need to know:
+The API is namespaced under `Voltage.Persistence` and the primary class is `Json`. There are really only a few methods you need to know:
 
 ```csharp
-namespace Nez.Persistence
+namespace Voltage.Persistence
 {
 	public static class Json
 	{

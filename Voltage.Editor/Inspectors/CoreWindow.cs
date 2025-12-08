@@ -21,18 +21,20 @@ namespace Voltage.Editor.Inspectors
 			_textureFilters = Enum.GetNames(typeof(TextureFilter));
 		}
 
-		public void Show(ref bool isOpen)
+		public bool Show(bool isOpen)
 		{
 			if (!isOpen)
-				return;
+				return false;
 
 			if (_imguiManager == null)
 				_imguiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
 
-			ImGui.Begin("Core Settings", ref isOpen, ImGuiWindowFlags.None);
+			ImGui.Begin("Core Settings###CoreWindow", ref isOpen, ImGuiWindowFlags.None);
 
 			DrawSettings();
 			ImGui.End();
+
+			return isOpen;
 		}
 
 		void DrawSettings()
