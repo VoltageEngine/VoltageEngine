@@ -329,6 +329,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	/// </summary>
 	private void LayoutGui()
 	{
+		if (_layoutManager.HasPendingReload)
+		{
+			_layoutManager.ApplyPendingReload();
+		}
+		
 		if (_isFirstFrame)
 		{
 			_isFirstFrame = false;
