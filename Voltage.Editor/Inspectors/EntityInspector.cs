@@ -94,7 +94,7 @@ public class EntityInspector
 			ImGuiCond.FirstUseEver);
 
 		var open = true;
-		if (ImGui.Begin($"Inspector: {Entity.Name}###{_entityWindowId}", ref open))
+		if (ImGui.Begin($"Inspector: {Entity.Name}##{_entityWindowId}", ref open))
 		{
 			if (Entity == null)
 			{

@@ -663,8 +663,11 @@ private void OverrideMouseInput()
 			if (disposing)
 			{
 				Voltage.Core.Emitter.RemoveObserver(CoreEvents.SceneChanged, OnSceneChanged);
-				
-				// Make sure ImGui saves settings before we exit
+
+				// Auto-save only if not on Default layout
+				_layoutManager.AutoSaveCurrentLayout();
+
+				// Always save the default .ini for next startup
 				if (!string.IsNullOrEmpty(_layoutFilePath))
 				{
 					ImGui.SaveIniSettingsToDisk(_layoutFilePath);

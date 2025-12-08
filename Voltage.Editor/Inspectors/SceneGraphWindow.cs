@@ -32,7 +32,7 @@ public class PrefabCategory
 	public Dictionary<string, PrefabCategory> SubCategories { get; set; } = new Dictionary<string, PrefabCategory>();
 }
 
-public class SceneGraphWindow : IEditorWindow
+public class SceneGraphWindow
 {
 	/// <summary>
 	/// A copy of a component that can be pasted to another entity
@@ -1108,9 +1108,4 @@ public class SceneGraphWindow : IEditorWindow
 	}
 
 	#endregion
-
-	public void ResetPosition()
-	{
-		ImGui.SetWindowPos(new Num.Vector2(Screen.ActualMonitorWidth/2f, Screen.ActualMonitorHeight/2f));
-	}
 }

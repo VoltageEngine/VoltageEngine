@@ -38,7 +38,7 @@ namespace Voltage.Editor.Tools
 			try
 			{
 				var projectDir = FindProjectDir();
-				var shaderSrcDir = Path.Combine(projectDir, "DefaultContentSource");
+				var shaderSrcDir = Path.Combine(projectDir, "DefaultContent");
 				var shaderOutDir = Path.Combine(projectDir, "Content", "Effects");
 
 				if (!Directory.Exists(shaderSrcDir))

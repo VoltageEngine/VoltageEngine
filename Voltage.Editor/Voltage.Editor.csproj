@@ -86,12 +86,24 @@
 		<DefineConstants>OS_MAC</DefineConstants>
 	</PropertyGroup>
 	<ItemGroup>
-	  <Content Remove="Content\Fonts\BungeeSpice-Regular.ttf" />
-	  <Content Remove="Content\Fonts\Lexend-Black.ttf" />
-	  <Content Remove="Content\Fonts\Lexend-Bold.ttf" />
-	  <Content Remove="Content\Fonts\Lexend-Light.ttf" />
-	  <Content Remove="Content\Fonts\Lexend-Medium.ttf" />
-	  <Content Remove="Content\Fonts\Lexend-Regular.ttf" />
+	  <Content Include="DefaultContent\UI\CursorSelection-UI-ColliderResize.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="DefaultContent\UI\CursorSelection-UI-Normal.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="DefaultContent\UI\CursorSelection-UI-Resize.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="DefaultContent\UI\CursorSelection-UI-Rotate.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="DefaultContent\UI\CursorSelection-UI.aseprite">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="DefaultContent\UI\Inspector-LockMode.aseprite">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
 	</ItemGroup>
 
 	<ItemGroup>
@@ -105,22 +117,31 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <None Update="Content\Fonts\BungeeSpice-Regular.ttf">
+	  <None Update="DefaultContent\Fonts\BungeeSpice-Regular.ttf">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="Content\Fonts\Lexend-Black.ttf">
+	  <None Update="DefaultContent\Fonts\Lexend-Black.ttf">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="Content\Fonts\Lexend-Bold.ttf">
+	  <None Update="DefaultContent\Fonts\Lexend-Bold.ttf">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="Content\Fonts\Lexend-Light.ttf">
+	  <None Update="DefaultContent\Fonts\Lexend-Light.ttf">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="Content\Fonts\Lexend-Medium.ttf">
+	  <None Update="DefaultContent\Fonts\Lexend-Medium.ttf">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="Content\Fonts\Lexend-Regular.ttf">
+	  <None Update="DefaultContent\Fonts\Lexend-Regular.ttf">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\Fonts\VoltageDefaultBMFont.fnt">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\Fonts\VoltageDefaultBMFont.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\Layouts\DefaultLayout.ini">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
 	</ItemGroup>
