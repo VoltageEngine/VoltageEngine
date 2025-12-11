@@ -27,6 +27,11 @@
 	<PropertyGroup Condition="'$(IsPublishing)' == 'true'">
 		<DefineConstants>$(DefineConstants);BUILD</DefineConstants>
 	</PropertyGroup>
+	<ItemGroup>
+	  <Compile Remove="DefaultContent\**" />
+	  <EmbeddedResource Remove="DefaultContent\**" />
+	  <None Remove="DefaultContent\**" />
+	</ItemGroup>
 
 	<ItemGroup>
 		<Compile Remove="Graphics\SVG\Shapes\Paths\SvgPathBuilder.cs" />
