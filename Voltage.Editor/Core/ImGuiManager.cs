@@ -23,6 +23,7 @@ using Voltage.Sprites;
 using Voltage.Utils;
 using Num = System.Numerics;
 using Voltage.Editor.Layouts;
+using Voltage.Editor.ProjectManagement;
 
 
 namespace Voltage.Editor.ImGuiCore;
@@ -175,6 +176,10 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private bool _showSaveLayoutPopup = false;
 	private bool _isFirstFrame = true;
 
+	// Build effects progress window
+	private BuildEffectsProgressWindow _buildEffectsProgressWindow;
+	private System.Threading.CancellationTokenSource _buildCancellationToken;
+
 	#region Event Handlers
 
 	/// <summary>
@@ -271,6 +276,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_imageLoader = new ImguiImageLoader();
 		_imageLoader.LoadImages(_renderer);
 
+		_buildEffectsProgressWindow = new BuildEffectsProgressWindow();
+
 		// Create default Main Entity Inspector window when current scene is finished loading the entities
 		Scene.OnFinishedAddingEntitiesWithData += OpenMainEntityInspector;
 		Core.EmitterWithPending.AddObserver(CoreEvents.Exiting, OnAppExitSaveChanges);
@@ -350,6 +357,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		ShowSceneGraphWindow = SceneGraphWindow.Show(ShowSceneGraphWindow);
 		DrawInspectorWindows();
 		DrawEntityInspectors();
+		_buildEffectsProgressWindow.Draw();
 
 		for (var i = _drawCommands.Count - 1; i >= 0; i--)
 			_drawCommands[i]();
@@ -657,6 +665,41 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				ImGui.MenuItem("Preserve Game Window Aspect Ratio", null, ref preserveAspectRatio);
 				PreserveGameWindowAspectRatio = preserveAspectRatio;
 
+				ImGui.EndMenu();
+			}
+
+			//TODO: Add Build-Effects, and Build-Game here after we have Game project system in place
+			if (ImGui.BeginMenu("Build"))
+			{
+				if (ImGui.BeginMenu("Build Effects"))
+				{
+					// TODO: Get current project name dynamically
+					string currentProjectName = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name ?? "Current Project";
+
+					if (ImGui.MenuItem($"Build \"{currentProjectName}\" Effects"))
+					{
+						BuildProjectEffects(currentProjectName);
+					}
+
+					if (ImGui.MenuItem("Build Engine Effects"))
+					{
+						BuildEngineEffects();
+					}
+
+					ImGui.Separator();
+
+					if (ImGui.MenuItem("Build ALL Effects"))
+					{
+						BuildAllEffects(currentProjectName);
+					}
+
+					ImGui.EndMenu();
+				}
+
+				if (ImGui.MenuItem("Build Game"))
+				{
+					NotificationSystem.ShowTimedNotification("Build-Game = Not Implemented Yet!");
+				}
 				ImGui.EndMenu();
 			}
 
@@ -1264,4 +1307,106 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_highlightedEntities.Clear();
 		_lastSelectedEntities = null;
 	}
+
+	#region Build Effects Methods
+
+	/// <summary>
+	/// Builds effects for the current project.
+	/// </summary>
+	/// <param name="projectName">The name of the current project.</param>
+	private void BuildProjectEffects(string projectName)
+	{
+		if (!EffectBuilder.IsMgfxcAvailable())
+		{
+			NotificationSystem.ShowTimedNotification("mgfxc not found! Please install MonoGame SDK.");
+			Debug.Error("mgfxc compiler not found in PATH. Install MonoGame SDK: https://www.monogame.net/downloads/");
+			return;
+		}
+
+		Debug.Log($"Building effects for project: {projectName}");
+
+		// Show the progress window
+		_buildEffectsProgressWindow.Show();
+
+		// Cancel any existing build
+		_buildCancellationToken?.Cancel();
+		_buildCancellationToken = new System.Threading.CancellationTokenSource();
+
+		// Run build in background
+		System.Threading.Tasks.Task.Run(() =>
+		{
+			bool success = EffectBuilder.BuildProjectEffects(projectName);
+			if (success)
+			{
+				Debug.Log($"Successfully built {projectName} effects");
+			}
+		}, _buildCancellationToken.Token);
+	}
+
+	/// <summary>
+	/// Builds effects for the Voltage Engine.
+	/// </summary>
+	private void BuildEngineEffects()
+	{
+		if (!EffectBuilder.IsMgfxcAvailable())
+		{
+			NotificationSystem.ShowTimedNotification("mgfxc not found! Please install MonoGame SDK.");
+			Debug.Error("mgfxc compiler not found in PATH. Install MonoGame SDK: https://www.monogame.net/downloads/");
+			return;
+		}
+
+		Debug.Log("Building Voltage Engine effects");
+
+		// Show the progress window
+		_buildEffectsProgressWindow.Show();
+
+		// Cancel any existing build
+		_buildCancellationToken?.Cancel();
+		_buildCancellationToken = new System.Threading.CancellationTokenSource();
+
+		// Run build in background
+		System.Threading.Tasks.Task.Run(() =>
+		{
+			bool success = EffectBuilder.BuildEngineEffects();
+			if (success)
+			{
+				Debug.Log("Successfully built Engine effects");
+			}
+		}, _buildCancellationToken.Token);
+	}
+
+	/// <summary>
+	/// Builds all effects (both project and engine).
+	/// </summary>
+	/// <param name="projectName">The name of the current project.</param>
+	private void BuildAllEffects(string projectName)
+	{
+		if (!EffectBuilder.IsMgfxcAvailable())
+		{
+			NotificationSystem.ShowTimedNotification("mgfxc not found! Please install MonoGame SDK.");
+			Debug.Error("mgfxc compiler not found in PATH. Install MonoGame SDK: https://www.monogame.net/downloads/");
+			return;
+		}
+
+		Debug.Log("Building all effects (Engine + Project)");
+
+		// Show the progress window
+		_buildEffectsProgressWindow.Show();
+
+		// Cancel any existing build
+		_buildCancellationToken?.Cancel();
+		_buildCancellationToken = new System.Threading.CancellationTokenSource();
+
+		// Run build in background
+		System.Threading.Tasks.Task.Run(() =>
+		{
+			bool success = EffectBuilder.BuildAllEffects(projectName);
+			if (success)
+			{
+				Debug.Log("Successfully built all effects");
+			}
+		}, _buildCancellationToken.Token);
+	}
+
+	#endregion
 }
