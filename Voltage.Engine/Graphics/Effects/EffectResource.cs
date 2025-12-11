@@ -8,70 +8,70 @@ namespace Voltage
 	public static class EffectResource
 	{
 		// sprite effects
-		internal static byte[] SpriteBlinkEffectBytes => GetFileResourceBytes("Content/Effects/SpriteBlinkEffect.mgfxo");
+		internal static byte[] SpriteBlinkEffectBytes => GetFileResourceBytes("Content/Voltage/Effects/SpriteBlinkEffect.mgfxo");
 
-		internal static byte[] SpriteLinesEffectBytes => GetFileResourceBytes("Content/Effects/SpriteLines.mgfxo");
+		internal static byte[] SpriteLinesEffectBytes => GetFileResourceBytes("Content/Voltage/Effects/SpriteLines.mgfxo");
 
-		internal static byte[] SpriteAlphaTestBytes => GetFileResourceBytes("Content/Effects/SpriteAlphaTest.mgfxo");
+		internal static byte[] SpriteAlphaTestBytes => GetFileResourceBytes("Content/Voltage/Effects/SpriteAlphaTest.mgfxo");
 
-		internal static byte[] CrosshatchBytes => GetFileResourceBytes("Content/Effects/Crosshatch.mgfxo");
+		internal static byte[] CrosshatchBytes => GetFileResourceBytes("Content/Voltage/Effects/Crosshatch.mgfxo");
 
-		internal static byte[] InvertBytes => GetFileResourceBytes("Content/Effects/Invert.mgfxo");
+		internal static byte[] InvertBytes => GetFileResourceBytes("Content/Voltage/Effects/Invert.mgfxo");
 
-		internal static byte[] NoiseBytes => GetFileResourceBytes("Content/Effects/Noise.mgfxo");
+		internal static byte[] NoiseBytes => GetFileResourceBytes("Content/Voltage/Effects/Noise.mgfxo");
 
-		internal static byte[] TwistBytes => GetFileResourceBytes("Content/Effects/Twist.mgfxo");
+		internal static byte[] TwistBytes => GetFileResourceBytes("Content/Voltage/Effects/Twist.mgfxo");
 
-		internal static byte[] DotsBytes => GetFileResourceBytes("Content/Effects/Dots.mgfxo");
+		internal static byte[] DotsBytes => GetFileResourceBytes("Content/Voltage/Effects/Dots.mgfxo");
 
-		internal static byte[] DissolveBytes => GetFileResourceBytes("Content/Effects/Dissolve.mgfxo");
+		internal static byte[] DissolveBytes => GetFileResourceBytes("Content/Voltage/Effects/Dissolve.mgfxo");
 
 		// post processor effects
-		internal static byte[] BloomCombineBytes => GetFileResourceBytes("Content/Effects/BloomCombine.mgfxo");
+		internal static byte[] BloomCombineBytes => GetFileResourceBytes("Content/Voltage/Effects/BloomCombine.mgfxo");
 
-		internal static byte[] BloomExtractBytes => GetFileResourceBytes("Content/Effects/BloomExtract.mgfxo");
+		internal static byte[] BloomExtractBytes => GetFileResourceBytes("Content/Voltage/Effects/BloomExtract.mgfxo");
 
-		internal static byte[] GaussianBlurBytes => GetFileResourceBytes("Content/Effects/GaussianBlur.mgfxo");
+		internal static byte[] GaussianBlurBytes => GetFileResourceBytes("Content/Voltage/Effects/GaussianBlur.mgfxo");
 
-		internal static byte[] VignetteBytes => GetFileResourceBytes("Content/Effects/Vignette.mgfxo");
+		internal static byte[] VignetteBytes => GetFileResourceBytes("Content/Voltage/Effects/Vignette.mgfxo");
 
-		internal static byte[] LetterboxBytes => GetFileResourceBytes("Content/Effects/Letterbox.mgfxo");
+		internal static byte[] LetterboxBytes => GetFileResourceBytes("Content/Voltage/Effects/Letterbox.mgfxo");
 
-		internal static byte[] HeatDistortionBytes => GetFileResourceBytes("Content/Effects/HeatDistortion.mgfxo");
+		internal static byte[] HeatDistortionBytes => GetFileResourceBytes("Content/Voltage/Effects/HeatDistortion.mgfxo");
 
-		internal static byte[] SpriteLightMultiplyBytes => GetFileResourceBytes("Content/Effects/SpriteLightMultiply.mgfxo");
+		internal static byte[] SpriteLightMultiplyBytes => GetFileResourceBytes("Content/Voltage/Effects/SpriteLightMultiply.mgfxo");
 
-		internal static byte[] PixelGlitchBytes => GetFileResourceBytes("Content/Effects/PixelGlitch.mgfxo");
+		internal static byte[] PixelGlitchBytes => GetFileResourceBytes("Content/Voltage/Effects/PixelGlitch.mgfxo");
 
-		internal static byte[] StencilLightBytes => GetFileResourceBytes("Content/Effects/StencilLight.mgfxo");
+		internal static byte[] StencilLightBytes => GetFileResourceBytes("Content/Voltage/Effects/StencilLight.mgfxo");
 
 		// deferred lighting
-		internal static byte[] DeferredSpriteBytes => GetFileResourceBytes("Content/Effects/DeferredSprite.mgfxo");
+		internal static byte[] DeferredSpriteBytes => GetFileResourceBytes("Content/Voltage/Effects/DeferredSprite.mgfxo");
 
-		internal static byte[] DeferredLightBytes => GetFileResourceBytes("Content/Effects/DeferredLighting.mgfxo");
+		internal static byte[] DeferredLightBytes => GetFileResourceBytes("Content/Voltage/Effects/DeferredLighting.mgfxo");
 
 		// forward lighting
-		internal static byte[] ForwardLightingBytes => GetFileResourceBytes("Content/Effects/ForwardLighting.mgfxo");
+		internal static byte[] ForwardLightingBytes => GetFileResourceBytes("Content/Voltage/Effects/ForwardLighting.mgfxo");
 
-		internal static byte[] PolygonLightBytes => GetFileResourceBytes("Content/Effects/PolygonLight.mgfxo");
+		internal static byte[] PolygonLightBytes => GetFileResourceBytes("Content/Voltage/Effects/PolygonLight.mgfxo");
 
 		// scene transitions
-		internal static byte[] SquaresTransitionBytes => GetFileResourceBytes("Content/Effects/transitions/Squares.mgfxo");
+		internal static byte[] SquaresTransitionBytes => GetFileResourceBytes("Content/Voltage/Effects/transitions/Squares.mgfxo");
 
 		// sprite or post processor effects
 		internal static byte[] SpriteEffectBytes => GetMonoGameEmbeddedResourceBytes("Microsoft.Xna.Framework.Graphics.Effect.Resources.SpriteEffect.ogl.mgfxo");
 
-		internal static byte[] MultiTextureOverlayBytes => GetFileResourceBytes("Content/Effects/MultiTextureOverlay.mgfxo");
+		internal static byte[] MultiTextureOverlayBytes => GetFileResourceBytes("Content/Voltage/Effects/MultiTextureOverlay.mgfxo");
 
-		internal static byte[] ScanlinesBytes => GetFileResourceBytes("Content/Effects/Scanlines.mgfxo");
+		internal static byte[] ScanlinesBytes => GetFileResourceBytes("Content/Voltage/Effects/Scanlines.mgfxo");
 
-		internal static byte[] ReflectionBytes => GetFileResourceBytes("Content/Effects/Reflection.mgfxo");
+		internal static byte[] ReflectionBytes => GetFileResourceBytes("Content/Voltage/Effects/Reflection.mgfxo");
 
-		internal static byte[] GrayscaleBytes => GetFileResourceBytes("Content/Effects/Grayscale.mgfxo");
+		internal static byte[] GrayscaleBytes => GetFileResourceBytes("Content/Voltage/Effects/Grayscale.mgfxo");
 
-		internal static byte[] SepiaBytes => GetFileResourceBytes("Content/Effects/Sepia.mgfxo");
+		internal static byte[] SepiaBytes => GetFileResourceBytes("Content/Voltage/Effects/Sepia.mgfxo");
 
-		internal static byte[] PaletteCyclerBytes => GetFileResourceBytes("Content/Effects/PaletteCycler.mgfxo");
+		internal static byte[] PaletteCyclerBytes => GetFileResourceBytes("Content/Voltage/Effects/PaletteCycler.mgfxo");
 
 
 		/// <summary>
@@ -150,8 +150,11 @@ namespace Voltage
 			catch (Exception e)
 			{
 				var txt = string.Format(
-					"OpenStream failed to find file at path: {0}. Did you add it to the Content folder and set its properties to copy to output directory?",
+					"OpenStream failed to find file at path: {0}. Possible errors: \n " +
+					"1) Did you 'Build -> Build Effects -> Build ALL' ?. \n" +
+					"2) Did you add the Effect you selected to the Content folder and set its properties to copy to output directory?",
 					path);
+				Debug.Error(txt);
 				throw new Exception(txt, e);
 			}
 

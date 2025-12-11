@@ -77,6 +77,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	}
 
 	private PersistentString _lastSelectedLayout = new("ImGui_LastSelectedLayout", "Default");
+	private PersistentString _lastSelectedTheme = new("ImGui_LastSelectedTheme", "DarkTheme1");
 	#endregion
 
 	// Public values
@@ -138,8 +139,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	public static float EditModeCameraSpeed = 250f;
 	public static float EditModeCameraFastSpeed = 500f;
 	private const float EditorCameraZoomSpeed = 1f;
-
-	// Add these new fields for dynamic speed control
 	public static float EditModeCameraMinSpeed = 50f;
 	public static float EditModeCameraMaxSpeed = 3000f;
 	private static float _dynamicCameraSpeed = EditModeCameraSpeed; // Current dynamic speed
@@ -179,6 +178,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	// Build effects progress window
 	private BuildEffectsProgressWindow _buildEffectsProgressWindow;
 	private System.Threading.CancellationTokenSource _buildCancellationToken;
+
+	// Engine effects check
+	private bool _hasCheckedEngineEffects = false;
+	private bool _showEngineEffectsPrompt = false;
+	private bool _engineEffectsCheckComplete = false;
 
 	#region Event Handlers
 
@@ -269,7 +273,10 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		// find all themes
 		_themes = typeof(VoltageEditorThemes).GetMethods(System.Reflection.BindingFlags.Static |
-                                        System.Reflection.BindingFlags.Public);
+                                    System.Reflection.BindingFlags.Public);
+    
+        ApplyThemeByName(_lastSelectedTheme.Value);
+
 		SceneGraphWindow = new SceneGraphWindow();
 		_cursorSelectionManager = new GizmoSelectionManager(this);
 
@@ -286,6 +293,29 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		Core.OnSwitchEditMode += OnEditModeSwitched;
 
 		MainEntityInspector = new MainEntityInspector(this, null);
+	}
+
+	private void ApplyThemeByName(string themeName)
+	{
+		if (string.IsNullOrWhiteSpace(themeName))
+		{
+			VoltageEditorThemes.DarkTheme1(); // Default fallback
+			return;
+		}
+
+		var themeMethod = typeof(VoltageEditorThemes).GetMethod(themeName,
+			System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
+
+		if (themeMethod != null)
+		{
+			themeMethod.Invoke(null, null);
+			Debug.Log($"Applied theme: {themeName}");
+		}
+		else
+		{
+			Debug.Warn($"Theme '{themeName}' not found, applying default");
+			VoltageEditorThemes.DarkTheme1();
+		}
 	}
 
 	/// <summary>
@@ -379,6 +409,17 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			ImGui.End();
 		}
 
+		if (!_hasCheckedEngineEffects && !_engineEffectsCheckComplete)
+		{
+			CheckEngineEffectsExist();
+			_hasCheckedEngineEffects = true;
+		}
+
+		if (_showEngineEffectsPrompt)
+		{
+			DrawEngineEffectsPrompt();
+		}
+
 		UpdateCamera();
 		NotificationSystem.Draw();
 		GlobalKeyCommands();
@@ -402,6 +443,125 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				_animationEventInspector = null;
 			}
 		}
+	}
+
+	/// <summary>
+	/// Checks if engine effects exist in Content/Voltage/Effects
+	/// </summary>
+	private void CheckEngineEffectsExist()
+	{
+		try
+		{
+			var projectDir = FindProjectDir();
+			var effectsDir = Path.Combine(projectDir, "Content", "Voltage", "Effects");
+
+			bool needsBuild = false;
+
+			if (!Directory.Exists(effectsDir))
+			{
+				Debug.Warn("Content/Voltage/Effects directory not found");
+				needsBuild = true;
+			}
+			else
+			{
+				var effectFiles = Directory.GetFiles(effectsDir, "*.mgfxo", SearchOption.AllDirectories);
+				if (effectFiles.Length == 0)
+				{
+					Debug.Warn("Content/Voltage/Effects directory is empty");
+					needsBuild = true;
+				}
+			}
+
+			if (needsBuild)
+			{
+				_showEngineEffectsPrompt = true;
+			}
+			else
+			{
+				_engineEffectsCheckComplete = true;
+			}
+		}
+		catch (Exception ex)
+		{
+			Debug.Error($"Error checking engine effects: {ex.Message}");
+			_engineEffectsCheckComplete = true;
+		}
+	}
+
+	/// <summary>
+	/// Draws the engine effects missing prompt
+	/// </summary>
+	private void DrawEngineEffectsPrompt()
+	{
+		ImGui.OpenPopup("Missing Engine Effects");
+
+		var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.4f);
+		ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
+		ImGui.SetNextWindowSize(new Num.Vector2(500, 0), ImGuiCond.Appearing);
+
+		bool open = true;
+		if (ImGui.BeginPopupModal("Missing Engine Effects", ref open, ImGuiWindowFlags.AlwaysAutoResize))
+		{
+			ImGui.PushTextWrapPos(480);
+			ImGui.TextWrapped("Warning: No compiled default engine effects were found in your 'Content/Effects' directory.");
+			ImGui.PopTextWrapPos();
+			
+			ImGui.Spacing();
+			ImGui.TextWrapped("Would you like to compile them now?");
+			
+			VoltageEditorUtils.MediumVerticalSpace();
+
+			var buttonWidth = 120f;
+			var spacing = 10f;
+			var totalButtonWidth = (buttonWidth * 2) + spacing;
+			var windowWidth = ImGui.GetWindowSize().X;
+			var centerStart = (windowWidth - totalButtonWidth) * 0.5f;
+			
+			ImGui.SetCursorPosX(centerStart);
+			
+			if (ImGui.Button("Yes", new Num.Vector2(buttonWidth, 0)))
+			{
+				BuildEngineEffects();
+				_showEngineEffectsPrompt = false;
+				_engineEffectsCheckComplete = true;
+				ImGui.CloseCurrentPopup();
+			}
+			
+			ImGui.SameLine();
+			
+			if (ImGui.Button("No", new Num.Vector2(buttonWidth, 0)))
+			{
+				_showEngineEffectsPrompt = false;
+				_engineEffectsCheckComplete = true;
+				ImGui.CloseCurrentPopup();
+			}
+
+			ImGui.EndPopup();
+		}
+		
+		// If popup was closed via X button
+		if (!open)
+		{
+			_showEngineEffectsPrompt = false;
+			_engineEffectsCheckComplete = true;
+		}
+	}
+
+	/// <summary>
+	/// Finds the Voltage.Editor project directory
+	/// </summary>
+	private static string FindProjectDir()
+	{
+		var dir = AppContext.BaseDirectory;
+		var di = new DirectoryInfo(dir);
+		while (di != null)
+		{
+			if (File.Exists(Path.Combine(di.FullName, "Voltage.Editor.csproj")))
+				return di.FullName;
+			di = di.Parent;
+		}
+
+		return AppContext.BaseDirectory;
 	}
 
 	private void CreateDockspace()
@@ -528,8 +688,15 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			if (_themes.Length > 0 && ImGui.BeginMenu("Themes"))
 			{
 				foreach (var theme in _themes)
-					if (ImGui.MenuItem(theme.Name))
+				{
+					bool isCurrentTheme = theme.Name.Equals(_lastSelectedTheme.Value, StringComparison.OrdinalIgnoreCase);
+					
+					if (ImGui.MenuItem(theme.Name, "", isCurrentTheme))
+					{
 						theme.Invoke(null, new object[] { });
+						_lastSelectedTheme.Value = theme.Name; 
+					}
+				}
 
 				ImGui.EndMenu();
 			}
@@ -980,8 +1147,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 			Voltage.Core.Scene.Camera.Position = Vector2.Lerp(Voltage.Core.Scene.Camera.Position, _cameraTargetPosition, _cameraLerp);
 		}
-
-		// Remove entity selection logic from here
 	}
 
 	private void ManageCameraZoom()

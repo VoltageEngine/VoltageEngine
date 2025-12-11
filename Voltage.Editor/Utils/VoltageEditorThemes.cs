@@ -21,6 +21,94 @@ namespace Voltage.Editor.Utils
 			ImGui.StyleColorsClassic();
 		}
 
+		public static void VoltageTheme()
+		{
+			var style = ImGui.GetStyle();
+			var colors = style.Colors;
+
+			style.WindowRounding = 4.0f;
+			style.FrameRounding = 2.0f;
+			style.ScrollbarRounding = 3.0f;
+			style.GrabRounding = 2.0f;
+			style.TabRounding = 2.0f;
+			style.FrameBorderSize = 1.0f;
+			style.WindowPadding = new Num.Vector2(8, 8);
+			style.FramePadding = new Num.Vector2(5, 4);
+			style.ItemSpacing = new Num.Vector2(8, 4);
+
+			var voltageOrangeBright = new Num.Vector4(1.00f, 0.82f, 0.32f, 1.00f);
+			var voltageOrangeBrighter = new Num.Vector4(1.00f, 0.87f, 0.40f, 1.00f);
+			var greyTitle = new Num.Vector4(0.25f, 0.25f, 0.25f, 1.00f);
+			var greyTitleDark = new Num.Vector4(0.20f, 0.20f, 0.20f, 1.00f);
+			var voltageYellow = new Num.Vector4(0.85f, 0.55f, 0.15f, 1.00f);
+			var voltageYellowHover = new Num.Vector4(0.90f, 0.60f, 0.18f, 1.00f);
+			var voltageGold = new Num.Vector4(0.90f, 0.80f, 0.30f, 1.00f);
+			var darkBg = new Num.Vector4(0.10f, 0.10f, 0.12f, 1.00f);
+			var darkElement = new Num.Vector4(0.15f, 0.15f, 0.17f, 1.00f);
+			var darkFrame = new Num.Vector4(0.18f, 0.18f, 0.20f, 1.00f);
+
+			colors[(int)ImGuiCol.Text] = new Num.Vector4(0.95f, 0.95f, 0.95f, 1.00f);
+			colors[(int)ImGuiCol.TextDisabled] = new Num.Vector4(0.50f, 0.50f, 0.50f, 1.00f);
+			colors[(int)ImGuiCol.WindowBg] = darkBg;
+			colors[(int)ImGuiCol.ChildBg] = new Num.Vector4(0.12f, 0.12f, 0.14f, 1.00f);
+			colors[(int)ImGuiCol.PopupBg] = new Num.Vector4(0.11f, 0.11f, 0.13f, 0.98f);
+			colors[(int)ImGuiCol.Border] = new Num.Vector4(0.40f, 0.40f, 0.45f, 0.50f);
+			colors[(int)ImGuiCol.BorderShadow] = new Num.Vector4(0.00f, 0.00f, 0.00f, 0.00f);
+
+			colors[(int)ImGuiCol.FrameBg] = darkFrame;
+			colors[(int)ImGuiCol.FrameBgHovered] = new Num.Vector4(0.25f, 0.25f, 0.27f, 1.00f);
+			colors[(int)ImGuiCol.FrameBgActive] = new Num.Vector4(0.30f, 0.30f, 0.32f, 1.00f);
+
+			colors[(int)ImGuiCol.TitleBg] = greyTitleDark;
+			colors[(int)ImGuiCol.TitleBgActive] = greyTitle;
+			colors[(int)ImGuiCol.TitleBgCollapsed] = new Num.Vector4(0.18f, 0.18f, 0.18f, 0.85f);
+
+			colors[(int)ImGuiCol.MenuBarBg] = darkElement;
+
+			colors[(int)ImGuiCol.ScrollbarBg] = new Num.Vector4(0.12f, 0.12f, 0.14f, 1.00f);
+			colors[(int)ImGuiCol.ScrollbarGrab] = new Num.Vector4(0.35f, 0.35f, 0.37f, 1.00f);
+			colors[(int)ImGuiCol.ScrollbarGrabHovered] = new Num.Vector4(0.45f, 0.45f, 0.47f, 1.00f);
+			colors[(int)ImGuiCol.ScrollbarGrabActive] = voltageOrangeBright;
+
+			colors[(int)ImGuiCol.CheckMark] = voltageOrangeBright;
+			colors[(int)ImGuiCol.SliderGrab] = voltageOrangeBright;
+			colors[(int)ImGuiCol.SliderGrabActive] = voltageOrangeBrighter;
+
+			colors[(int)ImGuiCol.Button] = new Num.Vector4(0.85f, 0.55f, 0.15f, 0.80f);
+			colors[(int)ImGuiCol.ButtonHovered] = voltageOrangeBright;
+			colors[(int)ImGuiCol.ButtonActive] = voltageOrangeBrighter;
+
+			colors[(int)ImGuiCol.Header] = new Num.Vector4(0.85f, 0.55f, 0.15f, 0.70f);
+			colors[(int)ImGuiCol.HeaderHovered] = voltageOrangeBright;
+			colors[(int)ImGuiCol.HeaderActive] = voltageOrangeBrighter;
+
+			colors[(int)ImGuiCol.Separator] = new Num.Vector4(0.50f, 0.50f, 0.53f, 0.70f);
+			colors[(int)ImGuiCol.SeparatorHovered] = voltageOrangeBright;
+			colors[(int)ImGuiCol.SeparatorActive] = voltageOrangeBrighter;
+
+			colors[(int)ImGuiCol.ResizeGrip] = new Num.Vector4(0.85f, 0.55f, 0.15f, 0.50f);
+			colors[(int)ImGuiCol.ResizeGripHovered] = voltageOrangeBright;
+			colors[(int)ImGuiCol.ResizeGripActive] = voltageOrangeBrighter;
+
+			colors[(int)ImGuiCol.Tab] = new Num.Vector4(0.65f, 0.42f, 0.12f, 0.86f);
+			colors[(int)ImGuiCol.TabHovered] = voltageOrangeBright;
+			colors[(int)ImGuiCol.TabActive] = new Num.Vector4(0.85f, 0.55f, 0.15f, 1.00f);
+			colors[(int)ImGuiCol.TabUnfocused] = new Num.Vector4(0.40f, 0.25f, 0.07f, 0.97f);
+			colors[(int)ImGuiCol.TabUnfocusedActive] = new Num.Vector4(0.65f, 0.42f, 0.12f, 1.00f);
+
+			colors[(int)ImGuiCol.PlotLines] = voltageOrangeBrighter;
+			colors[(int)ImGuiCol.PlotLinesHovered] = voltageOrangeBright;
+			colors[(int)ImGuiCol.PlotHistogram] = voltageYellow;
+			colors[(int)ImGuiCol.PlotHistogramHovered] = voltageOrangeBright;
+
+			colors[(int)ImGuiCol.DragDropTarget] = voltageOrangeBright;
+			colors[(int)ImGuiCol.NavHighlight] = voltageOrangeBright;
+			colors[(int)ImGuiCol.NavWindowingHighlight] = new Num.Vector4(1.00f, 1.00f, 1.00f, 0.70f);
+			colors[(int)ImGuiCol.NavWindowingDimBg] = new Num.Vector4(0.80f, 0.80f, 0.80f, 0.20f);
+
+			colors[(int)ImGuiCol.TextSelectedBg] = new Num.Vector4(1.00f, 0.82f, 0.32f, 0.35f);
+			colors[(int)ImGuiCol.ModalWindowDimBg] = new Num.Vector4(0.00f, 0.00f, 0.00f, 0.60f);
+		}
 		public static void DarkHighContrastTheme()
 		{
 			var style = ImGui.GetStyle();
@@ -366,8 +454,12 @@ namespace Voltage.Editor.Utils
 			style.Colors[(int) ImGuiCol.PlotLinesHovered] = new Num.Vector4(0.90f, 0.70f, 0.00f, 1.00f);
 			style.Colors[(int) ImGuiCol.PlotHistogram] = new Num.Vector4(0.90f, 0.70f, 0.00f, 1.00f);
 			style.Colors[(int) ImGuiCol.PlotHistogramHovered] = new Num.Vector4(1.00f, 0.60f, 0.00f, 1.00f);
-			style.Colors[(int) ImGuiCol.TextSelectedBg] = new Num.Vector4(0.00f, 0.00f, 1.00f, 0.35f);
-			style.Colors[(int) ImGuiCol.ModalWindowDimBg] = new Num.Vector4(0.20f, 0.20f, 0.20f, 0.35f);
+			style.Colors[(int) ImGuiCol.TextSelectedBg] = new Num.Vector4(1.000f, 1.000f, 1.000f, 0.156f);
+			style.Colors[(int) ImGuiCol.DragDropTarget] = new Num.Vector4(1.000f, 0.391f, 0.000f, 1.000f);
+			style.Colors[(int) ImGuiCol.NavHighlight] = new Num.Vector4(1.000f, 0.391f, 0.000f, 1.000f);
+			style.Colors[(int) ImGuiCol.NavWindowingHighlight] = new Num.Vector4(1.000f, 0.391f, 0.000f, 1.000f);
+			style.Colors[(int) ImGuiCol.NavWindowingDimBg] = new Num.Vector4(0.000f, 0.000f, 0.000f, 0.586f);
+			style.Colors[(int) ImGuiCol.ModalWindowDimBg] = new Num.Vector4(0.000f, 0.000f, 0.000f, 0.586f);
 		}
 	}
 }

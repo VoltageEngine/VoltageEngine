@@ -146,5 +146,9 @@
 	  </None>
 	</ItemGroup>
 
+	<ItemGroup>
+	  <Folder Include="Content\Voltage\User\" />
+	</ItemGroup>
+
 	<Import Sdk="Microsoft.NET.Sdk" Project="Sdk.targets" />
 </Project>

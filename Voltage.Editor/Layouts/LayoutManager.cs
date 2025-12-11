@@ -23,9 +23,8 @@ namespace Voltage.Editor.Layouts
         {
             _defaultLayoutPath = defaultLayoutPath;
             
-            // Use Content/Layouts directory in the Voltage.Editor project
             var projectDir = FindProjectDir();
-            _layoutsDirectory = Path.Combine(projectDir, "Content", "Layouts");
+            _layoutsDirectory = Path.Combine(projectDir, "Content", "Voltage", "Layouts");
             _defaultContentLayoutPath = Path.Combine(projectDir, "DefaultContent", "Layouts", "DefaultLayout.ini");
             
             Directory.CreateDirectory(_layoutsDirectory);
@@ -44,7 +43,7 @@ namespace Voltage.Editor.Layouts
         public string CurrentLayoutName => _currentLayoutName;
 
         /// <summary>
-        /// Creates a "Custom" layout if no user-defined layouts exist in Content/Layouts
+        /// Creates a "Custom" layout if no user-defined layouts exist in Content/Voltage/Layouts
         /// </summary>
         private void CreateCustomLayoutIfNeeded()
         {
@@ -139,12 +138,9 @@ namespace Voltage.Editor.Layouts
         /// </summary>
         public void RefreshLayoutList()
         {
-            _availableLayouts.Clear();
-            
-            // Always include "Default" as the first option
+            _availableLayouts.Clear();	
             _availableLayouts.Add("Default");
             
-            // Add all .ini files from the Layouts directory
             if (Directory.Exists(_layoutsDirectory))
             {
                 var layoutFiles = Directory.GetFiles(_layoutsDirectory, "*.ini")
@@ -183,7 +179,6 @@ namespace Voltage.Editor.Layouts
             {
                 string targetPath = Path.Combine(_layoutsDirectory, $"{layoutName}.ini");
 
-                // Force ImGui to save current state to its configured ini file
                 ImGui.SaveIniSettingsToDisk(_defaultLayoutPath);
                 
                 // Read the content and write to target (not File.Copy to avoid handle issues)
