@@ -48,7 +48,7 @@ public static class EffectBuilder
 
             string projectDir = projectDirs[0]; // Take first non-Voltage project
             string shaderSrcDir = Path.Combine(projectDir, "ContentSource");
-            string shaderOutDir = Path.Combine(projectDir, "Content", "Effects");
+            string shaderOutDir = Path.Combine(projectDir, "Content", "Voltage");
 
             return CompileEffects(shaderSrcDir, shaderOutDir, $"{projectName} Project");
         }
@@ -81,7 +81,7 @@ public static class EffectBuilder
 
             string engineDir = Path.Combine(solutionDir, "Voltage.Editor");
             string shaderSrcDir = Path.Combine(engineDir, "DefaultContent");
-            string shaderOutDir = Path.Combine(engineDir, "Content", "EngineEffects");
+            string shaderOutDir = Path.Combine(engineDir, "Content", "Voltage");
 
             if (!Directory.Exists(engineDir))
             {
@@ -177,13 +177,21 @@ public static class EffectBuilder
 
         foreach (var shaderFile in shaderFiles)
         {
+            // Get relative path from source directory to preserve subdirectory structure
+            string relativePath = Path.GetRelativePath(shaderSrcDir, shaderFile);
+            string relativeDir = Path.GetDirectoryName(relativePath) ?? string.Empty;
             string fileName = Path.GetFileNameWithoutExtension(shaderFile);
-            string outputFile = Path.Combine(shaderOutDir, fileName + ".mgfxo");
+            
+            // Create subdirectory in output if needed
+            string outputSubDir = Path.Combine(shaderOutDir, relativeDir);
+            Directory.CreateDirectory(outputSubDir);
+            
+            string outputFile = Path.Combine(outputSubDir, fileName + ".mgfxo");
 
-            Debug.Log($"Compiling: {Path.GetFileName(shaderFile)} -> {Path.GetFileName(outputFile)}");
+            Debug.Log($"Compiling: {relativePath} -> {Path.GetRelativePath(shaderOutDir, outputFile)}");
             
             // Update progress - currently compiling this file
-            CurrentProgress.UpdateProgress(fileName);
+            CurrentProgress.UpdateProgress(relativePath);
 
             try
             {
@@ -201,8 +209,8 @@ public static class EffectBuilder
                 {
                     if (process == null)
                     {
-                        Debug.Error($"Failed to start mgfxc for {fileName}");
-                        CurrentProgress.IncrementFailure(fileName);
+                        Debug.Error($"Failed to start mgfxc for {relativePath}");
+                        CurrentProgress.IncrementFailure(relativePath);
                         continue;
                     }
 
@@ -212,28 +220,27 @@ public static class EffectBuilder
 
                     if (process.ExitCode == 0)
                     {
-                        Debug.Log($"Successfully compiled: {fileName}");
-                        CurrentProgress.IncrementSuccess(fileName);
+                        Debug.Log($"Successfully compiled: {relativePath}");
+                        CurrentProgress.IncrementSuccess(relativePath);
                     }
                     else
                     {
-                        Debug.Error($"Failed to compile {fileName}:");
+                        Debug.Error($"Failed to compile {relativePath}:");
                         if (!string.IsNullOrEmpty(output))
                             Debug.Error($"Output: {output}");
                         if (!string.IsNullOrEmpty(error))
                             Debug.Error($"Error: {error}");
-                        CurrentProgress.IncrementFailure(fileName);
+                        CurrentProgress.IncrementFailure(relativePath);
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.Error($"Exception while compiling {fileName}: {ex.Message}");
-                CurrentProgress.IncrementFailure(fileName);
+                Debug.Error($"Exception while compiling {relativePath}: {ex.Message}");
+                CurrentProgress.IncrementFailure(relativePath);
             }
         }
 
-        // Mark as complete
         CurrentProgress.Complete();
 
         string resultMessage = $"{contextName}: Compiled {CurrentProgress.SuccessCount}/{shaderFiles.Length} effects";

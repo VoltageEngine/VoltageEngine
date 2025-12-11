@@ -53,7 +53,6 @@ public class BuildEffectsProgressWindow
 
         var progress = EffectBuilder.CurrentProgress;
         
-        // Auto-show when building starts
         if (progress != null && !_wasBuilding)
         {
             Show();
@@ -69,14 +68,12 @@ public class BuildEffectsProgressWindow
             return;
         }
 
-        // Open modal popup (only once per build)
         if (!_modalOpened)
         {
             ImGui.OpenPopup("Building Effects");
             _modalOpened = true;
         }
 
-        // Center the popup
         var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.5f);
         ImGui.SetNextWindowPos(center, ImGuiCond.Always, new Num.Vector2(0.5f, 0.5f));
         ImGui.SetNextWindowSize(new Num.Vector2(600, 0), ImGuiCond.Always);

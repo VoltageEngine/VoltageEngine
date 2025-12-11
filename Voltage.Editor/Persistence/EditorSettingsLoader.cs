@@ -40,7 +40,7 @@ namespace Voltage.Editor.Persistence
 		{
 			try
 			{
-				var json = Json.ToJson(_settings);
+				var json = Json.ToJson(_settings, prettyPrint: true);
 				File.WriteAllText(SettingsFilePath, json);
 			}
 			catch
@@ -50,7 +50,7 @@ namespace Voltage.Editor.Persistence
 		}
 
 		/// <summary>
-		/// Save a setting value (e.g. ImGuiSettingsSaver.SaveSetting(_groupLogs, "GroupLogs"))
+		/// Save a setting value (e.g. SaveSetting(_groupLogs, "GroupLogs"))
 		/// </summary>
 		public static void SaveSetting<T>(string key, T value)
 		{
@@ -159,11 +159,27 @@ namespace Voltage.Editor.Persistence
 
 		private static string GetSettingsFilePath()
 		{
-			string appName = "JoltEngine";
-			string baseDir = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-			string settingsDir = Path.Combine(baseDir, appName);
+			var projectDir = FindProjectDir();
+			string settingsDir = Path.Combine(projectDir, "Content", "Voltage", "User");
 			Directory.CreateDirectory(settingsDir);
-			return Path.Combine(settingsDir, "ImGuiEditorSettings.json");
+			return Path.Combine(settingsDir, "Settings.json");
+		}
+
+		/// <summary>
+		/// Finds the Voltage.Editor project directory
+		/// </summary>
+		private static string FindProjectDir()
+		{
+			var dir = AppContext.BaseDirectory;
+			var di = new DirectoryInfo(dir);
+			while (di != null)
+			{
+				if (File.Exists(Path.Combine(di.FullName, "Voltage.Editor.csproj")))
+					return di.FullName;
+				di = di.Parent;
+			}
+
+			return AppContext.BaseDirectory;
 		}
 	}
 }
