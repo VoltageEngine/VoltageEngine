@@ -3,7 +3,6 @@ using Microsoft.Xna.Framework;
 using Voltage;
 using Voltage.PhysicsShapes;
 using System.Collections.Generic;
-using Voltage.Editor.Inspectors.UndoActions;
 using Voltage.Editor.UndoActions;
 
 namespace Voltage.Editor.Gizmos
