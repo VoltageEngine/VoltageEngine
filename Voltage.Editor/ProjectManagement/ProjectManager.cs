@@ -76,21 +76,18 @@ namespace Voltage.Editor.ProjectManagement
 		/// Invoked when a project is loaded.
 		/// </summary>
 		public event Action<IGameProject> OnProjectLoaded;
-		
-		/// <summary>
-		/// Invoked when a project is unloaded.
-		/// </summary>
-		public event Action<IGameProject> OnProjectUnloaded;
-		
 		/// <summary>
 		/// Invoked when a project is changed (old project unloaded, new one loaded).
 		/// </summary>
 		public event Action<IGameProject, IGameProject> OnProjectChanged;
-		
+
+		public event Action OnProjectUnloaded;
+
 		#endregion
-		
+	
+
 		#region Initialization
-		
+
 		public ProjectManager()
 		{
 			_instance = this;
@@ -242,7 +239,7 @@ namespace Voltage.Editor.ProjectManagement
 			CurrentProject = null;
 			
 			// Invoke event
-			OnProjectUnloaded?.Invoke(project);
+			OnProjectUnloaded?.Invoke();
 		}
 		
 		/// <summary>

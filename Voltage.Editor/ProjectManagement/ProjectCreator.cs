@@ -425,11 +425,26 @@ namespace Voltage.Editor.ProjectManagement
 					Physics = new PhysicsSettings(),
 					Rendering = new RenderingSettings(),
 					Entities = new EntitySettings(),
-					ContentDirectory = ContentsFolder
+					ContentDirectory = "Content"
 				};
 				
+				// Create Version
 				var version = new Version(_majorVersion, _minorVersion, _buildVersion);
 				
+				// Generate project structure (solution, csproj, folders, etc.)
+				bool structureCreated = ProjectStructureGenerator.CreateProjectStructure(
+					_projectName,
+					fullProjectPath,
+					version
+				);
+				
+				if (!structureCreated)
+				{
+					NotificationSystem.ShowTimedNotification("Failed to create project structure!");
+					return;
+				}
+				
+				// Save project metadata
 				var projectMetadata = new ProjectMetadata
 				{
 					ProjectName = _projectName,
@@ -459,17 +474,18 @@ namespace Voltage.Editor.ProjectManagement
 				File.WriteAllText(settingsPath, settingsJson);
 				
 				Debug.Log($"Successfully created project '{_projectName}' at: {fullProjectPath}");
+				NotificationSystem.ShowTimedNotification($"Project '{_projectName}' created successfully!");
 				
-				// Automatically load the newly created project
-				bool loadSuccess = ProjectManager.Instance.LoadProject(metadataPath);
-				
-				if (loadSuccess)
+				// Optionally open the solution in Visual Studio
+				var solutionPath = Path.Combine(fullProjectPath, $"{_projectName}.sln");
+				if (File.Exists(solutionPath))
 				{
-					NotificationSystem.ShowTimedNotification($"Project '{_projectName}' created and loaded successfully!");
-				}
-				else
-				{
-					NotificationSystem.ShowTimedNotification($"Project '{_projectName}' created but failed to load.");
+					Debug.Log($"Opening solution: {solutionPath}");
+					System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+					{
+						FileName = solutionPath,
+						UseShellExecute = true
+					});
 				}
 				
 				ImGui.CloseCurrentPopup();

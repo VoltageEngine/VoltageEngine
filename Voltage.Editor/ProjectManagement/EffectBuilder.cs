@@ -6,65 +6,66 @@ using Voltage.Editor.Utils;
 
 namespace Voltage.Editor.ProjectManagement;
 
-/// <summary>
-/// Handles compilation of shader effect files (.fx) to compiled effect files (.mgfxo)
-/// </summary>
 public static class EffectBuilder
 {
     public static EffectBuildProgress CurrentProgress { get; private set; }
     
-    /// <summary>
-    /// Compiles effects for the current game project
-    /// </summary>
-    /// <param name="projectName">Name of the current project</param>
-    /// <returns>True if compilation succeeded, false otherwise</returns>
-    public static bool BuildProjectEffects(string projectName)
-    {
-        try
-        {
-            // Determine project directory (go up from Editor to find game project)
-            string editorDir = AppDomain.CurrentDomain.BaseDirectory;
-            string solutionDir = Directory.GetParent(editorDir)?.Parent?.Parent?.Parent?.FullName;
-            
-            if (string.IsNullOrEmpty(solutionDir))
-            {
-                Debug.Error("Could not determine solution directory");
-                NotificationSystem.ShowTimedNotification("Failed to find project directory!");
-                return false;
-            }
+    // Events for progress tracking
+    public static event Action<int> OnBuildStarted;
+    public static event Action<string> OnFileCompiling;
+    public static event Action<string, bool> OnFileCompiled;
+    public static event Action<int, int> OnBuildCompleted;
 
-            // Look for game project directory (assuming it's named differently than Voltage.*)
-            var projectDirs = Directory.GetDirectories(solutionDir)
-                .Where(d => !Path.GetFileName(d).StartsWith("Voltage.") && 
-                           Directory.Exists(Path.Combine(d, "Content")))
-                .ToArray();
+	/// <summary>
+	/// Compiles effects for the current game project
+	/// </summary>
+	/// <param name="project">The game project to build effects for</param>
+	/// <returns>True if compilation succeeded, false otherwise</returns>
+	public static bool BuildProjectEffects(IGameProject project)
+	{
+		if (project == null)
+		{
+			Debug.Error("Project cannot be null");
+			NotificationSystem.ShowTimedNotification("No project provided for effect building!");
+			return false;
+		}
 
-            if (projectDirs.Length == 0)
-            {
-                Debug.Warn($"No game project found in solution directory: {solutionDir}");
-                NotificationSystem.ShowTimedNotification($"No game project found for '{projectName}'");
-                return false;
-            }
+		try
+		{
+			string effectsFolder = project.EffectsFolder;
 
-            string projectDir = projectDirs[0]; // Take first non-Voltage project
-            string shaderSrcDir = Path.Combine(projectDir, "ContentSource");
-            string shaderOutDir = Path.Combine(projectDir, "Content", "Voltage");
+			if (string.IsNullOrEmpty(effectsFolder) || !Directory.Exists(effectsFolder))
+			{
+				Debug.Warn($"Effects folder not found for project '{project.ProjectName}': {effectsFolder}");
+				NotificationSystem.ShowTimedNotification($"No effects folder found for '{project.ProjectName}'");
+				return false;
+			}
 
-            return CompileEffects(shaderSrcDir, shaderOutDir, $"{projectName} Project");
-        }
-        catch (Exception ex)
-        {
-            Debug.Error($"Error building project effects: {ex.Message}");
-            NotificationSystem.ShowTimedNotification("Failed to build project effects!");
-            return false;
-        }
-    }
+			// Source directory is the EffectsFolder from project
+			string shaderSrcDir = effectsFolder;
 
-    /// <summary>
-    /// Compiles effects for the Voltage Engine
-    /// </summary>
-    /// <returns>True if compilation succeeded, false otherwise</returns>
-    public static bool BuildEngineEffects()
+			// Output directory is Content/Effects within the project
+			string contentEffectsDir = Path.Combine(project.ContentsFolder, "Effects");
+
+			Debug.Log($"Building effects for project: {project.ProjectName}");
+			Debug.Log($"Source directory: {shaderSrcDir}");
+			Debug.Log($"Output directory: {contentEffectsDir}");
+
+			return CompileEffects(shaderSrcDir, contentEffectsDir, $"{project.ProjectName} Project");
+		}
+		catch (Exception ex)
+		{
+			Debug.Error($"Error building project effects: {ex.Message}");
+			NotificationSystem.ShowTimedNotification("Failed to build project effects!");
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// Compiles effects for the Voltage Engine
+	/// </summary>
+	/// <returns>True if compilation succeeded, false otherwise</returns>
+	public static bool BuildEngineEffects()
     {
         try
         {
@@ -100,49 +101,56 @@ public static class EffectBuilder
         }
     }
 
-    /// <summary>
-    /// Compiles all effects (both project and engine)
-    /// </summary>
-    /// <param name="projectName">Name of the current project</param>
-    /// <returns>True if all compilations succeeded, false otherwise</returns>
-    public static bool BuildAllEffects(string projectName)
-    {
-        Debug.Log("Building all effects...");
-        NotificationSystem.ShowTimedNotification("Building all effects...");
+	/// <summary>
+	/// Compiles all effects (both project and engine)
+	/// </summary>
+	/// <param name="project">The game project to build effects for</param>
+	/// <returns>True if all compilations succeeded, false otherwise</returns>
+	public static bool BuildAllEffects(IGameProject project)
+	{
+		if (project == null)
+		{
+			Debug.Error("Project cannot be null");
+			NotificationSystem.ShowTimedNotification("No project provided for effect building!");
+			return false;
+		}
 
-        bool engineSuccess = BuildEngineEffects();
-        bool projectSuccess = BuildProjectEffects(projectName);
+		Debug.Log("Building all effects...");
+		NotificationSystem.ShowTimedNotification("Building all effects...");
 
-        if (engineSuccess && projectSuccess)
-        {
-            NotificationSystem.ShowTimedNotification("Successfully built all effects!");
-            return true;
-        }
-        else if (engineSuccess)
-        {
-            NotificationSystem.ShowTimedNotification("Engine effects built. Project effects failed or not found.");
-            return false;
-        }
-        else if (projectSuccess)
-        {
-            NotificationSystem.ShowTimedNotification("Project effects built. Engine effects failed or not found.");
-            return false;
-        }
-        else
-        {
-            NotificationSystem.ShowTimedNotification("Failed to build effects!");
-            return false;
-        }
-    }
+		bool engineSuccess = BuildEngineEffects();
+		bool projectSuccess = BuildProjectEffects(project);
 
-    /// <summary>
-    /// Core compilation logic using mgfxc
-    /// </summary>
-    /// <param name="shaderSrcDir">Source directory containing .fx files</param>
-    /// <param name="shaderOutDir">Output directory for .mgfxo files</param>
-    /// <param name="contextName">Name for logging purposes</param>
-    /// <returns>True if compilation succeeded, false otherwise</returns>
-    private static bool CompileEffects(string shaderSrcDir, string shaderOutDir, string contextName)
+		if (engineSuccess && projectSuccess)
+		{
+			NotificationSystem.ShowTimedNotification("Successfully built all effects!");
+			return true;
+		}
+		else if (engineSuccess)
+		{
+			NotificationSystem.ShowTimedNotification("Engine effects built. Project effects failed or not found.");
+			return false;
+		}
+		else if (projectSuccess)
+		{
+			NotificationSystem.ShowTimedNotification("Project effects built. Engine effects failed or not found.");
+			return false;
+		}
+		else
+		{
+			NotificationSystem.ShowTimedNotification("Failed to build effects!");
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// Core compilation logic using mgfxc
+	/// </summary>
+	/// <param name="shaderSrcDir">Source directory containing .fx files</param>
+	/// <param name="shaderOutDir">Output directory for .mgfxo files</param>
+	/// <param name="contextName">Name for logging purposes</param>
+	/// <returns>True if compilation succeeded, false otherwise</returns>
+	private static bool CompileEffects(string shaderSrcDir, string shaderOutDir, string contextName)
     {
         if (!Directory.Exists(shaderSrcDir))
         {
@@ -175,6 +183,8 @@ public static class EffectBuilder
             IsComplete = false
         };
 
+        OnBuildStarted?.Invoke(shaderFiles.Length);
+
         foreach (var shaderFile in shaderFiles)
         {
             // Get relative path from source directory to preserve subdirectory structure
@@ -192,7 +202,10 @@ public static class EffectBuilder
             
             // Update progress - currently compiling this file
             CurrentProgress.UpdateProgress(relativePath);
+            
+            OnFileCompiling?.Invoke(Path.GetFileName(relativePath));
 
+            bool success = false;
             try
             {
                 var processInfo = new ProcessStartInfo
@@ -211,26 +224,28 @@ public static class EffectBuilder
                     {
                         Debug.Error($"Failed to start mgfxc for {relativePath}");
                         CurrentProgress.IncrementFailure(relativePath);
-                        continue;
-                    }
-
-                    string output = process.StandardOutput.ReadToEnd();
-                    string error = process.StandardError.ReadToEnd();
-                    process.WaitForExit();
-
-                    if (process.ExitCode == 0)
-                    {
-                        Debug.Log($"Successfully compiled: {relativePath}");
-                        CurrentProgress.IncrementSuccess(relativePath);
                     }
                     else
                     {
-                        Debug.Error($"Failed to compile {relativePath}:");
-                        if (!string.IsNullOrEmpty(output))
-                            Debug.Error($"Output: {output}");
-                        if (!string.IsNullOrEmpty(error))
-                            Debug.Error($"Error: {error}");
-                        CurrentProgress.IncrementFailure(relativePath);
+                        string output = process.StandardOutput.ReadToEnd();
+                        string error = process.StandardError.ReadToEnd();
+                        process.WaitForExit();
+
+                        if (process.ExitCode == 0)
+                        {
+                            Debug.Log($"Successfully compiled: {relativePath}");
+                            CurrentProgress.IncrementSuccess(relativePath);
+                            success = true;
+                        }
+                        else
+                        {
+                            Debug.Error($"Failed to compile {relativePath}:");
+                            if (!string.IsNullOrEmpty(output))
+                                Debug.Error($"Output: {output}");
+                            if (!string.IsNullOrEmpty(error))
+                                Debug.Error($"Error: {error}");
+                            CurrentProgress.IncrementFailure(relativePath);
+                        }
                     }
                 }
             }
@@ -239,6 +254,8 @@ public static class EffectBuilder
                 Debug.Error($"Exception while compiling {relativePath}: {ex.Message}");
                 CurrentProgress.IncrementFailure(relativePath);
             }
+            
+            OnFileCompiled?.Invoke(Path.GetFileName(relativePath), success);
         }
 
         CurrentProgress.Complete();
@@ -255,6 +272,9 @@ public static class EffectBuilder
         }
 
         NotificationSystem.ShowTimedNotification(resultMessage);
+        
+        OnBuildCompleted?.Invoke(CurrentProgress.SuccessCount, CurrentProgress.FailureCount);
+        
         return CurrentProgress.FailureCount == 0;
     }
 
