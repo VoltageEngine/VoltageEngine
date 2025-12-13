@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 
 
@@ -21,6 +22,13 @@ namespace Voltage.Persistence
 			new Dictionary<Type, Dictionary<string, PropertyInfo>>();
 
 		Dictionary<MemberInfo, bool> _memberInfoEncodeableCache = new Dictionary<MemberInfo, bool>();
+		
+		JsonSettings _settings;
+
+		internal void SetSettings(JsonSettings settings)
+		{
+			_settings = settings;
+		}
 
 		/// <summary>
 		/// checks the <paramref name="memberInfo"/> custom attributes to see if it should be encoded/decoded
@@ -181,12 +189,37 @@ namespace Voltage.Persistence
 		{
 			foreach (var kvPair in GetPropertyInfoCache(type))
 			{
-				if (kvPair.Value.CanRead && kvPair.Value.CanWrite)
+				var property = kvPair.Value;
+				
+				if (!property.CanRead)
+					continue;
+				
+				if (_settings != null && _settings.SkipReadOnlyProperties)
 				{
-					if (IsMemberInfoEncodeableOrDecodeable(kvPair.Value, true))
+					// Check if property has a public setter
+					bool hasPublicSetter = property.CanWrite && (property.SetMethod?.IsPublic ?? false);
+					
+					// If property is readonly (no public setter), check for [JsonInclude] attribute
+					if (!hasPublicSetter)
 					{
-						yield return kvPair.Value;
+						// Skip unless it has [JsonInclude] attribute
+						bool hasIncludeAttribute = property.GetCustomAttributes(true)
+							.Any(attr => JsonConstants.includeAttrType.IsInstanceOfType(attr));
+						
+						if (!hasIncludeAttribute)
+							continue;
 					}
+				}
+				else
+				{
+					// Old behavior: must be both readable and writable
+					if (!property.CanWrite)
+						continue;
+				}
+				
+				if (IsMemberInfoEncodeableOrDecodeable(property, true))
+				{
+					yield return property;
 				}
 			}
 		}
@@ -233,8 +266,6 @@ namespace Voltage.Persistence
 				{
 					continue;
 				}
-
-				// skip properties that didnt opt-in
 
 				map[prop.Name] = prop;
 			}

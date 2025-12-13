@@ -47,6 +47,12 @@ namespace Voltage.Persistence
 		public bool PrettyPrint;
 		public bool PreserveReferencesHandling;
 		public JsonTypeConverter[] TypeConverters;
+		
+		/// <summary>
+		/// When true, properties with no public setter will not be serialized to JSON.
+		/// Default is true. 
+		/// </summary>
+		public bool SkipReadOnlyProperties = true;
 
 
 		/// <summary>
