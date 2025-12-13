@@ -37,85 +37,89 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 		/// </summary>
 		/// <param name="target"></param>
 		/// <returns></returns>
-		public static List<AbstractTypeInspector> GetInspectableProperties(object target)
-		{
-			var inspectors = new List<AbstractTypeInspector>();
-			var targetType = target.GetType();
-			var isComponentSubclass = target is Component;
+		// Update the GetInspectableProperties method to check for public setters:
 
-			var fields = ReflectionUtils.GetFields(targetType);
+		public static List<AbstractTypeInspector> GetInspectableProperties(object obj)
+		{
+			var objType = obj.GetType();
+			var inspectors = new List<AbstractTypeInspector>();
+
+			var fields = ReflectionUtils.GetFields(objType);
 			foreach (var field in fields)
 			{
-				if (field.IsStatic || field.IsDefined(notInspectableAttrType))
+				// Check for [HideAttributeInInspector] first
+				if (field.IsDefined(notInspectableAttrType))
 					continue;
 
-				var hasInspectableAttribute = field.IsDefined(inspectableAttrType);
-
-				// private fields must have the InspectableAttribute
-				if (!field.IsPublic && !hasInspectableAttribute)
+				// Skip if not public and doesn't have [Inspectable] attribute
+				if (!field.IsPublic && !field.IsDefined(inspectableAttrType))
 					continue;
 
-				// similarly, readonly fields must have the InspectableAttribute
-				if (field.IsInitOnly && !hasInspectableAttribute)
+				// Skip const fields
+				if (field.IsLiteral)
 					continue;
 
-				// skip enabled and entity which is handled elsewhere if this is a Component
-				if (isComponentSubclass && (field.Name == "Enabled" || field.Name == "Entity"))
-					continue;
-
-				var inspector = GetInspectorForType(field.FieldType, target, field);
+				var inspector = TypeInspectorUtils.GetInspectorForType(field.FieldType, obj, field);
 				if (inspector != null)
 				{
-					inspector.SetTarget(target, field);
+					inspector.SetTarget(obj, field);
 					inspector.Initialize();
 					inspectors.Add(inspector);
 				}
 			}
 
-			var properties = ReflectionUtils.GetProperties(targetType);
+			var properties = ReflectionUtils.GetProperties(objType);
 			foreach (var prop in properties)
 			{
+				// Check for [HideAttributeInInspector] first
 				if (prop.IsDefined(notInspectableAttrType))
 					continue;
 
-				// Transforms & Component subclasses arent useful to inspect
-				if (prop.PropertyType == transformType || prop.PropertyType.IsSubclassOf(componentType))
+				// Skip properties that can't be read
+				if (!prop.CanRead)
 					continue;
 
-				if (!prop.CanRead || prop.GetGetMethod(true).IsStatic)
+				// Skip indexed properties (properties with parameters)
+				var indexParams = prop.GetIndexParameters();
+				if (indexParams != null && indexParams.Length > 0)
 					continue;
 
-				var hasInspectableAttribute = prop.IsDefined(inspectableAttrType);
+				// Check getter and setter accessibility
+				bool hasPublicGetter = prop.GetMethod?.IsPublic ?? false;
+				bool hasInspectableAttribute = prop.IsDefined(inspectableAttrType);
 
-				// private props must have the InspectableAttribute
-				if (!prop.GetMethod.IsPublic && !hasInspectableAttribute)
-					continue;
+				// Rules for showing properties:
+				// 1. If property has [Inspectable] attribute, always show it (regardless of accessibility)
+				// 2. If property has public getter, show it (will be read-only if setter is non-public)
+				// 3. If both getter and setter are non-public, hide it (unless it has [Inspectable])
+				
+				if (!hasInspectableAttribute)
+				{
+					// Hide if getter is not public (both getter and setter are non-public)
+					if (!hasPublicGetter)
+						continue;
+				}
 
-				// similarly, readonly props must have the InspectableAttribute
-				if (!prop.CanWrite && !hasInspectableAttribute)
-					continue;
-
-				// skip Component.enabled  and entity which is handled elsewhere
-				if (isComponentSubclass && (prop.Name == "Enabled" || prop.Name == "Entity"))
-					continue;
-
-				var inspector = GetInspectorForType(prop.PropertyType, target, prop);
+				var inspector = TypeInspectorUtils.GetInspectorForType(prop.PropertyType, obj, prop);
 				if (inspector != null)
 				{
-					inspector.SetTarget(target, prop);
+					inspector.SetTarget(obj, prop);
 					inspector.Initialize();
 					inspectors.Add(inspector);
 				}
 			}
 
-			var methods = GetAllMethodsWithAttribute<InspectorCallableAttribute>(targetType);
+			var methods = ReflectionUtils.GetMethods(objType);
 			foreach (var method in methods)
 			{
+				if (!method.IsDefined(typeof(InspectorCallableAttribute)))
+					continue;
+
 				if (!MethodInspector.AreParametersValid(method.GetParameters()))
 					continue;
 
 				var inspector = new MethodInspector();
-				inspector.SetTarget(target, method);
+				inspector.SetTarget(obj, method);
 				inspector.Initialize();
 				inspectors.Add(inspector);
 			}

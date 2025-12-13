@@ -29,6 +29,9 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
             var fields = ReflectionUtils.GetFields(_valueType);
             foreach (var field in fields)
             {
+                if (field.IsDefined(typeof(HideAttributeInInspector)))
+                    continue;
+
                 if (!field.IsPublic && !field.IsDefined(typeof(InspectableAttribute)))
                     continue;
 
@@ -44,12 +47,28 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
             var properties = ReflectionUtils.GetProperties(_valueType);
             foreach (var prop in properties)
             {
-                if (!prop.CanRead || !prop.CanWrite)
+                if (prop.IsDefined(typeof(HideAttributeInInspector)))
                     continue;
 
-                var isPropertyUndefinedOrPublic = !prop.CanWrite || (prop.CanWrite && prop.SetMethod.IsPublic);
-                if ((!prop.GetMethod.IsPublic || !isPropertyUndefinedOrPublic) &&
-                    !prop.IsDefined(typeof(InspectableAttribute)))
+                // Skip properties that can't be read
+                if (!prop.CanRead)
+                    continue;
+
+                // Skip indexed properties (properties with parameters)
+                var indexParams = prop.GetIndexParameters();
+                if (indexParams != null && indexParams.Length > 0)
+                    continue;
+
+                // Check getter and setter accessibility
+                bool hasPublicGetter = prop.GetMethod?.IsPublic ?? false;
+                bool hasInspectableAttribute = prop.IsDefined(typeof(InspectableAttribute));
+                
+                // Rules for showing properties in structs:
+                // 1. If property has [Inspectable] attribute, always show it
+                // 2. If property has public getter, show it (will be read-only if setter is non-public)
+                // 3. If getter is non-public, hide it (unless it has [Inspectable])
+                
+                if (!hasInspectableAttribute && !hasPublicGetter)
                     continue;
 
                 var inspector = TypeInspectorUtils.GetInspectorForType(prop.PropertyType, _target, prop);
@@ -92,10 +111,10 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
                     _structValueAtEditStart = GetValue();
                 }
 
-                // Draw all field inspectors - don't disable undo anymore
+                // Draw all field inspectors
                 foreach (var inspector in _inspectors)
                 {
-                    inspector.Draw(); // Remove undo disabling
+                    inspector.Draw();
                 }
 
                 // End edit session for drag/slider operations
@@ -106,7 +125,6 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
                     
                     if (!Equals(_structValueAtEditStart, structValueAtEditEnd))
                     {
-                        // Always create undo action for struct changes
                         EditorChangeTracker.PushUndo(
                             new PathUndoAction(
                                 GetRootTarget(),
@@ -128,7 +146,6 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
                     
                     if (!Equals(_structValueBeforeFrame, structValueAfterFrame))
                     {
-                        // Always create undo action for immediate changes
                         EditorChangeTracker.PushUndo(
                             new PathUndoAction(
                                 GetRootTarget(),
