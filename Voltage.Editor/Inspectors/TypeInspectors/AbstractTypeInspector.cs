@@ -149,14 +149,27 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 			_target = target;
 			_name = prop.Name;
 			_valueType = prop.PropertyType;
-			_isReadOnly = !prop.CanWrite;
+			
+			// Check getter and setter accessibility
+			bool hasPublicGetter = prop.CanRead && (prop.GetMethod?.IsPublic ?? false);
+			bool hasPublicSetter = prop.CanWrite && (prop.SetMethod?.IsPublic ?? false);
+			
+			// Property is read-only if:
+			// 1. It can't write, OR
+			// 2. The setter is not public (even if getter is public)
+			_isReadOnly = !prop.CanWrite || !hasPublicSetter;
 
 			if (target == null)
 				return;
 
-			_getter = obj => { return prop.GetMethod.Invoke(obj, null); };
+			// Always create getter if we can read
+			if (prop.CanRead)
+			{
+				_getter = obj => { return prop.GetMethod.Invoke(obj, null); };
+			}
 
-			if (!_isReadOnly)
+			// Only create setter if property is writable AND has public setter
+			if (prop.CanWrite && hasPublicSetter)
 			{
 				_setter = (val) => { prop.SetMethod.Invoke(target, new object[] { val }); };
 			}
@@ -219,15 +232,29 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 			_memberInfo = prop;
 			_name = prop.Name;
 			_valueType = prop.PropertyType;
-			_isReadOnly = !prop.CanWrite || parentInspector._isReadOnly;
+	
+			// Check getter and setter accessibility
+			bool hasPublicGetter = prop.CanRead && (prop.GetMethod?.IsPublic ?? false);
+			bool hasPublicSetter = prop.CanWrite && (prop.SetMethod?.IsPublic ?? false);
+	
+			// Property is read-only if:
+			// 1. It can't write, OR
+			// 2. The setter is not public, OR
+			// 3. Parent is read-only
+			_isReadOnly = !prop.CanWrite || !hasPublicSetter || parentInspector._isReadOnly;
 
-			_getter = obj =>
+			// Always create getter if we can read
+			if (prop.CanRead)
 			{
-				var structValue = parentInspector.GetValue();
-				return ReflectionUtils.GetPropertyGetter(prop).Invoke(structValue, null);
-			};
+				_getter = obj =>
+				{
+					var structValue = parentInspector.GetValue();
+					return ReflectionUtils.GetPropertyGetter(prop).Invoke(structValue, null);
+				};
+			}
 
-			if (!_isReadOnly)
+			// Only create setter if property is writable, has public setter, AND parent is not read-only
+			if (prop.CanWrite && hasPublicSetter && !parentInspector._isReadOnly)
 			{
 				_setter = (val) =>
 				{
