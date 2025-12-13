@@ -109,6 +109,7 @@
 	<ItemGroup>
 		<PackageReference Include="ImGui.NET" Version="1.89.5" />
 		<PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.4" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
 	</ItemGroup>
 
 	<ItemGroup>

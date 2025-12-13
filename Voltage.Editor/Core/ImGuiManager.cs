@@ -24,6 +24,7 @@ using Voltage.Utils;
 using Num = System.Numerics;
 using Voltage.Editor.Layouts;
 using Voltage.Editor.ProjectManagement;
+using Voltage.Editor.Scripting;
 
 
 namespace Voltage.Editor.ImGuiCore;
@@ -208,6 +209,12 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private bool _showProjectFilePicker = false;
 	private bool _reopenMenuAfterProjectPicker = false;
 
+	// Script management
+	private ScriptManager _scriptManager;
+
+	// Editor settings window
+	private EditorSettingsWindow _editorSettingsWindow;
+
 	#endregion
 
 	#region Event Handlers
@@ -317,11 +324,18 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		Core.OnResetScene += RequestResetScene;
 		Core.OnSwitchEditMode += OnEditModeSwitched;
-
+		 
 		MainEntityInspector = new MainEntityInspector(this, null);
 
+		// Initialize project manager first
 		_projectManager = ProjectManager.Instance;
+		_projectManager.OnProjectLoaded += OnProjectLoaded;
+		_projectManager.OnProjectUnloaded += OnProjectUnloaded;
 		_projectManager.LoadLastProject();
+
+		InitializeScriptManager();
+
+		_editorSettingsWindow = new EditorSettingsWindow();
 	}
 
 	private void ApplyThemeByName(string themeName)
@@ -472,6 +486,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				_animationEventInspector = null;
 			}
 		}
+
+		DrawScriptingWindow();
+		_editorSettingsWindow.Draw();
 	}
 
 	/// <summary>
@@ -714,6 +731,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (ImGui.GetIO().KeyCtrl && ImGui.IsKeyPressed(ImGuiKey.S, false))
 			InvokeSaveSceneChanges();
 
+		if (ImGui.IsKeyPressed(ImGuiKey.F6, false))
+			_scriptManager?.ReloadScene();
+
 		// This triggers the same exit/save prompt as the window close event
 #if OS_WINDOWS || LINUX
 		if (ImGui.GetIO().KeyAlt && ImGui.IsKeyPressed(ImGuiKey.F4, false) && !_pendingExit)
@@ -805,6 +825,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 							$"Project closed: {_projectManager.CurrentProject?.ProjectName}");
 					}
 				}
+				
+				ImGui.Separator();
+				
+				if (ImGui.MenuItem("Settings"))
+				{
+					_editorSettingsWindow.IsOpen = true;
+				}
 
 				ImGui.Separator();
 
@@ -871,7 +898,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 			if (ImGui.BeginMenu("Layout"))
 			{
-				// Show current layout at the top
 				ImGui.TextColored(new Num.Vector4(0.5f, 0.8f, 1.0f, 1.0f),
 					$"Current: {_layoutManager.CurrentLayoutName}");
 				ImGui.Separator();
@@ -1008,18 +1034,39 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				ImGui.EndMenu();
 			}
 
-			//TODO: Add Build-Effects, and Build-Game here after we have Game project system in place
+			DrawScriptingMenuItems();
+
 			if (ImGui.BeginMenu("Build"))
 			{
+				bool hasProject = _projectManager.HasActiveProject;
+
 				if (ImGui.BeginMenu("Build Effects"))
 				{
-					// TODO: Get current project name dynamically
-					string currentProjectName = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name ??
-					                            "Current Project";
-
-					if (ImGui.MenuItem($"Build \"{currentProjectName}\" Effects"))
+					if (!hasProject)
 					{
-						BuildProjectEffects(currentProjectName);
+						ImGui.BeginDisabled();
+					}
+
+					if (hasProject)
+					{
+						var projectName = _projectManager.CurrentProject.ProjectName;
+
+						if (ImGui.MenuItem($"Build \"{projectName}\" Effects"))
+						{
+							BuildProjectEffects();
+						}
+					}
+					else
+					{
+						if (ImGui.MenuItem("Build Project Effects"))
+						{
+							NotificationSystem.ShowTimedNotification("No active project loaded!");
+						}
+					}
+
+					if (!hasProject)
+					{
+						ImGui.EndDisabled();
 					}
 
 					if (ImGui.MenuItem("Build Engine Effects"))
@@ -1029,17 +1076,37 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 					ImGui.Separator();
 
+					if (!hasProject)
+					{
+						ImGui.BeginDisabled();
+					}
+
 					if (ImGui.MenuItem("Build ALL Effects"))
 					{
-						BuildAllEffects(currentProjectName);
+						BuildAllEffects();
+					}
+
+					if (!hasProject)
+					{
+						ImGui.EndDisabled();
 					}
 
 					ImGui.EndMenu();
 				}
 
+				if (!hasProject)
+				{
+					ImGui.BeginDisabled();
+				}
+
 				if (ImGui.MenuItem("Build Game"))
 				{
 					NotificationSystem.ShowTimedNotification("Build-Game = Not Implemented Yet!");
+				}
+
+				if (!hasProject)
+				{
+					ImGui.EndDisabled();
 				}
 
 				ImGui.EndMenu();
@@ -1064,6 +1131,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			}
 
 			DrawSaveLayoutPopup();
+
+			// Must be the last one, so that it's centered properly
 			DrawCurrentProjectIndicator();
 
 			ImGui.EndMainMenuBar();
@@ -1589,7 +1658,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		var newScene = (Scene)Activator.CreateInstance(_requestedResetSceneType ?? Voltage.Core.Scene.GetType());
 		Voltage.Core.Scene = newScene;
 		EditorChangeTracker.Clear();
-		ShowAnimationEventInspector = false;
 	}
 
 	private async Task SaveSceneAsyncAndThenAct()
@@ -1664,9 +1732,14 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	/// <summary>
 	/// Builds effects for the current project.
 	/// </summary>
-	/// <param name="projectName">The name of the current project.</param>
-	private void BuildProjectEffects(string projectName)
+	private void BuildProjectEffects()
 	{
+		if (!_projectManager.HasActiveProject)
+		{
+			NotificationSystem.ShowTimedNotification("No active project loaded!");
+			return;
+		}
+
 		if (!EffectBuilder.IsMgfxcAvailable())
 		{
 			NotificationSystem.ShowTimedNotification("mgfxc not found! Please install MonoGame SDK.");
@@ -1674,22 +1747,21 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			return;
 		}
 
-		Debug.Log($"Building effects for project: {projectName}");
+		var project = _projectManager.CurrentProject;
+		Debug.Log($"Building effects for project: {project.ProjectName}");
 
-		// Show the progress window
 		_buildEffectsProgressWindow.Show();
 
-		// Cancel any existing build
 		_buildCancellationToken?.Cancel();
 		_buildCancellationToken = new System.Threading.CancellationTokenSource();
 
-		// Run build in background
 		System.Threading.Tasks.Task.Run(() =>
 		{
-			bool success = EffectBuilder.BuildProjectEffects(projectName);
+			bool success = EffectBuilder.BuildProjectEffects(project);
+
 			if (success)
 			{
-				Debug.Log($"Successfully built {projectName} effects");
+				Debug.Log($"Successfully built {project.ProjectName} effects");
 			}
 		}, _buildCancellationToken.Token);
 	}
@@ -1708,14 +1780,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		Debug.Log("Building Voltage Engine effects");
 
-		// Show the progress window
 		_buildEffectsProgressWindow.Show();
 
-		// Cancel any existing build
 		_buildCancellationToken?.Cancel();
 		_buildCancellationToken = new System.Threading.CancellationTokenSource();
 
-		// Run build in background
 		System.Threading.Tasks.Task.Run(() =>
 		{
 			bool success = EffectBuilder.BuildEngineEffects();
@@ -1729,9 +1798,14 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	/// <summary>
 	/// Builds all effects (both project and engine).
 	/// </summary>
-	/// <param name="projectName">The name of the current project.</param>
-	private void BuildAllEffects(string projectName)
+	private void BuildAllEffects()
 	{
+		if (!_projectManager.HasActiveProject)
+		{
+			NotificationSystem.ShowTimedNotification("No active project loaded!");
+			return;
+		}
+
 		if (!EffectBuilder.IsMgfxcAvailable())
 		{
 			NotificationSystem.ShowTimedNotification("mgfxc not found! Please install MonoGame SDK.");
@@ -1739,19 +1813,18 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			return;
 		}
 
+		var project = _projectManager.CurrentProject;
 		Debug.Log("Building all effects (Engine + Project)");
 
-		// Show the progress window
 		_buildEffectsProgressWindow.Show();
 
-		// Cancel any existing build
 		_buildCancellationToken?.Cancel();
 		_buildCancellationToken = new System.Threading.CancellationTokenSource();
 
-		// Run build in background
 		System.Threading.Tasks.Task.Run(() =>
 		{
-			bool success = EffectBuilder.BuildAllEffects(projectName);
+			bool success = EffectBuilder.BuildAllEffects(project);
+
 			if (success)
 			{
 				Debug.Log("Successfully built all effects");
