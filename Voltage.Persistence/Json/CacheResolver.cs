@@ -179,12 +179,14 @@ namespace Voltage.Persistence
 		/// <param name="type">Type.</param>
 		internal IEnumerable<PropertyInfo> GetEncodablePropertiesForType(Type type)
 		{
-			// cleanse the properties based on our attributes
 			foreach (var kvPair in GetPropertyInfoCache(type))
 			{
-				if (IsMemberInfoEncodeableOrDecodeable(kvPair.Value, false))
+				if (kvPair.Value.CanRead && kvPair.Value.CanWrite)
 				{
-					yield return kvPair.Value;
+					if (IsMemberInfoEncodeableOrDecodeable(kvPair.Value, true))
+					{
+						yield return kvPair.Value;
+					}
 				}
 			}
 		}

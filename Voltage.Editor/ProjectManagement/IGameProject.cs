@@ -6,6 +6,7 @@ namespace Voltage.Editor.ProjectManagement
 {
 	public interface IGameProject
 	{
+		// Project info
 		string ProjectName { get; }
 		string ProjectPath { get; }
 		GameSettings Settings { get; }

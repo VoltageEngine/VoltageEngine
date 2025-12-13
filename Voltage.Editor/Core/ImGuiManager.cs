@@ -1,4 +1,4 @@
-using ImGuiNET;
+﻿using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -31,38 +31,49 @@ namespace Voltage.Editor.ImGuiCore;
 public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDisposable
 {
 	#region Persistent Settings
+
 	private PersistentBool _showStyleEditor = new("ImGui_ShowStyleEditor", false);
-	public bool ShowStyleEditor 
-	{ 
+
+	public bool ShowStyleEditor
+	{
 		get => _showStyleEditor.Value;
 		set => _showStyleEditor.Value = value;
 	}
+
 	private PersistentBool _showSceneGraphWindow = new("ImGui_ShowSceneGraphWindow", true);
-	public bool ShowSceneGraphWindow 
-	{ 
+
+	public bool ShowSceneGraphWindow
+	{
 		get => _showSceneGraphWindow.Value;
 		set => _showSceneGraphWindow.Value = value;
 	}
+
 	private PersistentBool _showCoreWindow = new("ImGui_ShowCoreWindow", true);
-	public bool ShowCoreWindow 
-	{ 
+
+	public bool ShowCoreWindow
+	{
 		get => _showCoreWindow.Value;
 		set => _showCoreWindow.Value = value;
 	}
+
 	private PersistentBool _showSeparateGameWindow = new("ImGui_ShowSeparateGameWindow", true);
-	public bool ShowSeparateGameWindow 
-	{ 
+
+	public bool ShowSeparateGameWindow
+	{
 		get => _showSeparateGameWindow.Value;
 		set => _showSeparateGameWindow.Value = value;
 	}
+
 	private PersistentBool _showAnimationEventInspector = new("ImGui_ShowAnimationEventInspector", true);
-	public bool ShowAnimationEventInspector 
-	{ 
+
+	public bool ShowAnimationEventInspector
+	{
 		get => _showAnimationEventInspector.Value;
 		set => _showAnimationEventInspector.Value = value;
 	}
 
 	private PersistentBool _showMenuBar = new("ImGui_ShowMenuBar", true);
+
 	public bool ShowMenuBar
 	{
 		get => _showMenuBar.Value;
@@ -70,6 +81,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	}
 
 	private PersistentBool _preserveGameWindowAspectRatio = new("ImGui_PreserveGameWindowAspectRatio", true);
+
 	public bool PreserveGameWindowAspectRatio
 	{
 		get => _preserveGameWindowAspectRatio.Value;
@@ -78,9 +90,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private PersistentString _lastSelectedLayout = new("ImGui_LastSelectedLayout", "Default");
 	private PersistentString _lastSelectedTheme = new("ImGui_LastSelectedTheme", "DarkTheme1");
+
 	#endregion
 
-	// Public values
+	#region Public values
+
 	public bool ShowDemoWindow = false;
 	public bool IsGameWindowFocused = false;
 	public Num.Vector2 GameWindowPosition;
@@ -101,18 +115,23 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	public SceneGraphWindow SceneGraphWindow { get; private set; }
 	public MainEntityInspector MainEntityInspector { get; private set; }
 	public bool IsInspectorTabLocked = false;
+
 	public AnimationEventInspector AnimationEventInspectorInstance
 	{
 		get => _animationEventInspector;
 		private set => _animationEventInspector = value;
 	}
 
+	#endregion
 
-	//Private values
+	#region Private values
+
 	private List<Type> _sceneSubclasses = new();
 	private System.Reflection.MethodInfo[] _themes;
 	private CoreWindow _coreWindow = new();
 	private DebugWindow _debugWindow = new();
+	private ProjectCreator _projectCreator = new();
+	private ProjectManager _projectManager;
 
 	private Num.Vector2 normalEntityInspectorStartPos;
 	private int entitynspectorInitialSpawnOffset = 0;
@@ -169,7 +188,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private ExitPromptType _pendingActionAfterSave;
 
 	//Layout management
-	private string _layoutFilePath; 
+	private string _layoutFilePath;
 	private LayoutManager _layoutManager;
 	private string _newLayoutName = "";
 	private bool _showSaveLayoutPopup = false;
@@ -183,6 +202,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private bool _hasCheckedEngineEffects = false;
 	private bool _showEngineEffectsPrompt = false;
 	private bool _engineEffectsCheckComplete = false;
+
+	// File picker for project loading
+	private FilePicker _projectFilePicker;
+	private bool _showProjectFilePicker = false;
+	private bool _reopenMenuAfterProjectPicker = false;
+
+	#endregion
 
 	#region Event Handlers
 
@@ -257,7 +283,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		// Enable docking and configure ini file path
 		var io = ImGui.GetIO();
 		io.ConfigFlags |= ImGuiConfigFlags.DockingEnable;
-		
+
 		// Set the ini file path BEFORE loading
 		unsafe
 		{
@@ -268,14 +294,14 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				ImGuiNative.igGetIO()->IniFilename = (byte*)pathPtr;
 			}
 		}
-		
+
 		LoadLastSelectedLayout();
 
 		// find all themes
 		_themes = typeof(VoltageEditorThemes).GetMethods(System.Reflection.BindingFlags.Static |
-                                    System.Reflection.BindingFlags.Public);
-    
-        ApplyThemeByName(_lastSelectedTheme.Value);
+		                                                 System.Reflection.BindingFlags.Public);
+
+		ApplyThemeByName(_lastSelectedTheme.Value);
 
 		SceneGraphWindow = new SceneGraphWindow();
 		_cursorSelectionManager = new GizmoSelectionManager(this);
@@ -293,6 +319,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		Core.OnSwitchEditMode += OnEditModeSwitched;
 
 		MainEntityInspector = new MainEntityInspector(this, null);
+
+		_projectManager = ProjectManager.Instance;
+		_projectManager.LoadLastProject();
 	}
 
 	private void ApplyThemeByName(string themeName)
@@ -324,12 +353,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private void LoadLastSelectedLayout()
 	{
 		string lastLayout = _lastSelectedLayout.Value;
-		
+
 		if (!string.IsNullOrWhiteSpace(lastLayout) && !lastLayout.Equals("Default", StringComparison.OrdinalIgnoreCase))
 		{
-			// Try to load the saved layout
 			string layoutPath = _layoutManager.GetLayoutPath(lastLayout);
-			
+
 			if (File.Exists(layoutPath))
 			{
 				_layoutManager.LoadLayout(lastLayout);
@@ -337,14 +365,12 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			}
 			else
 			{
-				// Layout file doesn't exist anymore, fall back to default
 				Debug.Warn($"Last used layout '{lastLayout}' not found, loading default");
 				LoadDefaultLayout();
 			}
 		}
 		else
 		{
-			// Load default layout
 			LoadDefaultLayout();
 		}
 	}
@@ -370,7 +396,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			_layoutManager.ApplyPendingReload();
 		}
-		
+
 		if (_isFirstFrame)
 		{
 			_isFirstFrame = false;
@@ -384,10 +410,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		CreateDockspace();
 		DrawEditorToolsBar();
+		DrawProjectFilePicker();
 		ShowSceneGraphWindow = SceneGraphWindow.Show(ShowSceneGraphWindow);
 		DrawInspectorWindows();
 		DrawEntityInspectors();
+
 		_buildEffectsProgressWindow.Draw();
+		_projectCreator.Draw();
 
 		for (var i = _drawCommands.Count - 1; i >= 0; i--)
 			_drawCommands[i]();
@@ -442,6 +471,84 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				UnregisterDrawCommand(_animationEventInspector.Draw);
 				_animationEventInspector = null;
 			}
+		}
+	}
+
+	/// <summary>
+	/// Opens the file picker for selecting a project.json file
+	/// </summary>
+	private void OpenProjectFilePicker()
+	{
+		string startingPath = !string.IsNullOrWhiteSpace(_projectManager.LastProjectPath)
+			? Path.GetDirectoryName(_projectManager.LastProjectPath)
+			: Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+
+		_projectFilePicker = FilePicker.GetFilePicker(this, startingPath, ".json");
+		_projectFilePicker.DontAllowTraverselBeyondRootFolder = false;
+		_showProjectFilePicker = true;
+	}
+
+	/// <summary>
+	/// Draws the project file picker popup
+	/// </summary>
+	private void DrawProjectFilePicker()
+	{
+		if (_showProjectFilePicker && _projectFilePicker != null)
+		{
+			ImGui.OpenPopup("load-project-popup");
+			_showProjectFilePicker = false;
+		}
+
+		var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.5f);
+		ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
+		ImGui.SetNextWindowSize(new Num.Vector2(600, 500), ImGuiCond.Appearing);
+
+		bool open = true;
+		if (ImGui.BeginPopupModal("load-project-popup", ref open, ImGuiWindowFlags.NoResize))
+		{
+			ImGui.TextColored(new Num.Vector4(0.2f, 0.8f, 1.0f, 1.0f), "Load Project");
+			ImGui.Separator();
+			ImGui.TextWrapped("Select a project.json file to load:");
+			VoltageEditorUtils.SmallVerticalSpace();
+
+			if (_projectFilePicker != null && _projectFilePicker.Draw())
+			{
+				var selectedFile = _projectFilePicker.SelectedFile;
+
+				// Validate that it's a project.json file
+				if (Path.GetFileName(selectedFile).Equals("project.json", StringComparison.OrdinalIgnoreCase))
+				{
+					bool success = _projectManager.LoadProject(selectedFile);
+
+					if (success)
+					{
+						NotificationSystem.ShowTimedNotification(
+							$"Project loaded: {_projectManager.CurrentProject.ProjectName}");
+					}
+					else
+					{
+						NotificationSystem.ShowTimedNotification(
+							"Failed to load project. Check the console for details.");
+					}
+				}
+				else
+				{
+					NotificationSystem.ShowTimedNotification("Please select a valid project.json file.");
+				}
+
+				FilePicker.RemoveFilePicker(_projectFilePicker);
+				_projectFilePicker = null;
+				ImGui.CloseCurrentPopup();
+			}
+
+			ImGui.EndPopup();
+		}
+
+		// Handle cancel/close via X button
+		if (!open && _projectFilePicker != null)
+		{
+			FilePicker.RemoveFilePicker(_projectFilePicker);
+			_projectFilePicker = null;
 		}
 	}
 
@@ -503,12 +610,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (ImGui.BeginPopupModal("Missing Engine Effects", ref open, ImGuiWindowFlags.AlwaysAutoResize))
 		{
 			ImGui.PushTextWrapPos(480);
-			ImGui.TextWrapped("Warning: No compiled default engine effects were found in your 'Content/Effects' directory.");
+			ImGui.TextWrapped(
+				"Warning: No compiled default engine effects were found in your 'Content/Effects' directory.");
 			ImGui.PopTextWrapPos();
-			
+
 			ImGui.Spacing();
 			ImGui.TextWrapped("Would you like to compile them now?");
-			
+
 			VoltageEditorUtils.MediumVerticalSpace();
 
 			var buttonWidth = 120f;
@@ -516,9 +624,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			var totalButtonWidth = (buttonWidth * 2) + spacing;
 			var windowWidth = ImGui.GetWindowSize().X;
 			var centerStart = (windowWidth - totalButtonWidth) * 0.5f;
-			
+
 			ImGui.SetCursorPosX(centerStart);
-			
+
 			if (ImGui.Button("Yes", new Num.Vector2(buttonWidth, 0)))
 			{
 				BuildEngineEffects();
@@ -526,9 +634,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				_engineEffectsCheckComplete = true;
 				ImGui.CloseCurrentPopup();
 			}
-			
+
 			ImGui.SameLine();
-			
+
 			if (ImGui.Button("No", new Num.Vector2(buttonWidth, 0)))
 			{
 				_showEngineEffectsPrompt = false;
@@ -538,7 +646,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 			ImGui.EndPopup();
 		}
-		
+
 		// If popup was closed via X button
 		if (!open)
 		{
@@ -569,29 +677,29 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		var viewport = ImGui.GetMainViewport();
 		var dockspaceSize = viewport.WorkSize;
 		dockspaceSize.Y -= _mainMenuBarHeight;
-		
+
 		ImGui.SetNextWindowPos(viewport.WorkPos);
 		ImGui.SetNextWindowSize(dockspaceSize);
 		ImGui.SetNextWindowViewport(viewport.ID);
-		
+
 		ImGuiWindowFlags windowFlags = ImGuiWindowFlags.NoDocking;
 		windowFlags |= ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoCollapse;
 		windowFlags |= ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove;
 		windowFlags |= ImGuiWindowFlags.NoBringToFrontOnFocus | ImGuiWindowFlags.NoNavFocus;
 		windowFlags |= ImGuiWindowFlags.NoBackground;
-		
+
 		ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 0.0f);
 		ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 0.0f);
 		ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Num.Vector2(0.0f, 0.0f));
 		ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Num.Vector2(0.0f, 0.0f));
-		
+
 		ImGui.Begin("DockSpaceWindow", windowFlags);
 		ImGui.PopStyleVar(4);
-		
+
 		var dockspaceId = ImGui.GetID("MainDockSpace");
-		ImGui.DockSpace(dockspaceId, new Num.Vector2(0.0f, 0.0f), 
+		ImGui.DockSpace(dockspaceId, new Num.Vector2(0.0f, 0.0f),
 			ImGuiDockNodeFlags.PassthruCentralNode | ImGuiDockNodeFlags.NoDockingInCentralNode);
-		
+
 		ImGui.End();
 	}
 
@@ -630,6 +738,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	}
 
 	#region Drawing Methods
+
 	/// <summary>
 	/// draws the main menu bar
 	/// </summary>
@@ -638,9 +747,67 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (ImGui.BeginMainMenuBar())
 		{
 			_mainMenuBarHeight = ImGui.GetWindowHeight();
-			
+
 			if (ImGui.BeginMenu("File"))
 			{
+				if (ImGui.MenuItem("New Project"))
+				{
+					_projectCreator.OpenCreateProjectPopup();
+				}
+
+				if (ImGui.MenuItem("Load Project..."))
+				{
+					OpenProjectFilePicker();
+				}
+
+				// Show recent projects submenu
+				var recentProjects = _projectManager.GetRecentProjects();
+				if (recentProjects.Count > 0)
+				{
+					if (ImGui.BeginMenu("Recent Projects"))
+					{
+						foreach (var projectPath in recentProjects)
+						{
+							var projectDir = Path.GetDirectoryName(projectPath);
+							var projectName = Path.GetFileName(projectDir);
+
+							if (ImGui.MenuItem(projectName))
+							{
+								_projectManager.LoadProject(projectPath);
+							}
+
+							if (ImGui.IsItemHovered())
+							{
+								ImGui.SetTooltip(projectPath);
+							}
+						}
+
+						ImGui.Separator();
+
+						if (ImGui.MenuItem("Clear Recent Projects"))
+						{
+							_projectManager.ClearRecentProjects();
+						}
+
+						ImGui.EndMenu();
+					}
+				}
+
+				// Show close project option if a project is loaded
+				if (_projectManager.HasActiveProject)
+				{
+					ImGui.Separator();
+
+					if (ImGui.MenuItem("Close Project"))
+					{
+						_projectManager.UnloadCurrentProject();
+						NotificationSystem.ShowTimedNotification(
+							$"Project closed: {_projectManager.CurrentProject?.ProjectName}");
+					}
+				}
+
+				ImGui.Separator();
+
 				if (ImGui.MenuItem("Save Scene", "Ctrl+S"))
 				{
 					InvokeSaveSceneChanges();
@@ -689,12 +856,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			{
 				foreach (var theme in _themes)
 				{
-					bool isCurrentTheme = theme.Name.Equals(_lastSelectedTheme.Value, StringComparison.OrdinalIgnoreCase);
-					
+					bool isCurrentTheme =
+						theme.Name.Equals(_lastSelectedTheme.Value, StringComparison.OrdinalIgnoreCase);
+
 					if (ImGui.MenuItem(theme.Name, "", isCurrentTheme))
 					{
 						theme.Invoke(null, new object[] { });
-						_lastSelectedTheme.Value = theme.Name; 
+						_lastSelectedTheme.Value = theme.Name;
 					}
 				}
 
@@ -704,44 +872,48 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			if (ImGui.BeginMenu("Layout"))
 			{
 				// Show current layout at the top
-				ImGui.TextColored(new Num.Vector4(0.5f, 0.8f, 1.0f, 1.0f), $"Current: {_layoutManager.CurrentLayoutName}");
+				ImGui.TextColored(new Num.Vector4(0.5f, 0.8f, 1.0f, 1.0f),
+					$"Current: {_layoutManager.CurrentLayoutName}");
 				ImGui.Separator();
-				
+
 				if (ImGui.MenuItem("Save Layout As..."))
 				{
 					_newLayoutName = "";
 					_showSaveLayoutPopup = true;
 				}
-				
+
 				ImGui.Separator();
-				
+
 				if (ImGui.BeginMenu("Load Layout"))
 				{
 					foreach (var layoutName in _layoutManager.GetLayoutNames())
 					{
 						// Highlight the currently active layout
-						bool isCurrentLayout = layoutName.Equals(_layoutManager.CurrentLayoutName, StringComparison.OrdinalIgnoreCase);
-						
+						bool isCurrentLayout = layoutName.Equals(_layoutManager.CurrentLayoutName,
+							StringComparison.OrdinalIgnoreCase);
+
 						if (ImGui.MenuItem(layoutName, "", isCurrentLayout))
 						{
 							_layoutManager.LoadLayout(layoutName);
-							_lastSelectedLayout.Value = layoutName; 
+							_lastSelectedLayout.Value = layoutName;
 							Debug.Log($"Loaded layout: {layoutName}");
-							
+
 							if (!layoutName.Equals("Default", StringComparison.OrdinalIgnoreCase))
 							{
-								NotificationSystem.ShowTimedNotification($"Layout '{layoutName}' loaded. Some windows may require restart for full effect.");
+								NotificationSystem.ShowTimedNotification(
+									$"Layout '{layoutName}' loaded. Some windows may require restart for full effect.");
 							}
 						}
 					}
+
 					ImGui.EndMenu();
 				}
-				
+
 				if (ImGui.BeginMenu("Delete Layout"))
 				{
 					var layoutNames = new List<string>(_layoutManager.GetLayoutNames());
 					string layoutToDelete = null;
-					
+
 					foreach (var layoutName in layoutNames)
 					{
 						if (layoutName != "Default" && ImGui.MenuItem(layoutName))
@@ -750,7 +922,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 							break;
 						}
 					}
-					
+
 					// Delete outside of the enumeration
 					if (layoutToDelete != null)
 					{
@@ -760,27 +932,28 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 							_lastSelectedLayout.Value = "Default";
 							_layoutManager.LoadLayout("Default");
 						}
-						
+
 						_layoutManager.DeleteLayout(layoutToDelete);
 						_layoutManager.RefreshLayoutList();
 					}
-					
+
 					ImGui.EndMenu();
 				}
-				
+
 				ImGui.Separator();
-				
+
 				// Show different text depending on current layout
-				string resetText = _layoutManager.CurrentLayoutName.Equals("Default", StringComparison.OrdinalIgnoreCase) 
-					? "Reset to Default" 
-					: "Switch to Default";
-				
+				string resetText =
+					_layoutManager.CurrentLayoutName.Equals("Default", StringComparison.OrdinalIgnoreCase)
+						? "Reset to Default"
+						: "Switch to Default";
+
 				if (ImGui.MenuItem(resetText))
 				{
 					_layoutManager.LoadLayout("Default");
 					_lastSelectedLayout.Value = "Default";
 				}
-				
+
 				ImGui.EndMenu();
 			}
 
@@ -794,7 +967,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				{
 					ImGui.OpenPopup("CoreWindowContextMenu");
 				}
-				
+
 				// Scene Graph Window 
 				var showSceneGraphWindow = ShowSceneGraphWindow;
 				ImGui.MenuItem("Scene Graph Window", null, ref showSceneGraphWindow);
@@ -804,7 +977,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				{
 					ImGui.OpenPopup("SceneGraphWindowContextMenu");
 				}
-				
+
 				// Separate Game Window
 				var showSeparateGameWindow = ShowSeparateGameWindow;
 				ImGui.MenuItem("Separate Game Window", null, ref showSeparateGameWindow);
@@ -814,7 +987,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				{
 					ImGui.OpenPopup("SeparateGameWindowContextMenu");
 				}
-				
+
 				// Animation Event Inspector 
 				var showAnimationEventInspector = ShowAnimationEventInspector;
 				ImGui.MenuItem("Animation Event Inspector", null, ref showAnimationEventInspector);
@@ -826,7 +999,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				}
 
 				ImGui.Separator();
-				
+
 				// Game Window Aspect Ratio toggle
 				var preserveAspectRatio = PreserveGameWindowAspectRatio;
 				ImGui.MenuItem("Preserve Game Window Aspect Ratio", null, ref preserveAspectRatio);
@@ -841,7 +1014,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				if (ImGui.BeginMenu("Build Effects"))
 				{
 					// TODO: Get current project name dynamically
-					string currentProjectName = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name ?? "Current Project";
+					string currentProjectName = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name ??
+					                            "Current Project";
 
 					if (ImGui.MenuItem($"Build \"{currentProjectName}\" Effects"))
 					{
@@ -867,6 +1041,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				{
 					NotificationSystem.ShowTimedNotification("Build-Game = Not Implemented Yet!");
 				}
+
 				ImGui.EndMenu();
 			}
 
@@ -889,6 +1064,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			}
 
 			DrawSaveLayoutPopup();
+			DrawCurrentProjectIndicator();
+
 			ImGui.EndMainMenuBar();
 		}
 	}
@@ -910,15 +1087,15 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			ImGui.Text("Save Layout");
 			ImGui.Separator();
-			
+
 			ImGui.Text("Enter layout name:");
 			ImGui.SetNextItemWidth(350);
 			ImGui.InputText("##layoutname", ref _newLayoutName, 50);
-			
+
 			bool layoutExists = _layoutManager.GetLayoutNames().Contains(_newLayoutName.Trim());
 			if (!string.IsNullOrWhiteSpace(_newLayoutName) && layoutExists)
 			{
-				ImGui.TextColored(new Num.Vector4(1.0f, 0.6f, 0.2f, 1.0f), 
+				ImGui.TextColored(new Num.Vector4(1.0f, 0.6f, 0.2f, 1.0f),
 					$"Warning: Layout '{_newLayoutName.Trim()}' already exists and will be overwritten!");
 			}
 
@@ -929,13 +1106,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			var totalButtonWidth = (buttonWidth * 2) + spacing;
 			var windowWidth = ImGui.GetWindowSize().X;
 			var centerStart = (windowWidth - totalButtonWidth) * 0.5f;
-			
+
 			ImGui.SetCursorPosX(centerStart);
-			
+
 			bool canSave = !string.IsNullOrWhiteSpace(_newLayoutName);
 			if (!canSave)
 				ImGui.BeginDisabled();
-			
+
 			if (ImGui.Button("Save", new Num.Vector2(buttonWidth, 0)))
 			{
 				if (canSave)
@@ -943,22 +1120,22 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 					string layoutName = _newLayoutName.Trim();
 					_layoutManager.SaveLayout(layoutName);
 					_layoutManager.RefreshLayoutList();
-					
+
 					// Update the last selected layout to the newly saved one
 					_lastSelectedLayout.Value = layoutName;
-					
+
 					Debug.Log($"Layout saved: {layoutName}");
-					
+
 					_newLayoutName = "";
 					ImGui.CloseCurrentPopup();
 				}
 			}
-			
+
 			if (!canSave)
 				ImGui.EndDisabled();
-			
+
 			ImGui.SameLine();
-			
+
 			if (ImGui.Button("Cancel", new Num.Vector2(buttonWidth, 0)))
 			{
 				_newLayoutName = "";
@@ -985,7 +1162,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			normalButtonColor = ImGui.GetStyle().Colors[(int)ImGuiCol.Button];
 
 		ImGui.PushStyleColor(ImGuiCol.Button, normalButtonColor);
-		bool normalHovered = ImGui.ImageButton("Normal", _imageLoader.NormalCursorIconID, new Num.Vector2(iconSize, iconSize));
+		bool normalHovered =
+			ImGui.ImageButton("Normal", _imageLoader.NormalCursorIconID, new Num.Vector2(iconSize, iconSize));
 		if (normalHovered)
 			_cursorSelectionManager.SelectionMode = CursorSelectionMode.Normal;
 		ImGui.PopStyleColor();
@@ -994,6 +1172,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			ImGui.SetTooltip("Default Cursor (Press Q or 1)");
 		}
+
 		ImGui.SameLine(0, spacing);
 
 		// Resize Button 
@@ -1004,7 +1183,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			resizeButtonColor = ImGui.GetStyle().Colors[(int)ImGuiCol.Button];
 
 		ImGui.PushStyleColor(ImGuiCol.Button, resizeButtonColor);
-	 bool resizeHovered = ImGui.ImageButton("Resize", _imageLoader.ResizeCursorIconID, new Num.Vector2(iconSize, iconSize));
+		bool resizeHovered =
+			ImGui.ImageButton("Resize", _imageLoader.ResizeCursorIconID, new Num.Vector2(iconSize, iconSize));
 		if (resizeHovered)
 			_cursorSelectionManager.SelectionMode = CursorSelectionMode.Resize;
 		ImGui.PopStyleColor();
@@ -1013,6 +1193,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			ImGui.SetTooltip("Resize Entities (Press E or 2)");
 		}
+
 		ImGui.SameLine(0, spacing);
 
 		// Rotate Button
@@ -1023,7 +1204,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			rotateButtonColor = ImGui.GetStyle().Colors[(int)ImGuiCol.Button];
 
 		ImGui.PushStyleColor(ImGuiCol.Button, rotateButtonColor);
-	 bool rotateHovered = ImGui.ImageButton("Rotate", _imageLoader.RotateCursorIconID, new Num.Vector2(iconSize, iconSize));
+		bool rotateHovered =
+			ImGui.ImageButton("Rotate", _imageLoader.RotateCursorIconID, new Num.Vector2(iconSize, iconSize));
 		if (rotateHovered)
 			_cursorSelectionManager.SelectionMode = CursorSelectionMode.Rotate;
 		ImGui.PopStyleColor();
@@ -1044,7 +1226,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		ImGui.PushStyleColor(ImGuiCol.Button, colliderResizeButtonColor);
 
-		bool colliderResizeHovered = ImGui.ImageButton("Collider Resize", _imageLoader.ColliderResizeCursorIconID, new Num.Vector2(iconSize, iconSize));
+		bool colliderResizeHovered = ImGui.ImageButton("Collider Resize", _imageLoader.ColliderResizeCursorIconID,
+			new Num.Vector2(iconSize, iconSize));
 		if (colliderResizeHovered)
 			_cursorSelectionManager.SelectionMode = CursorSelectionMode.ColliderResize;
 
@@ -1067,12 +1250,12 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			MainEntityInspector.Draw();
 		}
-		
+
 		if (ShowCoreWindow)
 		{
 			ShowCoreWindow = _coreWindow.Show(ShowCoreWindow);
 		}
-		
+
 		_debugWindow.Draw();
 	}
 
@@ -1084,6 +1267,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		for (var i = _entityInspectors.Count - 1; i >= 0; i--)
 			_entityInspectors[i].Draw();
 	}
+
 	#endregion
 
 
@@ -1145,7 +1329,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 					_cameraTargetPosition += new Vector2(0, CurrentCameraSpeed) * Time.DeltaTime;
 			}
 
-			Voltage.Core.Scene.Camera.Position = Vector2.Lerp(Voltage.Core.Scene.Camera.Position, _cameraTargetPosition, _cameraLerp);
+			Voltage.Core.Scene.Camera.Position =
+				Vector2.Lerp(Voltage.Core.Scene.Camera.Position, _cameraTargetPosition, _cameraLerp);
 		}
 	}
 
@@ -1318,7 +1503,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_entityInspectors.RemoveAt(_entityInspectors.IndexOf(entityInspector));
 
 		// Reset the previous spawn offset 
-		if (entitynspectorInitialSpawnOffset - entitynspectorSpawnOffsetIncremental >= 0) 
+		if (entitynspectorInitialSpawnOffset - entitynspectorSpawnOffsetIncremental >= 0)
 			entitynspectorInitialSpawnOffset -= entitynspectorSpawnOffsetIncremental;
 	}
 
@@ -1437,7 +1622,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	public void DrawSelectedEntityOutlines()
 	{
 		// Only update cache if selection changed
-		if (_lastSelectedEntities == null || !SceneGraphWindow.EntityPane.SelectedEntities.SequenceEqual(_lastSelectedEntities))
+		if (_lastSelectedEntities == null ||
+		    !SceneGraphWindow.EntityPane.SelectedEntities.SequenceEqual(_lastSelectedEntities))
 		{
 			_highlightedEntities.Clear();
 			foreach (var entity in SceneGraphWindow.EntityPane.SelectedEntities)
@@ -1574,4 +1760,71 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	}
 
 	#endregion
+
+	/// <summary>
+	/// Draws a visual indicator showing the currently loaded project in the menu bar
+	/// </summary>
+	private void DrawCurrentProjectIndicator()
+	{
+		string displayText;
+		Num.Vector4 iconColor;
+
+		if (_projectManager.HasActiveProject)
+		{
+			var project = _projectManager.CurrentProject;
+			displayText = $"[*] {project.ProjectName} v{project.Version}";
+			iconColor = new Num.Vector4(0.4f, 0.8f, 0.4f, 1.0f);
+		}
+		else
+		{
+			displayText = "[ ] No Project";
+			iconColor = new Num.Vector4(0.6f, 0.6f, 0.6f, 1.0f);
+		}
+
+		var textSize = ImGui.CalcTextSize(displayText);
+		var windowWidth = ImGui.GetWindowWidth();
+		var centerX = (windowWidth - textSize.X) * 0.5f;
+
+		ImGui.SetCursorPosX(centerX);
+
+		if (_projectManager.HasActiveProject)
+		{
+			var project = _projectManager.CurrentProject;
+
+			ImGui.PushStyleColor(ImGuiCol.Text, iconColor);
+			ImGui.Text("[*]");
+			ImGui.PopStyleColor();
+
+			if (ImGui.IsItemHovered())
+			{
+				ImGui.BeginTooltip();
+				ImGui.Text("Active Project");
+				ImGui.Separator();
+				ImGui.TextColored(new Num.Vector4(0.7f, 0.9f, 1.0f, 1.0f), project.ProjectName);
+				ImGui.Text($"Version: {project.Version}");
+				ImGui.Text($"Path: {project.ProjectPath}");
+				ImGui.EndTooltip();
+			}
+
+			ImGui.SameLine();
+			ImGui.TextColored(new Num.Vector4(0.9f, 0.9f, 1.0f, 1.0f), project.ProjectName);
+
+			ImGui.SameLine();
+			ImGui.TextDisabled($"v{project.Version}");
+		}
+		else
+		{
+			ImGui.PushStyleColor(ImGuiCol.Text, iconColor);
+			ImGui.Text("[ ]");
+			ImGui.PopStyleColor();
+
+			if (ImGui.IsItemHovered())
+			{
+				ImGui.SetTooltip("No project loaded");
+			}
+
+			ImGui.SameLine();
+			ImGui.TextDisabled("No Project");
+		}
+	}
 }

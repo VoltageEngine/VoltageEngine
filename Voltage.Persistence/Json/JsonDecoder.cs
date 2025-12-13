@@ -547,9 +547,9 @@ namespace Voltage.Persistence
 			}
 
 			var property = _cacheResolver.GetProperty(obj.GetType(), key);
-			if (property != null)
+			if (property != null && property.CanWrite)
 			{
-				if (property != null && property.CanWrite && property.IsDefined(JsonConstants.includeAttrType))
+				if (_cacheResolver.IsMemberInfoEncodeableOrDecodeable(property, true))
 				{
 					var value = DecodeValue(GetNextToken(), property.PropertyType);
 					if (obj.GetType().IsValueType)
