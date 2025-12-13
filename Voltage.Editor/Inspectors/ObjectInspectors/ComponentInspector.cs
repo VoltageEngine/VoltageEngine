@@ -10,6 +10,7 @@ using Voltage.Editor.Inspectors.TypeInspectors;
 using Voltage.Editor.UndoActions;
 using Voltage.Editor.Utils;
 using Voltage.Persistence;
+using Num = System.Numerics;
 
 namespace Voltage.Editor.Inspectors.ObjectInspectors
 {
@@ -22,6 +23,11 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 		Component _component;
 		string _name;
 		List<Action> _componentDelegateMethods = new List<Action>();
+		
+		// Separate lists for regular and read-only struct inspectors
+		private List<AbstractTypeInspector> _regularInspectors = new List<AbstractTypeInspector>();
+		private List<AbstractTypeInspector> _readOnlyStructInspectors = new List<AbstractTypeInspector>();
+		private bool _isReadOnlyStructsOpen = false;
 
 		public ComponentInspector(Component component)
 		{
@@ -55,6 +61,9 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 				_inspectors = TypeInspectorUtils.GetInspectableProperties(component);
 			}
 
+			// Separate read-only structs from regular inspectors
+			SeparateReadOnlyStructs();
+
 			var typeName = _component.GetType().IsGenericType
 				? $"{_component.GetType().BaseType.Name}<{_component.GetType().GetGenericArguments()[0].Name}>"
 				: _component.GetType().Name;
@@ -77,6 +86,56 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 			}
 		}
 
+		/// <summary>
+		/// Separates read-only struct inspectors from regular inspectors
+		/// </summary>
+		private void SeparateReadOnlyStructs()
+		{
+			_regularInspectors.Clear();
+			_readOnlyStructInspectors.Clear();
+
+			foreach (var inspector in _inspectors)
+			{
+				// Check if this is a StructInspector using GetType() instead of pattern matching
+				if (inspector.GetType() == typeof(TypeInspectors.StructInspector))
+				{
+					var structInspector = inspector as TypeInspectors.StructInspector;
+					
+					if (structInspector.MemberInfo != null)
+					{
+						bool isReadOnly = false;
+						
+						if (structInspector.MemberInfo is System.Reflection.FieldInfo fieldInfo)
+						{
+							isReadOnly = fieldInfo.IsInitOnly;
+						}
+						else if (structInspector.MemberInfo is System.Reflection.PropertyInfo propInfo)
+						{
+							bool hasPublicSetter = propInfo.CanWrite && (propInfo.SetMethod?.IsPublic ?? false);
+							isReadOnly = !hasPublicSetter;
+						}
+
+						if (isReadOnly)
+						{
+							_readOnlyStructInspectors.Add(inspector);
+						}
+						else
+						{
+							_regularInspectors.Add(inspector);
+						}
+					}
+					else
+					{
+						_regularInspectors.Add(inspector);
+					}
+				}
+				else
+				{
+					_regularInspectors.Add(inspector);
+				}
+			}
+		}
+
 		public override void Draw()
 		{
 			if(_imGuiManager == null)
@@ -88,10 +147,8 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 			// context menu has to be outside the isHeaderOpen block so it works open or closed
 			if (ImGui.BeginPopupContextItem())
 			{
-				//Copy - FIXED: Clone the component immediately when copying
 				if (ImGui.Selectable("Copy Component")) 
 				{
-					// Clone the component RIGHT NOW to capture its current state
 					try
 					{
 						var clonedComponent = _component.Clone();
@@ -100,7 +157,6 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 					}
 					catch (Exception ex)
 					{
-						// Fallback: use JSON serialization if Clone() fails
 						try
 						{
 							var jsonSettings = new JsonSettings
@@ -113,7 +169,6 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 							var sourceData = _component.Data;
 							if (sourceData != null)
 							{
-								// Create a new component instance
 								var componentType = _component.GetType();
 								var clonedComponent = (Component)Activator.CreateInstance(componentType);
 								clonedComponent.Name = _component.Name;
@@ -125,12 +180,12 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 								clonedComponent.Data = clonedData;
 								
 								_imGuiManager.SceneGraphWindow.CopiedComponent = clonedComponent;
-								System.Console.WriteLine($"Copied component via JSON fallback: {_component.GetType().Name}");
+								Debug.Error($"Copied component via JSON fallback: {_component.GetType().Name}");
 							}
 						}
 						catch (Exception jsonEx)
-						{
-							System.Console.WriteLine($"Failed to copy component {_component.GetType().Name}: {ex.Message}. JSON fallback also failed: {jsonEx.Message}");
+						{ 
+							Debug.Error($"Failed to copy component {_component.GetType().Name}: {ex.Message}. JSON fallback also failed: {jsonEx.Message}");
 						}
 					}
 				}
@@ -176,17 +231,57 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 				if (ImGui.Checkbox("Enabled", ref enabled))
 					_component.SetEnabled(enabled);
 
-				for (var i = _inspectors.Count - 1; i >= 0; i--)
+				// Draw regular inspectors
+				for (var i = _regularInspectors.Count - 1; i >= 0; i--)
 				{
-					if (_inspectors[i].IsTargetDestroyed)
+					if (_regularInspectors[i].IsTargetDestroyed)
 					{
-						_inspectors.RemoveAt(i);
+						_regularInspectors.RemoveAt(i);
 						continue;
 					}
 
-					_inspectors[i].Draw();
+					_regularInspectors[i].Draw();
+				}
+
+				// Draw read-only structs section if there are any
+				if (_readOnlyStructInspectors.Count > 0)
+				{
+					VoltageEditorUtils.SmallVerticalSpace();
+					
+					// Custom styling for the Read Only header
+					ImGui.PushStyleColor(ImGuiCol.Header, new Num.Vector4(0.3f, 0.3f, 0.4f, 0.6f));
+					ImGui.PushStyleColor(ImGuiCol.HeaderHovered, new Num.Vector4(0.35f, 0.35f, 0.45f, 0.7f));
+					ImGui.PushStyleColor(ImGuiCol.HeaderActive, new Num.Vector4(0.4f, 0.4f, 0.5f, 0.8f));
+					
+					// Collapsing header that starts closed by default
+					_isReadOnlyStructsOpen = ImGui.CollapsingHeader(
+						"Read Only", 
+						_isReadOnlyStructsOpen ? ImGuiTreeNodeFlags.DefaultOpen : ImGuiTreeNodeFlags.None
+					);
+					
+					ImGui.PopStyleColor(3);
+
+					if (_isReadOnlyStructsOpen)
+					{
+						// Apply dimmed appearance to read-only section
+						ImGui.PushStyleVar(ImGuiStyleVar.Alpha, ImGui.GetStyle().Alpha * 0.7f);
+						
+						for (var i = _readOnlyStructInspectors.Count - 1; i >= 0; i--)
+						{
+							if (_readOnlyStructInspectors[i].IsTargetDestroyed)
+							{
+								_readOnlyStructInspectors.RemoveAt(i);
+								continue;
+							}
+
+							_readOnlyStructInspectors[i].Draw();
+						}
+						
+						ImGui.PopStyleVar();
+					}
 				}
 				
+				// Draw delegate methods (buttons)
 				foreach (var action in _componentDelegateMethods)
 					action();
 			}

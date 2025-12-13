@@ -50,7 +50,6 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
                 if (prop.IsDefined(typeof(HideAttributeInInspector)))
                     continue;
 
-                // Skip properties that can't be read
                 if (!prop.CanRead)
                     continue;
 
@@ -59,7 +58,6 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
                 if (indexParams != null && indexParams.Length > 0)
                     continue;
 
-                // Check getter and setter accessibility
                 bool hasPublicGetter = prop.GetMethod?.IsPublic ?? false;
                 bool hasInspectableAttribute = prop.IsDefined(typeof(InspectableAttribute));
                 
