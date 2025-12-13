@@ -39,6 +39,7 @@ namespace Voltage.Persistence
 		JsonEncoder(JsonSettings settings)
 		{
 			_settings = settings;
+			_cacheResolver.SetSettings(settings); 
 			indent = 0;
 		}
 
