@@ -33,26 +33,14 @@ namespace Voltage.Editor.ProjectManagement
 				Directory.CreateDirectory(effectsFolder);
 				Directory.CreateDirectory(contentFolder);
 				Directory.CreateDirectory(propertiesFolder);
-
-				// Create .csproj file
+				
 				CreateProjectFile(projectName, projectPath, version);
-				
-				// Create .sln file
 				CreateSolutionFile(projectName, projectPath);
-				
-				// Create Program.cs (entry point)
 				CreateProgramFile(projectName, projectPath);
-				
-				// Create AssemblyInfo.cs
 				CreateAssemblyInfoFile(projectName, propertiesFolder, version);
-				
-				// Create example script
 				CreateExampleScript(scriptsFolder, projectName);
-				
-				// Create .gitignore
 				CreateGitIgnoreFile(projectPath);
 				
-				Debug.Log($"Successfully created project structure at: {projectPath}");
 				return true;
 			}
 			catch (Exception ex)
@@ -69,12 +57,15 @@ namespace Voltage.Editor.ProjectManagement
 			var voltageEditorPath = FindVoltageEditorPath();
 			var voltageEnginePath = FindVoltageEnginePath();
 			
+			var voltagePersistencePath = FindVoltagePersistencePath();
+			
 			// Use relative paths if possible
 			var relativeEditorPath = GetRelativePath(projectPath, voltageEditorPath);
 			var relativeEnginePath = GetRelativePath(projectPath, voltageEnginePath);
+			var relativePersistencePath = GetRelativePath(projectPath, voltagePersistencePath);
 
-			var csprojContent = $@"<Project Sdk=""Microsoft.NET.Sdk"">
-
+			var csprojContent = $@"
+<Project Sdk=""Microsoft.NET.Sdk"">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
@@ -103,7 +94,7 @@ namespace Voltage.Editor.ProjectManagement
   <ItemGroup>
     <ProjectReference Include=""{relativeEnginePath}\Voltage.Engine.csproj"" />
     <ProjectReference Include=""{relativeEditorPath}\Voltage.Editor.csproj"" />
-	<ProjectReference Include=""{relativeEnginePath}\Voltage.Persistence.csproj"" />
+    <ProjectReference Include=""{relativePersistencePath}\Voltage.Persistence.csproj"" />
   </ItemGroup>
 
   <ItemGroup>
@@ -126,7 +117,6 @@ namespace Voltage.Editor.ProjectManagement
 </Project>";
 
 			File.WriteAllText(projectFilePath, csprojContent);
-			Debug.Log($"Created project file: {projectFilePath}");
 		}
 
 		private static void CreateSolutionFile(string projectName, string projectPath)
@@ -134,8 +124,7 @@ namespace Voltage.Editor.ProjectManagement
 			var solutionFilePath = Path.Combine(projectPath, $"{projectName}.sln");
 			var projectGuid = Guid.NewGuid().ToString("B").ToUpperInvariant();
 
-			var slnContent = $@"
-Microsoft Visual Studio Solution File, Format Version 12.00
+			var slnContent = $@"Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -155,11 +144,10 @@ Global
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
-EndGlobal
-";
+EndGlobal";
 
-			File.WriteAllText(solutionFilePath, slnContent);
-			Debug.Log($"Created solution file: {solutionFilePath}");
+			// Write solution file with UTF-8 encoding and no BOM
+			File.WriteAllText(solutionFilePath, slnContent, new System.Text.UTF8Encoding(false));
 		}
 
 		private static void CreateProgramFile(string projectName, string projectPath)
@@ -224,7 +212,7 @@ namespace {projectName}
 	/// <summary>
 	/// Main game scene
 	/// </summary>
-	public class MainScene : Scene
+	public class MainScene : GameScene
 	{{
 		public override void Initialize()
 		{{
@@ -237,7 +225,6 @@ namespace {projectName}
 ";
 
 			File.WriteAllText(programFilePath, programContent);
-			Debug.Log($"Created Program.cs: {programFilePath}");
 		}
 
 		private static void CreateAssemblyInfoFile(string projectName, string propertiesFolder, Version version)
@@ -265,7 +252,6 @@ using System.Runtime.InteropServices;
 ";
 
 			File.WriteAllText(assemblyInfoPath, assemblyInfoContent);
-			Debug.Log($"Created AssemblyInfo.cs: {assemblyInfoPath}");
 		}
 
 		private static void CreateExampleScript(string scriptsFolder, string projectName)
@@ -277,7 +263,7 @@ using Microsoft.Xna.Framework;
 using Voltage;
 using Voltage.Utils;
 
-namespace erwearw.Scripts
+namespace {projectName}.Scripts
 {{
 	/// <summary>
 	/// Example component that can be attached to entities
@@ -317,7 +303,6 @@ namespace erwearw.Scripts
 ";
 
 			File.WriteAllText(exampleScriptPath, exampleScriptContent);
-			Debug.Log($"Created example script: {exampleScriptPath}");
 		}
 
 		private static void CreateGitIgnoreFile(string projectPath)
@@ -385,7 +370,6 @@ Thumbs.db
 				di = di.Parent;
 			}
 
-			// Fallback: assume standard structure
 			return Path.Combine(currentDir, "..", "Voltage.Editor");
 		}
 
@@ -403,8 +387,24 @@ Thumbs.db
 				di = di.Parent;
 			}
 
-			// Fallback: assume standard structure
 			return Path.Combine(currentDir, "..", "Voltage.Engine");
+		}
+
+		private static string FindVoltagePersistencePath()
+		{
+			var currentDir = AppContext.BaseDirectory;
+			var di = new DirectoryInfo(currentDir);
+
+			while (di != null)
+			{
+				var persistenceCsproj = Path.Combine(di.FullName, "Voltage.Persistence", "Voltage.Persistence.csproj");
+				if (File.Exists(persistenceCsproj))
+					return Path.GetDirectoryName(persistenceCsproj);
+				
+				di = di.Parent;
+			}
+
+			return Path.Combine(currentDir, "..", "Voltage.Persistence");
 		}
 
 		private static string GetRelativePath(string fromPath, string toPath)

@@ -12,31 +12,37 @@ namespace Voltage.Editor.Tools
 	public class EditorSettingsWindow
 	{
 		private bool _isOpen = false;
-		
+
+		// Project Creation
+		private static PersistentBool _autoOpenSolutionUponCreation = new("EditorSettings_AutoOpenSolutionUponCreation", true);
+		public static bool AutoOpenSolutionUponCreation
+		{
+			get => _autoOpenSolutionUponCreation.Value;
+			set => _autoOpenSolutionUponCreation.Value = value;
+		}
+
 		// Scripts
 		private static PersistentBool _autoCloseScriptProgress = new("EditorSettings_AutoCloseScriptProgress", true);
-		private static PersistentBool _autoReloadSceneAfterScriptCompile= new("EditorSettings_AutoReloadSceneAfterScriptCompile", true);
-
-		// Effects
-		private static PersistentBool _autoCloseEffectsProgress = new("EditorSettings_AutoCloseEffectsProgress", true);
-
 		public static bool AutoCloseScriptProgress
 		{
 			get => _autoCloseScriptProgress.Value;
 			set => _autoCloseScriptProgress.Value = value;
 		}
-		
+
+		private static PersistentBool _autoReloadSceneAfterScriptCompile= new("EditorSettings_AutoReloadSceneAfterScriptCompile", true);
 		public static bool AutoReloadSceneAfterScriptCompile
 		{
 			get => _autoReloadSceneAfterScriptCompile.Value;
 			set => _autoReloadSceneAfterScriptCompile.Value = value;
 		}
-
+		// Effects
+		private static PersistentBool _autoCloseEffectsProgress = new("EditorSettings_AutoCloseEffectsProgress", true);
 		public static bool AutoCloseEffectsProgress
 		{
 			get => _autoCloseEffectsProgress.Value;
 			set => _autoCloseEffectsProgress.Value = value;
 		}
+
 
 		public bool IsOpen
 		{
@@ -60,12 +66,34 @@ namespace Voltage.Editor.Tools
 				ImGui.Separator();
 				
 				VoltageEditorUtils.MediumVerticalSpace();
-				
+
+				// Project Creation tab
+				if (ImGui.CollapsingHeader("Project Creation", ImGuiTreeNodeFlags.DefaultOpen))
+				{
+					ImGui.Indent();
+					VoltageEditorUtils.SmallVerticalSpace();
+
+					bool autoOpenSolution = AutoOpenSolutionUponCreation;
+					if (ImGui.Checkbox("Open 'Visual Studio' solution file upon Project Creation##Editor", ref autoOpenSolution))
+					{
+						AutoOpenSolutionUponCreation = autoOpenSolution;
+					}
+
+					if (ImGui.IsItemHovered())
+					{
+						ImGui.SetTooltip("Automatically open the generated 'Visual Studio' Solution file when new Project is created.");
+					}
+
+					VoltageEditorUtils.SmallVerticalSpace();
+					ImGui.Unindent();
+				}
+
 				// Scripts tab
 				if (ImGui.CollapsingHeader("Scripts", ImGuiTreeNodeFlags.DefaultOpen))
 				{
 					ImGui.Indent();
-					
+					VoltageEditorUtils.SmallVerticalSpace();
+
 					bool compileOnStartup = ScriptManager.CompileOnStartup;
 					if (ImGui.Checkbox("Compile Scripts on Startup", ref compileOnStartup))
 					{
@@ -98,16 +126,16 @@ namespace Voltage.Editor.Tools
 						AutoReloadSceneAfterScriptCompile = autoReloadScene;
 					}
 
+					VoltageEditorUtils.SmallVerticalSpace();
 					ImGui.Unindent();
 				}
-				
-				VoltageEditorUtils.MediumVerticalSpace();
 				
 				// Effects tab
 				if (ImGui.CollapsingHeader("Effects", ImGuiTreeNodeFlags.DefaultOpen))
 				{
 					ImGui.Indent();
-					
+					VoltageEditorUtils.SmallVerticalSpace();
+
 					bool autoCloseEffectsProgress = AutoCloseEffectsProgress;
 					if (ImGui.Checkbox("Close Progress Bar When Finished##Effects", ref autoCloseEffectsProgress))
 					{
@@ -118,7 +146,8 @@ namespace Voltage.Editor.Tools
 					{
 						ImGui.SetTooltip("Automatically close the effects compilation progress window after 2 seconds when compilation completes");
 					}
-					
+
+					VoltageEditorUtils.SmallVerticalSpace();
 					ImGui.Unindent();
 				}
 				

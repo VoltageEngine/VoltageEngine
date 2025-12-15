@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using ImGuiNET;
 using Voltage.Editor.FilePickers;
+using Voltage.Editor.Tools;
 using Voltage.Editor.Utils;
 using Voltage.Utils;
 using Num = System.Numerics;
@@ -473,21 +474,34 @@ namespace Voltage.Editor.ProjectManagement
 				});
 				File.WriteAllText(settingsPath, settingsJson);
 				
-				Debug.Log($"Successfully created project '{_projectName}' at: {fullProjectPath}");
-				NotificationSystem.ShowTimedNotification($"Project '{_projectName}' created successfully!");
+				// Load the newly created project as the current project
+				var projectManager = ProjectManager.Instance;
+				bool projectLoaded = projectManager.LoadProject(metadataPath);
 				
-				// Optionally open the solution in Visual Studio
-				var solutionPath = Path.Combine(fullProjectPath, $"{_projectName}.sln");
-				if (File.Exists(solutionPath))
+				if (projectLoaded)
 				{
-					Debug.Log($"Opening solution: {solutionPath}");
-					System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-					{
-						FileName = solutionPath,
-						UseShellExecute = true
-					});
+					NotificationSystem.ShowTimedNotification($"Project '{_projectName}' created and loaded successfully!");
+					Debug.Log($"Loaded new project: {_projectName}");
 				}
-				
+				else
+				{
+					NotificationSystem.ShowTimedNotification($"Project '{_projectName}' created but failed to load. Check console for details.");
+					Debug.Warn($"Failed to load newly created project from: {metadataPath}");
+				}
+
+				if (EditorSettingsWindow.AutoOpenSolutionUponCreation)
+				{
+					var solutionPath = Path.Combine(fullProjectPath, $"{_projectName}.sln");
+					if (File.Exists(solutionPath))
+					{
+						System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+						{
+							FileName = solutionPath,
+							UseShellExecute = true
+						});
+					}
+				}
+
 				ImGui.CloseCurrentPopup();
 				ResetFields();
 			}

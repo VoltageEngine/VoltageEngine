@@ -2,12 +2,13 @@
 
 public class Program
 {
-    public static void Main()
+    public static string[] CommandLineArgs { get; private set; }
+    
+    public static void Main(string[] args)
     {
-#if DEBUG
-        //UnitTests.StartupTests.PublishComponentsMissingParameterlessCtor();
-#endif
+        CommandLineArgs = args;
+
         using var game = new Editor();
-            game.Run();
+        game.Run();
     }
 }
