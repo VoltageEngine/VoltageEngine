@@ -420,7 +420,7 @@ public partial class ImGuiManager
 
 			if (ImGui.Button("Yes", new Vector2(buttonWidth, 0)))
 			{
-				BuildEngineEffects();
+				EffectBuilder.BuildEditorEngineEffects(_effectBuildProgressWindow, _effectBuildCancelToken);
 				_showEngineEffectsPrompt = false;
 				_engineEffectsCheckComplete = true;
 				ImGui.CloseCurrentPopup();
@@ -554,111 +554,6 @@ public partial class ImGuiManager
 		}
 	}
 
-	#region Build Effects Methods
-
-	/// <summary>
-	/// Builds effects for the current project.
-	/// </summary>
-	private void BuildProjectEffects()
-	{
-		if (!_projectManager.HasActiveProject)
-		{
-			NotificationSystem.ShowTimedNotification("No active project loaded!");
-			return;
-		}
-
-		if (!EffectBuilder.IsMgfxcAvailable())
-		{
-			NotificationSystem.ShowTimedNotification("mgfxc not found! Please install MonoGame SDK.");
-			Debug.Error("mgfxc compiler not found in PATH. Install MonoGame SDK: https://www.monogame.net/downloads/");
-			return;
-		}
-
-		var project = _projectManager.CurrentProject;
-		Debug.Log($"Building effects for project: {project.ProjectName}");
-
-		_effectBuildProgressWindow.Show();
-
-		_buildCancellationToken?.Cancel();
-		_buildCancellationToken = new System.Threading.CancellationTokenSource();
-
-		System.Threading.Tasks.Task.Run(() =>
-		{
-			bool success = EffectBuilder.BuildProjectEffects(project);
-
-			if (success)
-			{
-				Debug.Log($"Successfully built {project.ProjectName} effects");
-			}
-		}, _buildCancellationToken.Token);
-	}
-
-	/// <summary>
-	/// Builds effects for the Voltage Engine.
-	/// </summary>
-	private void BuildEngineEffects()
-	{
-		if (!EffectBuilder.IsMgfxcAvailable())
-		{
-			NotificationSystem.ShowTimedNotification("mgfxc not found! Please install MonoGame SDK.");
-			Debug.Error("mgfxc compiler not found in PATH. Install MonoGame SDK: https://www.monogame.net/downloads/");
-			return;
-		}
-
-		Debug.Log("Building Voltage Engine effects");
-
-		_effectBuildProgressWindow.Show();
-
-		_buildCancellationToken?.Cancel();
-		_buildCancellationToken = new System.Threading.CancellationTokenSource();
-
-		System.Threading.Tasks.Task.Run(() =>
-		{
-			bool success = EffectBuilder.BuildEngineEffects();
-			if (success)
-			{
-				Debug.Log("Successfully built Engine effects");
-			}
-		}, _buildCancellationToken.Token);
-	}
-
-	/// <summary>
-	/// Builds all effects (both project and engine).
-	/// </summary>
-	private void BuildAllEffects()
-	{
-		if (!_projectManager.HasActiveProject)
-		{
-			NotificationSystem.ShowTimedNotification("No active project loaded!");
-			return;
-		}
-
-		if (!EffectBuilder.IsMgfxcAvailable())
-		{
-			NotificationSystem.ShowTimedNotification("mgfxc not found! Please install MonoGame SDK.");
-			Debug.Error("mgfxc compiler not found in PATH. Install MonoGame SDK: https://www.monogame.net/downloads/");
-			return;
-		}
-
-		var project = _projectManager.CurrentProject;
-		Debug.Log("Building all effects (Engine + Project)");
-
-		_effectBuildProgressWindow.Show();
-
-		_buildCancellationToken?.Cancel();
-		_buildCancellationToken = new System.Threading.CancellationTokenSource();
-
-		System.Threading.Tasks.Task.Run(() =>
-		{
-			bool success = EffectBuilder.BuildAllEffects(project);
-
-			if (success)
-			{
-				Debug.Log("Successfully built all effects");
-			}
-		}, _buildCancellationToken.Token);
-	}
-
 	/// <summary>
 	/// Draws a visual indicator showing the currently loaded project in the menu bar
 	/// </summary>
@@ -745,7 +640,7 @@ public partial class ImGuiManager
 
 					if (ImGui.MenuItem($"Build \"{projectName}\" Effects"))
 					{
-						BuildProjectEffects();
+						EffectBuilder.BuildEditorProjectEffects(_projectManager, _effectBuildProgressWindow, _effectBuildCancelToken);
 					}
 				}
 				else
@@ -763,7 +658,7 @@ public partial class ImGuiManager
 
 				if (ImGui.MenuItem("Build Engine Effects"))
 				{
-					BuildEngineEffects();
+					EffectBuilder.BuildEditorEngineEffects(_effectBuildProgressWindow, _effectBuildCancelToken);
 				}
 
 				ImGui.Separator();
@@ -775,7 +670,7 @@ public partial class ImGuiManager
 
 				if (ImGui.MenuItem("Build ALL Effects"))
 				{
-					BuildAllEffects();
+					EffectBuilder.BuildEditorAllEffects(_projectManager, _effectBuildProgressWindow, _effectBuildCancelToken);
 				}
 
 				if (!hasProject)
@@ -825,7 +720,5 @@ public partial class ImGuiManager
 			ImGui.EndMenu();
 		}
 	}
-
-	#endregion
 }
 

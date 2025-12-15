@@ -7,22 +7,22 @@ using Voltage.Editor.Utils;
 
 namespace Voltage.Editor.Tools;
 
-public static class EffectBuilder
+public class EffectBuilder
 {
-    public static EffectBuildProgress CurrentProgress { get; private set; }
-    
-    // Events for progress tracking
-    public static event Action<int> OnBuildStarted;
-    public static event Action<string> OnFileCompiling;
-    public static event Action<string, bool> OnFileCompiled;
-    public static event Action<int, int> OnBuildCompleted;
+	public static EffectBuildProgress CurrentProgress { get; private set; }
+
+	// Events for progress tracking
+	public static event Action<int> OnBuildStarted;
+	public static event Action<string> OnFileCompiling;
+	public static event Action<string, bool> OnFileCompiled;
+	public static event Action<int, int> OnBuildCompleted;
 
 	/// <summary>
 	/// Compiles effects for the current game project
 	/// </summary>
 	/// <param name="project">The game project to build effects for</param>
 	/// <returns>True if compilation succeeded, false otherwise</returns>
-	public static bool BuildProjectEffects(IGameProject project)
+	private static bool BuildProjectEffects(IGameProject project)
 	{
 		if (project == null)
 		{
@@ -66,48 +66,48 @@ public static class EffectBuilder
 	/// Compiles effects for the Voltage Engine
 	/// </summary>
 	/// <returns>True if compilation succeeded, false otherwise</returns>
-	public static bool BuildEngineEffects()
-    {
-        try
-        {
-            // Engine effects are in Voltage.Engine project
-            string editorDir = AppDomain.CurrentDomain.BaseDirectory;
-            string solutionDir = Directory.GetParent(editorDir)?.Parent?.Parent?.Parent?.FullName;
-            
-            if (string.IsNullOrEmpty(solutionDir))
-            {
-                Debug.Error("Could not determine solution directory");
-                NotificationSystem.ShowTimedNotification("Failed to find engine directory!");
-                return false;
-            }
+	private static bool BuildEngineEffects()
+	{
+		try
+		{
+			// Engine effects are in Voltage.Engine project
+			string editorDir = AppDomain.CurrentDomain.BaseDirectory;
+			string solutionDir = Directory.GetParent(editorDir)?.Parent?.Parent?.Parent?.FullName;
 
-            string engineDir = Path.Combine(solutionDir, "Voltage.Editor");
-            string shaderSrcDir = Path.Combine(engineDir, "DefaultContent");
-            string shaderOutDir = Path.Combine(engineDir, "Content", "Voltage");
+			if (string.IsNullOrEmpty(solutionDir))
+			{
+				Debug.Error("Could not determine solution directory");
+				NotificationSystem.ShowTimedNotification("Failed to find engine directory!");
+				return false;
+			}
 
-            if (!Directory.Exists(engineDir))
-            {
-                Debug.Warn($"Engine directory not found: {engineDir}");
-                NotificationSystem.ShowTimedNotification("Engine directory not found!");
-                return false;
-            }
+			string engineDir = Path.Combine(solutionDir, "Voltage.Editor");
+			string shaderSrcDir = Path.Combine(engineDir, "DefaultContent");
+			string shaderOutDir = Path.Combine(engineDir, "Content", "Voltage");
 
-            return CompileEffects(shaderSrcDir, shaderOutDir, "Voltage Engine");
-        }
-        catch (Exception ex)
-        {
-            Debug.Error($"Error building engine effects: {ex.Message}");
-            NotificationSystem.ShowTimedNotification("Failed to build engine effects!");
-            return false;
-        }
-    }
+			if (!Directory.Exists(engineDir))
+			{
+				Debug.Warn($"Engine directory not found: {engineDir}");
+				NotificationSystem.ShowTimedNotification("Engine directory not found!");
+				return false;
+			}
+
+			return CompileEffects(shaderSrcDir, shaderOutDir, "Voltage Engine");
+		}
+		catch (Exception ex)
+		{
+			Debug.Error($"Error building engine effects: {ex.Message}");
+			NotificationSystem.ShowTimedNotification("Failed to build engine effects!");
+			return false;
+		}
+	}
 
 	/// <summary>
 	/// Compiles all effects (both project and engine)
 	/// </summary>
 	/// <param name="project">The game project to build effects for</param>
 	/// <returns>True if all compilations succeeded, false otherwise</returns>
-	public static bool BuildAllEffects(IGameProject project)
+	private static bool BuildAllEffects(IGameProject project)
 	{
 		if (project == null)
 		{
@@ -152,188 +152,298 @@ public static class EffectBuilder
 	/// <param name="contextName">Name for logging purposes</param>
 	/// <returns>True if compilation succeeded, false otherwise</returns>
 	private static bool CompileEffects(string shaderSrcDir, string shaderOutDir, string contextName)
-    {
-        if (!Directory.Exists(shaderSrcDir))
-        {
-            Debug.Warn($"Shader source directory not found: {shaderSrcDir}");
-            NotificationSystem.ShowTimedNotification($"No shader source directory found for {contextName}");
-            return false;
-        }
+	{
+		if (!Directory.Exists(shaderSrcDir))
+		{
+			Debug.Warn($"Shader source directory not found: {shaderSrcDir}");
+			NotificationSystem.ShowTimedNotification($"No shader source directory found for {contextName}");
+			return false;
+		}
 
-        Directory.CreateDirectory(shaderOutDir);
+		Directory.CreateDirectory(shaderOutDir);
 
-        // Find all .fx files recursively
-        var shaderFiles = Directory.GetFiles(shaderSrcDir, "*.fx", SearchOption.AllDirectories);
+		// Find all .fx files recursively
+		var shaderFiles = Directory.GetFiles(shaderSrcDir, "*.fx", SearchOption.AllDirectories);
 
-        if (shaderFiles.Length == 0)
-        {
-            Debug.Log($"No shader files (.fx) found in: {shaderSrcDir}");
-            NotificationSystem.ShowTimedNotification($"No shader files found for {contextName}");
-            return true; // Not an error, just nothing to compile
-        }
+		if (shaderFiles.Length == 0)
+		{
+			Debug.Log($"No shader files (.fx) found in: {shaderSrcDir}");
+			NotificationSystem.ShowTimedNotification($"No shader files found for {contextName}");
+			return true; // Not an error, just nothing to compile
+		}
 
-        Debug.Log($"Found {shaderFiles.Length} shader file(s) to compile for {contextName}");
+		Debug.Log($"Found {shaderFiles.Length} shader file(s) to compile for {contextName}");
 
-        // Initialize progress tracking
-        CurrentProgress = new EffectBuildProgress
-        {
-            TotalFiles = shaderFiles.Length,
-            CompletedFiles = 0,
-            SuccessCount = 0,
-            FailureCount = 0,
-            IsComplete = false
-        };
+		// Initialize progress tracking
+		CurrentProgress = new EffectBuildProgress
+		{
+			TotalFiles = shaderFiles.Length,
+			CompletedFiles = 0,
+			SuccessCount = 0,
+			FailureCount = 0,
+			IsComplete = false
+		};
 
-        OnBuildStarted?.Invoke(shaderFiles.Length);
+		OnBuildStarted?.Invoke(shaderFiles.Length);
 
-        foreach (var shaderFile in shaderFiles)
-        {
-            // Get relative path from source directory to preserve subdirectory structure
-            string relativePath = Path.GetRelativePath(shaderSrcDir, shaderFile);
-            string relativeDir = Path.GetDirectoryName(relativePath) ?? string.Empty;
-            string fileName = Path.GetFileNameWithoutExtension(shaderFile);
-            
-            // Create subdirectory in output if needed
-            string outputSubDir = Path.Combine(shaderOutDir, relativeDir);
-            Directory.CreateDirectory(outputSubDir);
-            
-            string outputFile = Path.Combine(outputSubDir, fileName + ".mgfxo");
+		foreach (var shaderFile in shaderFiles)
+		{
+			// Get relative path from source directory to preserve subdirectory structure
+			string relativePath = Path.GetRelativePath(shaderSrcDir, shaderFile);
+			string relativeDir = Path.GetDirectoryName(relativePath) ?? string.Empty;
+			string fileName = Path.GetFileNameWithoutExtension(shaderFile);
 
-            Debug.Log($"Compiling: {relativePath} -> {Path.GetRelativePath(shaderOutDir, outputFile)}");
-            
-            // Update progress - currently compiling this file
-            CurrentProgress.UpdateProgress(relativePath);
-            
-            OnFileCompiling?.Invoke(Path.GetFileName(relativePath));
+			// Create subdirectory in output if needed
+			string outputSubDir = Path.Combine(shaderOutDir, relativeDir);
+			Directory.CreateDirectory(outputSubDir);
 
-            bool success = false;
-            try
-            {
-                var processInfo = new ProcessStartInfo
-                {
-                    FileName = "mgfxc",
-                    Arguments = $"\"{shaderFile}\" \"{outputFile}\"",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true
-                };
+			string outputFile = Path.Combine(outputSubDir, fileName + ".mgfxo");
 
-                using (var process = Process.Start(processInfo))
-                {
-                    if (process == null)
-                    {
-                        Debug.Error($"Failed to start mgfxc for {relativePath}");
-                        CurrentProgress.IncrementFailure(relativePath);
-                    }
-                    else
-                    {
-                        string output = process.StandardOutput.ReadToEnd();
-                        string error = process.StandardError.ReadToEnd();
-                        process.WaitForExit();
+			Debug.Log($"Compiling: {relativePath} -> {Path.GetRelativePath(shaderOutDir, outputFile)}");
 
-                        if (process.ExitCode == 0)
-                        {
-                            Debug.Log($"Successfully compiled: {relativePath}");
-                            CurrentProgress.IncrementSuccess(relativePath);
-                            success = true;
-                        }
-                        else
-                        {
-                            Debug.Error($"Failed to compile {relativePath}:");
-                            if (!string.IsNullOrEmpty(output))
-                                Debug.Error($"Output: {output}");
-                            if (!string.IsNullOrEmpty(error))
-                                Debug.Error($"Error: {error}");
-                            CurrentProgress.IncrementFailure(relativePath);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.Error($"Exception while compiling {relativePath}: {ex.Message}");
-                CurrentProgress.IncrementFailure(relativePath);
-            }
-            
-            OnFileCompiled?.Invoke(Path.GetFileName(relativePath), success);
-        }
+			// Update progress - currently compiling this file
+			CurrentProgress.UpdateProgress(relativePath);
 
-        CurrentProgress.Complete();
+			OnFileCompiling?.Invoke(Path.GetFileName(relativePath));
 
-        string resultMessage = $"{contextName}: Compiled {CurrentProgress.SuccessCount}/{shaderFiles.Length} effects";
-        if (CurrentProgress.FailureCount > 0)
-        {
-            resultMessage += $" ({CurrentProgress.FailureCount} failed)";
-            Debug.Warn(resultMessage);
-        }
-        else
-        {
-            Debug.Log(resultMessage);
-        }
+			bool success = false;
+			try
+			{
+				var processInfo = new ProcessStartInfo
+				{
+					FileName = "mgfxc",
+					Arguments = $"\"{shaderFile}\" \"{outputFile}\"",
+					UseShellExecute = false,
+					RedirectStandardOutput = true,
+					RedirectStandardError = true,
+					CreateNoWindow = true
+				};
 
-        NotificationSystem.ShowTimedNotification(resultMessage);
-        
-        OnBuildCompleted?.Invoke(CurrentProgress.SuccessCount, CurrentProgress.FailureCount);
-        
-        return CurrentProgress.FailureCount == 0;
-    }
+				using (var process = Process.Start(processInfo))
+				{
+					if (process == null)
+					{
+						Debug.Error($"Failed to start mgfxc for {relativePath}");
+						CurrentProgress.IncrementFailure(relativePath);
+					}
+					else
+					{
+						string output = process.StandardOutput.ReadToEnd();
+						string error = process.StandardError.ReadToEnd();
+						process.WaitForExit();
 
-    /// <summary>
-    /// Checks if mgfxc is available in the system PATH
-    /// </summary>
-    /// <returns>True if mgfxc is available, false otherwise</returns>
-    public static bool IsMgfxcAvailable()
-    {
-	    try
-	    {
-		    var processInfo = new ProcessStartInfo
-		    {
-			    FileName = "mgfxc",
-			    Arguments = "--help",
-			    UseShellExecute = false,
-			    RedirectStandardOutput = true,
-			    RedirectStandardError = true,
-			    CreateNoWindow = true
-		    };
+						if (process.ExitCode == 0)
+						{
+							Debug.Log($"Successfully compiled: {relativePath}");
+							CurrentProgress.IncrementSuccess(relativePath);
+							success = true;
+						}
+						else
+						{
+							Debug.Error($"Failed to compile {relativePath}:");
+							if (!string.IsNullOrEmpty(output))
+								Debug.Error($"Output: {output}");
+							if (!string.IsNullOrEmpty(error))
+								Debug.Error($"Error: {error}");
+							CurrentProgress.IncrementFailure(relativePath);
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				Debug.Error($"Exception while compiling {relativePath}: {ex.Message}");
+				CurrentProgress.IncrementFailure(relativePath);
+			}
 
-		    using (var process = Process.Start(processInfo))
-		    {
-			    if (process == null)
-				    return false;
+			OnFileCompiled?.Invoke(Path.GetFileName(relativePath), success);
+		}
 
-			    string output = process.StandardOutput.ReadToEnd();
-			    string error = process.StandardError.ReadToEnd();
+		CurrentProgress.Complete();
 
-			    process.WaitForExit(5000);
+		string resultMessage = $"{contextName}: Compiled {CurrentProgress.SuccessCount}/{shaderFiles.Length} effects";
+		if (CurrentProgress.FailureCount > 0)
+		{
+			resultMessage += $" ({CurrentProgress.FailureCount} failed)";
+			Debug.Warn(resultMessage);
+		}
+		else
+		{
+			Debug.Log(resultMessage);
+		}
 
-			    // mgfxc outputs to stderr, check combined output for signature text
-			    string combined = output + error;
-			    bool available = combined.Contains("MonoGame Effect compiler");
+		NotificationSystem.ShowTimedNotification(resultMessage);
 
-			    if (available)
-				    Debug.Log("mgfxc is available");
+		OnBuildCompleted?.Invoke(CurrentProgress.SuccessCount, CurrentProgress.FailureCount);
 
-			    return available;
-		    }
-	    }
-	    catch (System.ComponentModel.Win32Exception)
-	    {
-		    Debug.Error("mgfxc not found in PATH");
-		    return false;
-	    }
-	    catch (Exception ex)
-	    {
-		    Debug.Error($"Error checking mgfxc: {ex.Message}");
-		    return false;
-	    }
-    }
+		return CurrentProgress.FailureCount == 0;
+	}
 
-    /// <summary>
-    /// Clears the current progress tracking
-    /// </summary>
-    public static void ClearProgress()
-    {
-	    CurrentProgress = null;
-    }
+	/// <summary>
+	/// Checks if mgfxc is available in the system PATH
+	/// </summary>
+	/// <returns>True if mgfxc is available, false otherwise</returns>
+	public static bool IsMgfxcAvailable()
+	{
+		try
+		{
+			var processInfo = new ProcessStartInfo
+			{
+				FileName = "mgfxc",
+				Arguments = "--help",
+				UseShellExecute = false,
+				RedirectStandardOutput = true,
+				RedirectStandardError = true,
+				CreateNoWindow = true
+			};
+
+			using (var process = Process.Start(processInfo))
+			{
+				if (process == null)
+					return false;
+
+				string output = process.StandardOutput.ReadToEnd();
+				string error = process.StandardError.ReadToEnd();
+
+				process.WaitForExit(5000);
+
+				// mgfxc outputs to stderr, check combined output for signature text
+				string combined = output + error;
+				bool available = combined.Contains("MonoGame Effect compiler");
+
+				if (available)
+					Debug.Log("mgfxc is available");
+
+				return available;
+			}
+		}
+		catch (System.ComponentModel.Win32Exception)
+		{
+			Debug.Error("mgfxc not found in PATH");
+			return false;
+		}
+		catch (Exception ex)
+		{
+			Debug.Error($"Error checking mgfxc: {ex.Message}");
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// Clears the current progress tracking
+	/// </summary>
+	public static void ClearProgress()
+	{
+		CurrentProgress = null;
+	}
+
+	#region Editor Effect Builder Methods
+
+	/// <summary>
+	/// Builds effects for the current project.
+	/// </summary>
+	public static void BuildEditorProjectEffects(ProjectManager projectManager,
+		EffectBuildProgressWindow progressWindow, System.Threading.CancellationTokenSource buildCancellationToken)
+	{
+		if (!projectManager.HasActiveProject)
+		{
+			NotificationSystem.ShowTimedNotification("No active project loaded!");
+			return;
+		}
+
+		if (!EffectBuilder.IsMgfxcAvailable())
+		{
+			NotificationSystem.ShowTimedNotification("mgfxc not found! Please install MonoGame SDK.");
+			Debug.Error("mgfxc compiler not found in PATH. Install MonoGame SDK: https://www.monogame.net/downloads/");
+			return;
+		}
+
+		var project = projectManager.CurrentProject;
+		Debug.Log($"Building effects for project: {project.ProjectName}");
+
+		progressWindow.Show();
+
+		buildCancellationToken?.Cancel();
+		buildCancellationToken = new System.Threading.CancellationTokenSource();
+
+		System.Threading.Tasks.Task.Run(() =>
+		{
+			bool success = EffectBuilder.BuildProjectEffects(project);
+
+			if (success)
+			{
+				Debug.Log($"Successfully built {project.ProjectName} effects");
+			}
+		}, buildCancellationToken.Token);
+	}
+
+	/// <summary>
+	/// Builds effects for the Voltage Engine.
+	/// </summary>
+	public static void BuildEditorEngineEffects(EffectBuildProgressWindow progressWindow,
+		System.Threading.CancellationTokenSource buildCancellationToken)
+	{
+		if (!EffectBuilder.IsMgfxcAvailable())
+		{
+			NotificationSystem.ShowTimedNotification("mgfxc not found! Please install MonoGame SDK.");
+			Debug.Error("mgfxc compiler not found in PATH. Install MonoGame SDK: https://www.monogame.net/downloads/");
+			return;
+		}
+
+		Debug.Log("Building Voltage Engine effects");
+
+		progressWindow.Show();
+
+		buildCancellationToken?.Cancel();
+		buildCancellationToken = new System.Threading.CancellationTokenSource();
+
+		System.Threading.Tasks.Task.Run(() =>
+		{
+			bool success = EffectBuilder.BuildEngineEffects();
+			if (success)
+			{
+				Debug.Log("Successfully built Engine effects");
+			}
+		}, buildCancellationToken.Token);
+	}
+
+	/// <summary>
+	/// Builds all effects (both project and engine).
+	/// </summary>
+	public static void BuildEditorAllEffects(ProjectManager projectManager, EffectBuildProgressWindow progressWindow,
+		System.Threading.CancellationTokenSource buildCancellationToken)
+	{
+		if (!projectManager.HasActiveProject)
+		{
+			NotificationSystem.ShowTimedNotification("No active project loaded!");
+			return;
+		}
+
+		if (!EffectBuilder.IsMgfxcAvailable())
+		{
+			NotificationSystem.ShowTimedNotification("mgfxc not found! Please install MonoGame SDK.");
+			Debug.Error("mgfxc compiler not found in PATH. Install MonoGame SDK: https://www.monogame.net/downloads/");
+			return;
+		}
+
+		var project = projectManager.CurrentProject;
+		Debug.Log("Building all effects (Engine + Project)");
+
+		progressWindow.Show();
+
+		buildCancellationToken?.Cancel();
+		buildCancellationToken = new System.Threading.CancellationTokenSource();
+
+		System.Threading.Tasks.Task.Run(() =>
+		{
+			bool success = EffectBuilder.BuildAllEffects(project);
+
+			if (success)
+			{
+				Debug.Log("Successfully built all effects");
+			}
+		}, buildCancellationToken.Token);
+	}
+
+	#endregion
 }
