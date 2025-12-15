@@ -34,8 +34,7 @@ public partial class ImGuiManager
 			_scriptManager.OnBeforeSceneReload += OnBeforeSceneReload;
 			_scriptManager.OnAfterSceneReload += OnAfterSceneReload;
 
-			Debug.Log($"ScriptManager initialized successfully for project: {_projectManager.CurrentProject.ProjectName}");
-			Debug.Log($"Scripts directory: {scriptsPath}");
+			Debug.Info($"ScriptManager initialized successfully for project: {scriptsPath}");
 		}
 		catch (Exception ex)
 		{
@@ -269,111 +268,4 @@ public partial class ImGuiManager
 		}
 	}
 
-	private void DrawScriptingMenuItems()
-	{
-		if (ImGui.BeginMenu("Scripting"))
-		{
-			if (!_projectManager.HasActiveProject)
-			{
-				ImGui.TextDisabled("No active project");
-				ImGui.Separator();
-			}
-			else
-			{
-				ImGui.TextColored(new Num.Vector4(0.7f, 1.0f, 0.7f, 1.0f), 
-					$"Project: {_projectManager.CurrentProject.ProjectName}");
-				ImGui.Separator();
-			}
-
-			if (ImGui.MenuItem("Scripting Window", "", _showScriptingWindow))
-			{
-				_showScriptingWindow = !_showScriptingWindow;
-			}
-
-			ImGui.Separator();
-
-			bool hasProject = _projectManager.HasActiveProject;
-			bool hasScriptManager = _scriptManager != null;
-
-			if (!hasProject)
-			{
-				ImGui.BeginDisabled();
-			}
-
-			if (ImGui.MenuItem("Compile Scripts"))
-			{
-				if (hasScriptManager)
-				{
-					_scriptManager.CompileScripts(EditorSettingsWindow.AutoReloadSceneAfterScriptCompile);
-				}
-				else
-				{
-					NotificationSystem.ShowTimedNotification("Script manager not initialized. Open Scripting window to initialize.");
-				}
-			}
-
-			if (ImGui.MenuItem("Compile & Reload Scene"))
-			{
-				if (hasScriptManager)
-				{
-					_scriptManager.CompileScripts(reloadSceneOnSuccess: true);
-				}
-				else
-				{
-					NotificationSystem.ShowTimedNotification("Script manager not initialized.");
-				}
-			}
-
-			if (ImGui.MenuItem("Reload Scene", "F6"))
-			{
-				if (hasScriptManager)
-				{
-					_scriptManager.ReloadScene();
-				}
-				else
-				{
-					NotificationSystem.ShowTimedNotification("Script manager not initialized.");
-				}
-			}
-
-			ImGui.Separator();
-
-			if (ImGui.MenuItem("Open Scripts Folder"))
-			{
-				var scriptsPath = _projectManager.CurrentProject.ScriptsFolder;
-				if (Directory.Exists(scriptsPath))
-				{
-					System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-					{
-						FileName = scriptsPath,
-						UseShellExecute = true
-					});
-				}
-				else
-				{
-					NotificationSystem.ShowTimedNotification($"Scripts folder not found: {scriptsPath}");
-				}
-			}
-
-			if (hasScriptManager)
-			{
-				bool enableHotReload = _scriptManager.EnableHotReload;
-				if (ImGui.MenuItem("Enable Hot Reload", "", enableHotReload))
-				{
-					_scriptManager.EnableHotReload = !enableHotReload;
-				}
-			}
-			else
-			{
-				ImGui.MenuItem("Enable Hot Reload", "", false);
-			}
-
-			if (!hasProject)
-			{
-				ImGui.EndDisabled();
-			}
-
-			ImGui.EndMenu();
-		}
-	}
 }

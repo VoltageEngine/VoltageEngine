@@ -2,9 +2,10 @@
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using Voltage.Editor.ProjectManagement;
 using Voltage.Editor.Utils;
 
-namespace Voltage.Editor.ProjectManagement;
+namespace Voltage.Editor.Tools;
 
 public static class EffectBuilder
 {

@@ -1,6 +1,6 @@
 using System;
 
-namespace Voltage.Editor.ProjectManagement;
+namespace Voltage.Editor.Tools;
 
 /// <summary>
 /// Tracks the progress of effect compilation

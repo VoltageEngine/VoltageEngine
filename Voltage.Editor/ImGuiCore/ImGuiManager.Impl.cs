@@ -43,14 +43,16 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void LoadSettings()
 	{
-		var fileDataStore = Voltage.Core.Services.GetService<FileDataStore>() ?? new FileDataStore(Storage.GetStorageRoot());
+		var fileDataStore = Voltage.Core.Services.GetService<FileDataStore>() ??
+		                    new FileDataStore(Storage.GetStorageRoot());
 		KeyValueDataStore.Default.Load(fileDataStore);
 
 		ShowStyleEditor = KeyValueDataStore.Default.GetBool(kShowStyleEditor, ShowStyleEditor);
 		ShowSceneGraphWindow = KeyValueDataStore.Default.GetBool(kShowSceneGraphWindow, ShowSceneGraphWindow);
 		ShowCoreWindow = KeyValueDataStore.Default.GetBool(kShowCoreWindow, ShowCoreWindow);
 		ShowSeparateGameWindow = KeyValueDataStore.Default.GetBool(kShowSeperateGameWindow, ShowSeparateGameWindow);
-		PreserveGameWindowAspectRatio = KeyValueDataStore.Default.GetBool(kPreserveGameWindowAspectRatio, PreserveGameWindowAspectRatio);
+		PreserveGameWindowAspectRatio =
+			KeyValueDataStore.Default.GetBool(kPreserveGameWindowAspectRatio, PreserveGameWindowAspectRatio);
 
 		Voltage.Core.Emitter.AddObserver(CoreEvents.Exiting, PersistSettings);
 	}
@@ -102,14 +104,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (_lastRenderTarget == null)
 			return;
 
-		HandleForcedGameViewParams();
-
 		string gameWindowState = Voltage.Core.IsEditMode ? "Paused" : "Playing";
 
-		ImGuiWindowFlags gameWindowFlags = _gameWindowFlags | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse;
-		
+		ImGuiWindowFlags gameWindowFlags =
+			_gameWindowFlags | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse;
+
 		ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Num.Vector2(0, 0));
-		
+
 		ImGui.Begin($"Game: {gameWindowState}###GameWindow", gameWindowFlags);
 
 		GameWindowWidth = ImGui.GetWindowSize().X;
@@ -168,7 +169,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			var windowPos = ImGui.GetWindowPos();
 			var contentMin = ImGui.GetWindowContentRegionMin();
-			var buttonStartPos = windowPos + contentMin + cursorOffset + new Num.Vector2(8, 8) * ImGui.GetIO().FontGlobalScale;
+			var buttonStartPos = windowPos + contentMin + cursorOffset +
+			                     new Num.Vector2(8, 8) * ImGui.GetIO().FontGlobalScale;
 
 			ImGui.SetCursorScreenPos(buttonStartPos);
 
@@ -186,7 +188,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 				if (showSpeedButton)
 				{
-					ImGui.SameLine(0, 8f * ImGui.GetIO().FontGlobalScale); 
+					ImGui.SameLine(0, 8f * ImGui.GetIO().FontGlobalScale);
 				}
 			}
 
@@ -209,11 +211,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			var speedText = $"Camera Speed: {(int)GetDynamicCameraSpeed()}";
 			var speedTextSize = ImGui.CalcTextSize(speedText);
-			
+
 			var windowPos = ImGui.GetWindowPos();
 			var contentMin = ImGui.GetWindowContentRegionMin();
 			var margin = new Num.Vector2(8, 8) * ImGui.GetIO().FontGlobalScale;
-			
+
 			var speedTextPos = new Num.Vector2(
 				windowPos.X + contentMin.X + cursorOffset.X + imageSize.X - speedTextSize.X - margin.X,
 				windowPos.Y + contentMin.Y + cursorOffset.Y + margin.Y
@@ -223,10 +225,10 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			var bgPadding = new Num.Vector2(8, 4) * ImGui.GetIO().FontGlobalScale;
 			var bgMin = speedTextPos - bgPadding;
 			var bgMax = speedTextPos + speedTextSize + bgPadding;
-			
+
 			drawList.AddRectFilled(
-				bgMin, 
-				bgMax, 
+				bgMin,
+				bgMax,
 				ImGui.ColorConvertFloat4ToU32(new Num.Vector4(0.0f, 0.0f, 0.0f, 0.6f)),
 				4.0f * ImGui.GetIO().FontGlobalScale
 			);
@@ -275,81 +277,15 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	}
 
 	/// <summary>
-	/// handles any SetNextWindow* options chosen from a menu
-	/// </summary>
-	private void HandleForcedGameViewParams()
-	{
-		if (_gameViewForcedSize.HasValue)
-		{
-			ImGui.SetNextWindowSize(_gameViewForcedSize.Value);
-			_gameViewForcedSize = null;
-		}
-
-		if (_gameViewForcedPos.HasValue)
-		{
-			string gameWindowState = Voltage.Core.IsEditMode ? "Paused" : "Playing";
-			string windowTitle = $"Game: {gameWindowState}###GameWindow";
-			
-			ImGui.Begin(windowTitle, _gameWindowFlags);
-			var windowSize = ImGui.GetWindowSize();
-			ImGui.End();
-
-			var pos = new Num.Vector2();
-			switch (_gameViewForcedPos.Value)
-			{
-				case WindowPosition.TopLeft:
-					pos.Y = _mainMenuBarHeight;
-					pos.X = 0;
-					break;
-				case WindowPosition.Top:
-					pos.Y = _mainMenuBarHeight;
-					pos.X = Screen.Width / 2f - windowSize.X / 2f;
-					break;
-				case WindowPosition.TopRight:
-					pos.Y = _mainMenuBarHeight;
-					pos.X = Screen.Width - windowSize.X;
-					break;
-				case WindowPosition.Left:
-					pos.Y = Screen.Height / 2f - windowSize.Y / 2f;
-					pos.X = 0;
-					break;
-				case WindowPosition.Center:
-					pos.Y = Screen.Height / 2f - windowSize.Y / 2f;
-					pos.X = Screen.Width / 2f - windowSize.X / 2f;
-					break;
-				case WindowPosition.Right:
-					pos.Y = Screen.Height / 2f - windowSize.Y / 2f;
-					pos.X = Screen.Width - windowSize.X;
-					break;
-				case WindowPosition.BottomLeft:
-					pos.Y = Screen.Height - windowSize.Y;
-					pos.X = 0;
-					break;
-				case WindowPosition.Bottom:
-					pos.Y = Screen.Height - windowSize.Y;
-					pos.X = Screen.Width / 2f - windowSize.X / 2f;
-					break;
-				case WindowPosition.BottomRight:
-					pos.Y = Screen.Height - windowSize.Y;
-					pos.X = Screen.Width - windowSize.X;
-					break;
-			}
-
-			ImGui.SetNextWindowPos(pos);
-			_gameViewForcedPos = null;
-		}
-	}
-
-	/// <summary>
 	/// converts the mouse position from global window position to the game window's coordinates and overrides Voltage.Input with
 	/// the new value. This keeps input working properly in the game window.
 	/// </summary>
-private void OverrideMouseInput()
+	private void OverrideMouseInput()
 	{
 		// ImGui.GetCursorScreenPos() is the position of top-left pixel in windows drawable area
 		// Account for the cursor offset when aspect ratio preservation is enabled
 		var offset = new Vector2(
-			ImGui.GetCursorScreenPos().X - _gameWindowCursorOffset.X, 
+			ImGui.GetCursorScreenPos().X - _gameWindowCursorOffset.X,
 			ImGui.GetCursorScreenPos().Y - _gameWindowCursorOffset.Y
 		);
 
@@ -359,7 +295,7 @@ private void OverrideMouseInput()
 
 		var scaleX = ImGui.GetContentRegionAvail().X / _lastRenderTarget.Width;
 		var scaleY = ImGui.GetContentRegionAvail().Y / _lastRenderTarget.Height;
-		
+
 		// When preserving aspect ratio, use the uniform scale
 		float scale;
 		if (PreserveGameWindowAspectRatio)
@@ -371,7 +307,7 @@ private void OverrideMouseInput()
 			// Non-uniform scaling when not preserving aspect ratio
 			normalizedPos.X /= scaleX;
 			normalizedPos.Y /= scaleY;
-			
+
 			var unNormalizedPos = normalizedPos / Input.ResolutionScale;
 			unNormalizedPos += Input.ResolutionOffset;
 
@@ -490,7 +426,7 @@ private void OverrideMouseInput()
 			ImGui.SameLine();
 
 			if (ImGui.Button("Discard", new Num.Vector2(120, 0))
-)
+			   )
 			{
 				EditorChangeTracker.Revert();
 				ImGui.CloseCurrentPopup();
@@ -523,7 +459,7 @@ private void OverrideMouseInput()
 
 			ImGui.EndPopup();
 		}
-			
+
 	}
 
 	private void ManageApplicationExitPrompt()
@@ -547,6 +483,7 @@ private void OverrideMouseInput()
 					_pendingExit = false;
 					break;
 			}
+
 			_pendingSaveTask = null;
 		}
 	}
@@ -557,71 +494,72 @@ private void OverrideMouseInput()
 	#region IFinalRenderDelegate
 
 	void IFinalRenderDelegate.HandleFinalRender(RenderTarget2D finalRenderTarget, Color letterboxColor,
-    RenderTarget2D source, Rectangle finalRenderDestinationRect,
-    SamplerState samplerState)
-{
-    if (ShowSeparateGameWindow)
-    {
-        // SAFETY CHECK: Don't bind texture on first frame or during layout reload
-        if (_isFirstFrame || _layoutManager.HasPendingReload)
-        {
-            // Just render normally without separate game window
-            Voltage.Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
-            Voltage.Core.GraphicsDevice.Clear(letterboxColor);
-            Graphics.Instance.Batcher.Begin(BlendState.Opaque, samplerState, null, null);
-            Graphics.Instance.Batcher.Draw(source, finalRenderDestinationRect, Color.White);
-            Graphics.Instance.Batcher.End();
-            _renderer.AfterLayout();
-            return;
-        }
+		RenderTarget2D source, Rectangle finalRenderDestinationRect,
+		SamplerState samplerState)
+	{
+		if (ShowSeparateGameWindow)
+		{
+			// SAFETY CHECK: Don't bind texture on first frame or during layout reload
+			if (_isFirstFrame || _layoutManager.HasPendingReload)
+			{
+				// Just render normally without separate game window
+				Voltage.Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
+				Voltage.Core.GraphicsDevice.Clear(letterboxColor);
+				Graphics.Instance.Batcher.Begin(BlendState.Opaque, samplerState, null, null);
+				Graphics.Instance.Batcher.Draw(source, finalRenderDestinationRect, Color.White);
+				Graphics.Instance.Batcher.End();
+				_renderer.AfterLayout();
+				return;
+			}
 
-        if (_lastRenderTarget != source)
-        {
-            // unbind the old texture if we had one
-            if (_lastRenderTarget != null && _renderTargetId != IntPtr.Zero)
-            {
-                try
-                {
-                    _renderer.UnbindTexture(_renderTargetId);
-                }
-                catch (Exception ex)
-                {
-                    Debug.Error($"Error unbinding render target: {ex.Message}");
-                }
-                _renderTargetId = IntPtr.Zero;
-            }
+			if (_lastRenderTarget != source)
+			{
+				// unbind the old texture if we had one
+				if (_lastRenderTarget != null && _renderTargetId != IntPtr.Zero)
+				{
+					try
+					{
+						_renderer.UnbindTexture(_renderTargetId);
+					}
+					catch (Exception ex)
+					{
+						Debug.Error($"Error unbinding render target: {ex.Message}");
+					}
 
-            // bind the new texture
-            _lastRenderTarget = source;
-            
-            try
-            {
-                _renderTargetId = _renderer.BindTexture(source);
-            }
-            catch (Exception ex)
-            {
-                Debug.Error($"Error binding render target: {ex.Message}");
-                _renderTargetId = IntPtr.Zero;
-            }
-        }
+					_renderTargetId = IntPtr.Zero;
+				}
 
-        DrawGameWindow();
+				// bind the new texture
+				_lastRenderTarget = source;
 
-        Voltage.Core.GraphicsDevice.SamplerStates[0] = samplerState;
-        Voltage.Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
-        Voltage.Core.GraphicsDevice.Clear(letterboxColor);
-    }
-    else
-    {
-        Voltage.Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
-        Voltage.Core.GraphicsDevice.Clear(letterboxColor);
-        Graphics.Instance.Batcher.Begin(BlendState.Opaque, samplerState, null, null);
-        Graphics.Instance.Batcher.Draw(source, finalRenderDestinationRect, Color.White);
-        Graphics.Instance.Batcher.End();
-    }
+				try
+				{
+					_renderTargetId = _renderer.BindTexture(source);
+				}
+				catch (Exception ex)
+				{
+					Debug.Error($"Error binding render target: {ex.Message}");
+					_renderTargetId = IntPtr.Zero;
+				}
+			}
 
-    _renderer.AfterLayout();
-}
+			DrawGameWindow();
+
+			Voltage.Core.GraphicsDevice.SamplerStates[0] = samplerState;
+			Voltage.Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
+			Voltage.Core.GraphicsDevice.Clear(letterboxColor);
+		}
+		else
+		{
+			Voltage.Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
+			Voltage.Core.GraphicsDevice.Clear(letterboxColor);
+			Graphics.Instance.Batcher.Begin(BlendState.Opaque, samplerState, null, null);
+			Graphics.Instance.Batcher.Draw(source, finalRenderDestinationRect, Color.White);
+			Graphics.Instance.Batcher.End();
+		}
+
+		_renderer.AfterLayout();
+	}
 
 	void IFinalRenderDelegate.OnAddedToScene(Scene scene)
 	{
