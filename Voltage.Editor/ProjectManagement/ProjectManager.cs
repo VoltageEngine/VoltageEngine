@@ -128,33 +128,33 @@ namespace Voltage.Editor.ProjectManagement
 		#region Project Management
 		
 		/// <summary>
-		/// Loads a project from the specified project.json file path.
+		/// Loads a project from the specified .voltage file path.
 		/// </summary>
-		/// <param name="projectJsonPath">Path to the project.json file</param>
+		/// <param name="voltageFilePath">Path to the .voltage file</param>
 		/// <returns>True if the project was loaded successfully</returns>
-		public bool LoadProject(string projectJsonPath)
+		public bool LoadProject(string voltageFilePath)
 		{
-			if (string.IsNullOrWhiteSpace(projectJsonPath))
+			if (string.IsNullOrWhiteSpace(voltageFilePath))
 			{
 				Debug.Error("Project path cannot be null or empty.");
 				return false;
 			}
 			
-			if (!File.Exists(projectJsonPath))
+			if (!File.Exists(voltageFilePath))
 			{
-				Debug.Error($"Project file not found: {projectJsonPath}");
+				Debug.Error($"Project file not found: {voltageFilePath}");
 				return false;
 			}
 			
 			try
 			{
 				// Load the project metadata from JSON
-				var jsonContent = File.ReadAllText(projectJsonPath);
+				var jsonContent = File.ReadAllText(voltageFilePath);
 				var metadata = Voltage.Persistence.Json.FromJson<ProjectMetadata>(jsonContent);
 				
 				if (metadata == null)
 				{
-					Debug.Error($"Failed to deserialize project metadata from: {projectJsonPath}");
+					Debug.Error($"Failed to deserialize project metadata from: {voltageFilePath}");
 					return false;
 				}
 				
@@ -170,12 +170,12 @@ namespace Voltage.Editor.ProjectManagement
 				// Set as current project
 				var oldProject = CurrentProject;
 				CurrentProject = project;
-				LastProjectPath = projectJsonPath;
+				LastProjectPath = voltageFilePath;
 				
 				// Initialize the project
 				project.Initialize();
 				
-				Debug.Log($"Successfully loaded project: {project.ProjectName} from {projectJsonPath}");
+				Debug.Log($"Successfully loaded project: {project.ProjectName} from {voltageFilePath}");
 				
 				// Invoke events
 				OnProjectLoaded?.Invoke(project);
@@ -188,16 +188,17 @@ namespace Voltage.Editor.ProjectManagement
 			}
 			catch (Exception ex)
 			{
-				Debug.Error($"Failed to load project from '{projectJsonPath}': {ex.Message}");
+				Debug.Error($"Failed to load project from '{voltageFilePath}': {ex.Message}");
 				Debug.Error($"Stack trace: {ex.StackTrace}");
 				return false;
 			}
 		}
 		
 		/// <summary>
-		/// Loads a project from a directory containing a project.json file.
+		/// Loads a project from a directory by searching for a .voltage file.
+		/// If multiple .voltage files exist, loads the first one found.
 		/// </summary>
-		/// <param name="projectDirectory">Directory containing the project.json file</param>
+		/// <param name="projectDirectory">Directory containing the .voltage file</param>
 		/// <returns>True if the project was loaded successfully</returns>
 		public bool LoadProjectFromDirectory(string projectDirectory)
 		{
@@ -213,8 +214,21 @@ namespace Voltage.Editor.ProjectManagement
 				return false;
 			}
 			
-			var projectJsonPath = Path.Combine(projectDirectory, "project.json");
-			return LoadProject(projectJsonPath);
+			// Look for .voltage files in the directory
+			var voltageFiles = Directory.GetFiles(projectDirectory, "*.voltage");
+			
+			if (voltageFiles.Length == 0)
+			{
+				Debug.Error($"No .voltage file found in directory: {projectDirectory}");
+				return false;
+			}
+			
+			if (voltageFiles.Length > 1)
+			{
+				Debug.Warn($"Multiple .voltage files found in directory: {projectDirectory}. Loading the first one.");
+			}
+			
+			return LoadProject(voltageFiles[0]);
 		}
 		
 		/// <summary>
@@ -245,11 +259,11 @@ namespace Voltage.Editor.ProjectManagement
 		/// <summary>
 		/// Creates a new project and sets it as the current project.
 		/// </summary>
-		/// <param name="projectJsonPath">Path to the newly created project.json file</param>
+		/// <param name="voltageFilePath">Path to the newly created .voltage file</param>
 		/// <returns>True if the project was loaded successfully</returns>
-		public bool CreateAndLoadProject(string projectJsonPath)
+		public bool CreateAndLoadProject(string voltageFilePath)
 		{
-			return LoadProject(projectJsonPath);
+			return LoadProject(voltageFilePath);
 		}
 		
 		/// <summary>
