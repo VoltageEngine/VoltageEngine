@@ -155,8 +155,6 @@ public class SceneGraphWindow
 		if (_imGuiManager == null)
 			_imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
 
-		SceneGraphPosY = _imGuiManager.MainWindowPositionY;
-
 		ImGui.PushStyleVar(ImGuiStyleVar.GrabMinSize, 0.0f);
 		ImGui.PushStyleColor(ImGuiCol.ResizeGrip, new Num.Vector4(0, 0, 0, 0));
 		

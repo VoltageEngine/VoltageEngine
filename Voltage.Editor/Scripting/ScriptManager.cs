@@ -133,22 +133,15 @@ namespace GameScripts
 			else
 			{
 				NotificationSystem.ShowTimedNotification($"Script compilation failed. Check console for errors.");
-
-				// Reloading scene on compilation error might not be desired,
-				// but we'll keep this here in case it's needed for debugging
-				//ReloadScene();
 			}
 
-			// Determine if we should reload the scene
 			bool shouldReloadScene = result.Success && 
 			                         EnableHotReload && 
 			                         AutoReloadSceneOnChange && 
 			                         Core.IsEditMode;
 
-			// Invoke the event with the reload decision
 			OnCompilationComplete?.Invoke(result, shouldReloadScene);
 			
-			// Only reload if conditions are met
 			if (shouldReloadScene)
 			{
 				ReloadScene();
@@ -161,9 +154,6 @@ namespace GameScripts
 		private void HandleScriptsChanged(List<string> changedFiles)
 		{
 			Debug.Log($"Scripts changed: {string.Join(", ", changedFiles.Select(Path.GetFileName))}");
-			
-			// The compilation will happen automatically via ScriptWatcher
-			// Scene reload will be determined in HandleCompilationComplete
 		}
 
 		/// <summary>

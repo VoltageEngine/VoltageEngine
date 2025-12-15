@@ -100,7 +100,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	public bool IsGameWindowFocused = false;
 	public Num.Vector2 GameWindowPosition;
 	public Num.Vector2 GameWindowSize;
-	public float MainWindowPositionY => _mainMenuBarHeight + _editorToolsBarHeight * FontSizeMultiplier + 1f;
 	public bool FocusGameWindowOnMiddleClick = false;
 	public bool FocusGameWindowOnRightClick = false;
 	public bool DisableKeyboardInputWhenGameWindowUnfocused = true;
@@ -152,7 +151,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private IntPtr _renderTargetId = IntPtr.Zero;
 	private Num.Vector2? _gameViewForcedSize;
 	private WindowPosition? _gameViewForcedPos;
-	private float _mainMenuBarHeight;
 	private readonly float _editorToolsBarHeight = 30f;
 
 	// Camera Params
@@ -196,7 +194,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private bool _isFirstFrame = true;
 
 	// Build effects progress window
-	private BuildEffectsProgressWindow _buildEffectsProgressWindow;
+	private EffectBuildProgressWindow _effectBuildProgressWindow;
 	private System.Threading.CancellationTokenSource _buildCancellationToken;
 
 	// Engine effects check
@@ -214,6 +212,10 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	// Editor settings window
 	private EditorSettingsWindow _editorSettingsWindow;
+
+	// Entity Selection
+	private List<(Entity entity, Collider collider)> _highlightedEntities = new();
+	private IReadOnlyList<Entity> _lastSelectedEntities = null;
 
 	#endregion
 
@@ -276,10 +278,10 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		LoadSettings();
 
-		_renderer = new ImGuiRenderer(Voltage.Core.Instance, _input);
+		_renderer = new ImGuiRenderer(Core.Instance, _input);
 		_renderer.RebuildFontAtlas(options);
 
-		Voltage.Core.Emitter.AddObserver(CoreEvents.SceneChanged, OnSceneChanged);
+		Core.Emitter.AddObserver(CoreEvents.SceneChanged, OnSceneChanged);
 		VoltageEditorThemes.DarkTheme1();
 
 		_sceneSubclasses = ReflectionUtils.GetAllSubclasses(typeof(Scene), true);
@@ -287,7 +289,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		ImGui.GetStyle().IndentSpacing = 12;
 		ImGui.GetIO().ConfigWindowsMoveFromTitleBarOnly = true;
 
-		// Enable docking and configure ini file path
+
 		var io = ImGui.GetIO();
 		io.ConfigFlags |= ImGuiConfigFlags.DockingEnable;
 
@@ -316,7 +318,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_imageLoader = new ImguiImageLoader();
 		_imageLoader.LoadImages(_renderer);
 
-		_buildEffectsProgressWindow = new BuildEffectsProgressWindow();
+		_effectBuildProgressWindow = new EffectBuildProgressWindow();
 
 		// Create default Main Entity Inspector window when current scene is finished loading the entities
 		Scene.OnFinishedAddingEntitiesWithData += OpenMainEntityInspector;
@@ -417,8 +419,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			return;
 		}
 
-		ImGui.GetIO().ConfigWindowsResizeFromEdges = true;
-
 		if (ShowMenuBar)
 			DrawMainMenuBar();
 
@@ -429,7 +429,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		DrawInspectorWindows();
 		DrawEntityInspectors();
 
-		_buildEffectsProgressWindow.Draw();
+		_effectBuildProgressWindow.Draw();
 		_projectCreator.Draw();
 
 		for (var i = _drawCommands.Count - 1; i >= 0; i--)
@@ -613,66 +613,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	}
 
 	/// <summary>
-	/// Draws the engine effects missing prompt
-	/// </summary>
-	private void DrawEngineEffectsPrompt()
-	{
-		ImGui.OpenPopup("Missing Engine Effects");
-
-		var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.4f);
-		ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
-		ImGui.SetNextWindowSize(new Num.Vector2(500, 0), ImGuiCond.Appearing);
-
-		bool open = true;
-		if (ImGui.BeginPopupModal("Missing Engine Effects", ref open, ImGuiWindowFlags.AlwaysAutoResize))
-		{
-			ImGui.PushTextWrapPos(480);
-			ImGui.TextWrapped(
-				"Warning: No compiled default engine effects were found in your 'Content/Effects' directory.");
-			ImGui.PopTextWrapPos();
-
-			ImGui.Spacing();
-			ImGui.TextWrapped("Would you like to compile them now?");
-
-			VoltageEditorUtils.MediumVerticalSpace();
-
-			var buttonWidth = 120f;
-			var spacing = 10f;
-			var totalButtonWidth = (buttonWidth * 2) + spacing;
-			var windowWidth = ImGui.GetWindowSize().X;
-			var centerStart = (windowWidth - totalButtonWidth) * 0.5f;
-
-			ImGui.SetCursorPosX(centerStart);
-
-			if (ImGui.Button("Yes", new Num.Vector2(buttonWidth, 0)))
-			{
-				BuildEngineEffects();
-				_showEngineEffectsPrompt = false;
-				_engineEffectsCheckComplete = true;
-				ImGui.CloseCurrentPopup();
-			}
-
-			ImGui.SameLine();
-
-			if (ImGui.Button("No", new Num.Vector2(buttonWidth, 0)))
-			{
-				_showEngineEffectsPrompt = false;
-				_engineEffectsCheckComplete = true;
-				ImGui.CloseCurrentPopup();
-			}
-
-			ImGui.EndPopup();
-		}
-
-		// If popup was closed via X button
-		if (!open)
-		{
-			_showEngineEffectsPrompt = false;
-			_engineEffectsCheckComplete = true;
-		}
-	}
-
-	/// <summary>
 	/// Finds the Voltage.Editor project directory
 	/// </summary>
 	private static string FindProjectDir()
@@ -693,7 +633,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	{
 		var viewport = ImGui.GetMainViewport();
 		var dockspaceSize = viewport.WorkSize;
-		dockspaceSize.Y -= _mainMenuBarHeight;
 
 		ImGui.SetNextWindowPos(viewport.WorkPos);
 		ImGui.SetNextWindowSize(dockspaceSize);
@@ -723,10 +662,10 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	public void GlobalKeyCommands()
 	{
 		if (ImGui.IsKeyPressed(ImGuiKey.F5, false))
-			Voltage.Core.InvokeResetScene();
+			Core.InvokeResetScene();
 
 		if (ImGui.IsKeyPressed(ImGuiKey.F1, false) || ImGui.IsKeyPressed(ImGuiKey.F2, false))
-			Voltage.Core.InvokeSwitchEditMode(!Voltage.Core.IsEditMode);
+			Core.InvokeSwitchEditMode(!Core.IsEditMode);
 
 		if (ImGui.GetIO().KeyCtrl && ImGui.IsKeyPressed(ImGuiKey.S, false))
 			InvokeSaveSceneChanges();
@@ -766,371 +705,12 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	{
 		if (ImGui.BeginMainMenuBar())
 		{
-			_mainMenuBarHeight = ImGui.GetWindowHeight();
-
-			if (ImGui.BeginMenu("File"))
-			{
-				if (ImGui.MenuItem("New Project"))
-				{
-					_projectCreator.OpenCreateProjectPopup();
-				}
-
-				if (ImGui.MenuItem("Load Project..."))
-				{
-					OpenProjectFilePicker();
-				}
-
-				// Show recent projects submenu
-				var recentProjects = _projectManager.GetRecentProjects();
-				if (recentProjects.Count > 0)
-				{
-					if (ImGui.BeginMenu("Recent Projects"))
-					{
-						foreach (var projectPath in recentProjects)
-						{
-							var projectDir = Path.GetDirectoryName(projectPath);
-							var projectName = Path.GetFileName(projectDir);
-
-							if (ImGui.MenuItem(projectName))
-							{
-								_projectManager.LoadProject(projectPath);
-							}
-
-							if (ImGui.IsItemHovered())
-							{
-								ImGui.SetTooltip(projectPath);
-							}
-						}
-
-						ImGui.Separator();
-
-						if (ImGui.MenuItem("Clear Recent Projects"))
-						{
-							_projectManager.ClearRecentProjects();
-						}
-
-						ImGui.EndMenu();
-					}
-				}
-
-				// Show close project option if a project is loaded
-				if (_projectManager.HasActiveProject)
-				{
-					ImGui.Separator();
-
-					if (ImGui.MenuItem("Close Project"))
-					{
-						_projectManager.UnloadCurrentProject();
-						NotificationSystem.ShowTimedNotification(
-							$"Project closed: {_projectManager.CurrentProject?.ProjectName}");
-					}
-				}
-				
-				ImGui.Separator();
-				
-				if (ImGui.MenuItem("Settings"))
-				{
-					_editorSettingsWindow.IsOpen = true;
-				}
-
-				ImGui.Separator();
-
-				if (ImGui.MenuItem("Save Scene", "Ctrl+S"))
-				{
-					InvokeSaveSceneChanges();
-				}
-
-				ImGui.Separator();
-
-				if (ImGui.MenuItem("Load Tiled Map"))
-				{
-					SceneGraphWindow.TmxFilePicker.Open();
-				}
-
-				if (ImGui.MenuItem("Load Aseprite Images"))
-				{
-					SceneGraphWindow.AsepriteFilePicker.Open();
-				}
-
-				ImGui.Separator();
-
-				if (ImGui.MenuItem("Open Sprite Atlas Editor"))
-					_spriteAtlasEditorWindow = _spriteAtlasEditorWindow ?? new SpriteAtlasEditorWindow();
-
-				if (ImGui.MenuItem("Close ImGui Editor"))
-					SetEnabled(false);
-
-				if (ImGui.MenuItem("Exit"))
-				{
-					Voltage.Core.ConfirmAndExit();
-				}
-
-				ImGui.EndMenu();
-			}
-
-			if (_sceneSubclasses.Count > 0 && ImGui.BeginMenu("Scenes"))
-			{
-				foreach (var sceneType in _sceneSubclasses)
-					if (ImGui.MenuItem(sceneType.Name))
-					{
-						RequestSceneChange(sceneType);
-					}
-
-				ImGui.EndMenu();
-			}
-
-			if (_themes.Length > 0 && ImGui.BeginMenu("Themes"))
-			{
-				foreach (var theme in _themes)
-				{
-					bool isCurrentTheme =
-						theme.Name.Equals(_lastSelectedTheme.Value, StringComparison.OrdinalIgnoreCase);
-
-					if (ImGui.MenuItem(theme.Name, "", isCurrentTheme))
-					{
-						theme.Invoke(null, new object[] { });
-						_lastSelectedTheme.Value = theme.Name;
-					}
-				}
-
-				ImGui.EndMenu();
-			}
-
-			if (ImGui.BeginMenu("Layout"))
-			{
-				ImGui.TextColored(new Num.Vector4(0.5f, 0.8f, 1.0f, 1.0f),
-					$"Current: {_layoutManager.CurrentLayoutName}");
-				ImGui.Separator();
-
-				if (ImGui.MenuItem("Save Layout As..."))
-				{
-					_newLayoutName = "";
-					_showSaveLayoutPopup = true;
-				}
-
-				ImGui.Separator();
-
-				if (ImGui.BeginMenu("Load Layout"))
-				{
-					foreach (var layoutName in _layoutManager.GetLayoutNames())
-					{
-						// Highlight the currently active layout
-						bool isCurrentLayout = layoutName.Equals(_layoutManager.CurrentLayoutName,
-							StringComparison.OrdinalIgnoreCase);
-
-						if (ImGui.MenuItem(layoutName, "", isCurrentLayout))
-						{
-							_layoutManager.LoadLayout(layoutName);
-							_lastSelectedLayout.Value = layoutName;
-							Debug.Log($"Loaded layout: {layoutName}");
-
-							if (!layoutName.Equals("Default", StringComparison.OrdinalIgnoreCase))
-							{
-								NotificationSystem.ShowTimedNotification(
-									$"Layout '{layoutName}' loaded. Some windows may require restart for full effect.");
-							}
-						}
-					}
-
-					ImGui.EndMenu();
-				}
-
-				if (ImGui.BeginMenu("Delete Layout"))
-				{
-					var layoutNames = new List<string>(_layoutManager.GetLayoutNames());
-					string layoutToDelete = null;
-
-					foreach (var layoutName in layoutNames)
-					{
-						if (layoutName != "Default" && ImGui.MenuItem(layoutName))
-						{
-							layoutToDelete = layoutName;
-							break;
-						}
-					}
-
-					// Delete outside of the enumeration
-					if (layoutToDelete != null)
-					{
-						// If deleting the currently active layout, switch to Default
-						if (layoutToDelete.Equals(_layoutManager.CurrentLayoutName, StringComparison.OrdinalIgnoreCase))
-						{
-							_lastSelectedLayout.Value = "Default";
-							_layoutManager.LoadLayout("Default");
-						}
-
-						_layoutManager.DeleteLayout(layoutToDelete);
-						_layoutManager.RefreshLayoutList();
-					}
-
-					ImGui.EndMenu();
-				}
-
-				ImGui.Separator();
-
-				// Show different text depending on current layout
-				string resetText =
-					_layoutManager.CurrentLayoutName.Equals("Default", StringComparison.OrdinalIgnoreCase)
-						? "Reset to Default"
-						: "Switch to Default";
-
-				if (ImGui.MenuItem(resetText))
-				{
-					_layoutManager.LoadLayout("Default");
-					_lastSelectedLayout.Value = "Default";
-				}
-
-				ImGui.EndMenu();
-			}
-
-			if (ImGui.BeginMenu("Window"))
-			{
-				var showCoreWindow = ShowCoreWindow;
-				ImGui.MenuItem("Core Window", null, ref showCoreWindow);
-				ShowCoreWindow = showCoreWindow;
-
-				if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
-				{
-					ImGui.OpenPopup("CoreWindowContextMenu");
-				}
-
-				// Scene Graph Window 
-				var showSceneGraphWindow = ShowSceneGraphWindow;
-				ImGui.MenuItem("Scene Graph Window", null, ref showSceneGraphWindow);
-				ShowSceneGraphWindow = showSceneGraphWindow;
-
-				if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
-				{
-					ImGui.OpenPopup("SceneGraphWindowContextMenu");
-				}
-
-				// Separate Game Window
-				var showSeparateGameWindow = ShowSeparateGameWindow;
-				ImGui.MenuItem("Separate Game Window", null, ref showSeparateGameWindow);
-				ShowSeparateGameWindow = showSeparateGameWindow;
-
-				if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
-				{
-					ImGui.OpenPopup("SeparateGameWindowContextMenu");
-				}
-
-				// Animation Event Inspector 
-				var showAnimationEventInspector = ShowAnimationEventInspector;
-				ImGui.MenuItem("Animation Event Inspector", null, ref showAnimationEventInspector);
-				ShowAnimationEventInspector = showAnimationEventInspector;
-
-				if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
-				{
-					ImGui.OpenPopup("AnimationEventInspectorContextMenu");
-				}
-
-				ImGui.Separator();
-
-				// Game Window Aspect Ratio toggle
-				var preserveAspectRatio = PreserveGameWindowAspectRatio;
-				ImGui.MenuItem("Preserve Game Window Aspect Ratio", null, ref preserveAspectRatio);
-				PreserveGameWindowAspectRatio = preserveAspectRatio;
-
-				ImGui.EndMenu();
-			}
-
-			DrawScriptingMenuItems();
-
-			if (ImGui.BeginMenu("Build"))
-			{
-				bool hasProject = _projectManager.HasActiveProject;
-
-				if (ImGui.BeginMenu("Build Effects"))
-				{
-					if (!hasProject)
-					{
-						ImGui.BeginDisabled();
-					}
-
-					if (hasProject)
-					{
-						var projectName = _projectManager.CurrentProject.ProjectName;
-
-						if (ImGui.MenuItem($"Build \"{projectName}\" Effects"))
-						{
-							BuildProjectEffects();
-						}
-					}
-					else
-					{
-						if (ImGui.MenuItem("Build Project Effects"))
-						{
-							NotificationSystem.ShowTimedNotification("No active project loaded!");
-						}
-					}
-
-					if (!hasProject)
-					{
-						ImGui.EndDisabled();
-					}
-
-					if (ImGui.MenuItem("Build Engine Effects"))
-					{
-						BuildEngineEffects();
-					}
-
-					ImGui.Separator();
-
-					if (!hasProject)
-					{
-						ImGui.BeginDisabled();
-					}
-
-					if (ImGui.MenuItem("Build ALL Effects"))
-					{
-						BuildAllEffects();
-					}
-
-					if (!hasProject)
-					{
-						ImGui.EndDisabled();
-					}
-
-					ImGui.EndMenu();
-				}
-
-				if (!hasProject)
-				{
-					ImGui.BeginDisabled();
-				}
-
-				if (ImGui.MenuItem("Build Game"))
-				{
-					NotificationSystem.ShowTimedNotification("Build-Game = Not Implemented Yet!");
-				}
-
-				if (!hasProject)
-				{
-					ImGui.EndDisabled();
-				}
-
-				ImGui.EndMenu();
-			}
-
-			if (ImGui.BeginMenu("Help"))
-			{
-				ImGui.MenuItem("ImGui Demo Window", null, ref ShowDemoWindow);
-
-				var showStyleEditor = ShowStyleEditor;
-				ImGui.MenuItem("Style Editor", null, ref showStyleEditor);
-				ShowStyleEditor = showStyleEditor;
-
-				if (ImGui.MenuItem("Open imgui_demo.cpp on GitHub"))
-				{
-					var url = "https://github.com/ocornut/imgui/blob/master/imgui_demo.cpp";
-					var startInfo = new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true };
-					System.Diagnostics.Process.Start(startInfo);
-				}
-
-				ImGui.EndMenu();
-			}
-
-			DrawSaveLayoutPopup();
+			DrawFileMenu();
+			DrawProjectMenu();
+			DrawViewMenu();
+			DrawScriptingMenu();
+			DrawBuildMenu();
+			DrawHelpMenu();
 
 			// Must be the last one, so that it's centered properly
 			DrawCurrentProjectIndicator();
@@ -1139,86 +719,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		}
 	}
 
-	private void DrawSaveLayoutPopup()
-	{
-		if (_showSaveLayoutPopup)
-		{
-			ImGui.OpenPopup("SaveLayoutPopup");
-			_showSaveLayoutPopup = false;
-		}
-
-		var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.4f);
-		ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
-		ImGui.SetNextWindowSize(new Num.Vector2(400, 0), ImGuiCond.Appearing);
-
-		bool open = true;
-		if (ImGui.BeginPopupModal("SaveLayoutPopup", ref open, ImGuiWindowFlags.AlwaysAutoResize))
-		{
-			ImGui.Text("Save Layout");
-			ImGui.Separator();
-
-			ImGui.Text("Enter layout name:");
-			ImGui.SetNextItemWidth(350);
-			ImGui.InputText("##layoutname", ref _newLayoutName, 50);
-
-			bool layoutExists = _layoutManager.GetLayoutNames().Contains(_newLayoutName.Trim());
-			if (!string.IsNullOrWhiteSpace(_newLayoutName) && layoutExists)
-			{
-				ImGui.TextColored(new Num.Vector4(1.0f, 0.6f, 0.2f, 1.0f),
-					$"Warning: Layout '{_newLayoutName.Trim()}' already exists and will be overwritten!");
-			}
-
-			VoltageEditorUtils.MediumVerticalSpace();
-
-			var buttonWidth = 100f;
-			var spacing = 10f;
-			var totalButtonWidth = (buttonWidth * 2) + spacing;
-			var windowWidth = ImGui.GetWindowSize().X;
-			var centerStart = (windowWidth - totalButtonWidth) * 0.5f;
-
-			ImGui.SetCursorPosX(centerStart);
-
-			bool canSave = !string.IsNullOrWhiteSpace(_newLayoutName);
-			if (!canSave)
-				ImGui.BeginDisabled();
-
-			if (ImGui.Button("Save", new Num.Vector2(buttonWidth, 0)))
-			{
-				if (canSave)
-				{
-					string layoutName = _newLayoutName.Trim();
-					_layoutManager.SaveLayout(layoutName);
-					_layoutManager.RefreshLayoutList();
-
-					// Update the last selected layout to the newly saved one
-					_lastSelectedLayout.Value = layoutName;
-
-					Debug.Log($"Layout saved: {layoutName}");
-
-					_newLayoutName = "";
-					ImGui.CloseCurrentPopup();
-				}
-			}
-
-			if (!canSave)
-				ImGui.EndDisabled();
-
-			ImGui.SameLine();
-
-			if (ImGui.Button("Cancel", new Num.Vector2(buttonWidth, 0)))
-			{
-				_newLayoutName = "";
-				ImGui.CloseCurrentPopup();
-			}
-
-			ImGui.EndPopup();
-		}
-	}
-
-
 	private void DrawEditorToolsBar()
 	{
-		ImGui.Begin("Editor Tools", ImGuiWindowFlags.None);
+		ImGui.Begin("Editor Tools", ImGuiWindowFlags.NoScrollbar);
 
 		float spacing = 12f * FontSizeMultiplier;
 		float iconSize = 24f * FontSizeMultiplier;
@@ -1339,12 +842,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	#endregion
 
-
 	private void UpdateCamera()
 	{
 		ManageCameraZoom();
 
-		if (Voltage.Core.IsEditMode)
+		if (Core.IsEditMode)
 		{
 			// Camera Dragging with Middle Mouse
 			var mousePos = Input.ScaledMousePosition;
@@ -1365,7 +867,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			}
 
 			if (_cameraTargetPosition == default)
-				_cameraTargetPosition = Voltage.Core.Scene.Camera.Position;
+				_cameraTargetPosition = Core.Scene.Camera.Position;
 
 			bool isMovingCamera = Input.IsKeyDown(Keys.W) || Input.IsKeyDown(Keys.A) ||
 			                      Input.IsKeyDown(Keys.S) || Input.IsKeyDown(Keys.D);
@@ -1398,14 +900,14 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 					_cameraTargetPosition += new Vector2(0, CurrentCameraSpeed) * Time.DeltaTime;
 			}
 
-			Voltage.Core.Scene.Camera.Position =
-				Vector2.Lerp(Voltage.Core.Scene.Camera.Position, _cameraTargetPosition, _cameraLerp);
+			Core.Scene.Camera.Position =
+				Vector2.Lerp(Core.Scene.Camera.Position, _cameraTargetPosition, _cameraLerp);
 		}
 	}
 
 	private void ManageCameraZoom()
 	{
-		if (Voltage.Core.IsEditMode && Input.MouseWheelDelta != 0)
+		if (Core.IsEditMode && Input.MouseWheelDelta != 0)
 		{
 			bool isShiftHeld = Input.IsKeyDown(Keys.LeftShift);
 
@@ -1602,7 +1104,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			if (EditorChangeTracker.IsDirty)
 				_pendingExit = true;
 			else
-				Voltage.Core.ConfirmAndExit();
+				Core.ConfirmAndExit();
 		}
 	}
 
@@ -1628,13 +1130,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private void ChangeScene(Type sceneType)
 	{
 		var scene = (Scene)Activator.CreateInstance(sceneType);
-		Voltage.Core.StartSceneTransition(new FadeTransition(() => scene));
+		Core.StartSceneTransition(new FadeTransition(() => scene));
 	}
 
 	private void OnEditModeSwitched(bool isEditMode)
 	{
 		// Only reset scene if switching to EditMode from PlayMode
-		if (isEditMode && Voltage.Core.ResetSceneAutomatically)
+		if (isEditMode && Core.ResetSceneAutomatically)
 		{
 			ResetScene();
 		}
@@ -1645,7 +1147,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (EditorChangeTracker.IsDirty)
 		{
 			_pendingResetScene = true;
-			_requestedResetSceneType = Voltage.Core.Scene.GetType();
+			_requestedResetSceneType = Core.Scene.GetType();
 		}
 		else
 		{
@@ -1655,8 +1157,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void ResetScene()
 	{
-		var newScene = (Scene)Activator.CreateInstance(_requestedResetSceneType ?? Voltage.Core.Scene.GetType());
-		Voltage.Core.Scene = newScene;
+		var newScene = (Scene)Activator.CreateInstance(_requestedResetSceneType ?? Core.Scene.GetType());
+		Core.Scene = newScene;
 		EditorChangeTracker.Clear();
 	}
 
@@ -1683,9 +1185,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		ShowAnimationEventInspector = true;
 	}
-
-	private List<(Entity entity, Collider collider)> _highlightedEntities = new();
-	private IReadOnlyList<Entity> _lastSelectedEntities = null;
 
 	public void DrawSelectedEntityOutlines()
 	{
@@ -1725,179 +1224,5 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	{
 		_highlightedEntities.Clear();
 		_lastSelectedEntities = null;
-	}
-
-	#region Build Effects Methods
-
-	/// <summary>
-	/// Builds effects for the current project.
-	/// </summary>
-	private void BuildProjectEffects()
-	{
-		if (!_projectManager.HasActiveProject)
-		{
-			NotificationSystem.ShowTimedNotification("No active project loaded!");
-			return;
-		}
-
-		if (!EffectBuilder.IsMgfxcAvailable())
-		{
-			NotificationSystem.ShowTimedNotification("mgfxc not found! Please install MonoGame SDK.");
-			Debug.Error("mgfxc compiler not found in PATH. Install MonoGame SDK: https://www.monogame.net/downloads/");
-			return;
-		}
-
-		var project = _projectManager.CurrentProject;
-		Debug.Log($"Building effects for project: {project.ProjectName}");
-
-		_buildEffectsProgressWindow.Show();
-
-		_buildCancellationToken?.Cancel();
-		_buildCancellationToken = new System.Threading.CancellationTokenSource();
-
-		System.Threading.Tasks.Task.Run(() =>
-		{
-			bool success = EffectBuilder.BuildProjectEffects(project);
-
-			if (success)
-			{
-				Debug.Log($"Successfully built {project.ProjectName} effects");
-			}
-		}, _buildCancellationToken.Token);
-	}
-
-	/// <summary>
-	/// Builds effects for the Voltage Engine.
-	/// </summary>
-	private void BuildEngineEffects()
-	{
-		if (!EffectBuilder.IsMgfxcAvailable())
-		{
-			NotificationSystem.ShowTimedNotification("mgfxc not found! Please install MonoGame SDK.");
-			Debug.Error("mgfxc compiler not found in PATH. Install MonoGame SDK: https://www.monogame.net/downloads/");
-			return;
-		}
-
-		Debug.Log("Building Voltage Engine effects");
-
-		_buildEffectsProgressWindow.Show();
-
-		_buildCancellationToken?.Cancel();
-		_buildCancellationToken = new System.Threading.CancellationTokenSource();
-
-		System.Threading.Tasks.Task.Run(() =>
-		{
-			bool success = EffectBuilder.BuildEngineEffects();
-			if (success)
-			{
-				Debug.Log("Successfully built Engine effects");
-			}
-		}, _buildCancellationToken.Token);
-	}
-
-	/// <summary>
-	/// Builds all effects (both project and engine).
-	/// </summary>
-	private void BuildAllEffects()
-	{
-		if (!_projectManager.HasActiveProject)
-		{
-			NotificationSystem.ShowTimedNotification("No active project loaded!");
-			return;
-		}
-
-		if (!EffectBuilder.IsMgfxcAvailable())
-		{
-			NotificationSystem.ShowTimedNotification("mgfxc not found! Please install MonoGame SDK.");
-			Debug.Error("mgfxc compiler not found in PATH. Install MonoGame SDK: https://www.monogame.net/downloads/");
-			return;
-		}
-
-		var project = _projectManager.CurrentProject;
-		Debug.Log("Building all effects (Engine + Project)");
-
-		_buildEffectsProgressWindow.Show();
-
-		_buildCancellationToken?.Cancel();
-		_buildCancellationToken = new System.Threading.CancellationTokenSource();
-
-		System.Threading.Tasks.Task.Run(() =>
-		{
-			bool success = EffectBuilder.BuildAllEffects(project);
-
-			if (success)
-			{
-				Debug.Log("Successfully built all effects");
-			}
-		}, _buildCancellationToken.Token);
-	}
-
-	#endregion
-
-	/// <summary>
-	/// Draws a visual indicator showing the currently loaded project in the menu bar
-	/// </summary>
-	private void DrawCurrentProjectIndicator()
-	{
-		string displayText;
-		Num.Vector4 iconColor;
-
-		if (_projectManager.HasActiveProject)
-		{
-			var project = _projectManager.CurrentProject;
-			displayText = $"[*] {project.ProjectName} v{project.Version}";
-			iconColor = new Num.Vector4(0.4f, 0.8f, 0.4f, 1.0f);
-		}
-		else
-		{
-			displayText = "[ ] No Project";
-			iconColor = new Num.Vector4(0.6f, 0.6f, 0.6f, 1.0f);
-		}
-
-		var textSize = ImGui.CalcTextSize(displayText);
-		var windowWidth = ImGui.GetWindowWidth();
-		var centerX = (windowWidth - textSize.X) * 0.5f;
-
-		ImGui.SetCursorPosX(centerX);
-
-		if (_projectManager.HasActiveProject)
-		{
-			var project = _projectManager.CurrentProject;
-
-			ImGui.PushStyleColor(ImGuiCol.Text, iconColor);
-			ImGui.Text("[*]");
-			ImGui.PopStyleColor();
-
-			if (ImGui.IsItemHovered())
-			{
-				ImGui.BeginTooltip();
-				ImGui.Text("Active Project");
-				ImGui.Separator();
-				ImGui.TextColored(new Num.Vector4(0.7f, 0.9f, 1.0f, 1.0f), project.ProjectName);
-				ImGui.Text($"Version: {project.Version}");
-				ImGui.Text($"Path: {project.ProjectPath}");
-				ImGui.EndTooltip();
-			}
-
-			ImGui.SameLine();
-			ImGui.TextColored(new Num.Vector4(0.9f, 0.9f, 1.0f, 1.0f), project.ProjectName);
-
-			ImGui.SameLine();
-			ImGui.TextDisabled($"v{project.Version}");
-		}
-		else
-		{
-			ImGui.PushStyleColor(ImGuiCol.Text, iconColor);
-			ImGui.Text("[ ]");
-			ImGui.PopStyleColor();
-
-			if (ImGui.IsItemHovered())
-			{
-				ImGui.SetTooltip("No project loaded");
-			}
-
-			ImGui.SameLine();
-			ImGui.TextDisabled("No Project");
-		}
 	}
 }

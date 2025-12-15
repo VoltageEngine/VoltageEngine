@@ -1,5 +1,4 @@
 using System;
-using Voltage.Editor.ProjectManagement;
 using Voltage.Editor.Utils;
 using Voltage.Utils;
 
@@ -8,12 +7,12 @@ namespace Voltage.Editor.Tools
 	/// <summary>
 	/// ImGui window that displays progress of effect compilation using the reusable progress window
 	/// </summary>
-	public class BuildEffectsProgressWindow
+	public class EffectBuildProgressWindow
 	{
 		private CompilationProgressWindow _progressWindow;
 		private CompilationProgress _currentProgress;
 
-		public BuildEffectsProgressWindow()
+		public EffectBuildProgressWindow()
 		{
 			_progressWindow = new CompilationProgressWindow(isScriptProgress: false);
 

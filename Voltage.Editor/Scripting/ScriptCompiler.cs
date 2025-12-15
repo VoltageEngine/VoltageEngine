@@ -55,10 +55,8 @@ namespace Voltage.Editor.Scripting
 				};
 			}
 
-			// Get references from currently loaded assemblies
 			var references = GetMetadataReferences();
 
-			// Create compilation
 			var compilation = CSharpCompilation.Create(
 				assemblyName,
 				syntaxTrees: syntaxTrees,
@@ -102,7 +100,7 @@ namespace Voltage.Editor.Scripting
 		}
 
 		/// <summary>
-		/// Gets metadata references for compilation
+		/// Get metadata references from currently loaded assemblies for compilation
 		/// </summary>
 		private static List<MetadataReference> GetMetadataReferences()
 		{
