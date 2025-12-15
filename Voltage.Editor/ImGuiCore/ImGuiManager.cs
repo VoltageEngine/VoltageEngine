@@ -195,7 +195,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	// Build effects progress window
 	private EffectBuildProgressWindow _effectBuildProgressWindow;
-	private System.Threading.CancellationTokenSource _buildCancellationToken;
+	private System.Threading.CancellationTokenSource _effectBuildCancelToken;
 
 	// Engine effects check
 	private bool _hasCheckedEngineEffects = false;
@@ -532,8 +532,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			{
 				var selectedFile = _projectFilePicker.SelectedFile;
 
-				// Validate that it's a project.json file
-				if (Path.GetFileName(selectedFile).Equals("project.json", StringComparison.OrdinalIgnoreCase))
+				// Project file validation
+				if (Path.GetFileName(selectedFile).Equals($"{_projectManager.CurrentProject.ProjectName}.voltage", StringComparison.OrdinalIgnoreCase))
 				{
 					bool success = _projectManager.LoadProject(selectedFile);
 

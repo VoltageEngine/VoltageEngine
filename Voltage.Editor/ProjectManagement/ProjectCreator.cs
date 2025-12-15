@@ -457,7 +457,7 @@ namespace Voltage.Editor.ProjectManagement
 					CreatedDate = DateTime.Now
 				};
 				
-				var metadataPath = Path.Combine(fullProjectPath, "project.json");
+				var metadataPath = Path.Combine(fullProjectPath, $"{projectMetadata.ProjectName}.voltage");
 				
 				var metadataJson = Voltage.Persistence.Json.ToJson(projectMetadata, new Voltage.Persistence.JsonSettings
 				{
