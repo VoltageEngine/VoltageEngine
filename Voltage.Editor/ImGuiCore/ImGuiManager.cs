@@ -492,7 +492,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	}
 
 	/// <summary>
-	/// Opens the file picker for selecting a project.json file
+	/// Opens the file picker for selecting a .voltage file
 	/// </summary>
 	private void OpenProjectFilePicker()
 	{
@@ -500,7 +500,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			? Path.GetDirectoryName(_projectManager.LastProjectPath)
 			: Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 
-		_projectFilePicker = FilePicker.GetFilePicker(this, startingPath, ".json");
+		_projectFilePicker = FilePicker.GetFilePicker(this, startingPath, ".voltage");
 		_projectFilePicker.DontAllowTraverselBeyondRootFolder = false;
 		_showProjectFilePicker = true;
 	}
@@ -525,15 +525,15 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			ImGui.TextColored(new Num.Vector4(0.2f, 0.8f, 1.0f, 1.0f), "Load Project");
 			ImGui.Separator();
-			ImGui.TextWrapped("Select a project.json file to load:");
+			ImGui.TextWrapped("Select a .voltage file to load:");
 			VoltageEditorUtils.SmallVerticalSpace();
 
 			if (_projectFilePicker != null && _projectFilePicker.Draw())
 			{
 				var selectedFile = _projectFilePicker.SelectedFile;
 
-				// Project file validation
-				if (Path.GetFileName(selectedFile).Equals($"{_projectManager.CurrentProject.ProjectName}.voltage", StringComparison.OrdinalIgnoreCase))
+				// Validate .voltage file
+				if (Path.GetExtension(selectedFile).Equals(".voltage", StringComparison.OrdinalIgnoreCase))
 				{
 					bool success = _projectManager.LoadProject(selectedFile);
 
@@ -550,7 +550,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				}
 				else
 				{
-					NotificationSystem.ShowTimedNotification("Please select a valid project.json file.");
+					NotificationSystem.ShowTimedNotification("Please select a valid .voltage file.");
 				}
 
 				FilePicker.RemoveFilePicker(_projectFilePicker);
