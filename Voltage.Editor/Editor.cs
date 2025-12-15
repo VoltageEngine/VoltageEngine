@@ -76,6 +76,8 @@ public class Editor : Core
 
 		Scene = LoadLastOrDefaultScene();
 		ScreenUtils.SetEditorWindowedMode(true);
+		
+		HandleCommandLineArguments();
 	}
 
 	protected override void EndRun()
@@ -150,5 +152,42 @@ public class Editor : Core
             ScreenUtils.SetFullScreenMode();
     }
 #endif
+	}
+
+	/// <summary>
+	/// Processes command-line arguments to load a project file if specified.
+	/// </summary>
+	private void HandleCommandLineArguments()
+	{
+		var args = Program.CommandLineArgs;
+		
+		if (args != null && args.Length > 0)
+		{
+			// First argument is expected to be the .voltage file path
+			string projectPath = args[0];
+			
+			if (!string.IsNullOrWhiteSpace(projectPath) && 
+				System.IO.File.Exists(projectPath) &&
+				System.IO.Path.GetExtension(projectPath).Equals(".voltage", System.StringComparison.OrdinalIgnoreCase))
+			{
+				Debug.Log($"Loading project from command line: {projectPath}");
+				
+				var projectManager = ProjectManagement.ProjectManager.Instance;
+				bool success = projectManager.LoadProject(projectPath);
+				
+				if (success)
+				{
+					Debug.Log($"Successfully loaded project: {projectManager.CurrentProject.ProjectName}");
+				}
+				else
+				{
+					Debug.Error($"Failed to load project from: {projectPath}");
+				}
+			}
+			else if (!string.IsNullOrWhiteSpace(projectPath))
+			{
+				Debug.Warn($"Invalid project file specified: {projectPath}");
+			}
+		}
 	}
 }

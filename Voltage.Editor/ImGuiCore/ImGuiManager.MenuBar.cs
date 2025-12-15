@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using Voltage.Editor.Persistence;
 using Voltage.Editor.Tools;
 using Voltage.Editor.Utils;
 using Voltage.Utils;
@@ -12,6 +13,68 @@ namespace Voltage.Editor.ImGuiCore;
 
 public partial class ImGuiManager
 {
+	#region Persistent Settings
+
+	private PersistentBool _showStyleEditor = new("ImGui_ShowStyleEditor", false);
+
+	public bool ShowStyleEditor
+	{
+		get => _showStyleEditor.Value;
+		set => _showStyleEditor.Value = value;
+	}
+
+	private PersistentBool _showSceneGraphWindow = new("ImGui_ShowSceneGraphWindow", true);
+
+	public bool ShowSceneGraphWindow
+	{
+		get => _showSceneGraphWindow.Value;
+		set => _showSceneGraphWindow.Value = value;
+	}
+
+	private PersistentBool _showCoreWindow = new("ImGui_ShowCoreWindow", true);
+
+	public bool ShowCoreWindow
+	{
+		get => _showCoreWindow.Value;
+		set => _showCoreWindow.Value = value;
+	}
+
+	private PersistentBool _showSeparateGameWindow = new("ImGui_ShowSeparateGameWindow", true);
+
+	public bool ShowSeparateGameWindow
+	{
+		get => _showSeparateGameWindow.Value;
+		set => _showSeparateGameWindow.Value = value;
+	}
+
+	private PersistentBool _showAnimationEventInspector = new("ImGui_ShowAnimationEventInspector", true);
+
+	public bool ShowAnimationEventInspector
+	{
+		get => _showAnimationEventInspector.Value;
+		set => _showAnimationEventInspector.Value = value;
+	}
+
+	private PersistentBool _showMenuBar = new("ImGui_ShowMenuBar", true);
+
+	public bool ShowMenuBar
+	{
+		get => _showMenuBar.Value;
+		set => _showMenuBar.Value = value;
+	}
+
+	private PersistentBool _preserveGameWindowAspectRatio = new("ImGui_PreserveGameWindowAspectRatio", true);
+
+	public bool PreserveGameWindowAspectRatio
+	{
+		get => _preserveGameWindowAspectRatio.Value;
+		set => _preserveGameWindowAspectRatio.Value = value;
+	}
+
+	private PersistentString _lastSelectedLayout = new("ImGui_LastSelectedLayout", "Default");
+	private PersistentString _lastSelectedTheme = new("ImGui_LastSelectedTheme", "DarkTheme1");
+	#endregion
+
 	private void DrawFileMenu()
 	{
 		if (ImGui.BeginMenu("File"))

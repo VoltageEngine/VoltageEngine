@@ -26,19 +26,6 @@
 		<DefineConstants>TRACE;</DefineConstants>
 	</PropertyGroup>
 
-	<!-- Only enable this when you want to compile the Effects source files with mgfxc when running the program -->
-	<!-- <Target Name="CompileEffects" AfterTargets="Build"> -->
-	<!--   <PropertyGroup> -->
-	<!--     <ShaderSrcDir>$(ProjectDir)DefaultContentSource\</ShaderSrcDir> -->
-	<!--     <ShaderOutDir>$(ProjectDir)Content\Effects\</ShaderOutDir> -->
-	<!--   </PropertyGroup> -->
-	<!--   <MakeDir Directories="$(ShaderOutDir)" /> -->
-	<!--   <ItemGroup> -->
-	<!--     <ShaderFiles Include="$(ShaderSrcDir)**\*.fx" /> -->
-	<!--   </ItemGroup> -->
-	<!--   <Exec Command="mgfxc %(ShaderFiles.Identity) &quot;$(ShaderOutDir)%(Filename).mgfxo&quot;" /> -->
-	<!-- </Target> -->
-
 	<PropertyGroup>
 		<IsOSX Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' == 'true'">true</IsOSX>
 		<IsLinux Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true'">true</IsLinux>
@@ -55,6 +42,37 @@
 	<PropertyGroup>
 		<ImGuiRuntimes>$(NuGetPackageRoot)\imgui.net\**\runtimes\</ImGuiRuntimes>
 	</PropertyGroup>
+
+	<!-- Suppress Roslyn satellite assemblies globally -->
+	<PropertyGroup>
+		<SatellitResourceLanguages>en</SatellitResourceLanguages>
+	</PropertyGroup>
+
+	<!-- Remove satellite assemblies from NuGet packages -->
+	<Target Name="RemoveSatelliteAssemblies" AfterTargets="ResolveAssemblyReferences">
+		<ItemGroup>
+			<ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)" 
+			                         Condition="'%(ReferenceCopyLocalPaths.DestinationSubDirectory)' != '' and 
+			                                   ('%(ReferenceCopyLocalPaths.FileName)' == 'Microsoft.CodeAnalysis.CSharp.resources' or
+			                                    '%(ReferenceCopyLocalPaths.FileName)' == 'Microsoft.CodeAnalysis.resources' or
+			                                    '%(ReferenceCopyLocalPaths.FileName)' == 'Microsoft.CodeAnalysis.VisualBasic.resources')" />
+		</ItemGroup>
+	</Target>
+
+	<!-- Remove empty satellite assembly directories after build -->
+	<Target Name="RemoveEmptySatelliteDirectories" AfterTargets="Build">
+		<ItemGroup>
+			<!-- Find all language code directories (2-letter or 2-letter-2-letter format) -->
+			<SatelliteDirectories Include="$(OutputPath)*\" Exclude="$(OutputPath)runtimes\;$(OutputPath)Content\;$(OutputPath)DefaultContent\;$(OutputPath)refs\" />
+		</ItemGroup>
+		<RemoveDir Directories="@(SatelliteDirectories)" 
+		           Condition="Exists('%(SatelliteDirectories.Identity)') AND 
+		                     $([System.Text.RegularExpressions.Regex]::IsMatch('%(SatelliteDirectories.Filename)', '^[a-z]{2}(-[A-Z]{2})?$'))" />
+		<Message Text="Removed satellite directory: %(SatelliteDirectories.Identity)" 
+		         Condition="Exists('%(SatelliteDirectories.Identity)') AND 
+		                   $([System.Text.RegularExpressions.Regex]::IsMatch('%(SatelliteDirectories.Filename)', '^[a-z]{2}(-[A-Z]{2})?$'))" 
+		         Importance="high" />
+	</Target>
 
 	<ItemGroup>
 		<Content Include="$(ImGuiRuntimes)win-x86\native\*.dll" Condition="'$(OS)' == 'Windows_NT' AND '$(Platform)' != 'x64'">

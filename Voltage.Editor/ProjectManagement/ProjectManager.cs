@@ -15,8 +15,12 @@ namespace Voltage.Editor.ProjectManagement
 	/// </summary>
 	public class ProjectManager : GlobalManager
 	{
+		private PersistentString _recentProjects = new("ProjectManager_RecentProjects", "");
+		private const int MaxRecentProjects = 10;
+
+
 		#region Singleton/Instance Access
-		
+
 		private static ProjectManager _instance;
 		
 		/// <summary>
@@ -244,44 +248,18 @@ namespace Voltage.Editor.ProjectManagement
 			
 			var project = CurrentProject;
 			
-			// Unload content
 			project.UnloadContent();
-			
 			Debug.Log($"Unloaded project: {project.ProjectName}");
 			
 			// Clear current project
 			CurrentProject = null;
 			
-			// Invoke event
 			OnProjectUnloaded?.Invoke();
-		}
-		
-		/// <summary>
-		/// Creates a new project and sets it as the current project.
-		/// </summary>
-		/// <param name="voltageFilePath">Path to the newly created .voltage file</param>
-		/// <returns>True if the project was loaded successfully</returns>
-		public bool CreateAndLoadProject(string voltageFilePath)
-		{
-			return LoadProject(voltageFilePath);
-		}
-		
-		/// <summary>
-		/// Clears the last project path (useful when a project is deleted or becomes invalid).
-		/// </summary>
-		public void ClearLastProjectPath()
-		{
-			LastProjectPath = "";
-			Debug.Log("Cleared last project path.");
 		}
 		
 		#endregion
 		
 		#region Recent Projects
-		
-		private PersistentString _recentProjects = new("ProjectManager_RecentProjects", "");
-		private const int MaxRecentProjects = 10;
-		
 		/// <summary>
 		/// Gets the list of recent project paths.
 		/// </summary>
