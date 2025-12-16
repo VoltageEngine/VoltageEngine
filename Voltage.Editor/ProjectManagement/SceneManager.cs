@@ -357,6 +357,17 @@ namespace Voltage.Editor.ProjectManagement
 			return LoadScene(CurrentScenePath);
 		}
 		
+		/// <summary>
+		/// Clears the current scene path without saving.
+		/// Used when a project is unloaded.
+		/// </summary>
+		public void ClearCurrentScene()
+		{
+			CurrentScenePath = null;
+			CurrentSceneName = null;
+			Debug.Log("Cleared current scene reference");
+		}
+		
 		#endregion
 	}
 }

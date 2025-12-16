@@ -125,6 +125,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private bool _pendingResetScene = false;
 	private Type _requestedResetSceneType = null;
 	private Task _pendingSaveTask = null;
+	private bool _pendingProjectClose = false;
 	private ExitPromptType _pendingActionAfterSave;
 
 	//Layout management
@@ -1100,6 +1101,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			_pendingResetScene = false;
 		}
 
+		// Handle project close prompt
+		if (_pendingProjectClose)
+		{
+			ImGui.OpenPopup("Save Changes?##ProjectClose");
+			_pendingProjectClose = false;
+		}
+
 		DrawSavePromptModal("Save Changes?##Exit", () =>
 		{
 			Core.ConfirmAndExit();
@@ -1125,17 +1133,33 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			ResetScene();
 		});
+
+		DrawSavePromptModal("Save Changes?##ProjectClose", () =>
+		{
+			CloseCurrentProject();
+		});
 	}
 
 	private void DrawSavePromptModal(string popupId, Action onDiscardChanges)
 	{
 		var center = new System.Numerics.Vector2(Screen.Width * 0.5f, Screen.Height * 0.4f);
 		ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new System.Numerics.Vector2(0.5f, 0.5f));
-		ImGui.SetNextWindowSize(new System.Numerics.Vector2(400, 0), ImGuiCond.Appearing);
+		ImGui.SetNextWindowSize(new System.Numerics.Vector2(450, 0), ImGuiCond.Appearing);
 
 		bool open = true;
 		if (ImGui.BeginPopupModal(popupId, ref open, ImGuiWindowFlags.AlwaysAutoResize))
 		{
+			// Determine the action context from popup ID
+			string actionContext = "continuing";
+			if (popupId.Contains("Exit"))
+				actionContext = "exiting";
+			else if (popupId.Contains("SceneChange"))
+				actionContext = "changing scenes";
+			else if (popupId.Contains("ResetScene"))
+				actionContext = "resetting the scene";
+			else if (popupId.Contains("ProjectClose"))
+				actionContext = "closing the project";
+			
 			ImGui.Text("You have unsaved changes!");
 			ImGui.Spacing();
 
@@ -1143,12 +1167,12 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			var pendingChanges = EditorChangeTracker.ChangedObjects;
 			if (pendingChanges.Count > 0)
 			{
-				ImGui.TextWrapped("The following changes will be lost if you don't save:");
+				ImGui.TextWrapped($"The following changes will be lost if you don't save before {actionContext}:");
 				ImGui.Spacing();
 
 				float maxHeight = Math.Min(300f, pendingChanges.Count * 25f);
 
-				ImGui.BeginChild("##changes_list", new System.Numerics.Vector2(480, maxHeight), true);
+				ImGui.BeginChild("##changes_list", new System.Numerics.Vector2(420, maxHeight), true);
 
 				foreach (var (obj, description) in pendingChanges)
 				{
@@ -1164,7 +1188,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				ImGui.Spacing();
 			}
 
-			ImGui.TextWrapped("Do you want to save your changes before continuing?");
+			ImGui.TextWrapped($"Do you want to save your changes before {actionContext}?");
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
@@ -1201,6 +1225,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			{
 				_requestedSceneName = null;
 				_requestedSceneType = null;
+				_pendingProjectClose = false;
 				ImGui.CloseCurrentPopup();
 			}
 
@@ -1219,6 +1244,30 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			ResetScene();
 		}
+	}
+
+	private void RequestProjectClose()
+	{
+		if (EditorChangeTracker.IsDirty)
+		{
+			_pendingProjectClose = true;
+		}
+		else
+		{
+			CloseCurrentProject();
+		}
+	}
+
+	private void CloseCurrentProject()
+	{
+		var projectName = _projectManager.CurrentProject?.ProjectName;
+		var sceneManager = SceneManager.Instance;
+		sceneManager.ClearCurrentScene();
+
+		_projectManager.UnloadCurrentProject();
+		NotificationSystem.ShowTimedNotification($"Project closed: {projectName}");
+
+		EditorChangeTracker.Clear();
 	}
 
 	private void ResetScene()
