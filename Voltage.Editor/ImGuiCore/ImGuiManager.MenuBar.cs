@@ -90,7 +90,6 @@ public partial class ImGuiManager
 				OpenProjectFilePicker();
 			}
 
-			// Show recent projects submenu
 			if (_projectManager.GetRecentProjects().Count > 0)
 			{
 				if (ImGui.BeginMenu("Recent Projects"))
@@ -119,19 +118,6 @@ public partial class ImGuiManager
 					}
 
 					ImGui.EndMenu();
-				}
-			}
-
-			// Show close project option if a project is loaded
-			if (_projectManager.HasActiveProject)
-			{
-				ImGui.Separator();
-
-				if (ImGui.MenuItem("Close Project"))
-				{
-					_projectManager.UnloadCurrentProject();
-					NotificationSystem.ShowTimedNotification(
-						$"Project closed: {_projectManager.CurrentProject?.ProjectName}");
 				}
 			}
 
@@ -183,11 +169,6 @@ public partial class ImGuiManager
 		//TODO: Add ProjectSettings menu item
 		if (ImGui.BeginMenu("Project"))
 		{
-			if (ImGui.MenuItem("New Project"))
-			{
-				_projectCreator.OpenCreateProjectPopup();
-			}
-
 			if (ImGui.BeginMenu("New Scene"))
 			{
 				if (!_projectManager.HasActiveProject)
@@ -204,7 +185,6 @@ public partial class ImGuiManager
 
 			if (ImGui.BeginMenu("Load Scene..."))
 			{
-				// Show available scene files from the project
 				if (_projectManager.HasActiveProject)
 				{
 					var sceneManager = SceneManager.Instance;
@@ -222,11 +202,13 @@ public partial class ImGuiManager
 								RequestSceneChange(sceneName);
 							}
 						}
+
 					}
 					else
 					{
 						ImGui.TextDisabled("No scenes found");
 					}
+
 				}
 				else
 				{
@@ -246,6 +228,16 @@ public partial class ImGuiManager
 			if (ImGui.MenuItem("Settings"))
 			{
 				_projectSettingsWindow.IsOpen = true;
+			}
+
+			ImGui.Separator();
+
+			if (_projectManager.HasActiveProject)
+			{
+				if (ImGui.MenuItem("Close Project"))
+				{
+					RequestProjectClose();
+				}
 			}
 
 			if (!_projectManager.HasActiveProject)
