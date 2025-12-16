@@ -5,6 +5,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using ImGuiNET;
+using Voltage.Data;
+using Voltage.Editor.EditorDebug;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Tools;
 using Voltage.Editor.Utils;
@@ -43,7 +45,25 @@ namespace Voltage.Editor.ProjectManagement
 		private const string ScriptsFolder = "Scripts";
 		private const string EffectsFolder = "Effects";
 		private const string ContentsFolder = "Content";
-		
+		private const string DataFolder = "Data";
+		private const string ScenesFolder = "Scenes";
+		private const string PrefabsFolder = "Prefabs";
+
+		public class ProjectMetadata
+		{
+			public string ProjectName;
+			public string ProjectPath;
+			public GameSettings Settings;
+			public string Version;
+			public string ScriptsFolder;
+			public string EffectsFolder;
+			public string ContentsFolder;
+			public string DataFolder;
+			public string ScenesFolder;
+			public string PrefabsFolder;
+			public DateTime CreatedDate;
+		}
+
 		public void OpenCreateProjectPopup()
 		{
 			_showCreateProjectPopup = true;
@@ -330,6 +350,9 @@ namespace Voltage.Editor.ProjectManagement
 				ImGui.BulletText($"{ScriptsFolder}/ - For game scripts and logic");
 				ImGui.BulletText($"{EffectsFolder}/ - For shader effects");
 				ImGui.BulletText($"{ContentsFolder}/ - For game assets");
+				ImGui.BulletText($"{DataFolder}/ - For game data and serialization");
+				ImGui.BulletText($"{DataFolder}/{ScenesFolder}/ - For scene files");
+				ImGui.BulletText($"{DataFolder}/{PrefabsFolder}/ - For entity prefabs");
 				
 				ImGui.Unindent();
 			}
@@ -382,11 +405,14 @@ namespace Voltage.Editor.ProjectManagement
 		
 		private void CreateProject()
 		{
+			EditorProcessDebugger.LogInfo("=== Starting Project Creation ===", "ProjectCreation");
+			
 			try
 			{
 				if (string.IsNullOrWhiteSpace(_projectName))
 				{
 					_projectNameError = "Error: Project name cannot be empty.";
+					EditorProcessDebugger.LogError("Project name is empty", "ProjectCreation");
 					return;
 				}
 				
@@ -395,19 +421,29 @@ namespace Voltage.Editor.ProjectManagement
 				if (Directory.Exists(fullProjectPath))
 				{
 					_projectNameError = $"Error: A project with the name '{_projectName}' already exists at this location.";
+					EditorProcessDebugger.LogError($"Project directory already exists: {fullProjectPath}", "ProjectCreation");
 					return;
 				}
 				
+				// Create main project directory
 				Directory.CreateDirectory(fullProjectPath);
 				
+				// Create folder structure
 				var scriptsPath = Path.Combine(fullProjectPath, ScriptsFolder);
 				var effectsPath = Path.Combine(fullProjectPath, EffectsFolder);
 				var contentsPath = Path.Combine(fullProjectPath, ContentsFolder);
+				var dataPath = Path.Combine(fullProjectPath, DataFolder);
+				var scenesPath = Path.Combine(dataPath, ScenesFolder);
+				var prefabsPath = Path.Combine(dataPath, PrefabsFolder);
 				
 				Directory.CreateDirectory(scriptsPath);
 				Directory.CreateDirectory(effectsPath);
 				Directory.CreateDirectory(contentsPath);
+				Directory.CreateDirectory(dataPath);
+				Directory.CreateDirectory(scenesPath);
+				Directory.CreateDirectory(prefabsPath);
 				
+				// Create game settings
 				var settings = new GameSettings
 				{
 					Display = new DisplaySettings
@@ -441,11 +477,12 @@ namespace Voltage.Editor.ProjectManagement
 				
 				if (!structureCreated)
 				{
+					EditorProcessDebugger.LogError("Failed to create project structure", "ProjectCreation");
 					NotificationSystem.ShowTimedNotification("Failed to create project structure!");
 					return;
 				}
 				
-				// Save project metadata
+				// Create project metadata
 				var projectMetadata = new ProjectMetadata
 				{
 					ProjectName = _projectName,
@@ -455,6 +492,9 @@ namespace Voltage.Editor.ProjectManagement
 					ScriptsFolder = ScriptsFolder,
 					EffectsFolder = EffectsFolder,
 					ContentsFolder = ContentsFolder,
+					DataFolder = DataFolder,
+					ScenesFolder = Path.Combine(DataFolder, ScenesFolder),
+					PrefabsFolder = Path.Combine(DataFolder, PrefabsFolder),
 					CreatedDate = DateTime.Now
 				};
 				
@@ -465,14 +505,18 @@ namespace Voltage.Editor.ProjectManagement
 					PrettyPrint = true
 				});
 				
-				File.WriteAllText(metadataPath, metadataJson);
+				File.WriteAllText(metadataPath, metadataJson, new System.Text.UTF8Encoding(false));
 				
+				// Save settings
 				var settingsPath = Path.Combine(fullProjectPath, "settings.json");
 				var settingsJson = Voltage.Persistence.Json.ToJson(settings, new Voltage.Persistence.JsonSettings
 				{
 					PrettyPrint = true
 				});
-				File.WriteAllText(settingsPath, settingsJson);
+				File.WriteAllText(settingsPath, settingsJson, new System.Text.UTF8Encoding(false));
+				
+				// Create a default scene file
+				CreateDefaultScene(scenesPath, _projectName);
 				
 				// Load the newly created project as the current project
 				var projectManager = ProjectManager.Instance;
@@ -480,13 +524,12 @@ namespace Voltage.Editor.ProjectManagement
 				
 				if (projectLoaded)
 				{
-					NotificationSystem.ShowTimedNotification($"Project '{_projectName}' created and loaded successfully!");
-					Debug.Log($"Loaded new project: {_projectName}");
+					NotificationSystem.ShowTimedNotification($"Project '{_projectName}' created successfully!");
 				}
 				else
 				{
-					NotificationSystem.ShowTimedNotification($"Project '{_projectName}' created but failed to load. Check console for details.");
-					Debug.Warn($"Failed to load newly created project from: {metadataPath}");
+					EditorProcessDebugger.LogError($"Project created but failed to load from: {metadataPath}", "ProjectCreation");
+					NotificationSystem.ShowTimedNotification($"Project created but failed to load. Check logs.");
 				}
 
 				if (EditorSettingsWindow.AutoOpenSolutionUponCreation)
@@ -502,15 +545,29 @@ namespace Voltage.Editor.ProjectManagement
 					}
 				}
 
+				EditorProcessDebugger.LogInfo("=== Project Creation Complete ===", "ProjectCreation");
 				ImGui.CloseCurrentPopup();
 				ResetFields();
 			}
 			catch (Exception ex)
 			{
-				Debug.Error($"Failed to create project: {ex.Message}");
-				Debug.Error($"Stack trace: {ex.StackTrace}");
+				EditorProcessDebugger.LogError($"Exception during project creation: {ex.Message}", "ProjectCreation");
+				EditorProcessDebugger.LogError($"Stack trace: {ex.StackTrace}", "ProjectCreation");
 				_projectNameError = $"Error: {ex.Message}";
 			}
+		}
+		
+		private void CreateDefaultScene(string scenesPath, string projectName)
+		{
+			var defaultScenePath = Path.Combine(scenesPath, "MainScene.json");
+			var defaultSceneData = new SceneData();
+			
+			var sceneJson = Voltage.Persistence.Json.ToJson(defaultSceneData, new Voltage.Persistence.JsonSettings
+			{
+				PrettyPrint = true
+			});
+			
+			File.WriteAllText(defaultScenePath, sceneJson, new System.Text.UTF8Encoding(false));
 		}
 		
 		private void ResetFields()
@@ -535,17 +592,5 @@ namespace Voltage.Editor.ProjectManagement
 				_folderPicker = null;
 			}
 		}
-	}
-	
-	public class ProjectMetadata
-	{
-		public string ProjectName;
-		public string ProjectPath;
-		public GameSettings Settings;
-		public string Version;
-		public string ScriptsFolder;
-		public string EffectsFolder;
-		public string ContentsFolder;
-		public DateTime CreatedDate;
 	}
 }

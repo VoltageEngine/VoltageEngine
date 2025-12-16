@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using Voltage.Editor.EditorDebug;
 using Voltage.Utils;
 
 namespace Voltage.Editor.ProjectManagement
@@ -19,9 +20,15 @@ namespace Voltage.Editor.ProjectManagement
 			string projectPath,
 			Version version)
 		{
+			EditorProcessDebugger.LogInfo("=== Starting Project Structure Generation ===", "ProjectStructure");
+			EditorProcessDebugger.LogInfo($"Project: {projectName}", "ProjectStructure");
+			EditorProcessDebugger.LogInfo($"Path: {projectPath}", "ProjectStructure");
+			EditorProcessDebugger.LogInfo($"Version: {version}", "ProjectStructure");
+			
 			try
 			{
 				// Create directory structure
+				EditorProcessDebugger.LogInfo("Creating directory structure...", "ProjectStructure");
 				Directory.CreateDirectory(projectPath);
 				
 				var scriptsFolder = Path.Combine(projectPath, "Scripts");
@@ -29,22 +36,51 @@ namespace Voltage.Editor.ProjectManagement
 				var contentFolder = Path.Combine(projectPath, "Content");
 				var propertiesFolder = Path.Combine(projectPath, "Properties");
 				
+				EditorProcessDebugger.LogInfo($"Creating Scripts folder: {scriptsFolder}", "ProjectStructure");
 				Directory.CreateDirectory(scriptsFolder);
-				Directory.CreateDirectory(effectsFolder);
-				Directory.CreateDirectory(contentFolder);
-				Directory.CreateDirectory(propertiesFolder);
 				
+				EditorProcessDebugger.LogInfo($"Creating Effects folder: {effectsFolder}", "ProjectStructure");
+				Directory.CreateDirectory(effectsFolder);
+				
+				EditorProcessDebugger.LogInfo($"Creating Content folder: {contentFolder}", "ProjectStructure");
+				Directory.CreateDirectory(contentFolder);
+				
+				EditorProcessDebugger.LogInfo($"Creating Properties folder: {propertiesFolder}", "ProjectStructure");
+				Directory.CreateDirectory(propertiesFolder);
+
+				// Create .csproj file
+				EditorProcessDebugger.LogInfo("Creating .csproj file...", "ProjectStructure");
 				CreateProjectFile(projectName, projectPath, version);
+				
+				// Create .sln file
+				EditorProcessDebugger.LogInfo("Creating .sln file...", "ProjectStructure");
 				CreateSolutionFile(projectName, projectPath);
+				
+				// Create Program.cs (entry point)
+				EditorProcessDebugger.LogInfo("Creating Program.cs...", "ProjectStructure");
 				CreateProgramFile(projectName, projectPath);
+				
+				// Create AssemblyInfo.cs
+				EditorProcessDebugger.LogInfo("Creating AssemblyInfo.cs...", "ProjectStructure");
 				CreateAssemblyInfoFile(projectName, propertiesFolder, version);
+				
+				// Create example script
+				EditorProcessDebugger.LogInfo("Creating example script...", "ProjectStructure");
 				CreateExampleScript(scriptsFolder, projectName);
+				
+				// Create .gitignore
+				EditorProcessDebugger.LogInfo("Creating .gitignore...", "ProjectStructure");
 				CreateGitIgnoreFile(projectPath);
 				
+				EditorProcessDebugger.LogInfo($"Successfully created project structure at: {projectPath}", "ProjectStructure");
+				EditorProcessDebugger.LogInfo("=== Project Structure Generation Complete ===", "ProjectStructure");
+				Debug.Log($"Successfully created project structure at: {projectPath}");
 				return true;
 			}
 			catch (Exception ex)
 			{
+				EditorProcessDebugger.LogError($"Failed to create project structure: {ex.Message}", "ProjectStructure");
+				EditorProcessDebugger.LogError($"Stack trace: {ex.StackTrace}", "ProjectStructure");
 				Debug.Error($"Failed to create project structure: {ex.Message}");
 				return false;
 			}
@@ -53,19 +89,27 @@ namespace Voltage.Editor.ProjectManagement
 		private static void CreateProjectFile(string projectName, string projectPath, Version version)
 		{
 			var projectFilePath = Path.Combine(projectPath, $"{projectName}.csproj");
+			EditorProcessDebugger.LogInfo($"Creating project file: {projectFilePath}", "ProjectStructure");
 			
 			var voltageEditorPath = FindVoltageEditorPath();
 			var voltageEnginePath = FindVoltageEnginePath();
-			
 			var voltagePersistencePath = FindVoltagePersistencePath();
+			
+			EditorProcessDebugger.LogInfo($"Voltage Editor path: {voltageEditorPath}", "ProjectStructure");
+			EditorProcessDebugger.LogInfo($"Voltage Engine path: {voltageEnginePath}", "ProjectStructure");
+			EditorProcessDebugger.LogInfo($"Voltage Persistence path: {voltagePersistencePath}", "ProjectStructure");
 			
 			// Use relative paths if possible
 			var relativeEditorPath = GetRelativePath(projectPath, voltageEditorPath);
 			var relativeEnginePath = GetRelativePath(projectPath, voltageEnginePath);
 			var relativePersistencePath = GetRelativePath(projectPath, voltagePersistencePath);
+			
+			EditorProcessDebugger.LogInfo($"Relative Editor path: {relativeEditorPath}", "ProjectStructure");
+			EditorProcessDebugger.LogInfo($"Relative Engine path: {relativeEnginePath}", "ProjectStructure");
+			EditorProcessDebugger.LogInfo($"Relative Persistence path: {relativePersistencePath}", "ProjectStructure");
 
-			var csprojContent = $@"
-<Project Sdk=""Microsoft.NET.Sdk"">
+			var csprojContent = $@"<Project Sdk=""Microsoft.NET.Sdk"">
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
@@ -117,6 +161,8 @@ namespace Voltage.Editor.ProjectManagement
 </Project>";
 
 			File.WriteAllText(projectFilePath, csprojContent);
+			EditorProcessDebugger.LogInfo($"Project file created successfully", "ProjectStructure");
+			Debug.Log($"Created project file: {projectFilePath}");
 		}
 
 		private static void CreateSolutionFile(string projectName, string projectPath)
@@ -395,16 +441,25 @@ Thumbs.db
 			var currentDir = AppContext.BaseDirectory;
 			var di = new DirectoryInfo(currentDir);
 
+			EditorProcessDebugger.LogInfo($"Searching for Voltage.Persistence from: {currentDir}", "ProjectStructure");
+
 			while (di != null)
 			{
 				var persistenceCsproj = Path.Combine(di.FullName, "Voltage.Persistence", "Voltage.Persistence.csproj");
 				if (File.Exists(persistenceCsproj))
-					return Path.GetDirectoryName(persistenceCsproj);
+				{
+					var foundPath = Path.GetDirectoryName(persistenceCsproj);
+					EditorProcessDebugger.LogInfo($"Found Voltage.Persistence at: {foundPath}", "ProjectStructure");
+					return foundPath;
+				}
 				
 				di = di.Parent;
 			}
 
-			return Path.Combine(currentDir, "..", "Voltage.Persistence");
+			// Fallback: assume standard structure
+			var fallbackPath = Path.Combine(currentDir, "..", "Voltage.Persistence");
+			EditorProcessDebugger.LogWarning($"Voltage.Persistence not found, using fallback: {fallbackPath}", "ProjectStructure");
+			return fallbackPath;
 		}
 
 		private static string GetRelativePath(string fromPath, string toPath)

@@ -10,21 +10,22 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Voltage;
 using Voltage.Data;
+using Voltage.Editor.EditorDebug;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Gizmos;
 using Voltage.Editor.Inspectors;
 using Voltage.Editor.Inspectors.CustomInspectors;
 using Voltage.Editor.Interfaces;
+using Voltage.Editor.Layouts;
 using Voltage.Editor.Persistence;
+using Voltage.Editor.ProjectManagement;
+using Voltage.Editor.Scripting;
 using Voltage.Editor.Tools;
 using Voltage.Editor.UndoActions;
 using Voltage.Editor.Utils;
 using Voltage.Sprites;
 using Voltage.Utils;
 using Num = System.Numerics;
-using Voltage.Editor.Layouts;
-using Voltage.Editor.ProjectManagement;
-using Voltage.Editor.Scripting;
 
 
 namespace Voltage.Editor.ImGuiCore;
@@ -68,6 +69,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private CoreWindow _coreWindow = new();
 	private DebugWindow _debugWindow = new();
 	private ProjectCreator _projectCreator = new();
+	private SceneCreator _sceneCreator = new();
+
 	private ProjectManager _projectManager;
 
 	private Num.Vector2 normalEntityInspectorStartPos;
@@ -118,6 +121,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private bool _pendingExit = false;
 	private bool _pendingSceneChange = false;
 	private Type _requestedSceneType = null;
+	private string _requestedSceneName = null;
 	private bool _pendingResetScene = false;
 	private Type _requestedResetSceneType = null;
 	private Task _pendingSaveTask = null;
@@ -148,7 +152,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private ScriptManager _scriptManager;
 
 	// Editor settings window
-	private EditorSettingsWindow _editorSettingsWindow;
+	private EditorSettingsWindow _editorSettingsWindow = new();
 
 	// Entity Selection
 	private List<(Entity entity, Collider collider)> _highlightedEntities = new();
@@ -273,8 +277,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_projectManager.LoadLastProject();
 
 		InitializeScriptManager();
-
-		_editorSettingsWindow = new EditorSettingsWindow();
 	}
 
 	private void ApplyThemeByName(string themeName)
@@ -359,12 +361,14 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		CreateDockspace();
 		DrawEditorToolsBar();
 		DrawProjectFilePicker();
+		DrawSaveChangesPrompt();
 		ShowSceneGraphWindow = SceneGraphWindow.Show(ShowSceneGraphWindow);
 		DrawInspectorWindows();
 		DrawEntityInspectors();
 
 		_effectBuildProgressWindow.Draw();
 		_projectCreator.Draw();
+		_sceneCreator.Draw();
 
 		for (var i = _drawCommands.Count - 1; i >= 0; i--)
 			_drawCommands[i]();
@@ -423,6 +427,24 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		DrawScriptingWindow();
 		_editorSettingsWindow.Draw();
+	}
+
+	private void OnEditModeSwitched(bool isEditMode)
+	{
+		// Only reset scene if switching to EditMode from PlayMode
+		if (isEditMode && Core.ResetSceneAutomatically)
+		{
+			var sceneManager = SceneManager.Instance;
+			if (sceneManager.HasLoadedScene)
+			{
+				sceneManager.ReloadCurrentScene();
+			}
+			else
+			{
+				// Fallback for old system
+				Core.InvokeResetScene();
+			}
+		}
 	}
 
 	/// <summary>
@@ -1042,37 +1064,134 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		}
 	}
 
-	private void RequestSceneChange(Type sceneType)
+	private void DrawSaveChangesPrompt()
 	{
-		if (EditorChangeTracker.IsDirty)
+		// Handle exit prompt
+		if (_pendingExit)
 		{
-			TriggerSceneChangePrompt(sceneType);
+			ImGui.OpenPopup("Save Changes?##Exit");
+			_pendingExit = false;
 		}
-		else
+
+		// Handle scene change prompt
+		if (_pendingSceneChange)
 		{
-			ChangeScene(sceneType);
+			ImGui.OpenPopup("Save Changes?##SceneChange");
+			_pendingSceneChange = false;
 		}
-	}
 
-	private void TriggerSceneChangePrompt(Type sceneType)
-	{
-		_pendingSceneChange = true;
-		_requestedSceneType = sceneType;
-		_pendingExit = false;
-	}
+		// Handle reset scene prompt
+		if (_pendingResetScene)
+		{
+			ImGui.OpenPopup("Save Changes?##ResetScene");
+			_pendingResetScene = false;
+		}
 
-	private void ChangeScene(Type sceneType)
-	{
-		var scene = (Scene)Activator.CreateInstance(sceneType);
-		Core.StartSceneTransition(new FadeTransition(() => scene));
-	}
+		DrawSavePromptModal("Save Changes?##Exit", () =>
+		{
+			Core.ConfirmAndExit();
+		});
 
-	private void OnEditModeSwitched(bool isEditMode)
-	{
-		// Only reset scene if switching to EditMode from PlayMode
-		if (isEditMode && Core.ResetSceneAutomatically)
+		DrawSavePromptModal("Save Changes?##SceneChange", () =>
+		{
+			if (!string.IsNullOrEmpty(_requestedSceneName))
+			{
+				LoadSceneByName(_requestedSceneName);
+			}
+			else if (_requestedSceneType != null)
+			{
+				// Fallback for old system
+				var scene = (Scene)Activator.CreateInstance(_requestedSceneType);
+				Core.StartSceneTransition(new FadeTransition(() => scene));
+			}
+			_requestedSceneName = null;
+			_requestedSceneType = null;
+		});
+
+		DrawSavePromptModal("Save Changes?##ResetScene", () =>
 		{
 			ResetScene();
+		});
+	}
+
+	private void DrawSavePromptModal(string popupId, Action onDiscardChanges)
+	{
+		var center = new System.Numerics.Vector2(Screen.Width * 0.5f, Screen.Height * 0.4f);
+		ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new System.Numerics.Vector2(0.5f, 0.5f));
+		ImGui.SetNextWindowSize(new System.Numerics.Vector2(400, 0), ImGuiCond.Appearing);
+
+		bool open = true;
+		if (ImGui.BeginPopupModal(popupId, ref open, ImGuiWindowFlags.AlwaysAutoResize))
+		{
+			ImGui.Text("You have unsaved changes!");
+			ImGui.Spacing();
+
+			// Display pending changes
+			var pendingChanges = EditorChangeTracker.ChangedObjects;
+			if (pendingChanges.Count > 0)
+			{
+				ImGui.TextWrapped("The following changes will be lost if you don't save:");
+				ImGui.Spacing();
+
+				float maxHeight = Math.Min(300f, pendingChanges.Count * 25f);
+
+				ImGui.BeginChild("##changes_list", new System.Numerics.Vector2(480, maxHeight), true);
+
+				foreach (var (obj, description) in pendingChanges)
+				{
+					ImGui.BulletText(description);
+
+					if (ImGui.IsItemHovered() && obj != null)
+					{
+						ImGui.SetTooltip($"Type: {obj.GetType().Name}");
+					}
+				}
+
+				ImGui.EndChild();
+				ImGui.Spacing();
+			}
+
+			ImGui.TextWrapped("Do you want to save your changes before continuing?");
+
+			VoltageEditorUtils.MediumVerticalSpace();
+
+			var buttonWidth = 120f;
+			var spacing = 10f;
+			var totalButtonWidth = (buttonWidth * 3) + (spacing * 2);
+			var windowWidth = ImGui.GetWindowSize().X;
+			var centerStart = (windowWidth - totalButtonWidth) * 0.5f;
+
+			ImGui.SetCursorPosX(centerStart);
+
+			if (ImGui.Button("Save", new System.Numerics.Vector2(buttonWidth, 0)))
+			{
+				Core.Schedule(0.1f, false, this, async _ =>
+				{
+					await SaveSceneAsyncAndThenAct();
+					onDiscardChanges();
+				});
+				ImGui.CloseCurrentPopup();
+			}
+
+			ImGui.SameLine();
+
+			if (ImGui.Button("Don't Save", new System.Numerics.Vector2(buttonWidth, 0)))
+			{
+				EditorChangeTracker.Clear();
+				onDiscardChanges();
+				ImGui.CloseCurrentPopup();
+			}
+
+			ImGui.SameLine();
+
+			if (ImGui.Button("Cancel", new System.Numerics.Vector2(buttonWidth, 0)))
+			{
+				_requestedSceneName = null;
+				_requestedSceneType = null;
+				ImGui.CloseCurrentPopup();
+			}
+
+			ImGui.EndPopup();
 		}
 	}
 
@@ -1091,8 +1210,18 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void ResetScene()
 	{
-		var newScene = (Scene)Activator.CreateInstance(_requestedResetSceneType ?? Core.Scene.GetType());
-		Core.Scene = newScene;
+		var sceneManager = SceneManager.Instance;
+		if (sceneManager.HasLoadedScene)
+		{
+			// Reload from file
+			sceneManager.ReloadCurrentScene();
+		}
+		else
+		{
+			// Fallback to old system for backwards compatibility
+			var newScene = (Scene)Activator.CreateInstance(_requestedResetSceneType ?? Core.Scene.GetType());
+			Core.Scene = newScene;
+		}
 		EditorChangeTracker.Clear();
 	}
 
@@ -1158,5 +1287,38 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	{
 		_highlightedEntities.Clear();
 		_lastSelectedEntities = null;
+	}
+
+	private void RequestSceneChange(string sceneName)
+	{
+		if (EditorChangeTracker.IsDirty)
+		{
+			TriggerSceneChangePrompt(sceneName);
+		}
+		else
+		{
+			LoadSceneByName(sceneName);
+		}
+	}
+
+	private void TriggerSceneChangePrompt(string sceneName)
+	{
+		_pendingSceneChange = true;
+		_requestedSceneName = sceneName;
+		_requestedSceneType = null;
+		_pendingExit = false;
+	}
+
+	private void LoadSceneByName(string sceneName)
+	{
+		var sceneManager = SceneManager.Instance;
+		sceneManager.LoadSceneByName(sceneName);
+	}
+
+	private void ChangeScene(Type sceneType)
+	{
+		// This method is no longer needed for scene changes
+		// Keeping for backwards compatibility if needed
+		Debug.Warn("ChangeScene(Type) is deprecated. Use LoadSceneByName instead.");
 	}
 }

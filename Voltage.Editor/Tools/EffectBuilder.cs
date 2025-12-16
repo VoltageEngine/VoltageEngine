@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using Voltage.Editor.EditorDebug;
 using Voltage.Editor.ProjectManagement;
 using Voltage.Editor.Utils;
 
@@ -347,20 +348,17 @@ public class EffectBuilder
 	{
 		if (!projectManager.HasActiveProject)
 		{
-			NotificationSystem.ShowTimedNotification("No active project loaded!");
+			Debug.Error("No active project loaded!");
 			return;
 		}
 
-		if (!EffectBuilder.IsMgfxcAvailable())
+		if (!IsMgfxcAvailable())
 		{
-			NotificationSystem.ShowTimedNotification("mgfxc not found! Please install MonoGame SDK.");
 			Debug.Error("mgfxc compiler not found in PATH. Install MonoGame SDK: https://www.monogame.net/downloads/");
 			return;
 		}
 
 		var project = projectManager.CurrentProject;
-		Debug.Log($"Building effects for project: {project.ProjectName}");
-
 		progressWindow.Show();
 
 		buildCancellationToken?.Cancel();
@@ -368,11 +366,11 @@ public class EffectBuilder
 
 		System.Threading.Tasks.Task.Run(() =>
 		{
-			bool success = EffectBuilder.BuildProjectEffects(project);
+			bool success = BuildProjectEffects(project);
 
 			if (success)
 			{
-				Debug.Log($"Successfully built {project.ProjectName} effects");
+				EditorProcessDebugger.LogInfo($"Successfully built {project.ProjectName} effects");
 			}
 		}, buildCancellationToken.Token);
 	}
@@ -383,14 +381,11 @@ public class EffectBuilder
 	public static void BuildEditorEngineEffects(EffectBuildProgressWindow progressWindow,
 		System.Threading.CancellationTokenSource buildCancellationToken)
 	{
-		if (!EffectBuilder.IsMgfxcAvailable())
+		if (!IsMgfxcAvailable())
 		{
-			NotificationSystem.ShowTimedNotification("mgfxc not found! Please install MonoGame SDK.");
 			Debug.Error("mgfxc compiler not found in PATH. Install MonoGame SDK: https://www.monogame.net/downloads/");
 			return;
 		}
-
-		Debug.Log("Building Voltage Engine effects");
 
 		progressWindow.Show();
 
@@ -399,10 +394,10 @@ public class EffectBuilder
 
 		System.Threading.Tasks.Task.Run(() =>
 		{
-			bool success = EffectBuilder.BuildEngineEffects();
+			bool success = BuildEngineEffects();
 			if (success)
 			{
-				Debug.Log("Successfully built Engine effects");
+				EditorProcessDebugger.LogInfo("Successfully built Engine effects");
 			}
 		}, buildCancellationToken.Token);
 	}
@@ -419,16 +414,13 @@ public class EffectBuilder
 			return;
 		}
 
-		if (!EffectBuilder.IsMgfxcAvailable())
+		if (!IsMgfxcAvailable())
 		{
-			NotificationSystem.ShowTimedNotification("mgfxc not found! Please install MonoGame SDK.");
 			Debug.Error("mgfxc compiler not found in PATH. Install MonoGame SDK: https://www.monogame.net/downloads/");
 			return;
 		}
 
 		var project = projectManager.CurrentProject;
-		Debug.Log("Building all effects (Engine + Project)");
-
 		progressWindow.Show();
 
 		buildCancellationToken?.Cancel();
@@ -436,11 +428,11 @@ public class EffectBuilder
 
 		System.Threading.Tasks.Task.Run(() =>
 		{
-			bool success = EffectBuilder.BuildAllEffects(project);
+			bool success = BuildAllEffects(project);
 
 			if (success)
 			{
-				Debug.Log("Successfully built all effects");
+				EditorProcessDebugger.LogInfo("Successfully built all effects");
 			}
 		}, buildCancellationToken.Token);
 	}

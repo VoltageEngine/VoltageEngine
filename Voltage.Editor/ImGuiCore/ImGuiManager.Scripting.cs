@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Voltage.Editor.EditorDebug;
 using Voltage.Editor.ProjectManagement;
 using Voltage.Editor.Scripting;
 using Voltage.Editor.Tools;
@@ -23,7 +24,7 @@ public partial class ImGuiManager
 		{
 			if (!_projectManager.HasActiveProject)
 			{
-				Debug.Warn("No active project. Script manager will initialize when a project is loaded.");
+				EditorProcessDebugger.LogWarning("No active project. Script manager will initialize when a project is loaded.", "ImGuiManager.Scripting");
 				return;
 			}
 
@@ -34,11 +35,11 @@ public partial class ImGuiManager
 			_scriptManager.OnBeforeSceneReload += OnBeforeSceneReload;
 			_scriptManager.OnAfterSceneReload += OnAfterSceneReload;
 
-			Debug.Info($"ScriptManager initialized successfully for project: {scriptsPath}");
+			EditorProcessDebugger.LogInfo($"ScriptManager initialized successfully for project: {scriptsPath}", "ImGuiManager.Scripting");
 		}
 		catch (Exception ex)
 		{
-			Debug.Error($"Failed to initialize ScriptManager: {ex.Message}");
+			EditorProcessDebugger.LogError($"Failed to initialize ScriptManager: {ex.Message}", "ImGuiManager.Scripting");
 		}
 	}
 
