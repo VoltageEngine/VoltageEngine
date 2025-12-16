@@ -267,7 +267,10 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		Core.OnResetScene += RequestResetScene;
 		Core.OnSwitchEditMode += OnEditModeSwitched;
-		 
+
+		SceneManager.Instance.OnSceneLoaded += OnSceneLoadedHandler;
+		SceneManager.Instance.OnSceneSaved += OnSceneSavedHandler;
+
 		MainEntityInspector = new MainEntityInspector(this, null);
 
 		// Initialize project manager first
@@ -277,6 +280,14 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_projectManager.LoadLastProject();
 
 		InitializeScriptManager();
+	}
+
+	private void OnSceneLoadedHandler(string scenePath)
+	{
+	}
+
+	private void OnSceneSavedHandler(string scenePath)
+	{
 	}
 
 	private void ApplyThemeByName(string themeName)
