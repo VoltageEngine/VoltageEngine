@@ -653,7 +653,14 @@ public partial class ImGuiManager
 		if (_projectManager.HasActiveProject)
 		{
 			var project = _projectManager.CurrentProject;
-			displayText = $"[*] {project.ProjectName} v{project.Version}";
+			var sceneManager = SceneManager.Instance;
+			
+			// Get current scene name
+			string sceneName = sceneManager.HasLoadedScene 
+				? sceneManager.CurrentSceneName 
+				: "NONE";
+			
+			displayText = $"[*] {project.ProjectName} | Scene: {sceneName} | v{project.Version}";
 			iconColor = new Vector4(0.4f, 0.8f, 0.4f, 1.0f);
 		}
 		else
@@ -671,6 +678,7 @@ public partial class ImGuiManager
 		if (_projectManager.HasActiveProject)
 		{
 			var project = _projectManager.CurrentProject;
+			var sceneManager = SceneManager.Instance;
 
 			ImGui.PushStyleColor(ImGuiCol.Text, iconColor);
 			ImGui.Text("[*]");
@@ -684,12 +692,36 @@ public partial class ImGuiManager
 				ImGui.TextColored(new Vector4(0.7f, 0.9f, 1.0f, 1.0f), project.ProjectName);
 				ImGui.Text($"Version: {project.Version}");
 				ImGui.Text($"Path: {project.ProjectPath}");
+				
+				if (sceneManager.HasLoadedScene)
+				{
+					ImGui.Separator();
+					ImGui.Text($"Scene: {sceneManager.CurrentSceneName}");
+					ImGui.Text($"Scene Path: {sceneManager.CurrentScenePath}");
+				}
+				
 				ImGui.EndTooltip();
 			}
 
 			ImGui.SameLine();
 			ImGui.TextColored(new Vector4(0.9f, 0.9f, 1.0f, 1.0f), project.ProjectName);
 
+			ImGui.SameLine();
+			ImGui.TextDisabled("|");
+			
+			ImGui.SameLine();
+			if (sceneManager.HasLoadedScene)
+			{
+				ImGui.TextColored(new Vector4(0.7f, 0.9f, 0.7f, 1.0f), $"Scene: {sceneManager.CurrentSceneName}");
+			}
+			else
+			{
+				ImGui.TextDisabled("Scene: NONE");
+			}
+
+			ImGui.SameLine();
+			ImGui.TextDisabled("|");
+			
 			ImGui.SameLine();
 			ImGui.TextDisabled($"v{project.Version}");
 		}
