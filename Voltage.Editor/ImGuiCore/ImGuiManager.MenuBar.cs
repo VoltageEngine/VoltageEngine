@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using Voltage.Editor.Persistence;
+using Voltage.Editor.ProjectManagement;
 using Voltage.Editor.Tools;
 using Voltage.Editor.Utils;
 using Voltage.Utils;
@@ -90,12 +91,11 @@ public partial class ImGuiManager
 			}
 
 			// Show recent projects submenu
-			var recentProjects = _projectManager.GetRecentProjects();
-			if (recentProjects.Count > 0)
+			if (_projectManager.GetRecentProjects().Count > 0)
 			{
 				if (ImGui.BeginMenu("Recent Projects"))
 				{
-					foreach (var projectPath in recentProjects)
+					foreach (var projectPath in _projectManager.GetRecentProjects())
 					{
 						var projectDir = Path.GetDirectoryName(projectPath);
 						var projectName = Path.GetFileName(projectDir);
@@ -188,21 +188,50 @@ public partial class ImGuiManager
 				_projectCreator.OpenCreateProjectPopup();
 			}
 
-			if (_sceneSubclasses.Count > 0 && ImGui.BeginMenu("New Scene"))
-
+			if (ImGui.BeginMenu("New Scene"))
 			{
+				if (!_projectManager.HasActiveProject)
+				{
+					ImGui.TextDisabled("No active project");
+				}
+				else if (ImGui.MenuItem("Create New Scene..."))
+				{
+					_sceneCreator.OpenCreateScenePopup();
+				}
 				
 				ImGui.EndMenu();
 			}
 
-			if (_sceneSubclasses.Count > 0 && ImGui.BeginMenu("Change To Scene..."))
-
+			if (ImGui.BeginMenu("Load Scene..."))
 			{
-				foreach (var sceneType in _sceneSubclasses)
-					if (ImGui.MenuItem(sceneType.Name))
+				// Show available scene files from the project
+				if (_projectManager.HasActiveProject)
+				{
+					var sceneManager = SceneManager.Instance;
+					var sceneNames = sceneManager.GetAllSceneNames();
+					
+					if (sceneNames.Count > 0)
 					{
-						RequestSceneChange(sceneType);
+						ImGui.TextColored(new Vector4(0.7f, 1.0f, 0.7f, 1.0f), "Project Scenes:");
+						ImGui.Separator();
+						
+						foreach (var sceneName in sceneNames)
+						{
+							if (ImGui.MenuItem(sceneName))
+							{
+								RequestSceneChange(sceneName);
+							}
+						}
 					}
+					else
+					{
+						ImGui.TextDisabled("No scenes found");
+					}
+				}
+				else
+				{
+					ImGui.TextDisabled("No active project");
+				}
 
 				ImGui.EndMenu();
 			}
@@ -465,7 +494,7 @@ public partial class ImGuiManager
 		{
 			ImGui.PushTextWrapPos(480);
 			ImGui.TextWrapped(
-				"Warning: No compiled default engine effects were found in your 'Content/Effects' directory.");
+				"Warning: No compiled default engine effects were found in the Editor's 'Content/Voltage/Effects' directory.");
 			ImGui.PopTextWrapPos();
 
 			ImGui.Spacing();
@@ -501,7 +530,6 @@ public partial class ImGuiManager
 			ImGui.EndPopup();
 		}
 
-		// If popup was closed via X button
 		if (!open)
 		{
 			_showEngineEffectsPrompt = false;
@@ -617,9 +645,6 @@ public partial class ImGuiManager
 		}
 	}
 
-	/// <summary>
-	/// Draws a visual indicator showing the currently loaded project in the menu bar
-	/// </summary>
 	private void DrawCurrentProjectIndicator()
 	{
 		string displayText;

@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework.Content;
 using System;
 using System.IO;
+using Voltage.Editor.EditorDebug;
 using Voltage.Utils;
 
 namespace Voltage.Editor.ProjectManagement
@@ -11,9 +12,23 @@ namespace Voltage.Editor.ProjectManagement
 	/// </summary>
 	public class RuntimeGameProject : IGameProject
 	{
-		private readonly ProjectMetadata _metadata;
-		
-		public RuntimeGameProject(ProjectMetadata metadata)
+		private readonly ProjectCreator.ProjectMetadata _metadata;
+
+		#region Metadata Access
+
+		/// <summary>
+		/// Gets the underlying project metadata.
+		/// </summary>
+		public ProjectCreator.ProjectMetadata Metadata => _metadata;
+
+		/// <summary>
+		/// Gets the date when the project was created.
+		/// </summary>
+		public DateTime CreatedDate => _metadata.CreatedDate;
+
+		#endregion
+
+		public RuntimeGameProject(ProjectCreator.ProjectMetadata metadata)
 		{
 			_metadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
 		}
@@ -35,6 +50,7 @@ namespace Voltage.Editor.ProjectManagement
 					return version;
 				}
 				Debug.Warn($"Failed to parse version '{_metadata.Version}', returning default.");
+
 				return new Version(1, 0, 0);
 			}
 		}
@@ -45,15 +61,24 @@ namespace Voltage.Editor.ProjectManagement
 		
 		public string ContentsFolder => Path.Combine(ProjectPath, _metadata.ContentsFolder);
 		
+		public string DataFolder => Path.Combine(ProjectPath, _metadata.DataFolder);
+		
+		public string ScenesFolder => Path.Combine(ProjectPath, _metadata.ScenesFolder);
+		
+		public string PrefabsFolder => Path.Combine(ProjectPath, _metadata.PrefabsFolder);
+		
 		public void Initialize()
 		{
-			Debug.Log($"Initializing project: {ProjectName}");
-			Debug.Log($"  Version: {Version}");
-			Debug.Log($"  Path: {ProjectPath}");
-			Debug.Log($"  Scripts: {ScriptsFolder}");
-			Debug.Log($"  Effects: {EffectsFolder}");
-			Debug.Log($"  Content: {ContentsFolder}");
-			
+			EditorProcessDebugger.LogInfo($"Initializing project: {ProjectName}", "RuntimeGameProject");
+			EditorProcessDebugger.LogInfo($"  Version: {Version}", "RuntimeGameProject");
+			EditorProcessDebugger.LogInfo($"  Path: {ProjectPath}", "RuntimeGameProject");
+			EditorProcessDebugger.LogInfo($"  Scripts: {ScriptsFolder}", "RuntimeGameProject");
+			EditorProcessDebugger.LogInfo($"  Effects: {EffectsFolder}", "RuntimeGameProject");
+			EditorProcessDebugger.LogInfo($"  Content: {ContentsFolder}", "RuntimeGameProject");
+			EditorProcessDebugger.LogInfo($"  Data: {DataFolder}", "RuntimeGameProject");
+			EditorProcessDebugger.LogInfo($"  Scenes: {ScenesFolder}", "RuntimeGameProject");
+			EditorProcessDebugger.LogInfo($"  Prefabs: {PrefabsFolder}", "RuntimeGameProject");
+
 			if (Settings != null)
 			{
 				ApplyGameSettings();
@@ -67,7 +92,7 @@ namespace Voltage.Editor.ProjectManagement
 		public Scene CreateInitialScene()
 		{
 			// Default implementation - create an empty scene
-			Debug.Log($"Creating initial scene for project: {ProjectName}");
+			EditorProcessDebugger.LogInfo($"Creating initial scene for project: {ProjectName}", "RuntimeGameProject");
 			return new Scene();
 		}
 		
@@ -75,30 +100,28 @@ namespace Voltage.Editor.ProjectManagement
 		{
 			if (content == null)
 			{
-				Debug.Warn("ContentManager is null, cannot load project content.");
+				EditorProcessDebugger.LogError("ContentManager is null, cannot load project content.", "RuntimeGameProject");
+
 				return;
 			}
 			
-			Debug.Log($"Loading content for project: {ProjectName}");
+			EditorProcessDebugger.LogInfo($"Loading content for project: {ProjectName}", "RuntimeGameProject");
 			
 			// Set the content root directory to the project's content folder
 			if (Directory.Exists(ContentsFolder))
 			{
 				content.RootDirectory = ContentsFolder;
-				Debug.Log($"Set content root directory to: {ContentsFolder}");
+				EditorProcessDebugger.LogInfo($"Set content root directory to: {ContentsFolder}", "RuntimeGameProject");
 			}
 			else
 			{
-				Debug.Warn($"Content folder does not exist: {ContentsFolder}");
+				EditorProcessDebugger.LogInfo($"Content folder does not exist: {ContentsFolder}", "RuntimeGameProject");
 			}
-			
-			// Additional content loading can be implemented here
 		}
 		
 		public void UnloadContent()
 		{
-			Debug.Log($"Unloading content for project: {ProjectName}");
-			// Implement content unloading if needed
+			EditorProcessDebugger.LogInfo($"Unloading content for project: {ProjectName}", "RuntimeGameProject");
 		}
 		
 		#endregion
@@ -115,45 +138,28 @@ namespace Voltage.Editor.ProjectManagement
 				// Apply display settings
 				if (Settings.Display != null)
 				{
-					Debug.Log($"Applying display settings: {Settings.Display.ScreenWidth}x{Settings.Display.ScreenHeight}, " +
-					         $"Fullscreen: {Settings.Display.IsFullscreen}, VSync: {Settings.Display.EnableVSync}");
-					
-					// Note: Actual application of these settings would require access to GraphicsDeviceManager
-					// This should be done through the Core or a dedicated settings manager
+					EditorProcessDebugger.LogInfo($"Applying display settings: {Settings.Display.ScreenWidth}x{Settings.Display.ScreenHeight}, " +
+					                              $"Fullscreen: {Settings.Display.IsFullscreen}, VSync: {Settings.Display.EnableVSync}", "RuntimeGameProject");
 				}
 				
 				// Apply audio settings
 				if (Settings.Audio != null)
 				{
-					Debug.Log($"Audio settings loaded: Master={Settings.Audio.MasterVolume}, " +
-					         $"Music={Settings.Audio.MusicVolume}, SFX={Settings.Audio.SFXVolume}");
+					EditorProcessDebugger.LogInfo($"Audio settings loaded: Master={Settings.Audio.MasterVolume}, " +
+					                              $"Music={Settings.Audio.MusicVolume}, SFX={Settings.Audio.SFXVolume}", "RuntimeGameProject");
 				}
 				
 				// Apply content directory
 				if (!string.IsNullOrWhiteSpace(Settings.ContentDirectory))
 				{
-					Debug.Log($"Content directory set to: {Settings.ContentDirectory}");
+					EditorProcessDebugger.LogInfo($"Content directory set to: {Settings.ContentDirectory}", "RuntimeGameProject");
 				}
 			}
 			catch (Exception ex)
 			{
-				Debug.Error($"Failed to apply game settings: {ex.Message}");
+				EditorProcessDebugger.LogError($"Failed to apply game settings: {ex.Message}", "RuntimeGameProject");
 			}
 		}
-		
-		#endregion
-		
-		#region Metadata Access
-		
-		/// <summary>
-		/// Gets the underlying project metadata.
-		/// </summary>
-		public ProjectMetadata Metadata => _metadata;
-		
-		/// <summary>
-		/// Gets the date when the project was created.
-		/// </summary>
-		public DateTime CreatedDate => _metadata.CreatedDate;
 		
 		#endregion
 	}

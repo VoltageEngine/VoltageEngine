@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Voltage.Editor.EditorDebug;
 using Voltage.Editor.Persistence;
 using Voltage.Utils;
 
@@ -152,9 +153,8 @@ namespace Voltage.Editor.ProjectManagement
 			
 			try
 			{
-				// Load the project metadata from JSON
 				var jsonContent = File.ReadAllText(voltageFilePath);
-				var metadata = Voltage.Persistence.Json.FromJson<ProjectMetadata>(jsonContent);
+				var metadata = Voltage.Persistence.Json.FromJson<ProjectCreator.ProjectMetadata>(jsonContent);
 				
 				if (metadata == null)
 				{
@@ -176,7 +176,6 @@ namespace Voltage.Editor.ProjectManagement
 				CurrentProject = project;
 				LastProjectPath = voltageFilePath;
 				
-				// Initialize the project
 				project.Initialize();
 				
 				Debug.Log($"Successfully loaded project: {project.ProjectName} from {voltageFilePath}");
@@ -305,7 +304,7 @@ namespace Voltage.Editor.ProjectManagement
 		public void ClearRecentProjects()
 		{
 			_recentProjects.Value = "";
-			Debug.Log("Cleared recent projects list.");
+			EditorProcessDebugger.Log("Cleared recent projects list.");
 		}
 		
 		#endregion

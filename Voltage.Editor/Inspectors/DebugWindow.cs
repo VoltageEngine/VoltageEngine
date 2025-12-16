@@ -44,7 +44,7 @@ namespace Voltage.Editor.Inspectors
         public void Draw()
         {
             if (_imguiManager == null)
-                _imguiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
+                _imguiManager = Core.GetGlobalManager<ImGuiManager>();
 
             ImGui.Begin("Debug Log ###DebugWindow", ImGuiWindowFlags.HorizontalScrollbar);
 

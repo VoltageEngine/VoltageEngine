@@ -7,6 +7,7 @@ using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Emit;
+using Voltage.Editor.EditorDebug;
 using Voltage.Utils;
 
 namespace Voltage.Editor.Scripting
@@ -21,6 +22,8 @@ namespace Voltage.Editor.Scripting
 		/// </summary>
 		public static CompilationResult Compile(IEnumerable<string> scriptPaths, string assemblyName = "DynamicScripts")
 		{
+			EditorProcessDebugger.LogInfo($"Starting compilation of {scriptPaths.Count()} scripts", "ScriptCompilation");
+			
 			var syntaxTrees = new List<SyntaxTree>();
 			var errors = new List<string>();
 
@@ -79,6 +82,12 @@ namespace Voltage.Editor.Scripting
 					.Select(d => $"{d.Location.GetLineSpan().Path}({d.Location.GetLineSpan().StartLinePosition.Line + 1}): {d.GetMessage()}")
 					.ToList();
 
+				EditorProcessDebugger.LogError($"Compilation failed with {compilationErrors.Count} errors", "ScriptCompilation");
+				foreach (var error in compilationErrors)
+				{
+					EditorProcessDebugger.LogError(error, "ScriptCompilation");
+				}
+
 				return new CompilationResult
 				{
 					Success = false,
@@ -91,6 +100,8 @@ namespace Voltage.Editor.Scripting
 			ms.Seek(0, SeekOrigin.Begin);
 			var assembly = Assembly.Load(ms.ToArray());
 
+			EditorProcessDebugger.LogInfo("Compilation succeeded", "ScriptCompilation");
+			
 			return new CompilationResult
 			{
 				Success = true,

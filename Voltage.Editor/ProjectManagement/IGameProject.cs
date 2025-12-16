@@ -16,6 +16,9 @@ namespace Voltage.Editor.ProjectManagement
 		string ScriptsFolder { get; }
 		string EffectsFolder { get; }
 		string ContentsFolder { get; }
+		string DataFolder { get; }
+		string ScenesFolder { get; }
+		string PrefabsFolder { get; }
 
 		void Initialize();
 		Scene CreateInitialScene();
