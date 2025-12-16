@@ -1,16 +1,16 @@
 using System.Collections.Generic;
-using Voltage;
+using Voltage.Editor.Undo.Core;
 
-namespace Voltage.Editor.UndoActions
+namespace Voltage.Editor.Undo.EntityActions
 {
     /// <summary>
     /// Undo action for rotating multiple entities via gizmo.
     /// </summary>
     public class MultiEntityRotationUndoAction : EditorChangeTracker.IEditorAction
     {
-        private readonly List<Entity> _entities;
-        private readonly Dictionary<Entity, float> _startRotations;
-        private readonly Dictionary<Entity, float> _endRotations;
+        private readonly List<Voltage.Entity> _entities;
+        private readonly Dictionary<Voltage.Entity, float> _startRotations;
+        private readonly Dictionary<Voltage.Entity, float> _endRotations;
         public string Description { get; }
 
         public MultiEntityRotationUndoAction(

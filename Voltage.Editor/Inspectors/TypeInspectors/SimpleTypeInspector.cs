@@ -5,8 +5,8 @@ using Microsoft.Xna.Framework;
 using Voltage;
 using Voltage.Utils;
 using Voltage.Utils.Extensions;
-using Voltage.Editor.UndoActions;
 using Voltage.Editor.Utils;
+using Voltage.Editor.Undo.Core;
 
 namespace Voltage.Editor.Inspectors.TypeInspectors
 {

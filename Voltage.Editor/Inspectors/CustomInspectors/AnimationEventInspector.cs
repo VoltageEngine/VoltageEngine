@@ -5,8 +5,10 @@ using ImGuiNET;
 using Voltage.Sprites;
 using Voltage.Utils;
 using Voltage.Editor.ImGuiCore;
-using Voltage.Editor.UndoActions;
+using Voltage.Editor.Undo;
 using Num = System.Numerics;
+using Voltage.Editor.Undo.Core;
+using Voltage.Editor.Undo.PropertyActions;
 
 namespace Voltage.Editor.Inspectors.CustomInspectors
 {

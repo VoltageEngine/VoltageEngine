@@ -362,7 +362,7 @@ namespace Voltage.Editor.ProjectManagement
 		{
 			ImGui.Separator();
 			
-			bool canCreate = !string.IsNullOrWhiteSpace(_projectName) && 
+		 bool canCreate = !string.IsNullOrWhiteSpace(_projectName) && 
 			                 !string.IsNullOrWhiteSpace(_projectPath) &&
 			                 string.IsNullOrWhiteSpace(_projectNameError) && 
 			                 _screenWidth > 0 && 
@@ -425,7 +425,6 @@ namespace Voltage.Editor.ProjectManagement
 					return;
 				}
 				
-				// Create main project directory
 				Directory.CreateDirectory(fullProjectPath);
 				
 				// Create folder structure
@@ -443,25 +442,65 @@ namespace Voltage.Editor.ProjectManagement
 				Directory.CreateDirectory(scenesPath);
 				Directory.CreateDirectory(prefabsPath);
 				
-				// Create game settings
 				var settings = new GameSettings
 				{
-					Display = new DisplaySettings
+					Display = new GameSettings.DisplaySettings
 					{
 						ScreenWidth = _screenWidth,
 						ScreenHeight = _screenHeight,
 						IsFullscreen = _isFullscreen,
 						EnableVSync = _enableVSync
 					},
-					Audio = new AudioSettings
+					Audio = new GameSettings.AudioSettings
 					{
 						MasterVolume = _masterVolume,
 						MusicVolume = _musicVolume,
 						SFXVolume = _sfxVolume
 					},
-					Physics = new PhysicsSettings(),
-					Rendering = new RenderingSettings(),
-					Entities = new EntitySettings(),
+					DesignResolution = new GameSettings.DesignResolutionSettings
+					{
+						Width = _screenWidth,  // Use screen width as default design width
+						Height = _screenHeight, // Use screen height as default design height
+						ResolutionPolicy = Scene.SceneResolutionPolicy.BestFit,
+						HorizontalBleed = 0,
+						VerticalBleed = 0
+					},
+					Physics = new GameSettings.PhysicsSettings
+					{
+						PhysicsLayers = new Dictionary<string, int>
+						{
+							{ "Default", 0 },
+							{ "Ground", 1 },
+							{ "Player", 2 },
+							{ "Enemy", 3 },
+							{ "Projectile", 4 }
+						}
+					},
+					Rendering = new GameSettings.RenderingSettings
+					{
+						RenderingLayers = new Dictionary<string, int>
+						{
+							{ "Lighting", 100 },
+							{ "BehindAll", 99 },
+							{ "HideObject", 30 },
+							{ "Background", 0 },
+							{ "Entities", 1 },
+							{ "Foreground", -2 },
+							{ "InFrontOfAll", -30 },
+							{ "UIElement", -99 }
+						}
+					},
+					Entities = new GameSettings.EntitySettings
+					{
+						EntityTags = new Dictionary<string, int>
+						{
+							{ "Default", 0 },
+							{ "Player", 1 },
+							{ "Enemy", 2 },
+							{ "Collectible", 3 },
+							{ "Environment", 4 }
+						}
+					},
 					ContentDirectory = "Content"
 				};
 				
@@ -591,6 +630,35 @@ namespace Voltage.Editor.ProjectManagement
 				FilePicker.RemoveFilePicker(_folderPicker);
 				_folderPicker = null;
 			}
+		}
+		
+		private GameSettings CreateDefaultSettings()
+		{
+			return new GameSettings
+			{
+				Display = new GameSettings.DisplaySettings
+				{
+					ScreenWidth = 1280,
+					ScreenHeight = 720,
+					IsFullscreen = false,
+					EnableVSync = true
+				},
+				Audio = new GameSettings.AudioSettings
+				{
+					MasterVolume = 1.0f,
+					MusicVolume = 0.8f,
+					SFXVolume = 1.0f
+				},
+				DesignResolution = new GameSettings.DesignResolutionSettings
+				{
+					Width = 1280,
+					Height = 720,
+					ResolutionPolicy = Scene.SceneResolutionPolicy.BestFit,
+					HorizontalBleed = 0,
+					VerticalBleed = 0
+				},
+				ContentDirectory = "Content"
+			};
 		}
 	}
 }

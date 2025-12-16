@@ -1,23 +1,23 @@
-using Voltage;
 using System;
 using System.Linq;
+using Voltage.Editor.Undo.Core;
 
-namespace Voltage.Editor.UndoActions
+namespace Voltage.Editor.Undo.ComponentActions
 {
 	/// <summary>
 	/// Undo action for adding a component to an entity.
 	/// </summary>
 	public class ComponentAddedUndoAction : EditorChangeTracker.IEditorAction
 	{
-		private Entity _entity;
-		private Component _component;
+		private Voltage.Entity _entity;
+		private Voltage.Component _component;
 		private Type _componentType;
 		private string _componentName;
 		private bool _wasActuallyAdded;
 
 		public string Description => $"Add {_componentType.Name} to {_entity?.Name ?? "Unknown Entity"}";
 
-		public ComponentAddedUndoAction(Entity entity, Component component)
+		public ComponentAddedUndoAction(Voltage.Entity entity, Voltage.Component component)
 		{
 			_entity = entity;
 			_component = component;
@@ -96,7 +96,7 @@ namespace Voltage.Editor.UndoActions
 				// If component reference is lost, create a new instance
 				try
 				{
-					var newComponent = (Component)Activator.CreateInstance(_componentType);
+					var newComponent = (Voltage.Component)Activator.CreateInstance(_componentType);
 					newComponent.Name = _componentName;
 					_entity.AddComponent(newComponent);
 					_component = newComponent;

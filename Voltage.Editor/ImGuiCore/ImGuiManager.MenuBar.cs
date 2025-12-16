@@ -236,6 +236,23 @@ public partial class ImGuiManager
 				ImGui.EndMenu();
 			}
 
+			ImGui.Separator();
+
+			if (!_projectManager.HasActiveProject)
+			{
+				ImGui.BeginDisabled();
+			}
+
+			if (ImGui.MenuItem("Settings"))
+			{
+				_projectSettingsWindow.IsOpen = true;
+			}
+
+			if (!_projectManager.HasActiveProject)
+			{
+				ImGui.EndDisabled();
+			}
+
 			ImGui.EndMenu();
 		}
 	}

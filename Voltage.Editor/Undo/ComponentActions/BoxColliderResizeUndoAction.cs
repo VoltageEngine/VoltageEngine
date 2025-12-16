@@ -1,8 +1,8 @@
 using Microsoft.Xna.Framework;
-using Voltage;
+using Voltage.Editor.Undo.Core;
 using Voltage.PhysicsShapes;
 
-namespace Voltage.Editor.UndoActions
+namespace Voltage.Editor.Undo.ComponentActions
 {
 	public class BoxColliderResizeUndoAction : EditorChangeTracker.IEditorAction
 	{

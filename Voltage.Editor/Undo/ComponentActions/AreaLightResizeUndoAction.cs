@@ -1,8 +1,8 @@
 using Microsoft.Xna.Framework;
-using Voltage;
 using Voltage.DeferredLighting;
+using Voltage.Editor.Undo.Core;
 
-namespace Voltage.Editor.UndoActions
+namespace Voltage.Editor.Undo.ComponentActions
 {
 	public class AreaLightResizeUndoAction : EditorChangeTracker.IEditorAction
 	{

@@ -1,6 +1,7 @@
+using Voltage.Editor.Undo.Core;
 using Voltage.Sprites;
 
-namespace Voltage.Editor.UndoActions;
+namespace Voltage.Editor.Undo.ComponentActions;
 
 public class SpriteAnimatorLoadUndoAction : EditorChangeTracker.IEditorAction
 {

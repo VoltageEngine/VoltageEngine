@@ -4,7 +4,9 @@ using Voltage;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Voltage.Editor.UndoActions;
+using Voltage.Editor.Undo;
+using Voltage.Editor.Undo.Core;
+using Voltage.Editor.Undo.EntityActions;
 
 namespace Voltage.Editor.Gizmos
 {

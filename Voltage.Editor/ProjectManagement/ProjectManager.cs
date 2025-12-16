@@ -176,7 +176,11 @@ namespace Voltage.Editor.ProjectManagement
 				CurrentProject = project;
 				LastProjectPath = voltageFilePath;
 				
+				AddToRecentProjects(voltageFilePath);
+				
 				project.Initialize();
+				
+				GameSettings.Instance = project.Settings;
 				
 				Debug.Log($"Successfully loaded project: {project.ProjectName} from {voltageFilePath}");
 				

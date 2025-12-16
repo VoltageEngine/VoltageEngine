@@ -6,10 +6,13 @@ using ImGuiNET;
 using Voltage.Utils;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Inspectors.ObjectInspectors;
-using Voltage.Editor.UndoActions;
+using Voltage.Editor.Undo;
 using Voltage.Editor.Utils;
 using Voltage.Persistence;
 using Num = System.Numerics;
+using Voltage.Editor.Undo.Core;
+using Voltage.Editor.Undo.PrefabActions;
+using Voltage.Editor.Undo.PropertyActions;
 
 namespace Voltage.Editor.Inspectors;
 

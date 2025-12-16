@@ -1,9 +1,8 @@
 using System;
-using Voltage;
-using Voltage.Editor.UndoActions;
+using Voltage.Editor.Undo.Core;
 using Voltage.Persistence;
 
-namespace Voltage.Editor.UndoActions
+namespace Voltage.Editor.Undo.ComponentActions
 {
     public class ComponentDataChangeAction : EditorChangeTracker.IEditorAction
     {

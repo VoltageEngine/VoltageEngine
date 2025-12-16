@@ -5,7 +5,9 @@ using Voltage.DeferredLighting;
 using Voltage.PhysicsShapes;
 using System;
 using System.Collections.Generic;
-using Voltage.Editor.UndoActions;
+using Voltage.Editor.Undo;
+using Voltage.Editor.Undo.ComponentActions;
+using Voltage.Editor.Undo.Core;
 
 namespace Voltage.Editor.Gizmos
 {

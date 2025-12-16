@@ -7,11 +7,11 @@ using Microsoft.Xna.Framework.Input;
 using Voltage.Console;
 using Voltage.Utils;
 using Voltage.Utils.Extensions;
-using Voltage.Editor.UndoActions;
 using Voltage.Editor.Utils;
 using Voltage.Persistence.Binary;
 using Num = System.Numerics;
 using Voltage;
+using Voltage.Editor.Undo.Core;
 
 namespace Voltage.Editor.ImGuiCore;
 
