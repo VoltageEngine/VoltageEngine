@@ -21,7 +21,7 @@ using Voltage.Editor.Persistence;
 using Voltage.Editor.ProjectManagement;
 using Voltage.Editor.Scripting;
 using Voltage.Editor.Tools;
-using Voltage.Editor.UndoActions;
+using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Utils;
 using Voltage.Sprites;
 using Voltage.Utils;
@@ -153,6 +153,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	// Editor settings window
 	private EditorSettingsWindow _editorSettingsWindow = new();
+	private ProjectSettingsWindow _projectSettingsWindow = new();
 
 	// Entity Selection
 	private List<(Entity entity, Collider collider)> _highlightedEntities = new();
@@ -380,6 +381,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_effectBuildProgressWindow.Draw();
 		_projectCreator.Draw();
 		_sceneCreator.Draw();
+		_projectSettingsWindow.Draw();
 
 		for (var i = _drawCommands.Count - 1; i >= 0; i--)
 			_drawCommands[i]();

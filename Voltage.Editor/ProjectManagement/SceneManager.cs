@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Voltage.Data;
 using Voltage.Editor.EditorDebug;
+using Voltage.Editor.Scenes;
 using Voltage.Editor.Tools;
 using Voltage.Editor.Utils;
 using Voltage.Utils;
@@ -218,11 +219,18 @@ namespace Voltage.Editor.ProjectManagement
 		/// </summary>
 		private void ApplySceneData(Scene scene, SceneData sceneData)
 		{
+			// Ensure we're working with a GameScene
+			if (scene is not GameScene gameScene)
+			{
+				Debug.Error("Current scene is not a GameScene. Cannot apply scene data.");
+				return;
+			}
+			
 			// Clear existing entities (except camera and other essential entities)
 			var entitiesToRemove = new List<Entity>();
-			for (int i = 0; i < scene.Entities.Count; i++)
+			for (int i = 0; i < gameScene.Entities.Count; i++)
 			{
-				var entity = scene.Entities[i];
+				var entity = gameScene.Entities[i];
 				// Keep hardcoded entities like the camera
 				if (entity.Type != Entity.InstanceType.HardCoded || entity.Name != "camera")
 				{
@@ -236,7 +244,7 @@ namespace Voltage.Editor.ProjectManagement
 			}
 			
 			// Assign the new scene data
-			scene.SceneData = sceneData;
+			gameScene.SceneData = sceneData;
 			
 			// Trigger the scene to load entities from the data
 			Scene.InvokeFinishedAddingEntities();

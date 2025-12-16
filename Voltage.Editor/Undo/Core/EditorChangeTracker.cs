@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Voltage.Editor.UndoActions;
+namespace Voltage.Editor.Undo.Core;
 
 /// <summary>
 /// Tracks editor changes (dirty state) and supports undo/redo actions.
@@ -130,11 +130,9 @@ public class EditorChangeTracker
     /// </summary>
     public static void Revert()
     {
-        // Undo all actions
         while (CanUndo)
             Undo();
 
-        // Clear dirty state
         Clear();
     }
 }

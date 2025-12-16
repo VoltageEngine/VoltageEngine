@@ -9,9 +9,11 @@ using Voltage.Tiled;
 using Voltage.Utils;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Inspectors.TypeInspectors;
-using Voltage.Editor.UndoActions;
+using Voltage.Editor.Undo;
+using Voltage.Editor.Undo.AssetActions;
 using Voltage.Editor.Utils;
 using Num = System.Numerics;
+using Voltage.Editor.Undo.Core;
 
 namespace Voltage.Editor.Inspectors.CustomInspectors
 {

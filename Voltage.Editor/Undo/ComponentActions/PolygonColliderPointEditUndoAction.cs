@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
+using Voltage.Editor.Undo.Core;
 
-namespace Voltage.Editor.UndoActions
+namespace Voltage.Editor.Undo.ComponentActions
 {
 	public class PolygonColliderPointEditUndoAction : EditorChangeTracker.IEditorAction
 	{

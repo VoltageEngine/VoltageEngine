@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using Voltage;
+using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Utils;
 
-namespace Voltage.Editor.UndoActions
+namespace Voltage.Editor.Undo.AssetActions
 {
     public class AsepriteLoadUndoAction : EditorChangeTracker.IEditorAction
     {

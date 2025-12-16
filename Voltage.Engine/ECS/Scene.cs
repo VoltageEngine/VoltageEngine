@@ -13,7 +13,7 @@ using Voltage.Utils.Extensions;
 
 namespace Voltage;
 
-public class Scene
+public abstract class Scene
 {
 	public enum SceneResolutionPolicy
 	{
@@ -244,24 +244,6 @@ public class Scene
 	public void InvokeSceneBegin()
 	{
 		OnSceneBegin?.Invoke();
-	}
-
-	#endregion
-
-	#region Scene creation helpers
-
-	/// <summary>
-	/// helper that creates a scene with the DefaultRenderer attached and ready for use
-	/// </summary>
-	/// <returns>The with default renderer.</returns>
-	public static Scene CreateWithDefaultRenderer(Color? clearColor = null)
-	{
-		var scene = new Scene();
-
-		if (clearColor.HasValue)
-			scene.ClearColor = clearColor.Value;
-		scene.AddRenderer(new DefaultRenderer());
-		return scene;
 	}
 
 	#endregion

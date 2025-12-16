@@ -10,10 +10,12 @@ using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Inspectors.SceneGraphPanes;
 using Voltage.Editor.ProjectManagement;
-using Voltage.Editor.UndoActions;
+using Voltage.Editor.Undo;
 using Voltage.Editor.Utils;
 using Num = System.Numerics;
 using Voltage.Editor.Interfaces;
+using Voltage.Editor.Undo.Core;
+using Voltage.Editor.Undo.EntityActions;
 
 namespace Voltage.Editor.Inspectors;
 

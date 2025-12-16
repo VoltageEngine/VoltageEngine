@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 
-namespace Voltage.Editor.UndoActions;
+namespace Voltage.Editor.Undo.Core;
 
 public class PathUndoAction : EditorChangeTracker.IEditorAction
 {
@@ -36,7 +36,7 @@ public class PathUndoAction : EditorChangeTracker.IEditorAction
 		{
 			string memberName = _path[i];
 			var member = currentType.GetProperty(memberName) as MemberInfo
-			             ?? (MemberInfo)currentType.GetField(memberName);
+			             ?? currentType.GetField(memberName);
 
 			if (member is PropertyInfo prop)
 				current = prop.GetValue(current);
@@ -53,7 +53,7 @@ public class PathUndoAction : EditorChangeTracker.IEditorAction
 		// Set the value on the last member
 		string lastMemberName = _path[^1];
 		var lastMember = currentType.GetProperty(lastMemberName) as MemberInfo
-		                 ?? (MemberInfo)currentType.GetField(lastMemberName);
+		                 ?? currentType.GetField(lastMemberName);
 
 		if (lastMember is PropertyInfo lastProp)
 			lastProp.SetValue(current, value);

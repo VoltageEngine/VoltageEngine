@@ -11,10 +11,10 @@ using Microsoft.Xna.Framework;
 using Voltage.ECS;
 using Voltage.Utils.Extensions;
 using PrefabData = Voltage.Data.PrefabData;
-using Voltage.Editor.UndoActions;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Interfaces;
 using Voltage.Editor.Utils;
+using Voltage.Editor.Undo.Core;
 
 namespace Voltage.Editor.SerializedData;
 

@@ -7,10 +7,12 @@ using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Inspectors.Attributes;
 using Voltage.Editor.Inspectors.CustomInspectors;
 using Voltage.Editor.Inspectors.TypeInspectors;
-using Voltage.Editor.UndoActions;
+using Voltage.Editor.Undo;
+using Voltage.Editor.Undo.ComponentActions;
 using Voltage.Editor.Utils;
 using Voltage.Persistence;
 using Num = System.Numerics;
+using Voltage.Editor.Undo.Core;
 
 namespace Voltage.Editor.Inspectors.ObjectInspectors
 {

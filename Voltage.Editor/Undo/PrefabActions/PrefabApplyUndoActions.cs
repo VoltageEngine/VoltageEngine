@@ -1,10 +1,10 @@
-using Voltage.Persistence;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Voltage;
+using Voltage.Editor.Undo.Core;
+using Voltage.Persistence;
 
-namespace Voltage.Editor.UndoActions
+namespace Voltage.Editor.Undo.PrefabActions
 {
 	/// <summary>
 	/// Undo action for applying prefab changes to a single entity copy.

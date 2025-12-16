@@ -1,7 +1,8 @@
 using System;
 using System.Reflection;
+using Voltage.Editor.Undo.Core;
 
-namespace Voltage.Editor.UndoActions;
+namespace Voltage.Editor.Undo.PropertyActions;
 
 public class GenericValueChangeAction : EditorChangeTracker.IEditorAction
 {

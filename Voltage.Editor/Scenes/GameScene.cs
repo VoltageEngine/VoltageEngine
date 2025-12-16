@@ -13,14 +13,16 @@ using Voltage.DeferredLighting;
 using Voltage.Textures;
 using Voltage.Editor.Inspectors;
 using Voltage.Editor.FilePickers;
+using Voltage.Editor.ProjectManagement;
 using Voltage.Editor.SerializedData;
-using Voltage.Editor.UndoActions;
+using Voltage.Editor.Undo.AssetActions;
 using Voltage.Editor.Utils;
 using Voltage.Utils;
+using Voltage.Editor.Undo.Core;
 
 namespace Voltage.Editor.Scenes;
 
-public abstract class GameScene : Scene
+public class GameScene : Scene
 {
     public TmxMap TiledMap;
     public Entity TiledMapEntity;// Create a dedicated TiledMapEntity to hold TiledMap
@@ -29,19 +31,37 @@ public abstract class GameScene : Scene
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
     private Dictionary<string, SceneData.SceneEntityData> sceneEntitiesByName;
 
-    // Everything under 100 (light layer) is render layer ( -99 to 99 inclusive)
-    private static readonly int[] AllRenderLayers = Enumerable.Range(-99, 199).ToArray();
+	//TODO: Make this accessible in Editor (and not hardcoded)
+	// Everything under 100 (light layer) is render layer ( -99 to 99 inclusive)
+	private static readonly int[] AllRenderLayers = Enumerable.Range(-99, 199).ToArray();
 
 
     public override void Initialize()
     {
         base.Initialize();
 
-        EntityTypeRegistrator.RegisterAllEntityTypes();
+		//TODO: Change this because there's only one Entity at all times
+		EntityTypeRegistrator.RegisterAllEntityTypes();
         sceneEntitiesByName = new Dictionary<string, SceneData.SceneEntityData>();
+
+        var projectManager = Core.GetGlobalManager<ProjectManager>();
         
-        // Resolution settings
-        SetDesignResolution(512, 288, SceneResolutionPolicy.BestFit);
+        if (projectManager?.HasActiveProject == true)
+        {
+            var designRes = projectManager.CurrentProject.Settings.DesignResolution;
+            SetDesignResolution(
+                designRes.Width, 
+                designRes.Height, 
+                designRes.ResolutionPolicy,
+                designRes.HorizontalBleed,
+                designRes.VerticalBleed
+            );
+        }
+        else
+        {
+            SetDesignResolution(1280, 720, SceneResolutionPolicy.BestFit);
+        }
+
         LoadSceneData();
 
         // //FMOD 
@@ -215,8 +235,7 @@ public abstract class GameScene : Scene
             }
             else
             {
-                Debug.Log(Debug.LogType.Error,
-                    $"Could not find parent entity '{parentName}' for entity '{entity.Name}'");
+                Debug.Error($"Could not find parent entity '{parentName}' for entity '{entity.Name}'");
             }
 
             // Clean up the temporary data
@@ -227,14 +246,14 @@ public abstract class GameScene : Scene
         }
     }
 
-    #endregion
+	#endregion
 
-    #region EDITOR TOOLS
+	#region Editor Tools: Tiled Map & Aseprite Loading
 
-    /// <summary>
-    /// Creates colliders and images from a Tiled map file
-    /// </summary>
-    protected void CreateTiledMap(TmxFilePicker.TmxSelection tiledMapSelection)
+	/// <summary>
+	/// Creates colliders and images from a Tiled map file
+	/// </summary>
+	protected void CreateTiledMap(TmxFilePicker.TmxSelection tiledMapSelection)
     {
         var oldTmxEntities = new List<Entity>(TmxMapEntities);
         var oldTmxFileName = SceneData?.TiledMapFileName ?? "";
@@ -542,5 +561,21 @@ public abstract class GameScene : Scene
         }
     }
 
-    #endregion
+	#endregion
+
+	#region Scene creation helpers
+
+	/// <summary>
+	/// helper that creates a scene with the DefaultRenderer attached and ready for use
+	/// </summary>
+	/// <returns>The with default renderer.</returns>
+	public static GameScene CreateWithDefaultRenderer(GameScene scene, Color? clearColor = null)
+	{
+		if (clearColor.HasValue)
+			scene.ClearColor = clearColor.Value;
+		scene.AddRenderer(new DefaultRenderer());
+		return scene;
+	}
+
+	#endregion
 }
