@@ -365,7 +365,6 @@ namespace Voltage.Editor.ProjectManagement
 		{
 			CurrentScenePath = null;
 			CurrentSceneName = null;
-			Debug.Log("Cleared current scene reference");
 		}
 		
 		#endregion

@@ -10,7 +10,7 @@ using Voltage.Data;
 namespace Voltage;
 
 [JsonSerializable(typeof(Entity))]
-public class Entity : IComparable<Entity>
+public sealed class Entity : IComparable<Entity>
 {
 	public enum InstanceType
 	{
@@ -173,7 +173,7 @@ public class Entity : IComparable<Entity>
 	/// Override this in derived classes to provide entity-specific data serialization.
 	/// This is called when the entity needs to serialize its current state.
 	/// </summary>
-	public virtual EntityData GetEntityData()
+	public EntityData GetEntityData()
 	{
 		return EntityData;
 	}
@@ -182,7 +182,7 @@ public class Entity : IComparable<Entity>
 	/// Override this in derived classes to apply loaded entity data.
 	/// This is called when entity data is loaded from JSON.
 	/// </summary>
-	public virtual void SetEntityData(EntityData data)
+	public void SetEntityData(EntityData data)
 	{
 		if (data != null)
 		{
@@ -323,7 +323,7 @@ public class Entity : IComparable<Entity>
 		Components.OnEntityTransformChanged(comp);
 	}
 
-	public virtual void FinishInit()
+	public void FinishInit()
 	{
 
 	}
@@ -631,7 +631,7 @@ public class Entity : IComparable<Entity>
 
 	#region Entity lifecycle methods
 
-	public virtual void OnAddedToScene()
+	public void OnAddedToScene()
 	{
 		AddedToScene?.Invoke();
 	}
@@ -639,7 +639,7 @@ public class Entity : IComparable<Entity>
 	/// <summary>
 	/// Called when this entity is removed from a scene
 	/// </summary>
-	public virtual void OnRemovedFromScene()
+	public void OnRemovedFromScene()
 	{
 		// if we were destroyed, remove our components. If we were just detached we need to keep our components on the Entity.
 		if (_isDestroyed)
@@ -651,7 +651,7 @@ public class Entity : IComparable<Entity>
 	/// <summary>
 	/// called each frame as long as the Entity is enabled
 	/// </summary>
-	public virtual void Update()
+	public void Update()
 	{
 		Components.Update();
 	}
@@ -660,7 +660,7 @@ public class Entity : IComparable<Entity>
 	/// called if Core.debugRenderEnabled is true by the default renderers. Custom renderers can choose to call it or not.
 	/// </summary>
 	/// <param name="batcher">Batcher.</param>
-	public virtual void DebugRender(Batcher batcher)
+	public void DebugRender(Batcher batcher)
 	{
 		Components.DebugRender(batcher);
 	}
@@ -895,13 +895,12 @@ public class Entity : IComparable<Entity>
 	#endregion
 
 	#region Child Event callbacks
-
 	/// <summary>
-	/// Registers a callback that will be invoked whenever a child entity of type <typeparamref name="T"/> is added to this entity.
+	/// Registers a callback that will be invoked whenever a child entity is added to this entity.
 	/// </summary>
-	public void OnChildAdded<T>(Action<T> onAdded) where T : Entity
+	public void OnChildAdded(Action<Entity> onAdded)
 	{
-		var type = typeof(T);
+		var type = typeof(Entity);
 		if (!_childAddedCallbacks.TryGetValue(type, out var list))
 		{
 			list = new List<Delegate>();
@@ -909,11 +908,10 @@ public class Entity : IComparable<Entity>
 		}
 		list.Add(onAdded);
 
-		// Immediately call for existing children of type T
+		// Immediately call for existing children
 		foreach (var child in Transform.Children)
 		{
-			if (child.Entity is T tChild)
-				onAdded(tChild);
+			onAdded(child.Entity);
 		}
 	}
 
@@ -921,10 +919,10 @@ public class Entity : IComparable<Entity>
 	/// Registers a callback that will be called once for the first child entity of type T added to this entity,
 	/// then the callback is automatically removed.
 	/// </summary>
-	public void OnChildAddedOnce<T>(Action<T> onAdded) where T : Entity
+	public void OnChildAddedOnce(Action<Entity> onAdded)
 	{
-		var oneShot = new OneShotDelegate<T>(onAdded);
-		OnChildAdded<T>(oneShot.Invoke);
+		var oneShot = new OneShotDelegate<Entity>(onAdded);
+		OnChildAdded(oneShot.Invoke);
 	}
 
 	internal void TriggerChildAddedCallbacks(Entity child)
