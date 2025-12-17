@@ -132,8 +132,8 @@ public class EntityPane
             ImGui.SetNextItemOpen(isExpanded, ImGuiCond.Always);
 
 		// Set special color for entities based on type
-		bool isPrefab = entity.Type == Entity.InstanceType.Prefab;
-		bool isHardCoded = entity.Type == Entity.InstanceType.HardCoded;
+		bool isPrefab = entity.Type == Entity.InstanceType.SerializedPrefab;
+		bool isHardCoded = entity.Type == Entity.InstanceType.NonSerialized;
 
 		if (isPrefab)
 		{
@@ -308,9 +308,9 @@ public class EntityPane
 
             // Clone logic
             string reason = null;
-            if (entity.Type == Entity.InstanceType.HardCoded)
+            if (entity.Type == Entity.InstanceType.NonSerialized)
             {
-                reason = "Can't duplicate HardCoded entities!";
+                reason = "Can't duplicate NonSerialized entities!";
             }
 
             if (reason == null)
@@ -361,9 +361,9 @@ public class EntityPane
 
 	    bool ShouldBlockDuplication(Entity entity)
 	    {
-	        if (entity != null && entity.Type == Entity.InstanceType.HardCoded)
+	        if (entity != null && entity.Type == Entity.InstanceType.NonSerialized)
 	        {
-	            NotificationSystem.ShowTimedNotification("Cannot duplicate HardCoded entities.");
+	            NotificationSystem.ShowTimedNotification("Cannot duplicate NonSerialized entities.");
 	            return true; 
 	        }
 	        return false;
@@ -458,7 +458,7 @@ public class EntityPane
 
 	/// <summary>
 	/// Duplicates the given entity and adds it to the scene.
-	/// If the entity is HardCoded, the clone will be of type Dynamic.
+	/// If the entity is NonSerialized, the clone will be of type Serialized.
 	/// Uses JSON serialization for reliable component copying.
 	/// </summary>
 	public Entity DuplicateEntity(Entity entity, string customName = null)
@@ -483,11 +483,11 @@ public class EntityPane
 			clone.UpdateInterval = entity.UpdateInterval;
 			clone.UpdateOrder = entity.UpdateOrder;
 
-			if(entity.Type == InstanceType.HardCoded || entity.Type == InstanceType.Dynamic)
-				clone.Type = InstanceType.Dynamic;
+			if(entity.Type == InstanceType.NonSerialized || entity.Type == InstanceType.Serialized)
+				clone.Type = InstanceType.Serialized;
 			else
 			{
-				clone.Type = InstanceType.Prefab;
+				clone.Type = InstanceType.SerializedPrefab;
 				clone.OriginalPrefabName = entity.OriginalPrefabName;
 			}
 
@@ -630,18 +630,18 @@ public class EntityPane
 				}
 			}
 
-			// Copy children if any exist, but SKIP HardCoded entities
+			// Copy children if any exist, but SKIP NonSerialized entities
 			for (var i = 0; i < entity.Transform.ChildCount; i++)
 			{
 				var childEntity = entity.Transform.GetChild(i).Entity;
 				
-				// Skip HardCoded children - they should be created by the parent entity's initialization logic
-				if (childEntity.Type == Entity.InstanceType.HardCoded)
+				// Skip NonSerialized children - they should be created by the parent entity's initialization logic
+				if (childEntity.Type == Entity.InstanceType.NonSerialized)
 				{
 					continue;
 				}
 				
-				// Only duplicate Dynamic and Prefab children
+				// Only duplicate Serialized and SerializedPrefab children
 				var clonedChild = DuplicateEntity(childEntity, null);
 				if (clonedChild != null)
 				{
@@ -692,11 +692,11 @@ public class EntityPane
                 clone.UpdateInterval = entity.UpdateInterval;
                 clone.UpdateOrder = entity.UpdateOrder;
 
-                if (entity.Type == InstanceType.HardCoded || entity.Type == InstanceType.Dynamic)
-                    clone.Type = InstanceType.Dynamic;
+                if (entity.Type == InstanceType.NonSerialized || entity.Type == InstanceType.Serialized)
+                    clone.Type = InstanceType.Serialized;
                 else
                 {
-                    clone.Type = InstanceType.Prefab;
+                    clone.Type = InstanceType.SerializedPrefab;
                     clone.OriginalPrefabName = entity.OriginalPrefabName;
                 }
 
@@ -814,11 +814,11 @@ public class EntityPane
                     }
                 }
 
-                // Copy children if any exist, but SKIP HardCoded entities
+                // Copy children if any exist, but SKIP NonSerialized entities
                 for (var i = 0; i < entity.Transform.ChildCount; i++)
                 {
                     var childEntity = entity.Transform.GetChild(i).Entity;
-                    if (childEntity.Type == Entity.InstanceType.HardCoded)
+                    if (childEntity.Type == Entity.InstanceType.NonSerialized)
                         continue;
 
                     var clonedChild = DuplicateEntity(childEntity, null);

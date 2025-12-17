@@ -38,7 +38,7 @@ public class SceneData
 
         public SceneEntityData()
         {
-            InstanceType = Entity.InstanceType.HardCoded;
+            InstanceType = Entity.InstanceType.NonSerialized;
             Name = "";
             EntityType = "";
             Position = Vector2.Zero;

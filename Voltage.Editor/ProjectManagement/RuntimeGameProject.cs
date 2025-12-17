@@ -14,7 +14,7 @@ namespace Voltage.Editor.ProjectManagement
 	public class RuntimeGameProject : IGameProject
 	{
 		private readonly ProjectCreator.ProjectMetadata _metadata;
-		private GameSettings _settings;
+		private ProjectSettings _settings;
 
 		#region Metadata Access
 
@@ -42,7 +42,7 @@ namespace Voltage.Editor.ProjectManagement
 		
 		public string ProjectPath => _metadata.ProjectPath;
 		
-		public GameSettings Settings => _settings;
+		public ProjectSettings Settings => _settings;
 		
 		public Version Version
 		{
@@ -144,7 +144,7 @@ namespace Voltage.Editor.ProjectManagement
 				try
 				{
 					var settingsJson = File.ReadAllText(settingsPath);
-					_settings = Voltage.Persistence.Json.FromJson<GameSettings>(settingsJson);
+					_settings = Voltage.Persistence.Json.FromJson<ProjectSettings>(settingsJson);
 					
 					if (_settings != null)
 					{
@@ -191,24 +191,24 @@ namespace Voltage.Editor.ProjectManagement
 		/// <summary>
 		/// Creates default settings as a last resort.
 		/// </summary>
-		private GameSettings CreateDefaultSettings()
+		private ProjectSettings CreateDefaultSettings()
 		{
-			return new GameSettings
+			return new ProjectSettings
 			{
-				Display = new GameSettings.DisplaySettings
+				Display = new ProjectSettings.DisplaySettings
 				{
 					ScreenWidth = 1280,
 					ScreenHeight = 720,
 					IsFullscreen = false,
 					EnableVSync = true
 				},
-				Audio = new GameSettings.AudioSettings
+				Audio = new ProjectSettings.AudioSettings
 				{
 					MasterVolume = 1.0f,
 					MusicVolume = 0.8f,
 					SFXVolume = 1.0f
 				},
-				DesignResolution = new GameSettings.DesignResolutionSettings
+				DesignResolution = new ProjectSettings.DesignResolutionSettings
 				{
 					Width = 1280,
 					Height = 720,
@@ -216,9 +216,9 @@ namespace Voltage.Editor.ProjectManagement
 					HorizontalBleed = 0,
 					VerticalBleed = 0
 				},
-				Physics = new GameSettings.PhysicsSettings(),
-				Rendering = new GameSettings.RenderingSettings(),
-				Entities = new GameSettings.EntitySettings(),
+				Physics = new ProjectSettings.PhysicsSettings(),
+				Rendering = new ProjectSettings.RenderingSettings(),
+				Entities = new ProjectSettings.EntitySettings(),
 				ContentDirectory = "Content"
 			};
 		}

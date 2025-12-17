@@ -4,9 +4,8 @@ using System.IO;
 using System.Linq;
 using ImGuiNET;
 using Voltage.Editor.Utils;
-using Voltage.Utils;
 
-namespace Voltage.Editor.Layouts
+namespace Voltage.Editor.EditorStyling
 {
     public class LayoutManager
     {

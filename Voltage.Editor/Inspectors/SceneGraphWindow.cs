@@ -63,17 +63,17 @@ public class SceneGraphWindow
 	private const float RepeatRate = 0.08f;
 	public HashSet<Entity> ExpandedEntities = new();
 
-	// Prefab caching
+	// SerializedPrefab caching
 	private List<string> _cachedPrefabNames = new();
 	private bool _prefabCacheInitialized = false;
 
-	// Entity and Prefab organization
+	// Entity and SerializedPrefab organization
 	private Dictionary<string, EntityCategory> _entityCategories = new Dictionary<string, EntityCategory>();
-	private List<string> _uncategorizedEntities = new List<string>(); // For entities directly in Dynamic namespace
+	private List<string> _uncategorizedEntities = new List<string>(); // For entities directly in Serialized namespace
 	private Dictionary<string, PrefabCategory> _prefabCategories = new Dictionary<string, PrefabCategory>();
-	private Dictionary<string, List<string>> _uncategorizedPrefabs = new Dictionary<string, List<string>>(); // For prefabs directly in Dynamic namespace
+	private Dictionary<string, List<string>> _uncategorizedPrefabs = new Dictionary<string, List<string>>(); // For prefabs directly in Serialized namespace
 
-	// Prefab deletion
+	// SerializedPrefab deletion
 	private bool _showDeletePrefabConfirmation = false;
 	private string _prefabToDelete = "";
 
@@ -208,8 +208,8 @@ public class SceneGraphWindow
 			VoltageEditorUtils.MediumVerticalSpace();
 
 			//TODO: Fix this to account for custom folder where we keep the script for entities
-			// IMPORTANT: This assumes that Entities are registered under the "Dynamic" namespace or its sub-namespaces \
-			// (e.g. Dynamic.Interactables.Platforms). Adjust the logic in OrganizeEntitiesByNamespace if your project uses a different structure.
+			// IMPORTANT: This assumes that Entities are registered under the "Serialized" namespace or its sub-namespaces \
+			// (e.g. Serialized.Interactables.Platforms). Adjust the logic in OrganizeEntitiesByNamespace if your project uses a different structure.
 			if (VoltageEditorUtils.CenteredButton("Add Entity", 0.6f))
 			{
 				_entityFilterName = "";
@@ -287,8 +287,8 @@ public class SceneGraphWindow
 
 	/// <summary>
 	/// Organizes dynamic entities into a hierarchical structure based on their namespace.
-	/// Entities directly in "Dynamic" namespace are added to uncategorized list.
-	/// Entities in nested namespaces (e.g., Dynamic.Interactables.Platforms) are organized hierarchically.
+	/// Entities directly in "Serialized" namespace are added to uncategorized list.
+	/// Entities in nested namespaces (e.g., Serialized.Interactables.Platforms) are organized hierarchically.
 	/// </summary>
 	private void OrganizeEntitiesByNamespace()
 	{
@@ -313,11 +313,11 @@ public class SceneGraphWindow
 
 			var namespaceParts = fullNamespace.Split('.');
 			
-			// Find the index of "Dynamic" in the namespace
+			// Find the index of "Serialized" in the namespace
 			int dynamicIndex = -1;
 			for (int i = 0; i < namespaceParts.Length; i++)
 			{
-				if (namespaceParts[i] == "Dynamic")
+				if (namespaceParts[i] == "Serialized")
 				{
 					dynamicIndex = i;
 					break;
@@ -326,18 +326,18 @@ public class SceneGraphWindow
 
 			if (dynamicIndex == -1)
 			{
-				Debug.Warn($"Type {type.Name} is not in a 'Dynamic' namespace");
+				Debug.Warn($"Type {type.Name} is not in a 'Serialized' namespace");
 				continue;
 			}
 
 			var categoriesAfterDynamic = namespaceParts.Skip(dynamicIndex + 1).ToArray();
 
-			// Case 1: Entity is directly in "Dynamic" namespace (no sub-namespaces)
+			// Case 1: Entity is directly in "Serialized" namespace (no sub-namespaces)
 			if (categoriesAfterDynamic.Length == 0)
 			{
 				_uncategorizedEntities.Add(type.Name);
 			}
-			// Case 2: Entity is in nested namespace (e.g., Dynamic.Interactables.Platforms)
+			// Case 2: Entity is in nested namespace (e.g., Serialized.Interactables.Platforms)
 			else
 			{
 				// Build nested category structure
@@ -368,7 +368,7 @@ public class SceneGraphWindow
 
 	/// <summary>
 	/// Organizes prefabs into a hierarchical structure based on namespace and entity type.
-	/// Prefabs of entities directly in "Dynamic" namespace are kept separate.
+	/// Prefabs of entities directly in "Serialized" namespace are kept separate.
 	/// Prefabs in nested namespaces are organized hierarchically.
 	/// </summary>
 	private void OrganizePrefabsByNamespaceAndType()
@@ -398,7 +398,7 @@ public class SceneGraphWindow
 				
 					if (string.IsNullOrEmpty(prefabData.EntityType))
 					{
-						Debug.Warn($"Prefab '{prefabName}' has no EntityType specified");
+						Debug.Warn($"SerializedPrefab '{prefabName}' has no EntityType specified");
 						continue;
 					}
 
@@ -420,11 +420,11 @@ public class SceneGraphWindow
 
 					var namespaceParts = fullNamespace.Split('.');
 				
-					// Find the index of "Dynamic" in the namespace
+					// Find the index of "Serialized" in the namespace
 					int dynamicIndex = -1;
 					for (int i = 0; i < namespaceParts.Length; i++)
 					{
-						if (namespaceParts[i] == "Dynamic")
+						if (namespaceParts[i] == "Serialized")
 						{
 							dynamicIndex = i;
 							break;
@@ -433,13 +433,13 @@ public class SceneGraphWindow
 
 					if (dynamicIndex == -1)
 					{
-						Debug.Warn($"Entity type '{entityType.Name}' is not in a 'Dynamic' namespace");
+						Debug.Warn($"Entity type '{entityType.Name}' is not in a 'Serialized' namespace");
 						continue;
 					}
 
 					var categoriesAfterDynamic = namespaceParts.Skip(dynamicIndex + 1).ToArray();
 
-					// Case 1 = Prefab's entity is directly in "Dynamic" namespace
+					// Case 1 = SerializedPrefab's entity is directly in "Serialized" namespace
 					if (categoriesAfterDynamic.Length == 0)
 					{
 						var entityTypeName = entityType.Name;
@@ -449,7 +449,7 @@ public class SceneGraphWindow
 						}
 						_uncategorizedPrefabs[entityTypeName].Add(prefabName);
 					}
-					// Case 2 = Prefab's entity is in nested namespace
+					// Case 2 = SerializedPrefab's entity is in nested namespace
 					{
 						// Build nested category structure
 						var currentCategory = _prefabCategories;
@@ -554,7 +554,7 @@ public class SceneGraphWindow
 						
 						if (ImGui.BeginPopup($"prefab-context-{prefabName}"))
 						{
-							if (ImGui.Selectable("Create Prefab Instance"))
+							if (ImGui.Selectable("Create SerializedPrefab Instance"))
 							{
 								CreateEntityFromPrefab(prefabName);
 								ImGui.CloseCurrentPopup();
@@ -562,7 +562,7 @@ public class SceneGraphWindow
 							
 							ImGui.Separator();
 							
-							if (ImGui.Selectable("Delete Prefab"))
+							if (ImGui.Selectable("Delete SerializedPrefab"))
 							{
 								_prefabToDelete = prefabName;
 								_showDeletePrefabConfirmation = true;
@@ -595,13 +595,13 @@ public class SceneGraphWindow
 
 			RefreshPrefabCache();
 
-			// Draw categorized Dynamic Entities
-			ImGui.TextColored(new Num.Vector4(0.8f, 0.8f, 1.0f, 1.0f), "Dynamic Entities:");
+			// Draw categorized Serialized Entities
+			ImGui.TextColored(new Num.Vector4(0.8f, 0.8f, 1.0f, 1.0f), "Serialized Entities:");
 			ImGui.Separator();
 			
 			if (string.IsNullOrEmpty(_entityFilterName))
 			{
-				// First, render uncategorized entities (directly in Dynamic namespace)
+				// First, render uncategorized entities (directly in Serialized namespace)
 				foreach (var entityType in _uncategorizedEntities.OrderBy(e => e))
 				{
 					if (ImGui.Selectable(entityType))
@@ -641,7 +641,7 @@ public class SceneGraphWindow
 				
 				if (string.IsNullOrEmpty(_entityFilterName))
 				{
-					// First, render uncategorized prefabs (for entities directly in Dynamic namespace)
+					// First, render uncategorized prefabs (for entities directly in Serialized namespace)
 					foreach (var entityTypeKvp in _uncategorizedPrefabs.OrderBy(kvp => kvp.Key))
 					{
 						var entityTypeName = entityTypeKvp.Key;
@@ -666,7 +666,7 @@ public class SceneGraphWindow
 								
 								if (ImGui.BeginPopup($"prefab-context-{prefabName}"))
 								{
-									if (ImGui.Selectable("Create Prefab Instance"))
+									if (ImGui.Selectable("Create SerializedPrefab Instance"))
 									{
 										CreateEntityFromPrefab(prefabName);
 										ImGui.CloseCurrentPopup();
@@ -674,7 +674,7 @@ public class SceneGraphWindow
 							
 									ImGui.Separator();
 							
-									if (ImGui.Selectable("Delete Prefab"))
+									if (ImGui.Selectable("Delete SerializedPrefab"))
 									{
 										_prefabToDelete = prefabName;
 										_showDeletePrefabConfirmation = true;
@@ -702,7 +702,7 @@ public class SceneGraphWindow
 					{
 						if (prefabName.ToLower().Contains(_entityFilterName.ToLower()))
 						{
-							if (ImGui.Selectable($"{prefabName} [Prefab]"))
+							if (ImGui.Selectable($"{prefabName} [SerializedPrefab]"))
 							{
 								CreateEntityFromPrefab(prefabName);
 								ImGui.CloseCurrentPopup();
@@ -715,7 +715,7 @@ public class SceneGraphWindow
 							
 							if (ImGui.BeginPopup($"prefab-context-{prefabName}"))
 							{
-								if (ImGui.Selectable("Create Prefab Instance"))
+								if (ImGui.Selectable("Create SerializedPrefab Instance"))
 								{
 									CreateEntityFromPrefab(prefabName);
 									ImGui.CloseCurrentPopup();
@@ -723,7 +723,7 @@ public class SceneGraphWindow
 							
 								ImGui.Separator();
 							
-								if (ImGui.Selectable("Delete Prefab"))
+								if (ImGui.Selectable("Delete SerializedPrefab"))
 								{
 									_prefabToDelete = prefabName;
 									_showDeletePrefabConfirmation = true;
@@ -758,7 +758,7 @@ public class SceneGraphWindow
 		bool open = true;
 		if (ImGui.BeginPopupModal("delete-prefab-confirmation", ref open, ImGuiWindowFlags.AlwaysAutoResize))
 		{
-			ImGui.Text("Delete Prefab");
+			ImGui.Text("Delete SerializedPrefab");
 			ImGui.Separator();
 			
 			ImGui.TextWrapped($"Are you sure you want to delete the '{_prefabToDelete}' prefab completely?");
@@ -833,7 +833,7 @@ public class SceneGraphWindow
 			}
 			else
 			{
-				var errorMsg = $"Prefab file not found: {prefabName}";
+				var errorMsg = $"SerializedPrefab file not found: {prefabName}";
 				NotificationSystem.ShowTimedNotification(errorMsg);
 				Debug.Error(errorMsg);
 			}
@@ -866,7 +866,7 @@ public class SceneGraphWindow
 
 			if (prefabData.EntityData == null)
 			{
-				NotificationSystem.ShowTimedNotification($"Null Prefab EntityData: {prefabName}");
+				NotificationSystem.ShowTimedNotification($"Null SerializedPrefab EntityData: {prefabName}");
 				return;
 			}
 
@@ -879,7 +879,7 @@ public class SceneGraphWindow
 			if (EntityFactoryRegistry.TryCreate(prefabData.EntityType, out var entity))
 			{
 				EntityFactoryRegistry.InvokeEntityCreated(entity);
-				entity.Type = Entity.InstanceType.Prefab;
+				entity.Type = Entity.InstanceType.SerializedPrefab;
 				entity.Transform.Position = Voltage.Core.Scene.Camera.Transform.Position;
 
 				_imGuiManager.InvokeLoadEntityData(entity, prefabData);
@@ -888,9 +888,9 @@ public class SceneGraphWindow
 
 				EditorChangeTracker.PushUndo(
 					new EntityCreateDeleteUndoAction(Voltage.Core.Scene, entity, wasCreated: true,
-						$"Create Entity from Prefab {entity.Name}"),
+						$"Create Entity from SerializedPrefab {entity.Name}"),
 					entity,
-					$"Create Entity from Prefab {entity.Name}"
+					$"Create Entity from SerializedPrefab {entity.Name}"
 				);
 
 				_imGuiManager.SceneGraphWindow.EntityPane.SetSelectedEntity(entity, false);
@@ -918,7 +918,7 @@ public class SceneGraphWindow
 		if (EntityFactoryRegistry.TryCreate(typeName, out var entity))
 		{
 			EntityFactoryRegistry.InvokeEntityCreated(entity);
-			entity.Type = Entity.InstanceType.Dynamic;
+			entity.Type = Entity.InstanceType.Serialized;
 			entity.Name = Voltage.Core.Scene.GetUniqueEntityName(typeName, entity); 
 			entity.Transform.Position = Voltage.Core.Scene.Camera.Transform.Position;
 

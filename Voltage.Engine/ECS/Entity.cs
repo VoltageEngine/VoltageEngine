@@ -16,26 +16,24 @@ public sealed class Entity : IComparable<Entity>
 	{
 		/// <summary>
 		/// Only created via code (e.g., Player). 
-		/// Usually reserved for entities that exist only once in a scene, or those that need tight data integration with other entities (e.g. Camera with Player)
-		/// Perfect for predefined child entities that can't exist without their parent (e.g. ArrowPointer for Player)
-		/// NOTE: Cannot be created in the Editor.
+		/// Usually reserved for entities that exist only once in a scene, or those that
+		/// need tight data integration with other entities (e.g. Camera with Player).
 		/// </summary>
-		HardCoded,
+		NonSerialized,
 
 		/// <summary>
 		/// Default entities. Can be created at runtime via the Editor, and can be later turned into Prefabs.
 		/// </summary>
-		Dynamic,
+		Serialized,
 
 		/// <summary>
-		/// Saved in Prefabs.json.
-		/// Created and configured in advance (e.g., a shorter Platform variant,
-		/// or a high-speed moving version of it).
+		/// A reusable template based on an Entity and its components/children that we created in the Editor.
+		/// Used to create (e.g. based on the initial Platform entity we can create: 1) Platform_Short.prefab, 2) Platform_Big.prefab).
 		/// </summary>
-		Prefab,
+		SerializedPrefab,
 	}
 	
-	public InstanceType Type = InstanceType.HardCoded;
+	public InstanceType Type = InstanceType.NonSerialized;
 	
 	private static uint _idGenerator;
 
@@ -71,7 +69,7 @@ public sealed class Entity : IComparable<Entity>
 		get => _originalPrefabName;
 		set
 		{
-			if (Type != InstanceType.Prefab)
+			if (Type != InstanceType.SerializedPrefab)
 				return;
 
 			_originalPrefabName = value;
@@ -297,7 +295,7 @@ public sealed class Entity : IComparable<Entity>
 	#endregion
 
 
-	public Entity(string name, InstanceType type = InstanceType.HardCoded)
+	public Entity(string name, InstanceType type = InstanceType.NonSerialized)
 	{
 		Components = new ComponentList(this);
 		Transform = new Transform(this);
@@ -306,14 +304,14 @@ public sealed class Entity : IComparable<Entity>
 		DebugRenderEnabled = Core.DebugRenderEnabled;
 		Type = type;
 
-		//Since HardCoded entities cannot be created in the Editor, we set this to false
-		if (Type == InstanceType.HardCoded) 
+		//Since NonSerialized entities cannot be created in the Editor, we set this to false
+		if (Type == InstanceType.NonSerialized) 
 			IsSelectableInEditor = false;
 	}
 
 	public Entity() : this(Utils.Utils.RandomString(8))
 	{
-		if (Type == InstanceType.HardCoded)
+		if (Type == InstanceType.NonSerialized)
 			IsSelectableInEditor = false;
 	}
 
@@ -446,7 +444,7 @@ public sealed class Entity : IComparable<Entity>
 	/// copies the properties, components and colliders of Entity to this instance
 	/// </summary>
 	/// <param name="entity">Entity.</param>
-	public void CopyEntityFrom(Entity entity, string customName = null, InstanceType type = InstanceType.Dynamic)
+	public void CopyEntityFrom(Entity entity, string customName = null, InstanceType type = InstanceType.Serialized)
 	{
 		Type = type;
 		Name = customName ?? entity.Name;
@@ -457,7 +455,7 @@ public sealed class Entity : IComparable<Entity>
 		Transform.Rotation = entity.Transform.Rotation;
 		Transform.Scale = entity.Transform.Scale;
 
-		if(Type == InstanceType.Prefab)
+		if(Type == InstanceType.SerializedPrefab)
 			OriginalPrefabName = entity.OriginalPrefabName;
 
 		for (var i = 0; i < entity.Components.Count; i++)

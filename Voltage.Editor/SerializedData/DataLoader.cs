@@ -340,7 +340,7 @@ public class DataLoader
         newEntity.DebugRenderEnabled = entityData.DebugRenderEnabled;
         newEntity.Type = entityData.InstanceType;
 
-        if(newEntity.Type == Entity.InstanceType.Prefab)
+        if(newEntity.Type == Entity.InstanceType.SerializedPrefab)
             newEntity.OriginalPrefabName = entityData.OriginalPrefabName;
         else
             newEntity.OriginalPrefabName = null;
@@ -392,7 +392,7 @@ public class DataLoader
             // Track components that have already been processed
             var processedComponents = new HashSet<string>();
 
-            // Assign data to already existing components (for HardCoded entities)
+            // Assign data to already existing components (for NonSerialized entities)
             foreach (var comp in newEntity.ComponentsToAdd)
             {
                 if (TryAssignComponentDataFromEntityData(newEntity, comp))
@@ -486,7 +486,7 @@ public class DataLoader
     }
 
 
-    #region Prefab Methods
+    #region SerializedPrefab Methods
 
     /// <summary>
     /// Saves a prefab entity to a JSON file, organized into subdirectories by EntityType.
@@ -499,9 +499,9 @@ public class DataLoader
             return false;
         }
 
-        if (prefabEntity.Type != Entity.InstanceType.Prefab)
+        if (prefabEntity.Type != Entity.InstanceType.SerializedPrefab)
         {
-            NotificationSystem.ShowTimedNotification("Entity is not a Prefab type");
+            NotificationSystem.ShowTimedNotification("Entity is not a SerializedPrefab type");
             return false;
         }
 
@@ -523,7 +523,7 @@ public class DataLoader
 
             if (File.Exists(sourceFilePath) && !overrideExistingPrefab)
             {
-				Debug.Error($"Prefab with name '{prefabEntity.Name}' already exists!");
+				Debug.Error($"SerializedPrefab with name '{prefabEntity.Name}' already exists!");
                 return false;
             }
 
@@ -594,7 +594,7 @@ public class DataLoader
             foreach (var child in prefabEntity.Transform.Children)
             {
                 var childEntity = child.Entity;
-                if (childEntity.Type != Entity.InstanceType.HardCoded)
+                if (childEntity.Type != Entity.InstanceType.NonSerialized)
                 {
                     var childData = new SceneData.SceneEntityData
                     {
@@ -660,7 +660,7 @@ public class DataLoader
                     
                     if (string.IsNullOrWhiteSpace(jsonContent))
                     {
-                        throw new Exception($"Prefab file is empty: {prefabFilePath}");
+                        throw new Exception($"SerializedPrefab file is empty: {prefabFilePath}");
                     }
 
                     var prefabData = Json.FromJson<PrefabData>(jsonContent);
@@ -674,7 +674,7 @@ public class DataLoader
                 }
             }
             
-            throw new Exception($"Prefab file not found: {prefabName}");
+            throw new Exception($"SerializedPrefab file not found: {prefabName}");
         }
         catch (Exception ex)
         {
@@ -730,13 +730,13 @@ public class DataLoader
             });
         }
 
-        // IMPORTANT: Only create Dynamic and Prefab children, skip HardCoded ones
-        // HardCoded children should be instantiated by the entity's OnAddedToEntity() method
+        // IMPORTANT: Only create Serialized and SerializedPrefab children, skip NonSerialized ones
+        // NonSerialized children should be instantiated by the entity's OnAddedToEntity() method
         if (prefabData.ChildEntities != null)
         {
             foreach (var childData in prefabData.ChildEntities)
             {
-                if (childData.InstanceType == Entity.InstanceType.HardCoded)
+                if (childData.InstanceType == Entity.InstanceType.NonSerialized)
                 {
                     continue;
                 }

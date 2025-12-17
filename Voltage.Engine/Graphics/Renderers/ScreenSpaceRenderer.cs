@@ -64,7 +64,7 @@ namespace Voltage
 
 			// this is a bit of a hack. we maybe should take the Camera in the constructor
 			if (Camera == null)
-				Camera = Core.Scene.SimpleCreateEntity<EntityData>("screenspace camera", Entity.InstanceType.HardCoded).AddComponent<Camera>();
+				Camera = Core.Scene.SimpleCreateEntity<EntityData>("screenspace camera", Entity.InstanceType.NonSerialized).AddComponent<Camera>();
 		}
 	}
 }

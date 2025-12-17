@@ -28,7 +28,7 @@ namespace Voltage
 			reflectionRenderer.RenderTexture = new RenderTexture(1, 1);
 
 			// create a Camera and parent it to the Scene's Camera
-			var cameraEntity = scene.SimpleCreateEntity<EntityData>("reflection-camera", Entity.InstanceType.HardCoded);
+			var cameraEntity = scene.SimpleCreateEntity<EntityData>("reflection-camera", Entity.InstanceType.NonSerialized);
 			cameraEntity.Transform.SetParent(scene.Camera.Entity.Transform);
 			reflectionRenderer.Camera = cameraEntity.AddComponent<Camera>();
 

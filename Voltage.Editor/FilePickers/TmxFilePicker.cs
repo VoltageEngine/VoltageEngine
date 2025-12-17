@@ -138,7 +138,7 @@ namespace Voltage.Editor.FilePickers
                     if (ImGui.RadioButton("Bake Image Layers", ref currentMode, (int)ImageLoadMode.BakedLayers))
                         _imageLoadMode.Value = currentMode;
 
-                    var renderingLayers = GameSettings.Instance.Rendering.RenderingLayers;
+                    var renderingLayers = ProjectSettings.Instance.Rendering.RenderingLayers;
                     var layerNames = renderingLayers.Keys.ToList();
                     var layerValues = renderingLayers.Values.ToList();
 

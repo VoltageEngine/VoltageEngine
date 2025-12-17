@@ -28,7 +28,7 @@ namespace Voltage.Editor.ProjectManagement
 		private bool _reopenCreateProjectPopup = false;
 		private string _projectNameError = "";
 		
-		// GameSettings fields
+		// ProjectSettings fields
 		private int _screenWidth = 1280;
 		private int _screenHeight = 720;
 		private bool _isFullscreen = false;
@@ -53,7 +53,7 @@ namespace Voltage.Editor.ProjectManagement
 		{
 			public string ProjectName;
 			public string ProjectPath;
-			public GameSettings Settings;
+			public ProjectSettings Settings;
 			public string Version;
 			public string ScriptsFolder;
 			public string EffectsFolder;
@@ -442,22 +442,22 @@ namespace Voltage.Editor.ProjectManagement
 				Directory.CreateDirectory(scenesPath);
 				Directory.CreateDirectory(prefabsPath);
 				
-				var settings = new GameSettings
+				var settings = new ProjectSettings
 				{
-					Display = new GameSettings.DisplaySettings
+					Display = new ProjectSettings.DisplaySettings
 					{
 						ScreenWidth = _screenWidth,
 						ScreenHeight = _screenHeight,
 						IsFullscreen = _isFullscreen,
 						EnableVSync = _enableVSync
 					},
-					Audio = new GameSettings.AudioSettings
+					Audio = new ProjectSettings.AudioSettings
 					{
 						MasterVolume = _masterVolume,
 						MusicVolume = _musicVolume,
 						SFXVolume = _sfxVolume
 					},
-					DesignResolution = new GameSettings.DesignResolutionSettings
+					DesignResolution = new ProjectSettings.DesignResolutionSettings
 					{
 						Width = _screenWidth,  // Use screen width as default design width
 						Height = _screenHeight, // Use screen height as default design height
@@ -465,7 +465,7 @@ namespace Voltage.Editor.ProjectManagement
 						HorizontalBleed = 0,
 						VerticalBleed = 0
 					},
-					Physics = new GameSettings.PhysicsSettings
+					Physics = new ProjectSettings.PhysicsSettings
 					{
 						PhysicsLayers = new Dictionary<string, int>
 						{
@@ -476,7 +476,7 @@ namespace Voltage.Editor.ProjectManagement
 							{ "Projectile", 4 }
 						}
 					},
-					Rendering = new GameSettings.RenderingSettings
+					Rendering = new ProjectSettings.RenderingSettings
 					{
 						RenderingLayers = new Dictionary<string, int>
 						{
@@ -490,7 +490,7 @@ namespace Voltage.Editor.ProjectManagement
 							{ "UIElement", -99 }
 						}
 					},
-					Entities = new GameSettings.EntitySettings
+					Entities = new ProjectSettings.EntitySettings
 					{
 						EntityTags = new Dictionary<string, int>
 						{
@@ -632,24 +632,24 @@ namespace Voltage.Editor.ProjectManagement
 			}
 		}
 		
-		private GameSettings CreateDefaultSettings()
+		private ProjectSettings CreateDefaultSettings()
 		{
-			return new GameSettings
+			return new ProjectSettings
 			{
-				Display = new GameSettings.DisplaySettings
+				Display = new ProjectSettings.DisplaySettings
 				{
 					ScreenWidth = 1280,
 					ScreenHeight = 720,
 					IsFullscreen = false,
 					EnableVSync = true
 				},
-				Audio = new GameSettings.AudioSettings
+				Audio = new ProjectSettings.AudioSettings
 				{
 					MasterVolume = 1.0f,
 					MusicVolume = 0.8f,
 					SFXVolume = 1.0f
 				},
-				DesignResolution = new GameSettings.DesignResolutionSettings
+				DesignResolution = new ProjectSettings.DesignResolutionSettings
 				{
 					Width = 1280,
 					Height = 720,

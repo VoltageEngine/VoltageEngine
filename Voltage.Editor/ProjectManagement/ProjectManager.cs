@@ -180,7 +180,7 @@ namespace Voltage.Editor.ProjectManagement
 				
 				project.Initialize();
 				
-				GameSettings.Instance = project.Settings;
+				ProjectSettings.Instance = project.Settings;
 				
 				Debug.Log($"Successfully loaded project: {project.ProjectName} from {voltageFilePath}");
 				

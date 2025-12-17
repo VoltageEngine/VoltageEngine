@@ -238,8 +238,8 @@ namespace {projectName}
 			if (System.IO.File.Exists(settingsPath))
 			{{
 				var json = System.IO.File.ReadAllText(settingsPath);
-				var settings = Voltage.Persistence.Json.FromJson<GameSettings>(json);
-				GameSettings.Instance = settings;
+				var settings = Voltage.Persistence.Json.FromJson<ProjectSettings>(json);
+				ProjectSettings.Instance = settings;
 			}}
 		}}
 
