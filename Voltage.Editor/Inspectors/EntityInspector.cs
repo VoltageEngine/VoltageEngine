@@ -43,14 +43,14 @@ public class EntityInspector
 	private bool _isEditingTag = false;
 	private int _tagEditStartValue;
 
-	// Prefab creation popup fields
+	// SerializedPrefab creation popup fields
 	private string _prefabName = "";
 
-	// Prefab apply confirmation popup fields
+	// SerializedPrefab apply confirmation popup fields
 	private bool _showApplyToPrefabCopiesConfirmation = false;
 	private List<Entity> _prefabCopiesToModify = new();
 
-	// Add these fields for "Apply to Original Prefab" confirmation
+	// Add these fields for "Apply to Original SerializedPrefab" confirmation
 	private bool _showApplyToOriginalPrefabConfirmation = false;
 
 	public EntityInspector(Entity entity, int NormalInspector_PosOffset = 0)
@@ -110,11 +110,11 @@ public class EntityInspector
 			var type = Entity.Type.ToString();
 			ImGui.InputText("InstanceType", ref type, 30, ImGuiInputTextFlags.ReadOnly);
 
-			// Show OriginalPrefabName for Prefab entities (readonly)
-			if (Entity.Type == Entity.InstanceType.Prefab && !string.IsNullOrEmpty(Entity.OriginalPrefabName))
+			// Show OriginalPrefabName for SerializedPrefab entities (readonly)
+			if (Entity.Type == Entity.InstanceType.SerializedPrefab && !string.IsNullOrEmpty(Entity.OriginalPrefabName))
 			{
 				var originalPrefabName = Entity.OriginalPrefabName;
-				ImGui.InputText("Original Prefab Name", ref originalPrefabName, 50, ImGuiInputTextFlags.ReadOnly);
+				ImGui.InputText("Original SerializedPrefab Name", ref originalPrefabName, 50, ImGuiInputTextFlags.ReadOnly);
 			}
 
 			// Enabled (no edit session needed, checkbox is atomic)
@@ -338,28 +338,28 @@ public class EntityInspector
 				VoltageEditorUtils.MediumVerticalSpace();
 			}
 
-			// Create Prefab button
-			if (Entity.Type != Entity.InstanceType.HardCoded && VoltageEditorUtils.CenteredButton("Create Prefab", 0.6f))
+			// Create SerializedPrefab button
+			if (Entity.Type != Entity.InstanceType.NonSerialized && VoltageEditorUtils.CenteredButton("Create SerializedPrefab", 0.6f))
 			{
 				_prefabName = Entity.Name + "_Prefab";
 				ImGui.OpenPopup("prefab-creator");
 			}
 
-			// Apply to Prefab Copies button for prefab entities
-			if (Entity.Type == Entity.InstanceType.Prefab && !string.IsNullOrEmpty(Entity.OriginalPrefabName))
+			// Apply to SerializedPrefab Copies button for prefab entities
+			if (Entity.Type == Entity.InstanceType.SerializedPrefab && !string.IsNullOrEmpty(Entity.OriginalPrefabName))
 			{
 				VoltageEditorUtils.MediumVerticalSpace();
-				if (VoltageEditorUtils.CenteredButton("Apply to Prefab Copies", 0.8f))
+				if (VoltageEditorUtils.CenteredButton("Apply to SerializedPrefab Copies", 0.8f))
 				{
 					ShowApplyToPrefabCopiesConfirmation();
 				}
 			}
 
-			// Apply to Original Prefab button for prefab entities
-			if (Entity.Type == Entity.InstanceType.Prefab && !string.IsNullOrEmpty(Entity.OriginalPrefabName))
+			// Apply to Original SerializedPrefab button for prefab entities
+			if (Entity.Type == Entity.InstanceType.SerializedPrefab && !string.IsNullOrEmpty(Entity.OriginalPrefabName))
 			{
 				VoltageEditorUtils.MediumVerticalSpace();
-				if (VoltageEditorUtils.CenteredButton("Apply to Original Prefab", 0.8f))
+				if (VoltageEditorUtils.CenteredButton("Apply to Original SerializedPrefab", 0.8f))
 				{
 					_showApplyToOriginalPrefabConfirmation = true;
 				}
@@ -387,10 +387,10 @@ public class EntityInspector
 		bool open = true;
 		if (ImGui.BeginPopupModal("prefab-creator", ref open, ImGuiWindowFlags.AlwaysAutoResize))
 		{
-			ImGui.Text("Create Prefab from Entity");
+			ImGui.Text("Create SerializedPrefab from Entity");
 			ImGui.Separator();
 			
-			ImGui.Text("Prefab Name:");
+			ImGui.Text("SerializedPrefab Name:");
 			ImGui.InputText("##PrefabName", ref _prefabName, 50);
 
 			var correctedName = CorrectPrefabName(_prefabName.Trim(), Entity.GetType().Name);
@@ -398,7 +398,7 @@ public class EntityInspector
 			
 			if (prefabExists)
 			{
-				ImGui.TextColored(new Num.Vector4(1.0f, 0.2f, 0.2f, 1.0f), $"Warning: Prefab '{correctedName}' already exists!");
+				ImGui.TextColored(new Num.Vector4(1.0f, 0.2f, 0.2f, 1.0f), $"Warning: SerializedPrefab '{correctedName}' already exists!");
 			}
 
 			VoltageEditorUtils.MediumVerticalSpace();
@@ -467,7 +467,7 @@ public class EntityInspector
 			}
 			else
 			{
-				NotificationSystem.ShowTimedNotification($"Failed to save prefab: {newPrefab.Name} - Prefab with this name already exists!");
+				NotificationSystem.ShowTimedNotification($"Failed to save prefab: {newPrefab.Name} - SerializedPrefab with this name already exists!");
 			}
 		}
 		else
@@ -502,7 +502,7 @@ public class EntityInspector
 		var cleanedName = inputName.TrimStart(separators);
 		
 		if (string.IsNullOrWhiteSpace(cleanedName))
-			cleanedName = "Prefab";
+			cleanedName = "SerializedPrefab";
 
 		return $"{entityTypeName}_{cleanedName}";
 	}
@@ -512,12 +512,12 @@ public class EntityInspector
 	/// </summary>
 	private void ShowApplyToPrefabCopiesConfirmation()
 	{
-		if (Entity == null || Entity.Type != Entity.InstanceType.Prefab || string.IsNullOrEmpty(Entity.OriginalPrefabName))
+		if (Entity == null || Entity.Type != Entity.InstanceType.SerializedPrefab || string.IsNullOrEmpty(Entity.OriginalPrefabName))
 			return;
 
 		_prefabCopiesToModify = Voltage.Core.Scene.Entities
 			.Where(e => e != Entity &&
-						e.Type == Entity.InstanceType.Prefab && 
+						e.Type == Entity.InstanceType.SerializedPrefab && 
 						e.OriginalPrefabName == Entity.OriginalPrefabName)
 			.ToList();
 
@@ -548,14 +548,14 @@ public class EntityInspector
 		bool open = true;
 		if (ImGui.BeginPopupModal("apply-to-prefab-copies-confirmation", ref open, ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar))
 		{
-			ImGui.Text("Apply Changes to Prefab Copies");
+			ImGui.Text("Apply Changes to SerializedPrefab Copies");
 			ImGui.Separator();
 			
 			ImGui.TextWrapped($"You are going to change prefab values for these entities:");
 			
 			VoltageEditorUtils.SmallVerticalSpace();
 			
-			ImGui.TextColored(new Num.Vector4(1.0f, 0.8f, 0.2f, 1.0f), $"Prefab: {Entity.OriginalPrefabName}");
+			ImGui.TextColored(new Num.Vector4(1.0f, 0.8f, 0.2f, 1.0f), $"SerializedPrefab: {Entity.OriginalPrefabName}");
 			ImGui.TextColored(new Num.Vector4(0.8f, 0.8f, 0.8f, 1.0f), $"Entities to be modified ({_prefabCopiesToModify.Count}):");
 
 			if (ImGui.BeginChild("EntityList", new Num.Vector2(0, Math.Min(200, _prefabCopiesToModify.Count * 25 + 20)), true))
@@ -607,7 +607,7 @@ public class EntityInspector
 	/// </summary>
 	private void ApplyToPrefabCopies()
 	{
-		if (Entity == null || Entity.Type != Entity.InstanceType.Prefab || string.IsNullOrEmpty(Entity.OriginalPrefabName))
+		if (Entity == null || Entity.Type != Entity.InstanceType.SerializedPrefab || string.IsNullOrEmpty(Entity.OriginalPrefabName))
 			return;
 
 		var prefabCopies = _prefabCopiesToModify;
@@ -759,7 +759,7 @@ public class EntityInspector
 	/// </summary>
 	private async void ApplyToOriginalPrefabWithUndo()
 	{
-		if (Entity != null && Entity.Type == Entity.InstanceType.Prefab &&
+		if (Entity != null && Entity.Type == Entity.InstanceType.SerializedPrefab &&
 		    !string.IsNullOrEmpty(Entity.OriginalPrefabName))
 		{
 			bool saveSuccessful = await Voltage.Core.GetGlobalManager<ImGuiManager>().InvokePrefabCreated(Entity, true);

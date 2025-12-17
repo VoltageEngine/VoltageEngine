@@ -31,6 +31,8 @@ public class GameScene : Scene
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
     private Dictionary<string, SceneData.SceneEntityData> sceneEntitiesByName;
 
+    public ProjectSettings Project;
+
 	//TODO: Make this accessible in Editor (and not hardcoded)
 	// Everything under 100 (light layer) is render layer ( -99 to 99 inclusive)
 	private static readonly int[] AllRenderLayers = Enumerable.Range(-99, 199).ToArray();
@@ -40,13 +42,11 @@ public class GameScene : Scene
     {
         base.Initialize();
 
-		//TODO: Change this because there's only one Entity at all times
-		EntityTypeRegistrator.RegisterAllEntityTypes();
         sceneEntitiesByName = new Dictionary<string, SceneData.SceneEntityData>();
 
         var projectManager = Core.GetGlobalManager<ProjectManager>();
-        
-        if (projectManager?.HasActiveProject == true)
+
+		if (projectManager?.HasActiveProject == true)
         {
             var designRes = projectManager.CurrentProject.Settings.DesignResolution;
             SetDesignResolution(
@@ -56,8 +56,10 @@ public class GameScene : Scene
                 designRes.HorizontalBleed,
                 designRes.VerticalBleed
             );
+
+            Project = projectManager.CurrentProject.Settings;
         }
-        else
+		else
         {
             SetDesignResolution(1280, 720, SceneResolutionPolicy.BestFit);
         }
@@ -163,10 +165,10 @@ public class GameScene : Scene
         // Track entities that need parent assignment
         var entitiesNeedingParents = new List<Entity>();
 
-        // HardCoded entities (already in the scene)
+        // NonSerialized entities (already in the scene)
         for (var i = 0; i < Entities.Count; i++)
         {
-            if (Entities[i].Type != Entity.InstanceType.HardCoded)
+            if (Entities[i].Type != Entity.InstanceType.NonSerialized)
                 continue;
 
             if (sceneEntitiesByName.TryGetValue(Entities[i].Name, out var sceneEntityData))
@@ -179,7 +181,7 @@ public class GameScene : Scene
             }
         }
 
-        // Dynamic & Prefab entities (to be created now)
+        // Serialized & SerializedPrefab entities (to be created now)
         foreach (var sceneEntity in SceneData.Entities)
         {
             if (string.IsNullOrEmpty(sceneEntity.EntityType))
@@ -188,7 +190,7 @@ public class GameScene : Scene
                 continue;
             }
 
-            if (sceneEntity.InstanceType == Entity.InstanceType.HardCoded)
+            if (sceneEntity.InstanceType == Entity.InstanceType.NonSerialized)
                 continue;
 
             CreateEntity(sceneEntity.EntityType, out var entity);
@@ -261,7 +263,7 @@ public class GameScene : Scene
 
         CreateEntity("TiledMapEntity", out TiledMapEntity, "TiledMap");
         TiledMapEntity.Transform.Position = Vector2.Zero;
-        TiledMapEntity.Type = Entity.InstanceType.Dynamic;
+        TiledMapEntity.Type = Entity.InstanceType.Serialized;
 
         if (TmxMapEntities.Count > 0)
         {
@@ -406,7 +408,7 @@ public class GameScene : Scene
             // Parent Entity
             CreateEntity("Entity", out var parentEntity, fileName);
             parentEntity.Transform.Position = Camera.Transform.Position;
-            parentEntity.Type = Entity.InstanceType.Dynamic;
+            parentEntity.Type = Entity.InstanceType.Serialized;
 
             var createdEntities = new List<Entity> { parentEntity };
 
@@ -431,7 +433,7 @@ public class GameScene : Scene
                 }
 
                 CreateEntity("SpriteEntity", out var spriteEntity, $"{layerName}");
-                spriteEntity.Type = Entity.InstanceType.Dynamic;
+                spriteEntity.Type = Entity.InstanceType.Serialized;
 
                 spriteEntity.Transform.SetParent(parentEntity.Transform);
                 var layerTexture = asepriteFile.GetTextureFromLayers(layerName);
@@ -525,7 +527,7 @@ public class GameScene : Scene
             {
                 CreateEntity("CircleColliderEntity", out collisionEntity, baseName);
 
-                collisionEntity.Type = Entity.InstanceType.Dynamic;
+                collisionEntity.Type = Entity.InstanceType.Serialized;
                 collisionEntity.Transform.SetParent(TiledMapEntity.Transform);
 
                 var centerX = tmxObject.X + tmxObject.Width * 0.5f;
@@ -542,7 +544,7 @@ public class GameScene : Scene
             {
                 CreateEntity("BoxColliderEntity", out collisionEntity, baseName);
 
-                collisionEntity.Type = Entity.InstanceType.Dynamic;
+                collisionEntity.Type = Entity.InstanceType.Serialized;
                 collisionEntity.Transform.SetParent(TiledMapEntity.Transform);
 
                 var centerX = tmxObject.X + tmxObject.Width * 0.5f;

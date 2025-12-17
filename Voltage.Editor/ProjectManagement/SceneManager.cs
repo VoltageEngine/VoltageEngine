@@ -232,7 +232,7 @@ namespace Voltage.Editor.ProjectManagement
 			{
 				var entity = gameScene.Entities[i];
 				// Keep hardcoded entities like the camera
-				if (entity.Type != Entity.InstanceType.HardCoded || entity.Name != "camera")
+				if (entity.Type != Entity.InstanceType.NonSerialized || entity.Name != "camera")
 				{
 					entitiesToRemove.Add(entity);
 				}

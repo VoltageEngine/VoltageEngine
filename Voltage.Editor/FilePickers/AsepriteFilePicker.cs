@@ -347,7 +347,7 @@ namespace Voltage.Editor.FilePickers
                 ImGui.TextColored(new Num.Vector4(0.7f, 0.7f, 0.7f, 1.0f), "Frame 0 will be used by default");
             }
 
-			var renderingLayers = GameSettings.Instance.Rendering.RenderingLayers;
+			var renderingLayers = ProjectSettings.Instance.Rendering.RenderingLayers;
 			var layerNames = renderingLayers.Keys.ToList();
 			var layerValues = renderingLayers.Values.ToList();
 

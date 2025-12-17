@@ -11,12 +11,12 @@ using System.Threading.Tasks;
 using Voltage;
 using Voltage.Data;
 using Voltage.Editor.EditorDebug;
+using Voltage.Editor.EditorStyling;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Gizmos;
 using Voltage.Editor.Inspectors;
 using Voltage.Editor.Inspectors.CustomInspectors;
 using Voltage.Editor.Interfaces;
-using Voltage.Editor.Layouts;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.ProjectManagement;
 using Voltage.Editor.Scripting;
@@ -64,7 +64,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	#region Private values
 
-	private List<Type> _sceneSubclasses = new();
 	private System.Reflection.MethodInfo[] _themes;
 	private CoreWindow _coreWindow = new();
 	private DebugWindow _debugWindow = new();
@@ -128,9 +127,10 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private bool _pendingProjectClose = false;
 	private ExitPromptType _pendingActionAfterSave;
 
-	//Layout management
+	//EditorStyling management
 	private string _layoutFilePath;
 	private LayoutManager _layoutManager;
+	private ThemeManager _themeManager;
 	private string _newLayoutName = "";
 	private bool _showSaveLayoutPopup = false;
 	private bool _isFirstFrame = true;
@@ -225,13 +225,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_renderer.RebuildFontAtlas(options);
 
 		Core.Emitter.AddObserver(CoreEvents.SceneChanged, OnSceneChanged);
-		VoltageEditorThemes.DarkTheme1();
-
-		_sceneSubclasses = ReflectionUtils.GetAllSubclasses(typeof(Scene), true);
 
 		ImGui.GetStyle().IndentSpacing = 12;
 		ImGui.GetIO().ConfigWindowsMoveFromTitleBarOnly = true;
-
 
 		var io = ImGui.GetIO();
 		io.ConfigFlags |= ImGuiConfigFlags.DockingEnable;
@@ -249,11 +245,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		LoadLastSelectedLayout();
 
-		// find all themes
-		_themes = typeof(VoltageEditorThemes).GetMethods(System.Reflection.BindingFlags.Static |
-		                                                 System.Reflection.BindingFlags.Public);
-
-		ApplyThemeByName(_lastSelectedTheme.Value);
+		// Initialize theme manager (will apply last selected theme automatically)
+		_themeManager = new ThemeManager();
 
 		SceneGraphWindow = new SceneGraphWindow();
 		_cursorSelectionManager = new GizmoSelectionManager(this);
@@ -284,6 +277,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		InitializeScriptManager();
 	}
 
+
+
 	private void OnSceneLoadedHandler(string scenePath)
 	{
 	}
@@ -296,7 +291,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	{
 		if (string.IsNullOrWhiteSpace(themeName))
 		{
-			VoltageEditorThemes.DarkTheme1(); // Default fallback
+			// First time initialization - use default theme
+			VoltageEditorThemes.DarkTheme1();
+			_lastSelectedTheme.Value = "DarkTheme1"; // Save the default
 			return;
 		}
 
@@ -306,11 +303,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (themeMethod != null)
 		{
 			themeMethod.Invoke(null, null);
+			Debug.Log($"Applied theme: {themeName}");
 		}
 		else
 		{
 			Debug.Warn($"Theme '{themeName}' not found, applying default");
 			VoltageEditorThemes.DarkTheme1();
+			_lastSelectedTheme.Value = "DarkTheme1"; // Save the fallback default
 		}
 	}
 

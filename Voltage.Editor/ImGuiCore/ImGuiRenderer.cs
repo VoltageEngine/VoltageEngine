@@ -37,6 +37,9 @@ namespace Voltage.Editor.ImGuiCore
 
 		private ImGuiInput _input = new ImGuiInput();
 
+		// Experimental reinitialization support
+		private bool _shouldReinitialize = false;
+
 		public ImGuiRenderer(Game game, ImGuiInput input)
 		{
 			_input = input;
@@ -203,14 +206,57 @@ namespace Voltage.Editor.ImGuiCore
 			_loadedTextures.Remove(textureId);
 		}
 
+		// NOTE: Keep for backup to see if the new implementation is more stable
+		// public void BeforeLayout(float deltaTime)
+		// {
+		// 	ImGui.GetIO().DeltaTime = deltaTime;
+		// 	_input.UpdateInput();
+		// 	ImGui.NewFrame();
+		// }
+
 		/// <summary>
 		/// Sets up ImGui for a new frame, should be called at frame start
 		/// </summary>
-		public void BeforeLayout(float deltaTime)
+		public unsafe void BeforeLayout(float deltaTime)
 		{
-			ImGui.GetIO().DeltaTime = deltaTime;
-			_input.UpdateInput();
-			ImGui.NewFrame();
+			// Validate context exists and is current
+			if (ImGui.GetCurrentContext() == IntPtr.Zero)
+			{
+				Debug.Warn("ImGui context is invalid, skipping frame");
+				return;
+			}
+
+			try
+			{
+				var io = ImGui.GetIO();
+				if (io.NativePtr == null)
+				{
+					Debug.Warn("ImGui IO is invalid, skipping frame");
+					return;
+				}
+
+				io.DeltaTime = deltaTime;
+				_input.UpdateInput();
+				ImGui.NewFrame();
+			}
+			catch (AccessViolationException ex)
+			{
+				Debug.Error($"ImGui BeforeLayout failed: {ex.Message}");
+				// Attempt to reinitialize on next frame
+				_shouldReinitialize = true;
+			}
+		}
+
+
+		private void ReinitializeImGui()
+		{
+			// Recreate context
+			ImGui.SetCurrentContext(ImGui.CreateContext());
+			_input.SetupInput();
+
+			// Rebuild font atlas
+			var options = new ImGuiOptions(); // Use your current options
+			RebuildFontAtlas(options);
 		}
 
 		/// <summary>
@@ -219,8 +265,14 @@ namespace Voltage.Editor.ImGuiCore
 		public void AfterLayout()
 		{
 			ImGui.Render();
+
 			unsafe
 			{
+				if (_shouldReinitialize)
+				{
+					_shouldReinitialize = false;
+					ReinitializeImGui();
+				}
 				RenderDrawData(ImGui.GetDrawData());
 			}
 		}

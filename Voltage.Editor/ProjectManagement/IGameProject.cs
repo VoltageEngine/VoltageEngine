@@ -9,7 +9,7 @@ namespace Voltage.Editor.ProjectManagement
 		// Project info
 		string ProjectName { get; }
 		string ProjectPath { get; }
-		GameSettings Settings { get; }
+		ProjectSettings Settings { get; }
 		Version Version { get; }
 
 		// Asset folders

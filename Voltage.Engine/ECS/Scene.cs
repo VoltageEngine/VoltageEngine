@@ -209,7 +209,8 @@ public abstract class Scene
 	private RenderTarget2D _sceneRenderTarget;
 	private RenderTarget2D _destinationRenderTarget;
 	private Action<Texture2D> _screenshotRequestCallback;
-	private readonly Dictionary<Type, List<Delegate>> _entityAddedCallbacks = new();
+	private readonly Dictionary<string, List<Delegate>> _entityAddedByNameCallbacks = new();
+	private readonly Dictionary<int, List<Delegate>> _entityAddedByTagCallbacks = new();
 	private readonly Dictionary<Type, List<Delegate>> _componentAddedCallbacks = new();
 
 	internal readonly FastList<SceneComponent> _sceneComponents = new();
@@ -255,9 +256,9 @@ public abstract class Scene
 		RenderableComponents = new RenderableComponentList();
 		Content = new VoltageContentManager();
 
-		var cameraEntity = SimpleCreateEntity<EntityData>("camera", Entity.InstanceType.HardCoded);
+		var cameraEntity = SimpleCreateEntity<EntityData>("camera", Entity.InstanceType.NonSerialized);
 		Camera = cameraEntity.AddComponent(new Camera());
-		
+
 		// setup our resolution policy. we'll commit it in begin
 		_resolutionPolicy = _defaultSceneResolutionPolicy;
 		_designResolutionSize = _defaultDesignResolutionSize;
@@ -970,7 +971,7 @@ public abstract class Scene
 	{
 		var entity = new Entity(name);
 		entity.Transform.Position = position;
-		if(entity.EntityData == null)
+		if (entity.EntityData == null)
 			entity.EntityData = new TData();
 
 		return AddEntity(entity);
@@ -982,65 +983,120 @@ public abstract class Scene
 		return AddEntity(entity);
 	}
 
-	#region Wait for Entity Added 
+	#region Wait for Entity Added
+
 	/// <summary>
-	/// Registers a callback that will be invoked whenever an entity of type <typeparamref name="T"/> is added to the scene,
-	/// including entities already present when the callback is registered.
+	/// Registers a callback that will be invoked whenever an entity with the specified name is added to the scene.
 	/// <para>
-	/// This is useful for systems or scripts that need to automatically act on new entities as they are added,
+	/// This is useful for systems or scripts that need to automatically act on specific entities as they are added,
 	/// such as setting up components, event hooks, or performing initialization logic.
 	/// </para>
 	/// </summary>
-	/// <typeparam name="T">The type of entity to listen for. Must inherit from <see cref="Entity"/>.</typeparam>
+	/// <param name="entityName">The name of the entity to listen for.</param>
 	/// <param name="onAdded">
-	/// The function to execute when an entity of type <typeparamref name="T"/> is added to the scene.
+	/// The function to execute when an entity with the specified name is added to the scene.
 	/// The entity instance will be passed as the parameter.
 	/// </param>
-	public void OnEntityAdded<T>(Action<T> onAdded) where T : Entity
+	public void OnEntityAddedByName(string entityName, Action<Entity> onAdded)
 	{
-		var type = typeof(T);
-		if (!_entityAddedCallbacks.TryGetValue(type, out var list))
+		if (!_entityAddedByNameCallbacks.TryGetValue(entityName, out var list))
 		{
 			list = new List<Delegate>();
-			_entityAddedCallbacks[type] = list;
+			_entityAddedByNameCallbacks[entityName] = list;
 		}
+
 		list.Add(onAdded);
 	}
 
 	/// <summary>
-	/// Registers a callback that will be called **once** for the first entity of type T added to the scene,
+	/// Registers a callback that will be called **once** for the first entity with the specified name added to the scene,
 	/// then the callback is automatically removed.
 	/// </summary>
-	public void OnEntityAddedOnce<T>(Action<T> onAdded) where T : Entity
+	/// <param name="entityName">The name of the entity to listen for.</param>
+	/// <param name="onAdded">The callback to invoke when the entity is added.</param>
+	public void OnEntityAddedByNameOnce(string entityName, Action<Entity> onAdded)
 	{
-		var oneShot = new OneShotDelegate<T>(onAdded);
-		OnEntityAdded<T>(oneShot.Invoke);
+		var oneShot = new OneShotDelegate<Entity>(onAdded);
+		OnEntityAddedByName(entityName, oneShot.Invoke);
+	}
+
+	/// <summary>
+	/// Registers a callback that will be invoked whenever an entity with the specified tag is added to the scene.
+	/// <para>
+	/// This is useful for systems or scripts that need to automatically act on entities with a specific tag,
+	/// such as setting up components, event hooks, or performing initialization logic.
+	/// </para>
+	/// </summary>
+	/// <param name="tag">The tag to listen for.</param>
+	/// <param name="onAdded">
+	/// The function to execute when an entity with the specified tag is added to the scene.
+	/// The entity instance will be passed as the parameter.
+	/// </param>
+	public void OnEntityAddedByTag(int tag, Action<Entity> onAdded)
+	{
+		if (!_entityAddedByTagCallbacks.TryGetValue(tag, out var list))
+		{
+			list = new List<Delegate>();
+			_entityAddedByTagCallbacks[tag] = list;
+		}
+
+		list.Add(onAdded);
+	}
+
+	/// <summary>
+	/// Registers a callback that will be called **once** for the first entity with the specified tag added to the scene,
+	/// then the callback is automatically removed.
+	/// </summary>
+	/// <param name="tag">The tag to listen for.</param>
+	/// <param name="onAdded">The callback to invoke when the entity is added.</param>
+	public void OnEntityAddedByTagOnce(int tag, Action<Entity> onAdded)
+	{
+		var oneShot = new OneShotDelegate<Entity>(onAdded);
+		OnEntityAddedByTag(tag, oneShot.Invoke);
 	}
 
 	private void TriggerEntityAddedCallbacks(Entity entity)
 	{
-		var type = entity.GetType();
-		var delegatesToRemove = new List<(Type, Delegate)>();
+		var delegatesToRemove = new List<(string, Delegate)>();
 
-		foreach (var kvp in _entityAddedCallbacks)
+		// Trigger callbacks registered by name
+		if (_entityAddedByNameCallbacks.TryGetValue(entity.Name, out var nameCallbacks))
 		{
-			if (kvp.Key.IsAssignableFrom(type))
+			foreach (var del in nameCallbacks.ToArray()) // ToArray avoids modification during enumeration
 			{
-				foreach (var del in kvp.Value.ToArray()) // ToArray avoids modification during enumeration
-				{
-					del.DynamicInvoke(entity);
+				del.DynamicInvoke(entity);
 
-					// Remove if this is a one-shot delegate
-					if (del.Target is IOneShotDelegate)
-						delegatesToRemove.Add((kvp.Key, del));
-				}
+				// Remove if this is a one-shot delegate
+				if (del.Target is IOneShotDelegate)
+					delegatesToRemove.Add((entity.Name, del));
 			}
 		}
 
-		// Remove one-shot delegates after invoking
-		foreach (var (t, d) in delegatesToRemove)
-			_entityAddedCallbacks[t].Remove(d);
+		// Remove one-shot delegates after invoking (by name)
+		foreach (var (name, d) in delegatesToRemove)
+			_entityAddedByNameCallbacks[name].Remove(d);
+
+		delegatesToRemove.Clear();
+		var tagDelegatesToRemove = new List<(int, Delegate)>();
+
+		// Trigger callbacks registered by tag
+		if (_entityAddedByTagCallbacks.TryGetValue(entity.Tag, out var tagCallbacks))
+		{
+			foreach (var del in tagCallbacks.ToArray())
+			{
+				del.DynamicInvoke(entity);
+
+				// Remove if this is a one-shot delegate
+				if (del.Target is IOneShotDelegate)
+					tagDelegatesToRemove.Add((entity.Tag, del));
+			}
+		}
+
+		// Remove one-shot delegates after invoking (by tag)
+		foreach (var (tag, d) in tagDelegatesToRemove)
+			_entityAddedByTagCallbacks[tag].Remove(d);
 	}
+
 	#endregion
 
 
@@ -1057,6 +1113,7 @@ public abstract class Scene
 			list = new List<Delegate>();
 			_componentAddedCallbacks[type] = list;
 		}
+
 		list.Add(onAdded);
 	}
 
@@ -1096,32 +1153,25 @@ public abstract class Scene
 	}
 
 	#endregion
+
 	/// <summary>
 	/// adds an Entity to the Scene's Entities list
 	/// </summary>
 	/// <param name="entity">The Entity to add</param>
 	public virtual Entity AddEntity(Entity entity)
 	{
-        if (Entities.FindEntity(entity.Name) != null)
-            entity.Name = GetUniqueEntityName(entity.Name, entity);
-
-        AddEntity<Entity>(entity);
-		return entity;
-	}
-
-	/// <summary>
-	/// adds an Entity to the Scene's Entities list
-	/// </summary>
-	/// <param name="entity">The Entity to add</param>
-	public virtual T AddEntity<T>(T entity) where T : Entity
-	{
-        if (Entities.FindEntity(entity.Name) != null)
-            entity.Name = GetUniqueEntityName(entity.Name, entity);
+		if (Entities.FindEntity(entity.Name) != null)
+			entity.Name = GetUniqueEntityName(entity.Name, entity);
 
 		Entities.Add(entity);
 		entity.Scene = this;
+
+		// Recursively add child entities
 		for (var i = 0; i < entity.Transform.ChildCount; i++)
-			AddEntity<Entity>(entity.Transform.GetChild(i).Entity);
+		{
+			var childEntity = entity.Transform.GetChild(i).Entity;
+			AddEntity(childEntity);
+		}
 
 		TriggerEntityAddedCallbacks(entity);
 		return entity;
@@ -1154,16 +1204,6 @@ public abstract class Scene
 	public List<Entity> FindEntitiesWithTag(int tag)
 	{
 		return Entities.EntitiesWithTag(tag);
-	}
-
-	/// <summary>
-	/// returns all entities of Type T
-	/// </summary>
-	/// <returns>The of type.</returns>
-	/// <typeparam name="T">The 1st type parameter.</typeparam>
-	public List<T> EntitiesOfType<T>() where T : Entity
-	{
-		return Entities.EntitiesOfType<T>();
 	}
 
 	/// <summary>
@@ -1204,66 +1244,67 @@ public abstract class Scene
 	/// <returns></returns>
 	public string GetUniqueEntityName(string baseName, Entity entity, IEnumerable<Entity> pendingEntities = null)
 	{
-	    var baseLower = baseName.ToLower();
+		var baseLower = baseName.ToLower();
 
-	    var allNames = new List<string>();
-	    for (var i = 0; i < Entities.Count; i++)
-	    {
-	        if (Entities[i] == entity)
-	            continue;
-	        allNames.Add(Entities[i].Name.ToLower());
-	    }
-	    if (pendingEntities != null)
-	    {
-	        foreach (var e in pendingEntities)
-	        {
-	            if (e == entity)
-	                continue;
-	            allNames.Add(e.Name.ToLower());
-	        }
-	    }
+		var allNames = new List<string>();
+		for (var i = 0; i < Entities.Count; i++)
+		{
+			if (Entities[i] == entity)
+				continue;
+			allNames.Add(Entities[i].Name.ToLower());
+		}
 
-	    if (!allNames.Contains(baseLower))
-	        return baseName;
+		if (pendingEntities != null)
+		{
+			foreach (var e in pendingEntities)
+			{
+				if (e == entity)
+					continue;
+				allNames.Add(e.Name.ToLower());
+			}
+		}
 
-	    var inputPattern = @"^(.+?)[_\-]?(\d+)$";
-	    var inputMatch = System.Text.RegularExpressions.Regex.Match(baseName, inputPattern);
+		if (!allNames.Contains(baseLower))
+			return baseName;
 
-	    string actualBaseName;
-	    int startingNumber;
+		var inputPattern = @"^(.+?)[_\-]?(\d+)$";
+		var inputMatch = System.Text.RegularExpressions.Regex.Match(baseName, inputPattern);
 
-	    if (inputMatch.Success)
-	    {
-	        actualBaseName = inputMatch.Groups[1].Value;
-	        startingNumber = int.Parse(inputMatch.Groups[2].Value);
-	    }
-	    else
-	    {
-	        actualBaseName = baseName;
-	        startingNumber = 1;
-	    }
+		string actualBaseName;
+		int startingNumber;
 
-	    var baseNameLower = actualBaseName.ToLower();
-	    var pattern = @"^" + System.Text.RegularExpressions.Regex.Escape(baseNameLower) + @"(?:[_\-]?(\d+))?$";
-	    var maxNum = startingNumber - 1;
+		if (inputMatch.Success)
+		{
+			actualBaseName = inputMatch.Groups[1].Value;
+			startingNumber = int.Parse(inputMatch.Groups[2].Value);
+		}
+		else
+		{
+			actualBaseName = baseName;
+			startingNumber = 1;
+		}
 
-	    foreach (var name in allNames)
-	    {
-	        var match = System.Text.RegularExpressions.Regex.Match(name, pattern);
-	        if (match.Success)
-	        {
-	            if (string.IsNullOrEmpty(match.Groups[1].Value))
-	            {
-	                maxNum = Math.Max(maxNum, 0);
-	            }
-	            else if (int.TryParse(match.Groups[1].Value, out var num))
-	            {
-	                maxNum = Math.Max(maxNum, num);
-	            }
-	        }
-	    }
+		var baseNameLower = actualBaseName.ToLower();
+		var pattern = @"^" + System.Text.RegularExpressions.Regex.Escape(baseNameLower) + @"(?:[_\-]?(\d+))?$";
+		var maxNum = startingNumber - 1;
 
-	    return $"{actualBaseName}_{maxNum + 1}";
+		foreach (var name in allNames)
+		{
+			var match = System.Text.RegularExpressions.Regex.Match(name, pattern);
+			if (match.Success)
+			{
+				if (string.IsNullOrEmpty(match.Groups[1].Value))
+				{
+					maxNum = Math.Max(maxNum, 0);
+				}
+				else if (int.TryParse(match.Groups[1].Value, out var num))
+				{
+					maxNum = Math.Max(maxNum, num);
+				}
+			}
+		}
+
+		return $"{actualBaseName}_{maxNum + 1}";
 	}
 
 	#endregion

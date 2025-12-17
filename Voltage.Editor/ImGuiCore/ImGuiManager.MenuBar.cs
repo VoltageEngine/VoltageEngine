@@ -253,17 +253,24 @@ public partial class ImGuiManager
 	{
 		if (ImGui.BeginMenu("View"))
 		{
-			if (_themes.Length > 0 && ImGui.BeginMenu("Themes"))
+			if (ImGui.BeginMenu("Themes"))
 			{
-				foreach (var theme in _themes)
-				{
-					bool isCurrentTheme =
-						theme.Name.Equals(_lastSelectedTheme.Value, StringComparison.OrdinalIgnoreCase);
+				// Show current theme at the top
+				ImGui.TextColored(new Vector4(0.5f, 0.8f, 1.0f, 1.0f),
+					$"Current: {_themeManager.CurrentThemeName}");
+				ImGui.Separator();
 
-					if (ImGui.MenuItem(theme.Name, "", isCurrentTheme))
+				foreach (var themeName in _themeManager.GetAvailableThemes())
+				{
+					bool isCurrentTheme = themeName.Equals(_themeManager.CurrentThemeName, 
+						StringComparison.OrdinalIgnoreCase);
+
+					if (ImGui.MenuItem(themeName, "", isCurrentTheme))
 					{
-						theme.Invoke(null, new object[] { });
-						_lastSelectedTheme.Value = theme.Name;
+						if (_themeManager.ApplyTheme(themeName))
+						{
+							NotificationSystem.ShowTimedNotification($"Theme changed to: {themeName}");
+						}
 					}
 				}
 

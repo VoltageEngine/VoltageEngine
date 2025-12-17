@@ -35,7 +35,7 @@ namespace Voltage.Editor.SerializedData
             // Entity
             { typeof(EntityData).FullName, typeof(EntityData) },
 
-            // Prefab Data
+            // SerializedPrefab Data
             { typeof(PrefabData).FullName, typeof(PrefabData) },
 
             #endregion

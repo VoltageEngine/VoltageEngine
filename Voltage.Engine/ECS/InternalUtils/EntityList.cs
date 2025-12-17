@@ -289,20 +289,17 @@ public class EntityList : IEnumerable<Entity>
 	}
 
 	/// <summary>
-	/// returns a List of all Entities of type T. The returned List can be put back in the pool via ListPool.free.
+	/// returns a List of all Entities (since Entity is sealed). The returned List can be put back in the pool via ListPool.free.
 	/// </summary>
-	/// <returns>The of type.</returns>
-	/// <typeparam name="T">The 1st type parameter.</typeparam>
-	public List<T> EntitiesOfType<T>() where T : Entity
+	/// <returns>List of all entities.</returns>
+	public List<Entity> EntitiesOfType()
 	{
-		var list = ListPool<T>.Obtain();
+		var list = ListPool<Entity>.Obtain();
 		for (var i = 0; i < _entities.Length; i++)
-			if (_entities.Buffer[i] is T)
-				list.Add((T)_entities.Buffer[i]);
+			list.Add(_entities.Buffer[i]);
 
 		foreach (var entity in _entitiesToAdd)
-			if (entity is T)
-				list.Add((T)entity);
+			list.Add(entity);
 
 		return list;
 	}

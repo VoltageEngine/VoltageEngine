@@ -22,7 +22,7 @@ namespace Voltage.Data
 
 		public PrefabData()
         {
-            InstanceType = Entity.InstanceType.Prefab;
+            InstanceType = Entity.InstanceType.SerializedPrefab;
             Name = "";
             EntityType = "";
             Rotation = 0f;
@@ -41,7 +41,7 @@ namespace Voltage.Data
         {
             return new PrefabData
             {
-                InstanceType = Entity.InstanceType.Prefab,
+                InstanceType = Entity.InstanceType.SerializedPrefab,
                 Name = sceneData.Name,
                 EntityType = sceneData.EntityType,
                 Rotation = sceneData.Rotation,
