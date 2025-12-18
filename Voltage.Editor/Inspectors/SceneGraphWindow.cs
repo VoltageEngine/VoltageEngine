@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
-using Voltage.ECS;
 using Voltage.Utils;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.FilePickers;
@@ -18,21 +17,6 @@ using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Undo.EntityActions;
 
 namespace Voltage.Editor.Inspectors;
-
-// Helper classes for organizing entities and prefabs with nested namespaces
-public class EntityCategory
-{
-	public string Name { get; set; }
-	public List<string> EntityTypes { get; set; } = new List<string>();
-	public Dictionary<string, EntityCategory> SubCategories { get; set; } = new Dictionary<string, EntityCategory>();
-}
-
-public class PrefabCategory
-{
-	public string Name { get; set; }
-	public Dictionary<string, List<string>> PrefabsByEntityType { get; set; } = new Dictionary<string, List<string>>();
-	public Dictionary<string, PrefabCategory> SubCategories { get; set; } = new Dictionary<string, PrefabCategory>();
-}
 
 public class SceneGraphWindow
 {
@@ -49,7 +33,7 @@ public class SceneGraphWindow
 	public float SceneGraphPosY { get; set; }
 	public bool IsOpen { get; private set; }
 
-	private string _entityFilterName;
+	private string _prefabFilterName;
 
 	private float _sceneGraphWidth = 420f;
 	private readonly float _minSceneGraphWidth = 1f;
@@ -66,12 +50,6 @@ public class SceneGraphWindow
 	// SerializedPrefab caching
 	private List<string> _cachedPrefabNames = new();
 	private bool _prefabCacheInitialized = false;
-
-	// Entity and SerializedPrefab organization
-	private Dictionary<string, EntityCategory> _entityCategories = new Dictionary<string, EntityCategory>();
-	private List<string> _uncategorizedEntities = new List<string>(); // For entities directly in Serialized namespace
-	private Dictionary<string, PrefabCategory> _prefabCategories = new Dictionary<string, PrefabCategory>();
-	private Dictionary<string, List<string>> _uncategorizedPrefabs = new Dictionary<string, List<string>>(); // For prefabs directly in Serialized namespace
 
 	// SerializedPrefab deletion
 	private bool _showDeletePrefabConfirmation = false;
@@ -207,16 +185,10 @@ public class SceneGraphWindow
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
-			//TODO: Fix this to account for custom folder where we keep the script for entities
-			// IMPORTANT: This assumes that Entities are registered under the "Serialized" namespace or its sub-namespaces \
-			// (e.g. Serialized.Interactables.Platforms). Adjust the logic in OrganizeEntitiesByNamespace if your project uses a different structure.
 			if (VoltageEditorUtils.CenteredButton("Add Entity", 0.6f))
 			{
-				_entityFilterName = "";
+				_prefabFilterName = "";
 				ImGui.OpenPopup("entity-selector");
-				
-				OrganizeEntitiesByNamespace();
-				OrganizePrefabsByNamespaceAndType();
 			}
 
 			#region FilePickers
@@ -270,7 +242,6 @@ public class SceneGraphWindow
 		}
 
 		// Draw delete confirmation popup outside of the main window
-		// Always call this so the popup can continue rendering after being opened
 		DrawDeletePrefabConfirmationPopup();
 
 		HandleEntitySelectionNavigation();
@@ -285,454 +256,72 @@ public class SceneGraphWindow
 		return isOpen;
 	}
 
-	/// <summary>
-	/// Organizes dynamic entities into a hierarchical structure based on their namespace.
-	/// Entities directly in "Serialized" namespace are added to uncategorized list.
-	/// Entities in nested namespaces (e.g., Serialized.Interactables.Platforms) are organized hierarchically.
-	/// </summary>
-	private void OrganizeEntitiesByNamespace()
-	{
-		_entityCategories.Clear();
-		_uncategorizedEntities.Clear();
-
-		foreach (var entityTypeName in EntityFactoryRegistry.GetRegisteredTypes())
-		{
-			var type = EntityFactoryRegistry.GetEntityType(entityTypeName);
-			if (type == null)
-			{
-				Debug.Warn($"Could not resolve type for: {entityTypeName}");
-				continue;
-			}
-
-			var fullNamespace = type.Namespace;
-			if (string.IsNullOrEmpty(fullNamespace))
-			{
-				Debug.Warn($"Type {type.Name} has no namespace");
-				continue;
-			}
-
-			var namespaceParts = fullNamespace.Split('.');
-			
-			// Find the index of "Serialized" in the namespace
-			int dynamicIndex = -1;
-			for (int i = 0; i < namespaceParts.Length; i++)
-			{
-				if (namespaceParts[i] == "Serialized")
-				{
-					dynamicIndex = i;
-					break;
-				}
-			}
-
-			if (dynamicIndex == -1)
-			{
-				Debug.Warn($"Type {type.Name} is not in a 'Serialized' namespace");
-				continue;
-			}
-
-			var categoriesAfterDynamic = namespaceParts.Skip(dynamicIndex + 1).ToArray();
-
-			// Case 1: Entity is directly in "Serialized" namespace (no sub-namespaces)
-			if (categoriesAfterDynamic.Length == 0)
-			{
-				_uncategorizedEntities.Add(type.Name);
-			}
-			// Case 2: Entity is in nested namespace (e.g., Serialized.Interactables.Platforms)
-			else
-			{
-				// Build nested category structure
-				var currentCategory = _entityCategories;
-				EntityCategory leafCategory = null;
-
-				for (int i = 0; i < categoriesAfterDynamic.Length; i++)
-				{
-					var categoryName = categoriesAfterDynamic[i];
-
-					if (!currentCategory.ContainsKey(categoryName))
-					{
-						currentCategory[categoryName] = new EntityCategory { Name = categoryName };
-					}
-
-					leafCategory = currentCategory[categoryName];
-					currentCategory = leafCategory.SubCategories;
-				}
-
-				// Add the entity type to the leaf category
-				if (leafCategory != null)
-				{
-					leafCategory.EntityTypes.Add(type.Name);
-				}
-			}
-		}
-	}
-
-	/// <summary>
-	/// Organizes prefabs into a hierarchical structure based on namespace and entity type.
-	/// Prefabs of entities directly in "Serialized" namespace are kept separate.
-	/// Prefabs in nested namespaces are organized hierarchically.
-	/// </summary>
-	private void OrganizePrefabsByNamespaceAndType()
-	{
-		_prefabCategories.Clear();
-		_uncategorizedPrefabs.Clear();
-
-		var prefabsDirectory = "Content/Data/Prefabs";
-		if (!Directory.Exists(prefabsDirectory))
-		{
-			Debug.Warn($"Prefabs directory does not exist: {prefabsDirectory}");
-			return;
-		}
-
-		var entityTypeDirectories = Directory.GetDirectories(prefabsDirectory);
-
-		foreach (var entityTypeDir in entityTypeDirectories)
-		{
-			var prefabFiles = Directory.GetFiles(entityTypeDir, "*.json");
-			
-			foreach (var prefabFile in prefabFiles)
-			{
-				try
-				{
-					var prefabName = Path.GetFileNameWithoutExtension(prefabFile);
-					var prefabData = _imGuiManager.InvokePrefabLoadRequested(prefabName);
-				
-					if (string.IsNullOrEmpty(prefabData.EntityType))
-					{
-						Debug.Warn($"SerializedPrefab '{prefabName}' has no EntityType specified");
-						continue;
-					}
-
-					// Get the entity type directly from registry
-					var entityType = EntityFactoryRegistry.GetEntityType(prefabData.EntityType);
-					if (entityType == null)
-					{
-						Debug.Warn($"Could not resolve entity type '{prefabData.EntityType}' for prefab '{prefabName}'");
-						continue;
-					}
-
-					// Extract namespace
-					var fullNamespace = entityType.Namespace;
-					if (string.IsNullOrEmpty(fullNamespace))
-					{
-						Debug.Warn($"Entity type '{entityType.Name}' has no namespace");
-						continue;
-					}
-
-					var namespaceParts = fullNamespace.Split('.');
-				
-					// Find the index of "Serialized" in the namespace
-					int dynamicIndex = -1;
-					for (int i = 0; i < namespaceParts.Length; i++)
-					{
-						if (namespaceParts[i] == "Serialized")
-						{
-							dynamicIndex = i;
-							break;
-						}
-					}
-
-					if (dynamicIndex == -1)
-					{
-						Debug.Warn($"Entity type '{entityType.Name}' is not in a 'Serialized' namespace");
-						continue;
-					}
-
-					var categoriesAfterDynamic = namespaceParts.Skip(dynamicIndex + 1).ToArray();
-
-					// Case 1 = SerializedPrefab's entity is directly in "Serialized" namespace
-					if (categoriesAfterDynamic.Length == 0)
-					{
-						var entityTypeName = entityType.Name;
-						if (!_uncategorizedPrefabs.ContainsKey(entityTypeName))
-						{
-							_uncategorizedPrefabs[entityTypeName] = new List<string>();
-						}
-						_uncategorizedPrefabs[entityTypeName].Add(prefabName);
-					}
-					// Case 2 = SerializedPrefab's entity is in nested namespace
-					{
-						// Build nested category structure
-						var currentCategory = _prefabCategories;
-						PrefabCategory leafCategory = null;
-
-						for (int i = 0; i < categoriesAfterDynamic.Length; i++)
-						{
-							var categoryName = categoriesAfterDynamic[i];
-
-							if (!currentCategory.ContainsKey(categoryName))
-							{
-								currentCategory[categoryName] = new PrefabCategory { Name = categoryName };
-							}
-
-							leafCategory = currentCategory[categoryName];
-							currentCategory = leafCategory.SubCategories;
-						}
-
-						// Add prefab under its entity type in the leaf category
-						if (leafCategory != null)
-						{
-							var entityTypeName = entityType.Name;
-							if (!leafCategory.PrefabsByEntityType.ContainsKey(entityTypeName))
-							{
-								leafCategory.PrefabsByEntityType[entityTypeName] = new List<string>();
-							}
-							leafCategory.PrefabsByEntityType[entityTypeName].Add(prefabName);
-						}
-					}
-				}
-				catch (Exception ex)
-				{
-					Debug.Error($"Error organizing prefab '{Path.GetFileName(prefabFile)}': {ex.Message}");
-				}
-			}
-		}
-	
-	}
-
-	/// <summary>
-	/// Renders a collapsible header for entity categories using CollapsingHeader (recursive for nested categories)
-	/// </summary>
-	private void RenderEntityCategory(EntityCategory category, int indentLevel = 0)
-	{
-		var indent = new string(' ', indentLevel * 2);
-		
-		if (ImGui.CollapsingHeader($"{indent}[{category.Name}]##entity-{category.Name}-{indentLevel}"))
-		{
-			ImGui.Indent();
-			
-			foreach (var entityType in category.EntityTypes.OrderBy(e => e))
-			{
-				if (ImGui.Selectable($"{indent}  {entityType}"))
-				{
-					CreateEntityFromFactory(entityType);
-					ImGui.CloseCurrentPopup();
-				}
-			}
-			
-			// Recursively render all subcategories
-			foreach (var subCategory in category.SubCategories.Values.OrderBy(c => c.Name))
-			{
-				RenderEntityCategory(subCategory, indentLevel + 1);
-			}
-			
-			ImGui.Unindent();
-		}
-	}
-
-	/// <summary>
-	/// Renders a collapsible header for prefab categories using CollapsingHeader 
-	/// </summary>
-	private void RenderPrefabCategory(PrefabCategory category, int indentLevel = 0)
-	{
-		var indent = new string(' ', indentLevel * 2);
-		
-		if (ImGui.CollapsingHeader($"{indent}[{category.Name}]##prefab-{category.Name}-{indentLevel}"))
-		{
-			ImGui.Indent();
-			
-			foreach (var entityTypeKvp in category.PrefabsByEntityType.OrderBy(kvp => kvp.Key))
-			{
-				var entityTypeName = entityTypeKvp.Key;
-				var prefabs = entityTypeKvp.Value;
-
-				if (ImGui.CollapsingHeader($"{indent}  [{entityTypeName}]##prefab-type-{entityTypeName}-{indentLevel}"))
-				{
-					ImGui.Indent();
-					
-					foreach (var prefabName in prefabs.OrderBy(p => p))
-					{
-						if (ImGui.Selectable($"{indent}    {prefabName}"))
-						{
-							CreateEntityFromPrefab(prefabName);
-							ImGui.CloseCurrentPopup();
-						}
-						
-						if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
-						{
-							ImGui.OpenPopup($"prefab-context-{prefabName}");
-						}
-						
-						if (ImGui.BeginPopup($"prefab-context-{prefabName}"))
-						{
-							if (ImGui.Selectable("Create SerializedPrefab Instance"))
-							{
-								CreateEntityFromPrefab(prefabName);
-								ImGui.CloseCurrentPopup();
-							}
-							
-							ImGui.Separator();
-							
-							if (ImGui.Selectable("Delete SerializedPrefab"))
-							{
-								_prefabToDelete = prefabName;
-								_showDeletePrefabConfirmation = true;
-								ImGui.CloseCurrentPopup();
-							}
-							
-							ImGui.EndPopup();
-						}
-					}
-					
-					ImGui.Unindent();
-				}
-			}
-			
-			foreach (var subCategory in category.SubCategories.Values.OrderBy(c => c.Name))
-			{
-				RenderPrefabCategory(subCategory, indentLevel + 1);
-			}
-			
-			ImGui.Unindent();
-		}
-	}
-
 	private void DrawEntitySelectorPopup()
 	{
 		if (ImGui.BeginPopup("entity-selector"))
 		{
-			ImGui.InputText("###EntityFilter", ref _entityFilterName, 25);
+			ImGui.InputText("###PrefabFilter", ref _prefabFilterName, 25);
 			ImGui.Separator();
 
 			RefreshPrefabCache();
 
-			// Draw categorized Serialized Entities
-			ImGui.TextColored(new Num.Vector4(0.8f, 0.8f, 1.0f, 1.0f), "Serialized Entities:");
+			// Simple option to create an empty entity
+			ImGui.TextColored(new Num.Vector4(0.8f, 1.0f, 0.8f, 1.0f), "Create Empty Entity:");
 			ImGui.Separator();
 			
-			if (string.IsNullOrEmpty(_entityFilterName))
+			if (ImGui.Selectable("Empty Entity"))
 			{
-				// First, render uncategorized entities (directly in Serialized namespace)
-				foreach (var entityType in _uncategorizedEntities.OrderBy(e => e))
-				{
-					if (ImGui.Selectable(entityType))
-					{
-						CreateEntityFromFactory(entityType);
-						ImGui.CloseCurrentPopup();
-					}
-				}
-				
-				// Then, render organized categories (nested namespaces)
-				foreach (var category in _entityCategories.Values.OrderBy(c => c.Name))
-				{
-					RenderEntityCategory(category);
-				}
-			}
-			else
-			{
-				// Show flat filtered list
-				foreach (var typeName in EntityFactoryRegistry.GetRegisteredTypes())
-				{
-					if (typeName.ToLower().Contains(_entityFilterName.ToLower()))
-					{
-						if (ImGui.Selectable(typeName))
-						{
-							CreateEntityFromFactory(typeName);
-							ImGui.CloseCurrentPopup();
-						}
-					}
-				}
+				CreateEmptyEntity();
+				ImGui.CloseCurrentPopup();
 			}
 
+			// Show prefabs if they exist
 			if (_cachedPrefabNames.Count > 0)
 			{
 				ImGui.Separator();
 				ImGui.TextColored(new Num.Vector4(1.0f, 0.6f, 0.2f, 1.0f), "Prefabs:");
 				ImGui.Separator();
 				
-				if (string.IsNullOrEmpty(_entityFilterName))
+				// Show flat list of prefabs (filtered if search text is entered)
+				foreach (var prefabName in _cachedPrefabNames.OrderBy(p => p))
 				{
-					// First, render uncategorized prefabs (for entities directly in Serialized namespace)
-					foreach (var entityTypeKvp in _uncategorizedPrefabs.OrderBy(kvp => kvp.Key))
+					// Apply filter if search text is entered
+					if (!string.IsNullOrEmpty(_prefabFilterName) && 
+					    !prefabName.ToLower().Contains(_prefabFilterName.ToLower()))
 					{
-						var entityTypeName = entityTypeKvp.Key;
-						var prefabs = entityTypeKvp.Value;
-						
-						if (ImGui.CollapsingHeader($"[{entityTypeName}]##uncategorized-prefab-{entityTypeName}"))
-						{
-							ImGui.Indent();
-							
-							foreach (var prefabName in prefabs.OrderBy(p => p))
-							{
-								if (ImGui.Selectable($"  {prefabName}"))
-								{
-									CreateEntityFromPrefab(prefabName);
-									ImGui.CloseCurrentPopup();
-								}
-								
-								if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
-								{
-									ImGui.OpenPopup($"prefab-context-{prefabName}");
-								}
-								
-								if (ImGui.BeginPopup($"prefab-context-{prefabName}"))
-								{
-									if (ImGui.Selectable("Create SerializedPrefab Instance"))
-									{
-										CreateEntityFromPrefab(prefabName);
-										ImGui.CloseCurrentPopup();
-									}
-							
-									ImGui.Separator();
-							
-									if (ImGui.Selectable("Delete SerializedPrefab"))
-									{
-										_prefabToDelete = prefabName;
-										_showDeletePrefabConfirmation = true;
-										ImGui.CloseCurrentPopup();
-									}
-							
-									ImGui.EndPopup();
-								}
-							}
-							
-							ImGui.Unindent();
-						}
+						continue;
+					}
+
+					if (ImGui.Selectable($"{prefabName}"))
+					{
+						CreateEntityFromPrefab(prefabName);
+						ImGui.CloseCurrentPopup();
 					}
 					
-					// Then, render organized categories (nested namespaces)
-					foreach (var category in _prefabCategories.Values.OrderBy(c => c.Name))
+					// Right-click context menu
+					if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
 					{
-						RenderPrefabCategory(category);
+						ImGui.OpenPopup($"prefab-context-{prefabName}");
 					}
-				}
-				else
-				{
-					// Show flat filtered list
-					foreach (var prefabName in _cachedPrefabNames)
+					
+					if (ImGui.BeginPopup($"prefab-context-{prefabName}"))
 					{
-						if (prefabName.ToLower().Contains(_entityFilterName.ToLower()))
+						if (ImGui.Selectable("Create SerializedPrefab Instance"))
 						{
-							if (ImGui.Selectable($"{prefabName} [SerializedPrefab]"))
-							{
-								CreateEntityFromPrefab(prefabName);
-								ImGui.CloseCurrentPopup();
-							}
-							
-							if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
-							{
-								ImGui.OpenPopup($"prefab-context-{prefabName}");
-							}
-							
-							if (ImGui.BeginPopup($"prefab-context-{prefabName}"))
-							{
-								if (ImGui.Selectable("Create SerializedPrefab Instance"))
-								{
-									CreateEntityFromPrefab(prefabName);
-									ImGui.CloseCurrentPopup();
-								}
-							
-								ImGui.Separator();
-							
-								if (ImGui.Selectable("Delete SerializedPrefab"))
-								{
-									_prefabToDelete = prefabName;
-									_showDeletePrefabConfirmation = true;
-									ImGui.CloseCurrentPopup();
-								}
-							
-								ImGui.EndPopup();
-							}
+							CreateEntityFromPrefab(prefabName);
+							ImGui.CloseCurrentPopup();
 						}
+				
+						ImGui.Separator();
+				
+						if (ImGui.Selectable("Delete SerializedPrefab"))
+						{
+							_prefabToDelete = prefabName;
+							_showDeletePrefabConfirmation = true;
+							ImGui.CloseCurrentPopup();
+						}
+				
+						ImGui.EndPopup();
 					}
 				}
 			}
@@ -800,7 +389,6 @@ public class SceneGraphWindow
 		{
 			var prefabsDirectory = "Content/Data/Prefabs";
 			bool fileDeleted = false;
-			string deletedFilePath = null;
 
 			if (Directory.Exists(prefabsDirectory))
 			{
@@ -825,7 +413,6 @@ public class SceneGraphWindow
 				
 				// Force prefab cache to reinitialize on next use
 				_prefabCacheInitialized = false;
-				OrganizePrefabsByNamespaceAndType();
 				
 				NotificationSystem.ShowTimedNotification($"Successfully deleted prefab: {prefabName}");
 				
@@ -856,6 +443,31 @@ public class SceneGraphWindow
 	}
 
 	/// <summary>
+	/// Creates a new empty entity in the scene.
+	/// </summary>
+	private void CreateEmptyEntity()
+	{
+		var entity = new Entity("Entity");
+		entity.Type = Entity.InstanceType.Serialized;
+		entity.Name = Voltage.Core.Scene.GetUniqueEntityName("Entity", entity);
+		entity.Transform.Position = Voltage.Core.Scene.Camera.Transform.Position;
+
+		Voltage.Core.Scene.AddEntity(entity);
+
+		EditorChangeTracker.PushUndo(
+			new EntityCreateDeleteUndoAction(Voltage.Core.Scene, entity, wasCreated: true,
+				$"Create Entity {entity.Name}"),
+			entity,
+			$"Create Entity {entity.Name}"
+		);
+
+		_imGuiManager.SceneGraphWindow.EntityPane.SetSelectedEntity(entity, false);
+		_imGuiManager.MainEntityInspector.DelayedSetEntity(entity);
+
+		NotificationSystem.ShowTimedNotification($"Created empty entity: {entity.Name}");
+	}
+
+	/// <summary>
 	/// Creates a new entity from a prefab.
 	/// </summary>
 	private void CreateEntityFromPrefab(string prefabName)
@@ -876,9 +488,9 @@ public class SceneGraphWindow
 				return;
 			}
 
-			if (EntityFactoryRegistry.TryCreate(prefabData.EntityType, out var entity))
+			try
 			{
-				EntityFactoryRegistry.InvokeEntityCreated(entity);
+				var entity = Voltage.Core.Scene.SimpleCreateEntity(prefabData.Name, Entity.InstanceType.SerializedPrefab);
 				entity.Type = Entity.InstanceType.SerializedPrefab;
 				entity.Transform.Position = Voltage.Core.Scene.Camera.Transform.Position;
 
@@ -898,7 +510,7 @@ public class SceneGraphWindow
 
 				NotificationSystem.ShowTimedNotification($"Created entity from prefab: {prefabName}");
 			}
-			else
+			catch
 			{
 				NotificationSystem.ShowTimedNotification(
 					$"Failed to create entity from prefab: {prefabName}. Entity type '{prefabData.EntityType}' not registered.");
@@ -907,34 +519,6 @@ public class SceneGraphWindow
 		catch (Exception ex)
 		{
 			NotificationSystem.ShowTimedNotification($"Error creating entity from prefab {prefabName}: {ex.Message}");
-		}
-	}
-
-	/// <summary>
-	/// Creates a new entity from the EntityFactoryRegistry.
-	/// </summary>
-	private void CreateEntityFromFactory(string typeName)
-	{
-		if (EntityFactoryRegistry.TryCreate(typeName, out var entity))
-		{
-			EntityFactoryRegistry.InvokeEntityCreated(entity);
-			entity.Type = Entity.InstanceType.Serialized;
-			entity.Name = Voltage.Core.Scene.GetUniqueEntityName(typeName, entity); 
-			entity.Transform.Position = Voltage.Core.Scene.Camera.Transform.Position;
-
-			EditorChangeTracker.PushUndo(
-				new EntityCreateDeleteUndoAction(Voltage.Core.Scene, entity, wasCreated: true,
-					$"Create Entity {entity.Name}"),
-				entity,
-				$"Create Entity {entity.Name}"
-			);
-
-			var imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
-			if (imGuiManager != null)
-			{
-				imGuiManager.SceneGraphWindow.EntityPane.SetSelectedEntity(entity, false);
-				_imGuiManager.MainEntityInspector.DelayedSetEntity(entity);
-			}
 		}
 	}
 

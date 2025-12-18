@@ -32,6 +32,8 @@ public struct ComponentDataEntry
 /// </summary>
 public class Component : IComparable<Component>
 {
+	public bool IsSerialized = false;
+
 	/// <summary>
 	/// the Entity this Component is attached to
 	/// </summary>
@@ -87,9 +89,10 @@ public class Component : IComparable<Component>
 
 	#region Component Lifecycle
 
-	public Component(string name = null)
+	public Component(string name = null, bool isSerialized = false)
 	{
 		Name = name ?? GetType().Name;
+		IsSerialized = isSerialized;
 	}
 
 	/// <summary>
@@ -116,18 +119,6 @@ public class Component : IComparable<Component>
 	}
 
 	/// <summary>
-	/// called when the entity's position changes. This allows components to be aware that they have moved due to the parent
-	/// entity moving.
-	/// </summary>
-	public virtual void OnEntityTransformChanged(Transform.Component comp)
-	{
-	}
-
-	public virtual void DebugRender(Batcher batcher)
-	{
-	}
-
-	/// <summary>
 	/// called when the parent Entity or this Component is enabled
 	/// </summary>
 	public virtual void OnEnabled()
@@ -138,6 +129,18 @@ public class Component : IComparable<Component>
 	/// called when the parent Entity or this Component is disabled
 	/// </summary>
 	public virtual void OnDisabled()
+	{
+	}
+
+	/// <summary>
+	/// called when the entity's position changes. This allows components to be aware that they have moved due to the parent
+	/// entity moving.
+	/// </summary>
+	public virtual void OnEntityTransformChanged(Transform.Component comp)
+	{
+	}
+
+	public virtual void DebugRender(Batcher batcher)
 	{
 	}
 
@@ -184,11 +187,12 @@ public class Component : IComparable<Component>
 		// Default implementation - creates new instance but doesn't copy data
 		var componentType = GetType();
 		var clone = (Component)Activator.CreateInstance(componentType);
-		
+
 		// Copy basic component properties
 		clone.Name = Name;
 		clone.Enabled = Enabled;
-		
+		//clone.Data = Data;
+
 		// Entity will be set when the component is added to the target entity
 		clone.Entity = null;
 		

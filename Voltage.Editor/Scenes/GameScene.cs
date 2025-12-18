@@ -1,6 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
 using Voltage.Data;
-using Voltage.ECS;
 using Voltage.Sprites;
 using Voltage.Tiled;
 using Voltage.Utils.Extensions;
@@ -83,8 +82,6 @@ public class GameScene : Scene
         SceneGraphWindow.OnAsepriteImageSelected += LoadAsepriteImages;//TODO: Fix the rendering layer assignment
     
         OnFinishedAddingEntities += LoadSceneEntitiesData;
-        EntityFactoryRegistry.OnEntityCreated += CreateEntityWithParams;
-        EntityFactoryRegistry.OnDataLoadingStarted += DataLoader.LoadPredefinedEntityData;
     }
 
     public override void Update()
@@ -100,32 +97,17 @@ public class GameScene : Scene
         SceneGraphWindow.OnAsepriteImageSelected -= LoadAsepriteImages;
 
         OnFinishedAddingEntities -= LoadSceneEntitiesData;
-        EntityFactoryRegistry.OnEntityCreated -= CreateEntityWithParams;
-        EntityFactoryRegistry.OnDataLoadingStarted -= DataLoader.LoadPredefinedEntityData;
     }
 
     #region Entity Registration and Creation
     /// <summary>
-    /// Whenever an entity is created, this method is called to assign initial parameters to it.
+    /// Creates a simple entity and adds it to the scene.
     /// </summary>
-    /// <param name="entity"></param>
-    public void CreateEntityWithParams(Entity entity)
+    protected void CreateEntity(out Entity entity, string customName = null)
     {
-		AddEntity(entity);
-    }
-
-    protected void CreateEntity(string entityType, out Entity entity, string customName = null)
-    {
-        Entity newEntity = null; // must be assigned default value
-        if (EntityFactoryRegistry.TryCreate(entityType, out newEntity))
-        {
-            if (customName != null)
-                newEntity.Name = GetUniqueEntityName(customName, newEntity);
-            else
-                newEntity.Name = GetUniqueEntityName(entityType, newEntity);
-
-            CreateEntityWithParams(newEntity);
-        }
+        var newEntity = new Entity(customName ?? "Entity");
+        newEntity.Name = GetUniqueEntityName(newEntity.Name, newEntity);
+        AddEntity(newEntity);
         entity = newEntity;
     }
     #endregion
@@ -193,12 +175,11 @@ public class GameScene : Scene
             if (sceneEntity.InstanceType == Entity.InstanceType.NonSerialized)
                 continue;
 
-            CreateEntity(sceneEntity.EntityType, out var entity);
-
-            if(entity == null)
-                continue;
-
+            // Create entity directly
+            var entity = new Entity(sceneEntity.Name);
             entity.Type = sceneEntity.InstanceType;
+            AddEntity(entity);
+            
             DataLoader.LoadPredefinedEntityData(entity, sceneEntity);
 
             // Check if this entity needs parent assignment later
@@ -261,7 +242,7 @@ public class GameScene : Scene
         var oldTmxFileName = SceneData?.TiledMapFileName ?? "";
         var oldTiledMapEntity = TiledMapEntity;
 
-        CreateEntity("TiledMapEntity", out TiledMapEntity, "TiledMap");
+        CreateEntity(out TiledMapEntity, "TiledMap");
         TiledMapEntity.Transform.Position = Vector2.Zero;
         TiledMapEntity.Type = Entity.InstanceType.Serialized;
 
@@ -310,7 +291,7 @@ public class GameScene : Scene
             {
                 foreach (var image in TiledMap.ImageLayers)
                 {
-                    CreateEntity("SpriteEntity", out var spriteEntity, image.Name);
+                    CreateEntity(out var spriteEntity, image.Name);
 
                     var worldPosition = TiledMap.ToWorldPosition(new Vector2(image.OffsetX, image.OffsetY));
                     spriteEntity.Transform.SetParent(TiledMapEntity.Transform);
@@ -406,7 +387,7 @@ public class GameScene : Scene
             var fileName = Path.GetFileNameWithoutExtension(selection.FilePath);
 
             // Parent Entity
-            CreateEntity("Entity", out var parentEntity, fileName);
+            CreateEntity(out var parentEntity, fileName);
             parentEntity.Transform.Position = Camera.Transform.Position;
             parentEntity.Type = Entity.InstanceType.Serialized;
 
@@ -432,7 +413,7 @@ public class GameScene : Scene
                     continue;
                 }
 
-                CreateEntity("SpriteEntity", out var spriteEntity, $"{layerName}");
+                CreateEntity(out var spriteEntity, $"{layerName}");
                 spriteEntity.Type = Entity.InstanceType.Serialized;
 
                 spriteEntity.Transform.SetParent(parentEntity.Transform);
@@ -511,7 +492,7 @@ public class GameScene : Scene
                 tmxObject.Points != null &&
                 tmxObject.Points.Length > 2)
             {
-                CreateEntity("PolygonColliderEntity", out collisionEntity, baseName);
+                CreateEntity(out collisionEntity, baseName);
                 collisionEntity.Transform.SetParent(TiledMapEntity.Transform);
                 collisionEntity.Transform.SetLocalPosition(new Vector2(tmxObject.X, tmxObject.Y));
 
@@ -525,7 +506,7 @@ public class GameScene : Scene
             }
             else if (tmxObject.ObjectType == TmxObjectType.Ellipse)
             {
-                CreateEntity("CircleColliderEntity", out collisionEntity, baseName);
+                CreateEntity(out collisionEntity, baseName);
 
                 collisionEntity.Type = Entity.InstanceType.Serialized;
                 collisionEntity.Transform.SetParent(TiledMapEntity.Transform);
@@ -542,7 +523,7 @@ public class GameScene : Scene
             }
             else if (tmxObject.ObjectType == TmxObjectType.Basic) // Rectangle
             {
-                CreateEntity("BoxColliderEntity", out collisionEntity, baseName);
+                CreateEntity(out collisionEntity, baseName);
 
                 collisionEntity.Type = Entity.InstanceType.Serialized;
                 collisionEntity.Transform.SetParent(TiledMapEntity.Transform);
