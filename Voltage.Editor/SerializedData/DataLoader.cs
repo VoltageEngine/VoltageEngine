@@ -8,7 +8,6 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 using Microsoft.Xna.Framework;
-using Voltage.ECS;
 using Voltage.Utils.Extensions;
 using PrefabData = Voltage.Data.PrefabData;
 using Voltage.Editor.ImGuiCore;
@@ -746,15 +745,11 @@ public class DataLoader
                     continue;
                 }
 
-                var childEntity = EntityFactoryRegistry.TryCreate(childData.EntityType, out var e) ? e : null;
-                if (childEntity != null)
-                {
-                    EntityFactoryRegistry.InvokeEntityCreated(childEntity);
-                    LoadPredefinedEntityData(childEntity, childData);
-                    childEntity.Transform.SetParent(newEntity.Transform);
-                    newEntity.Scene.AddEntity(childEntity);
-                }
-            }
+                var childEntity = new Entity();
+				LoadPredefinedEntityData(childEntity, childData);
+				childEntity.Transform.SetParent(newEntity.Transform);
+				newEntity.Scene.AddEntity(childEntity);
+			}
         }
     }
 

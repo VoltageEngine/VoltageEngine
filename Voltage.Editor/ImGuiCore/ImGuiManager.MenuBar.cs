@@ -130,13 +130,6 @@ public partial class ImGuiManager
 
 			ImGui.Separator();
 
-			if (ImGui.MenuItem("Save Scene", "Ctrl+S"))
-			{
-				InvokeSaveSceneChanges();
-			}
-
-			ImGui.Separator();
-
 			if (ImGui.MenuItem("Load Tiled Map"))
 			{
 				SceneGraphWindow.TmxFilePicker.Open();
@@ -216,6 +209,13 @@ public partial class ImGuiManager
 				}
 
 				ImGui.EndMenu();
+			}
+
+			ImGui.Separator();
+
+			if (ImGui.MenuItem("Save Scene", "Ctrl+S"))
+			{
+				InvokeSaveSceneChanges();
 			}
 
 			ImGui.Separator();
