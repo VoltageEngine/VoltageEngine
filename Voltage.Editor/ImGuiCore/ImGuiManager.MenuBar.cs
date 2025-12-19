@@ -1,4 +1,4 @@
-﻿using ImGuiNET;
+﻿﻿using ImGuiNET;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -524,15 +524,15 @@ public partial class ImGuiManager
 			var windowWidth = ImGui.GetWindowSize().X;
 			var centerStart = (windowWidth - totalButtonWidth) * 0.5f;
 
-			ImGui.SetCursorPosX(centerStart);
+		ImGui.SetCursorPosX(centerStart);
 
-			if (ImGui.Button("Yes", new Vector2(buttonWidth, 0)))
-			{
-				EffectBuilder.BuildEditorEngineEffects(_effectBuildProgressWindow, _effectBuildCancelToken);
-				_showEngineEffectsPrompt = false;
-				_engineEffectsCheckComplete = true;
-				ImGui.CloseCurrentPopup();
-			}
+		if (ImGui.Button("Yes", new Vector2(buttonWidth, 0)))
+		{
+			EffectBuilder.BuildEditorEngineEffects(_effectBuildProgressWindow, ref _effectBuildCancelToken);
+			_showEngineEffectsPrompt = false;
+			_engineEffectsCheckComplete = true;
+			ImGui.CloseCurrentPopup();
+		}
 
 			ImGui.SameLine();
 
@@ -776,7 +776,7 @@ public partial class ImGuiManager
 
 					if (ImGui.MenuItem($"Build \"{projectName}\" Effects"))
 					{
-						EffectBuilder.BuildEditorProjectEffects(_projectManager, _effectBuildProgressWindow, _effectBuildCancelToken);
+						EffectBuilder.BuildEditorProjectEffects(_projectManager, _effectBuildProgressWindow, ref _effectBuildCancelToken);
 					}
 				}
 				else
@@ -792,24 +792,24 @@ public partial class ImGuiManager
 					ImGui.EndDisabled();
 				}
 
-				if (ImGui.MenuItem("Build Engine Effects"))
-				{
-					EffectBuilder.BuildEditorEngineEffects(_effectBuildProgressWindow, _effectBuildCancelToken);
-				}
+			if (ImGui.MenuItem("Build Engine Effects"))
+			{
+				EffectBuilder.BuildEditorEngineEffects(_effectBuildProgressWindow, ref _effectBuildCancelToken);
+			}
 
-				ImGui.Separator();
+			ImGui.Separator();
 
 				if (!hasProject)
 				{
 					ImGui.BeginDisabled();
 				}
 
-				if (ImGui.MenuItem("Build ALL Effects"))
-				{
-					EffectBuilder.BuildEditorAllEffects(_projectManager, _effectBuildProgressWindow, _effectBuildCancelToken);
-				}
+			if (ImGui.MenuItem("Build ALL Effects"))
+			{
+				EffectBuilder.BuildEditorAllEffects(_projectManager, _effectBuildProgressWindow, ref _effectBuildCancelToken);
+			}
 
-				if (!hasProject)
+			if (!hasProject)
 				{
 					ImGui.EndDisabled();
 				}

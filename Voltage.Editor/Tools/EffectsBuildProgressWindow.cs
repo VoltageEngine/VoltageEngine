@@ -11,10 +11,11 @@ namespace Voltage.Editor.Tools
 	{
 		private CompilationProgressWindow _progressWindow;
 		private CompilationProgress _currentProgress;
-
+		private System.Threading.CancellationTokenSource _cancellationTokenSource;
+		
 		public EffectBuildProgressWindow()
 		{
-			_progressWindow = new CompilationProgressWindow(isScriptProgress: false);
+			_progressWindow = new CompilationProgressWindow(isScriptProgress: false, onCancel: OnCancelRequested);
 
 			EffectBuilder.OnBuildStarted += OnBuildStarted;
 			EffectBuilder.OnFileCompiling += OnFileCompiling;
@@ -22,6 +23,11 @@ namespace Voltage.Editor.Tools
 			EffectBuilder.OnBuildCompleted += OnBuildCompleted;
 		}
 
+		public void SetCancellationToken(System.Threading.CancellationTokenSource cancellationTokenSource)
+		{
+			_cancellationTokenSource = cancellationTokenSource;
+		}
+		
 		public void Show()
 		{
 			if (_currentProgress != null)
@@ -51,26 +57,26 @@ namespace Voltage.Editor.Tools
 			_progressWindow.Show(_currentProgress);
 		}
 
-		private void OnFileCompiling(string fileName)
+	private void OnFileCompiling(string fileName)
+	{
+		if (_currentProgress != null && !_currentProgress.IsComplete)
 		{
-			if (_currentProgress != null)
-			{
-				_currentProgress.CurrentItem = fileName;
-			}
+			_currentProgress.CurrentItem = fileName;
 		}
+	}
 
-		private void OnFileCompiled(string fileName, bool success)
+	private void OnFileCompiled(string fileName, bool success)
+	{
+		if (_currentProgress != null && !_currentProgress.IsComplete)
 		{
-			if (_currentProgress != null)
-			{
-				_currentProgress.CompletedItems++;
+			_currentProgress.CompletedItems++;
 
-				if (success)
-					_currentProgress.SuccessCount++;
-				else
-					_currentProgress.FailureCount++;
-			}
+			if (success)
+				_currentProgress.SuccessCount++;
+			else
+				_currentProgress.FailureCount++;
 		}
+	}
 
 		private void OnBuildCompleted(int successCount, int failureCount)
 		{
@@ -89,5 +95,23 @@ namespace Voltage.Editor.Tools
 				}
 			}
 		}
+
+	private void OnCancelRequested()
+	{
+		// Mark progress as complete immediately to stop event handlers from updating UI
+		if (_currentProgress != null)
+		{
+			_currentProgress.IsComplete = true;
+		}
+
+		if (_cancellationTokenSource != null && !_cancellationTokenSource.IsCancellationRequested)
+		{
+			_cancellationTokenSource.Cancel();
+		}
+
+		// Reset progress state after a short delay to allow the task to clean up
+		_currentProgress = null;
+		_progressWindow.Hide();
+	}
 	}
 }

@@ -147,7 +147,7 @@ public class Editor : Core
     if (Input.IsKeyDown(Keys.LeftControl) && Input.IsKeyDown(Keys.LeftWindows) && Input.IsKeyPressed(Keys.F))
     {
         if (ScreenUtils.IsFullscreen)
-            ScreenUtils.SetWindowedMode(false);
+            ScreenUtils.SetEditorWindowedMode(false);
         else
             ScreenUtils.SetFullScreenMode();
     }

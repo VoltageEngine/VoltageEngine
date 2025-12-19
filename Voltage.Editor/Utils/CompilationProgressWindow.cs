@@ -32,12 +32,14 @@ namespace Voltage.Editor.Utils
 		private CompilationProgress _currentProgress;
 		private readonly bool _isScriptProgress;
 		private bool _hasClosedAfterCompletion = false;
+		private readonly Action _onCancel;
 
 		public bool IsVisible => _isVisible;
 
-		public CompilationProgressWindow(bool isScriptProgress = false)
+		public CompilationProgressWindow(bool isScriptProgress = false, Action onCancel = null)
 		{
 			_isScriptProgress = isScriptProgress;
+			_onCancel = onCancel;
 		}
 
 		/// <summary>
@@ -116,8 +118,27 @@ namespace Voltage.Editor.Utils
 					VoltageEditorUtils.MediumVerticalSpace();
 					DrawAutoCloseIndicator();
 				}
+				else if (_onCancel != null)
+				{
+					VoltageEditorUtils.MediumVerticalSpace();
+					DrawCancelButton();
+				}
 
 				ImGui.End();
+			}
+		}
+
+		private void DrawCancelButton()
+		{
+			// Center the button
+			var buttonWidth = 100f;
+			var windowWidth = ImGui.GetWindowSize().X;
+			ImGui.SetCursorPosX((windowWidth - buttonWidth) * 0.5f);
+			
+			if (ImGui.Button("Cancel", new Num.Vector2(buttonWidth, 0)))
+			{
+				_onCancel?.Invoke();
+				Hide();
 			}
 		}
 
