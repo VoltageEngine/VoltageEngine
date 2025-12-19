@@ -11,6 +11,9 @@ namespace Voltage.Editor.Tools;
 public class EffectBuilder
 {
 	public static EffectBuildProgress CurrentProgress { get; private set; }
+	private static System.Threading.CancellationToken _currentCancellationToken;
+	private static Process _currentProcess;
+	private static readonly object _processLock = new object();
 
 	// Events for progress tracking
 	public static event Action<int> OnBuildStarted;
@@ -185,14 +188,40 @@ public class EffectBuilder
 			IsComplete = false
 		};
 
-		OnBuildStarted?.Invoke(shaderFiles.Length);
+	OnBuildStarted?.Invoke(shaderFiles.Length);
 
-		foreach (var shaderFile in shaderFiles)
+	foreach (var shaderFile in shaderFiles)
+	{
+		// Check for cancellation
+		if (_currentCancellationToken.IsCancellationRequested)
 		{
-			// Get relative path from source directory to preserve subdirectory structure
-			string relativePath = Path.GetRelativePath(shaderSrcDir, shaderFile);
-			string relativeDir = Path.GetDirectoryName(relativePath) ?? string.Empty;
-			string fileName = Path.GetFileNameWithoutExtension(shaderFile);
+			// Kill any running mgfxc process
+			lock (_processLock)
+			{
+				if (_currentProcess != null && !_currentProcess.HasExited)
+				{
+					try
+					{
+						_currentProcess.Kill();
+						Debug.Log("Killed running mgfxc process");
+					}
+					catch (Exception ex)
+					{
+						Debug.Warn($"Failed to kill mgfxc process: {ex.Message}");
+					}
+				}
+			}
+
+			Debug.Log($"Effect build cancelled for {contextName}");
+			NotificationSystem.ShowTimedNotification($"Effect build cancelled for {contextName}");
+			OnBuildCompleted?.Invoke(CurrentProgress.SuccessCount, CurrentProgress.FailureCount);
+			return false;
+		}
+
+		// Get relative path from source directory to preserve subdirectory structure
+		string relativePath = Path.GetRelativePath(shaderSrcDir, shaderFile);
+		string relativeDir = Path.GetDirectoryName(relativePath) ?? string.Empty;
+		string fileName = Path.GetFileNameWithoutExtension(shaderFile);
 
 			// Create subdirectory in output if needed
 			string outputSubDir = Path.Combine(shaderOutDir, relativeDir);
@@ -207,31 +236,46 @@ public class EffectBuilder
 
 			OnFileCompiling?.Invoke(Path.GetFileName(relativePath));
 
-			bool success = false;
-			try
+		bool success = false;
+		try
+		{
+			var processInfo = new ProcessStartInfo
 			{
-				var processInfo = new ProcessStartInfo
-				{
-					FileName = "mgfxc",
-					Arguments = $"\"{shaderFile}\" \"{outputFile}\"",
-					UseShellExecute = false,
-					RedirectStandardOutput = true,
-					RedirectStandardError = true,
-					CreateNoWindow = true
-				};
+				FileName = "mgfxc",
+				Arguments = $"\"{shaderFile}\" \"{outputFile}\"",
+				UseShellExecute = false,
+				RedirectStandardOutput = true,
+				RedirectStandardError = true,
+				CreateNoWindow = true
+			};
 
-				using (var process = Process.Start(processInfo))
+			using (var process = Process.Start(processInfo))
+			{
+				if (process == null)
 				{
-					if (process == null)
+					Debug.Error($"Failed to start mgfxc for {relativePath}");
+					CurrentProgress.IncrementFailure(relativePath);
+				}
+				else
+				{
+					// Track the current process so we can kill it on cancellation
+					lock (_processLock)
 					{
-						Debug.Error($"Failed to start mgfxc for {relativePath}");
-						CurrentProgress.IncrementFailure(relativePath);
+						_currentProcess = process;
 					}
-					else
+
+					try
 					{
 						string output = process.StandardOutput.ReadToEnd();
 						string error = process.StandardError.ReadToEnd();
 						process.WaitForExit();
+
+						// Check if we were cancelled while waiting
+						if (_currentCancellationToken.IsCancellationRequested)
+						{
+							Debug.Log($"Compilation cancelled during {relativePath}");
+							return false;
+						}
 
 						if (process.ExitCode == 0)
 						{
@@ -241,21 +285,40 @@ public class EffectBuilder
 						}
 						else
 						{
-							Debug.Error($"Failed to compile {relativePath}:");
+							Debug.Error($"Failed to compile {relativePath} (Exit code: {process.ExitCode}):");
 							if (!string.IsNullOrEmpty(output))
-								Debug.Error($"Output: {output}");
+								Debug.Error($"Standard Output:\n{output}");
 							if (!string.IsNullOrEmpty(error))
-								Debug.Error($"Error: {error}");
+								Debug.Error($"Standard Error:\n{error}");
 							CurrentProgress.IncrementFailure(relativePath);
+						}
+					}
+					finally
+					{
+						// Clear the current process reference
+						lock (_processLock)
+						{
+							if (_currentProcess == process)
+							{
+								_currentProcess = null;
+							}
 						}
 					}
 				}
 			}
-			catch (Exception ex)
-			{
-				Debug.Error($"Exception while compiling {relativePath}: {ex.Message}");
-				CurrentProgress.IncrementFailure(relativePath);
-			}
+		}
+		catch (System.ComponentModel.Win32Exception win32Ex)
+		{
+			Debug.Error($"Failed to execute mgfxc for {relativePath}. Make sure mgfxc is installed and in PATH.");
+			Debug.Error($"Win32 Error: {win32Ex.Message}");
+			CurrentProgress.IncrementFailure(relativePath);
+		}
+		catch (Exception ex)
+		{
+			Debug.Error($"Exception while compiling {relativePath}: {ex.Message}");
+			Debug.Error($"Stack trace: {ex.StackTrace}");
+			CurrentProgress.IncrementFailure(relativePath);
+		}
 
 			OnFileCompiled?.Invoke(Path.GetFileName(relativePath), success);
 		}
@@ -301,7 +364,10 @@ public class EffectBuilder
 			using (var process = Process.Start(processInfo))
 			{
 				if (process == null)
+				{
+					Debug.Error("Failed to start mgfxc process");
 					return false;
+				}
 
 				string output = process.StandardOutput.ReadToEnd();
 				string error = process.StandardError.ReadToEnd();
@@ -313,19 +379,27 @@ public class EffectBuilder
 				bool available = combined.Contains("MonoGame Effect compiler");
 
 				if (available)
-					Debug.Log("mgfxc is available");
+				{
+					Debug.Log("mgfxc is available and working");
+				}
+				else
+				{
+					Debug.Warn($"mgfxc found but output doesn't match expected pattern. Output: {combined.Substring(0, Math.Min(200, combined.Length))}");
+				}
 
 				return available;
 			}
 		}
-		catch (System.ComponentModel.Win32Exception)
+		catch (System.ComponentModel.Win32Exception win32Ex)
 		{
-			Debug.Error("mgfxc not found in PATH");
+			Debug.Error($"mgfxc not found in PATH. Win32Exception: {win32Ex.Message}");
+			Debug.Error("On macOS, make sure MonoGame is installed via: dotnet tool install -g dotnet-mgfxc");
 			return false;
 		}
 		catch (Exception ex)
 		{
 			Debug.Error($"Error checking mgfxc: {ex.Message}");
+			Debug.Error($"Stack trace: {ex.StackTrace}");
 			return false;
 		}
 	}
@@ -344,7 +418,7 @@ public class EffectBuilder
 	/// Builds effects for the current project.
 	/// </summary>
 	public static void BuildEditorProjectEffects(ProjectManager projectManager,
-		EffectBuildProgressWindow progressWindow, System.Threading.CancellationTokenSource buildCancellationToken)
+		EffectBuildProgressWindow progressWindow, ref System.Threading.CancellationTokenSource buildCancellationToken)
 	{
 		if (!projectManager.HasActiveProject)
 		{
@@ -358,28 +432,50 @@ public class EffectBuilder
 			return;
 		}
 
-		var project = projectManager.CurrentProject;
-		progressWindow.Show();
+	var project = projectManager.CurrentProject;
+	
+	// Cancel any existing build
+	buildCancellationToken?.Cancel();
+	buildCancellationToken?.Dispose();
+	buildCancellationToken = new System.Threading.CancellationTokenSource();
+	
+	// Store the cancellation token for the build process
+	_currentCancellationToken = buildCancellationToken.Token;
+	
+	// Pass the cancellation token to the progress window
+	progressWindow.SetCancellationToken(buildCancellationToken);
+	progressWindow.Show();
 
-		buildCancellationToken?.Cancel();
-		buildCancellationToken = new System.Threading.CancellationTokenSource();
-
-		System.Threading.Tasks.Task.Run(() =>
+	// Capture the token in a local variable for use in lambda
+	var token = buildCancellationToken.Token;
+	System.Threading.Tasks.Task.Run(() =>
+	{
+		try
 		{
+			token.ThrowIfCancellationRequested();
 			bool success = BuildProjectEffects(project);
 
 			if (success)
 			{
 				EditorProcessDebugger.LogInfo($"Successfully built {project.ProjectName} effects");
 			}
-		}, buildCancellationToken.Token);
+		}
+		catch (System.OperationCanceledException)
+		{
+			Debug.Log($"Build cancelled for {project.ProjectName}");
+		}
+		catch (Exception ex)
+		{
+			Debug.Error($"Error during build: {ex.Message}");
+		}
+	}, token);
 	}
 
 	/// <summary>
 	/// Builds effects for the Voltage Engine.
 	/// </summary>
 	public static void BuildEditorEngineEffects(EffectBuildProgressWindow progressWindow,
-		System.Threading.CancellationTokenSource buildCancellationToken)
+		ref System.Threading.CancellationTokenSource buildCancellationToken)
 	{
 		if (!IsMgfxcAvailable())
 		{
@@ -387,26 +483,47 @@ public class EffectBuilder
 			return;
 		}
 
-		progressWindow.Show();
+	// Cancel any existing build
+	buildCancellationToken?.Cancel();
+	buildCancellationToken?.Dispose();
+	buildCancellationToken = new System.Threading.CancellationTokenSource();
+	
+	// Store the cancellation token for the build process
+	_currentCancellationToken = buildCancellationToken.Token;
+	
+	// Pass the cancellation token to the progress window
+	progressWindow.SetCancellationToken(buildCancellationToken);
+	progressWindow.Show();
 
-		buildCancellationToken?.Cancel();
-		buildCancellationToken = new System.Threading.CancellationTokenSource();
-
-		System.Threading.Tasks.Task.Run(() =>
+	// Capture the token in a local variable for use in lambda
+	var token = buildCancellationToken.Token;
+	System.Threading.Tasks.Task.Run(() =>
+	{
+		try
 		{
+			token.ThrowIfCancellationRequested();
 			bool success = BuildEngineEffects();
 			if (success)
 			{
 				EditorProcessDebugger.LogInfo("Successfully built Engine effects");
 			}
-		}, buildCancellationToken.Token);
+		}
+		catch (System.OperationCanceledException)
+		{
+			Debug.Log("Engine effects build cancelled");
+		}
+		catch (Exception ex)
+		{
+			Debug.Error($"Error during build: {ex.Message}");
+		}
+	}, token);
 	}
 
 	/// <summary>
 	/// Builds all effects (both project and engine).
 	/// </summary>
 	public static void BuildEditorAllEffects(ProjectManager projectManager, EffectBuildProgressWindow progressWindow,
-		System.Threading.CancellationTokenSource buildCancellationToken)
+		ref System.Threading.CancellationTokenSource buildCancellationToken)
 	{
 		if (!projectManager.HasActiveProject)
 		{
@@ -420,21 +537,43 @@ public class EffectBuilder
 			return;
 		}
 
-		var project = projectManager.CurrentProject;
-		progressWindow.Show();
+	var project = projectManager.CurrentProject;
+	
+	// Cancel any existing build
+	buildCancellationToken?.Cancel();
+	buildCancellationToken?.Dispose();
+	buildCancellationToken = new System.Threading.CancellationTokenSource();
+	
+	// Store the cancellation token for the build process
+	_currentCancellationToken = buildCancellationToken.Token;
+	
+	// Pass the cancellation token to the progress window
+	progressWindow.SetCancellationToken(buildCancellationToken);
+	progressWindow.Show();
 
-		buildCancellationToken?.Cancel();
-		buildCancellationToken = new System.Threading.CancellationTokenSource();
-
-		System.Threading.Tasks.Task.Run(() =>
+	// Capture the token in a local variable for use in lambda
+	var token = buildCancellationToken.Token;
+	System.Threading.Tasks.Task.Run(() =>
+	{
+		try
 		{
+			token.ThrowIfCancellationRequested();
 			bool success = BuildAllEffects(project);
 
 			if (success)
 			{
 				EditorProcessDebugger.LogInfo("Successfully built all effects");
 			}
-		}, buildCancellationToken.Token);
+		}
+		catch (System.OperationCanceledException)
+		{
+			Debug.Log("Build all effects cancelled");
+		}
+		catch (Exception ex)
+		{
+			Debug.Error($"Error during build: {ex.Message}");
+		}
+	}, token);
 	}
 
 	#endregion
