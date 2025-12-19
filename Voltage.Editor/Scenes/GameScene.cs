@@ -18,6 +18,7 @@ using Voltage.Editor.Undo.AssetActions;
 using Voltage.Editor.Utils;
 using Voltage.Utils;
 using Voltage.Editor.Undo.Core;
+using Voltage.Persistence;
 
 namespace Voltage.Editor.Scenes;
 

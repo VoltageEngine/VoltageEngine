@@ -2,371 +2,527 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Microsoft.Xna.Framework;
 using Voltage.Data;
 using Voltage.Editor.EditorDebug;
-using Voltage.Editor.Scenes;
-using Voltage.Editor.Tools;
 using Voltage.Editor.Utils;
 using Voltage.Utils;
 
 namespace Voltage.Editor.ProjectManagement
 {
-	/// <summary>
-	/// Manages scene creation, loading, and saving for the current project.
-	/// </summary>
-	public class SceneManager : GlobalManager
-	{
-		private static SceneManager _instance;
-		
-		/// <summary>
-		/// Gets the singleton instance of the SceneManager.
-		/// </summary>
-		public static SceneManager Instance
-		{
-			get
-			{
-				if (_instance == null)
-				{
-					_instance = Core.GetGlobalManager<SceneManager>();
-					if (_instance == null)
-					{
-						_instance = new SceneManager();
-						Core.RegisterGlobalManager(_instance);
-					}
-				}
-				return _instance;
-			}
-		}
-		
-		#region Properties
-		
-		/// <summary>
-		/// The name of the currently loaded scene file (without path or extension).
-		/// </summary>
-		public string CurrentSceneName { get; private set; }
-		
-		/// <summary>
-		/// The full path to the currently loaded scene file.
-		/// </summary>
-		public string CurrentScenePath { get; private set; }
-		
-		/// <summary>
-		/// Indicates whether a scene is currently loaded from a file.
-		/// </summary>
-		public bool HasLoadedScene => !string.IsNullOrEmpty(CurrentScenePath);
-		
-		#endregion
-		
-		#region Events
-		
-		/// <summary>
-		/// Invoked when a scene is successfully loaded from a file.
-		/// </summary>
-		public event Action<string> OnSceneLoaded;
-		
-		/// <summary>
-		/// Invoked when a scene is successfully saved to a file.
-		/// </summary>
-		public event Action<string> OnSceneSaved;
-		
-		/// <summary>
-		/// Invoked when a new scene is created.
-		/// </summary>
-		public event Action<string> OnSceneCreated;
-		public void InvokeSceneCreated(string sceneName)
-		{
-			OnSceneCreated?.Invoke(sceneName);
-		}
-		#endregion
+    /// <summary>
+    /// Manages scene creation, loading, and saving for the current project.
+    /// Scenes are pure JSON data files - no C# files required.
+    /// </summary>
+    public class SceneManager : GlobalManager
+    {
+        private static SceneManager _instance;
+        
+        public static SceneManager Instance
+        {
+            get
+            {
+                if (_instance == null)
+                {
+                    _instance = Core.GetGlobalManager<SceneManager>();
+                    if (_instance == null)
+                    {
+                        _instance = new SceneManager();
+                        Core.RegisterGlobalManager(_instance);
+                    }
+                }
+                return _instance;
+            }
+        }
+        
+        #region Properties
+        
+        public string CurrentSceneName { get; private set; }
+        public string CurrentScenePath { get; private set; }
+        public bool HasLoadedScene => !string.IsNullOrEmpty(CurrentScenePath);
+        
+        #endregion
+        
+        #region Events
+        
+        public event Action<string> OnSceneLoaded;
+        public event Action<string> OnSceneSaved;
+        public event Action<string> OnSceneCreated;
+        
+        public void InvokeSceneCreated(string sceneName)
+        {
+            OnSceneCreated?.Invoke(sceneName);
+        }
+        
+        #endregion
 
-		#region Initialization
+        public SceneManager()
+        {
+            _instance = this;
+        }
+        
+        #region Scene File Management
+        
+        /// <summary>
+        /// Gets the standard path for scene JSON files
+        /// </summary>
+        private string GetSceneJsonPath(string sceneName)
+        {
+            return Path.Combine(
+                Environment.CurrentDirectory,
+                "Content",
+                "Data",
+                "Scenes",
+                $"{sceneName}.json"
+            );
+        }
+        
+        /// <summary>
+        /// Gets all scene JSON files in the Scenes directory
+        /// </summary>
+        public List<string> GetAllSceneFiles()
+        {
+            var scenesDir = Path.Combine(Environment.CurrentDirectory, "Content", "Data", "Scenes");
+            
+            if (!Directory.Exists(scenesDir))
+            {
+                Debug.Warn($"Scenes directory does not exist: {scenesDir}");
+                return new List<string>();
+            }
+            
+            return Directory.GetFiles(scenesDir, "*.json", SearchOption.TopDirectoryOnly).ToList();
+        }
+        
+        /// <summary>
+        /// Gets all scene names (without extension)
+        /// </summary>
+        public List<string> GetAllSceneNames()
+        {
+            return GetAllSceneFiles()
+                .Select(path => Path.GetFileNameWithoutExtension(path))
+                .OrderBy(name => name)
+                .ToList();
+        }
+        
+        /// <summary>
+        /// Checks if a scene file exists
+        /// </summary>
+        public bool SceneExists(string sceneName)
+        {
+            var scenePath = GetSceneJsonPath(sceneName);
+            return File.Exists(scenePath);
+        }
+        
+        #endregion
+        
+        #region Scene Creation
+        
+        /// <summary>
+        /// Creates a new blank scene with default settings
+        /// </summary>
+        public Scene CreateNewScene(string sceneName)
+        {
+            EditorProcessDebugger.LogInfo($"=== Creating New Scene ===", "SceneManagement");
+            EditorProcessDebugger.LogInfo($"Scene name: {sceneName}", "SceneManagement");
+            
+            try
+            {
+                var scene = new Scene();
+                
+                // Initialize with default SceneData
+                scene.SceneData = new SceneData
+                {
+                    Name = sceneName,
+                    CreatedAt = DateTime.Now,
+                    ModifiedAt = DateTime.Now,
+                    ClearColor = Color.CornflowerBlue,
+                    LetterboxColor = Color.Black,
+                    ResolutionPolicy = "BestFit",
+                    DesignResolutionWidth = 1920,
+                    DesignResolutionHeight = 1080,
+                    HorizontalBleed = 0,
+                    VerticalBleed = 0,
+                    EnablePostProcessing = true,
+                    Entities = new List<SceneData.SceneEntityData>()
+                };
+                
+                // Apply default settings
+                scene.SetDesignResolution(1920, 1080, Scene.SceneResolutionPolicy.BestFit);
+                
+                CurrentSceneName = sceneName;
+                CurrentScenePath = null; // Not saved yet
+                
+                Debug.Log($"Created new scene: {sceneName}");
+                OnSceneCreated?.Invoke(sceneName);
+                
+                return scene;
+            }
+            catch (Exception ex)
+            {
+                Debug.Error($"Failed to create new scene: {ex.Message}");
+                return null;
+            }
+        }
+        
+        #endregion
+        
+        #region Scene Loading
+        
+        /// <summary>
+        /// Loads a scene from a JSON file and sets it as the active scene
+        /// </summary>
+        public bool LoadScene(string scenePath)
+        {
+            EditorProcessDebugger.LogInfo($"=== Loading Scene ===", "SceneManagement");
+            EditorProcessDebugger.LogInfo($"Scene file: {scenePath}", "SceneManagement");
+            
+            if (string.IsNullOrWhiteSpace(scenePath))
+            {
+                EditorProcessDebugger.LogError("Scene path cannot be null or empty", "SceneManagement");
+                return false;
+            }
+            
+            if (!File.Exists(scenePath))
+            {
+                Debug.Error($"Scene file not found: {scenePath}");
+                return false;
+            }
+            
+            try
+            {
+                // Load scene from file
+                var scene = Scene.LoadFromFile(scenePath);
+                
+                if (scene == null)
+                {
+                    Debug.Error("Failed to load scene - Scene.LoadFromFile returned null");
+                    return false;
+                }
+                
+                // Update current scene info
+                CurrentScenePath = scenePath;
+                CurrentSceneName = scene.SceneData?.Name ?? Path.GetFileNameWithoutExtension(scenePath);
+                
+                // Set as active scene
+                Core.Scene = scene;
+                
+                Debug.Log($"Successfully loaded scene: {CurrentSceneName}");
+                OnSceneLoaded?.Invoke(scenePath);
+                NotificationSystem.ShowTimedNotification($"Scene loaded: {CurrentSceneName}");
+                
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.Error($"Failed to load scene from '{scenePath}': {ex.Message}");
+                Debug.Error($"Stack trace: {ex.StackTrace}");
+                NotificationSystem.ShowTimedNotification($"Failed to load scene: {ex.Message}");
+                return false;
+            }
+        }
+        
+        /// <summary>
+        /// Loads a scene by name from the Scenes directory
+        /// </summary>
+        public bool LoadSceneByName(string sceneName)
+        {
+            var scenePath = GetSceneJsonPath(sceneName);
+            return LoadScene(scenePath);
+        }
+        
+        #endregion
+        
+        #region Scene Saving
+        
+        /// <summary>
+        /// Saves the current scene to its current file path
+        /// </summary>
+        public bool SaveCurrentScene()
+        {
+            if (Core.Scene == null)
+            {
+                Debug.Error("No active scene to save");
+                return false;
+            }
 
-		public SceneManager()
-		{
-			_instance = this;
-		}
-		
-		#endregion
-		
-		#region Scene File Management
-		
-		/// <summary>
-		/// Gets all scene file paths in the current project's Scenes folder.
-		/// </summary>
-		/// <returns>List of scene file paths, or empty list if no project is loaded</returns>
-		public List<string> GetAllSceneFiles()
-		{
-			var projectManager = ProjectManager.Instance;
-			if (!projectManager.HasActiveProject)
-			{
-				Debug.Warn("No active project. Cannot get scene files.");
-				return new List<string>();
-			}
-			
-			var scenesFolder = projectManager.CurrentProject.ScenesFolder;
-			if (!Directory.Exists(scenesFolder))
-			{
-				Debug.Warn($"Scenes folder does not exist: {scenesFolder}");
-				return new List<string>();
-			}
-			
-			return Directory.GetFiles(scenesFolder, "*.json", SearchOption.TopDirectoryOnly).ToList();
-		}
-		
-		/// <summary>
-		/// Gets all scene names (without path or extension) in the current project.
-		/// </summary>
-		public List<string> GetAllSceneNames()
-		{
-			return GetAllSceneFiles()
-				.Select(path => Path.GetFileNameWithoutExtension(path))
-				.ToList();
-		}
-		
-		/// <summary>
-		/// Checks if a scene file exists with the given name.
-		/// </summary>
-		public bool SceneExists(string sceneName)
-		{
-			var projectManager = ProjectManager.Instance;
-			if (!projectManager.HasActiveProject)
-				return false;
-			
-			var scenePath = Path.Combine(projectManager.CurrentProject.ScenesFolder, $"{sceneName}.json");
-			return File.Exists(scenePath);
-		}
-		
-		#endregion
-		
-		#region Scene Loading
-		
-		/// <summary>
-		/// Loads a scene from the specified file path.
-		/// </summary>
-		/// <param name="sceneFilePath">Full path to the scene JSON file</param>
-		/// <returns>True if the scene was loaded successfully</returns>
-		public bool LoadScene(string sceneFilePath)
-		{
-			EditorProcessDebugger.LogInfo($"=== Loading Scene ===", "SceneManagement");
-			EditorProcessDebugger.LogInfo($"Scene file: {sceneFilePath}", "SceneManagement");
-			
-			if (string.IsNullOrWhiteSpace(sceneFilePath))
-			{
-				EditorProcessDebugger.LogError("Scene file path cannot be null or empty.", "SceneManagement");
-				return false;
-			}
-			
-			if (!File.Exists(sceneFilePath))
-			{
-				Debug.Error($"Scene file not found: {sceneFilePath}");
-				return false;
-			}
-			
-			try
-			{
-				// Read and deserialize the scene data
-				var jsonContent = File.ReadAllText(sceneFilePath);
-				var sceneData = Voltage.Persistence.Json.FromJson<SceneData>(jsonContent);
-				
-				if (sceneData == null)
-				{
-					Debug.Error($"Failed to deserialize scene data from: {sceneFilePath}");
-					return false;
-				}
-				
-				// Store the current scene info
-				CurrentScenePath = sceneFilePath;
-				CurrentSceneName = Path.GetFileNameWithoutExtension(sceneFilePath);
-				
-				// Apply the scene data to the active scene
-				if (Core.Scene != null)
-				{
-					ApplySceneData(Core.Scene, sceneData);
-				}
-				
-				Debug.Log($"Successfully loaded scene: {CurrentSceneName} from {sceneFilePath}");
-				OnSceneLoaded?.Invoke(sceneFilePath);
-				NotificationSystem.ShowTimedNotification($"Scene loaded: {CurrentSceneName}");
-				
-				return true;
-			}
-			catch (Exception ex)
-			{
-				Debug.Error($"Failed to load scene from '{sceneFilePath}': {ex.Message}");
-				Debug.Error($"Stack trace: {ex.StackTrace}");
-				return false;
-			}
-		}
-		
-		/// <summary>
-		/// Loads a scene by name from the current project's Scenes folder.
-		/// </summary>
-		public bool LoadSceneByName(string sceneName)
-		{
-			var projectManager = ProjectManager.Instance;
-			if (!projectManager.HasActiveProject)
-			{
-				Debug.Error("No active project. Cannot load scene.");
-				return false;
-			}
-			
-			var sceneFilePath = Path.Combine(projectManager.CurrentProject.ScenesFolder, $"{sceneName}.json");
-			return LoadScene(sceneFilePath);
-		}
-		
-		/// <summary>
-		/// Applies loaded scene data to the current scene.
-		/// </summary>
-		private void ApplySceneData(Scene scene, SceneData sceneData)
-		{
-			// Ensure we're working with a GameScene
-			if (scene is not GameScene gameScene)
-			{
-				Debug.Error("Current scene is not a GameScene. Cannot apply scene data.");
-				return;
-			}
-			
-			// Clear existing entities (except camera and other essential entities)
-			var entitiesToRemove = new List<Entity>();
-			for (int i = 0; i < gameScene.Entities.Count; i++)
-			{
-				var entity = gameScene.Entities[i];
-				// Keep hardcoded entities like the camera
-				if (entity.Type != Entity.InstanceType.NonSerialized || entity.Name != "camera")
-				{
-					entitiesToRemove.Add(entity);
-				}
-			}
-			
-			foreach (var entity in entitiesToRemove)
-			{
-				entity.Destroy();
-			}
-			
-			// Assign the new scene data
-			gameScene.SceneData = sceneData;
-			
-			// Trigger the scene to load entities from the data
-			Scene.InvokeFinishedAddingEntities();
-		}
-		
-		#endregion
-		
-		#region Scene Saving
-		
-		/// <summary>
-		/// Saves the current scene to the specified file path.
-		/// </summary>
-		public bool SaveScene(string sceneFilePath)
-		{
-			EditorProcessDebugger.LogInfo($"=== Saving Scene ===", "SceneManagement");
-			EditorProcessDebugger.LogInfo($"Scene file: {sceneFilePath}", "SceneManagement");
-			
-			if (string.IsNullOrWhiteSpace(sceneFilePath))
-			{
-				Debug.Error("Scene file path cannot be null or empty.");
-				return false;
-			}
-			
-			if (Core.Scene == null)
-			{
-				Debug.Error("No active scene to save.");
-				return false;
-			}
-			
-			try
-			{
-				// Ensure the directory exists
-				var directory = Path.GetDirectoryName(sceneFilePath);
-				if (!Directory.Exists(directory))
-				{
-					Directory.CreateDirectory(directory);
-				}
-				
-				// Serialize the scene data
-				var sceneData = Core.Scene.SceneData ?? new SceneData();
-				var jsonContent = Voltage.Persistence.Json.ToJson(sceneData, new Voltage.Persistence.JsonSettings
-				{
-					PrettyPrint = true
-				});
-				
-				// Write to file
-				File.WriteAllText(sceneFilePath, jsonContent, new System.Text.UTF8Encoding(false));
-				
-				// Update current scene info
-				CurrentScenePath = sceneFilePath;
-				CurrentSceneName = Path.GetFileNameWithoutExtension(sceneFilePath);
-				
-				Debug.Log($"Successfully saved scene: {CurrentSceneName} to {sceneFilePath}");
-				OnSceneSaved?.Invoke(sceneFilePath);
-				NotificationSystem.ShowTimedNotification($"Scene saved: {CurrentSceneName}");
-				
-				return true;
-			}
-			catch (Exception ex)
-			{
-				Debug.Error($"Failed to save scene to '{sceneFilePath}': {ex.Message}");
-				Debug.Error($"Stack trace: {ex.StackTrace}");
-				NotificationSystem.ShowTimedNotification($"Failed to save scene: {ex.Message}");
-				return false;
-			}
-		}
-		
-		/// <summary>
-		/// Saves the current scene to its current file path.
-		/// If no current path exists, prompts for a new name.
-		/// </summary>
-		public bool SaveCurrentScene()
-		{
-			if (string.IsNullOrEmpty(CurrentScenePath))
-			{
-				Debug.Warn("No current scene path. Cannot save without a file path.");
-				return false;
-			}
-			
-			return SaveScene(CurrentScenePath);
-		}
-		
-		/// <summary>
-		/// Saves the current scene with a new name in the current project's Scenes folder.
-		/// </summary>
-		public bool SaveSceneAs(string sceneName)
-		{
-			var projectManager = ProjectManager.Instance;
-			if (!projectManager.HasActiveProject)
-			{
-				Debug.Error("No active project. Cannot save scene.");
-				return false;
-			}
-			
-			var sceneFilePath = Path.Combine(projectManager.CurrentProject.ScenesFolder, $"{sceneName}.json");
-			return SaveScene(sceneFilePath);
-		}
-		
-		/// <summary>
-		/// Reloads the currently loaded scene from its file.
-		/// </summary>
-		public bool ReloadCurrentScene()
-		{
-			if (!HasLoadedScene)
-			{
-				Debug.Warn("No scene is currently loaded from a file.");
-				return false;
-			}
+            if (string.IsNullOrEmpty(CurrentScenePath))
+            {
+                Debug.Warn("No save path set for current scene");
+                return false;
+            }
 
-			return LoadScene(CurrentScenePath);
-		}
-		
-		/// <summary>
-		/// Clears the current scene path without saving.
-		/// Used when a project is unloaded.
-		/// </summary>
-		public void ClearCurrentScene()
-		{
-			CurrentScenePath = null;
-			CurrentSceneName = null;
-		}
-		
-		#endregion
-	}
+            EditorProcessDebugger.LogInfo($"=== Saving Scene ===", "SceneManagement");
+            EditorProcessDebugger.LogInfo($"Scene file: {CurrentScenePath}", "SceneManagement");
+            
+            try
+            {
+                bool success = Core.Scene.SaveToFile(CurrentScenePath);
+                
+                if (success)
+                {
+                    Debug.Log($"Successfully saved scene: {CurrentSceneName}");
+                    OnSceneSaved?.Invoke(CurrentScenePath);
+                    NotificationSystem.ShowTimedNotification($"Scene saved: {CurrentSceneName}");
+                }
+                
+                return success;
+            }
+            catch (Exception ex)
+            {
+                Debug.Error($"Failed to save scene: {ex.Message}");
+                NotificationSystem.ShowTimedNotification($"Failed to save scene: {ex.Message}");
+                return false;
+            }
+        }
+        
+        /// <summary>
+        /// Saves the current scene with a new name
+        /// </summary>
+        public bool SaveSceneAs(string sceneName)
+        {
+            if (Core.Scene == null)
+            {
+                Debug.Error("No active scene to save");
+                return false;
+            }
+
+            var scenePath = GetSceneJsonPath(sceneName);
+            
+            EditorProcessDebugger.LogInfo($"=== Saving Scene As ===", "SceneManagement");
+            EditorProcessDebugger.LogInfo($"New scene name: {sceneName}", "SceneManagement");
+            EditorProcessDebugger.LogInfo($"Scene file: {scenePath}", "SceneManagement");
+            
+            try
+            {
+                // Update scene name in SceneData
+                if (Core.Scene.SceneData != null)
+                {
+                    Core.Scene.SceneData.Name = sceneName;
+                }
+                
+                bool success = Core.Scene.SaveToFile(scenePath);
+                
+                if (success)
+                {
+                    CurrentScenePath = scenePath;
+                    CurrentSceneName = sceneName;
+                    
+                    Debug.Log($"Successfully saved scene as: {sceneName}");
+                    OnSceneSaved?.Invoke(scenePath);
+                    OnSceneCreated?.Invoke(sceneName);
+                    NotificationSystem.ShowTimedNotification($"Scene saved as: {sceneName}");
+                }
+                
+                return success;
+            }
+            catch (Exception ex)
+            {
+                Debug.Error($"Failed to save scene as '{sceneName}': {ex.Message}");
+                NotificationSystem.ShowTimedNotification($"Failed to save scene: {ex.Message}");
+                return false;
+            }
+        }
+        
+        /// <summary>
+        /// Sets the current scene path (used when creating new scenes before first save)
+        /// </summary>
+        public void SetCurrentScenePath(string scenePath, string sceneName = null)
+        {
+            CurrentScenePath = scenePath;
+            CurrentSceneName = sceneName ?? Path.GetFileNameWithoutExtension(scenePath);
+            
+            Debug.Log($"Set current scene: {CurrentSceneName} at {scenePath}");
+        }
+        
+        /// <summary>
+        /// Creates a new scene data file for the current scene.
+        /// This is used when saving a scene that doesn't have an associated file yet.
+        /// </summary>
+        /// <param name="sceneName">Name for the new scene file (without extension)</param>
+        /// <returns>True if successful, false otherwise</returns>
+        public bool CreateSceneFile(string sceneName)
+        {
+            if (Core.Scene == null)
+            {
+                Debug.Error("No active scene to save");
+                return false;
+            }
+
+            var sceneJsonPath = GetSceneJsonPath(sceneName);
+
+            // Check if file already exists
+            if (File.Exists(sceneJsonPath))
+            {
+                Debug.Error($"Scene file already exists: {sceneJsonPath}");
+                return false;
+            }
+
+            EditorProcessDebugger.LogInfo($"=== Creating Scene File ===", "SceneManagement");
+            EditorProcessDebugger.LogInfo($"Scene name: {sceneName}", "SceneManagement");
+            EditorProcessDebugger.LogInfo($"Scene path: {sceneJsonPath}", "SceneManagement");
+            
+            try
+            {
+                // Initialize SceneData if needed OR update the name if it exists
+                if (Core.Scene.SceneData == null)
+                {
+                    Core.Scene.SceneData = new SceneData
+                    {
+                        Name = sceneName,
+                        CreatedAt = DateTime.Now,
+                        ModifiedAt = DateTime.Now
+                    };
+                }
+                else
+                {
+                    // IMPORTANT: Update the scene name in existing SceneData
+                    Core.Scene.SceneData.Name = sceneName;
+                    Core.Scene.SceneData.ModifiedAt = DateTime.Now;
+                    
+                    // If this is the first time saving, set CreatedAt
+                    if (Core.Scene.SceneData.CreatedAt == default)
+                    {
+                        Core.Scene.SceneData.CreatedAt = DateTime.Now;
+                    }
+                }
+
+                // Set current path
+                SetCurrentScenePath(sceneJsonPath, sceneName);
+
+                // Save the scene
+                bool success = SaveCurrentScene();
+                
+                if (success)
+                {
+                    OnSceneCreated?.Invoke(sceneName);
+                }
+                
+                return success;
+            }
+            catch (Exception ex)
+            {
+                Debug.Error($"Failed to create scene file: {ex.Message}");
+                return false;
+            }
+        }
+        
+        #endregion
+        
+        #region Scene Utilities
+        
+        /// <summary>
+        /// Reloads the current scene from its file
+        /// </summary>
+        public bool ReloadCurrentScene()
+        {
+            if (!HasLoadedScene)
+            {
+                Debug.Warn("No scene is currently loaded from a file");
+                return false;
+            }
+
+            Debug.Log($"Reloading scene: {CurrentSceneName}");
+            return LoadScene(CurrentScenePath);
+        }
+        
+        /// <summary>
+        /// Clears the current scene path (when closing a project, etc.)
+        /// </summary>
+        public void ClearCurrentScene()
+        {
+            CurrentScenePath = null;
+            CurrentSceneName = null;
+            
+            Debug.Log("Cleared current scene reference");
+        }
+        
+        /// <summary>
+        /// Duplicates a scene file with a new name
+        /// </summary>
+        public bool DuplicateScene(string sourceSceneName, string newSceneName)
+        {
+            var sourcePath = GetSceneJsonPath(sourceSceneName);
+            var destPath = GetSceneJsonPath(newSceneName);
+            
+            if (!File.Exists(sourcePath))
+            {
+                Debug.Error($"Source scene not found: {sourceSceneName}");
+                return false;
+            }
+            
+            if (File.Exists(destPath))
+            {
+                Debug.Error($"Destination scene already exists: {newSceneName}");
+                return false;
+            }
+            
+            try
+            {
+                // Load source scene data
+                var jsonContent = File.ReadAllText(sourcePath);
+                var sceneData = Voltage.Persistence.Json.FromJson<SceneData>(jsonContent);
+                
+                // Update name and timestamps
+                sceneData.Name = newSceneName;
+                sceneData.CreatedAt = DateTime.Now;
+                sceneData.ModifiedAt = DateTime.Now;
+                
+                // Save to new file
+                var jsonSettings = new Voltage.Persistence.JsonSettings
+                {
+                    PrettyPrint = true,
+                    TypeNameHandling = Voltage.Persistence.TypeNameHandling.Auto
+                };
+                
+                var newJsonContent = Voltage.Persistence.Json.ToJson(sceneData, jsonSettings);
+                
+                var directory = Path.GetDirectoryName(destPath);
+                Directory.CreateDirectory(directory);
+                
+                File.WriteAllText(destPath, newJsonContent);
+                
+                Debug.Log($"Duplicated scene '{sourceSceneName}' to '{newSceneName}'");
+                OnSceneCreated?.Invoke(newSceneName);
+                NotificationSystem.ShowTimedNotification($"Scene duplicated: {newSceneName}");
+                
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.Error($"Failed to duplicate scene: {ex.Message}");
+                return false;
+            }
+        }
+        
+        /// <summary>
+        /// Deletes a scene file
+        /// </summary>
+        public bool DeleteScene(string sceneName)
+        {
+            var scenePath = GetSceneJsonPath(sceneName);
+            
+            if (!File.Exists(scenePath))
+            {
+                Debug.Error($"Scene file not found: {sceneName}");
+                return false;
+            }
+            
+            try
+            {
+                File.Delete(scenePath);
+                
+                Debug.Log($"Deleted scene: {sceneName}");
+                NotificationSystem.ShowTimedNotification($"Scene deleted: {sceneName}");
+                
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.Error($"Failed to delete scene: {ex.Message}");
+                return false;
+            }
+        }
+        
+        #endregion
+    }
 }

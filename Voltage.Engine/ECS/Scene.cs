@@ -9,11 +9,14 @@ using Voltage.Textures;
 using Voltage.Utils;
 using Voltage.Utils.Collections;
 using Voltage.Utils.Extensions;
+using System.IO;
+using System.Linq;
+using Voltage.Editor.SerializedData;
 
 
 namespace Voltage;
 
-public abstract class Scene
+public class Scene
 {
 	public enum SceneResolutionPolicy
 	{
@@ -124,7 +127,7 @@ public abstract class Scene
 	public readonly EntityList Entities;
 
 	/// <summary>
-	/// Manages a list of all the RenderableComponents that are currently on scene Entitys
+	/// Manages a list of all the RenderableComponents that are currently on the Scene's Entities
 	/// </summary>
 	public readonly RenderableComponentList RenderableComponents;
 
@@ -271,11 +274,16 @@ public abstract class Scene
 	#region Scene lifecycle
 
 	/// <summary>
+	/// Load entities from SceneData if it exists.
 	/// override this in Scene subclasses and do your loading here. This is called from the contructor after the scene sets itself up but
 	/// before begin is ever called.
 	/// </summary>
 	public virtual void Initialize()
 	{
+		if (SceneData != null && SceneData.Entities != null && SceneData.Entities.Count > 0)
+		{
+			LoadSceneEntitiesData();
+		}
 	}
 
 	/// <summary>
@@ -647,7 +655,7 @@ public abstract class Scene
 				var safeScaleX = (float)screenSize.X / (designSize.X - _designBleedSize.X);
 				var safeScaleY = (float)screenSize.Y / (designSize.Y - _designBleedSize.Y);
 
-				var resolutionScale = MathHelper.Max(resolutionScaleX, resolutionScaleY);
+				var resolutionScale = MathHelper.Max(resolutionScaleX, safeScaleX);
 				var safeScale = MathHelper.Min(safeScaleX, safeScaleY);
 
 				resolutionScaleX = resolutionScaleY = MathHelper.Min(resolutionScale, safeScale);
@@ -1305,6 +1313,518 @@ public abstract class Scene
 		}
 
 		return $"{actualBaseName}_{maxNum + 1}";
+	}
+
+	#endregion
+
+	#region Scene Serialization
+
+	/// <summary>
+	/// Loads a scene from a JSON file path
+	/// </summary>
+	public static Scene LoadFromFile(string scenePath)
+	{
+		if (string.IsNullOrWhiteSpace(scenePath))
+		{
+			Debug.Error("Scene path cannot be null or empty");
+			return null;
+		}
+
+		if (!File.Exists(scenePath))
+		{
+			Debug.Error($"Scene file not found: {scenePath}");
+			return null;
+		}
+
+		try
+		{
+			var jsonContent = File.ReadAllText(scenePath);
+			var sceneData = Voltage.Persistence.Json.FromJson<SceneData>(jsonContent);
+			
+			if (sceneData == null)
+			{
+				Debug.Error($"Failed to deserialize scene from: {scenePath}");
+				return null;
+			}
+
+			var scene = new Scene();
+			scene.ApplySceneData(sceneData);
+			
+			Debug.Log($"Successfully loaded scene: {sceneData.Name}");
+			return scene;
+		}
+		catch (Exception ex)
+		{
+			Debug.Error($"Failed to load scene from '{scenePath}': {ex.Message}");
+			Debug.Error($"Stack trace: {ex.StackTrace}");
+			return null;
+		}
+	}
+
+	/// <summary>
+	/// Saves this scene to a JSON file
+	/// </summary>
+	public bool SaveToFile(string scenePath)
+	{
+		if (string.IsNullOrWhiteSpace(scenePath))
+		{
+			Debug.Error("Scene path cannot be null or empty");
+			return false;
+		}
+
+		try
+		{
+			// Build scene data from current state
+			var sceneData = BuildSceneData();
+			
+			// Update modification time
+			sceneData.ModifiedAt = DateTime.Now;
+			
+			// Serialize to JSON
+			var jsonSettings = new Voltage.Persistence.JsonSettings
+			{
+				PrettyPrint = true,
+				TypeNameHandling = Voltage.Persistence.TypeNameHandling.Auto,
+				PreserveReferencesHandling = false
+			};
+			
+			var jsonContent = Voltage.Persistence.Json.ToJson(sceneData, jsonSettings);
+			
+			// Ensure directory exists
+			var directory = Path.GetDirectoryName(scenePath);
+			if (!string.IsNullOrEmpty(directory))
+			{
+				Directory.CreateDirectory(directory);
+			}
+			
+			// Write to file
+			File.WriteAllText(scenePath, jsonContent, new System.Text.UTF8Encoding(false));
+			
+			Debug.Log($"Successfully saved scene to: {scenePath}");
+			return true;
+		}
+		catch (Exception ex)
+		{
+			Debug.Error($"Failed to save scene to '{scenePath}': {ex.Message}");
+			Debug.Error($"Stack trace: {ex.StackTrace}");
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// Builds SceneData from the current scene state
+	/// </summary>
+	public SceneData BuildSceneData()
+	{
+		var sceneData = new SceneData();
+		
+		// Copy scene metadata
+		if (SceneData != null)
+		{
+			sceneData.Name = SceneData.Name;
+			sceneData.CreatedAt = SceneData.CreatedAt;
+			sceneData.Description = SceneData.Description;
+			sceneData.TiledMapFileName = SceneData.TiledMapFileName;
+			sceneData.EditorData = SceneData.EditorData != null 
+				? new Dictionary<string, string>(SceneData.EditorData) 
+				: new Dictionary<string, string>();
+		}
+		else
+		{
+			// Fallback: use the scene type name if no SceneData exists
+			sceneData.Name = GetType().Name;
+		}
+		
+		// IMPORTANT: Ensure the name is never empty
+		if (string.IsNullOrWhiteSpace(sceneData.Name))
+		{
+			sceneData.Name = "Untitled Scene";
+		}
+		
+		// Copy scene settings
+		sceneData.ClearColor = ClearColor;
+		sceneData.LetterboxColor = LetterboxColor;
+		sceneData.ResolutionPolicy = _resolutionPolicy.ToString();
+		sceneData.DesignResolutionWidth = _designResolutionSize.X;
+		sceneData.DesignResolutionHeight = _designResolutionSize.Y;
+		sceneData.HorizontalBleed = _designBleedSize.X;
+		sceneData.VerticalBleed = _designBleedSize.Y;
+		sceneData.EnablePostProcessing = EnablePostProcessing;
+		
+		// Build entity data
+		sceneData.Entities.Clear();
+		
+		foreach (var entity in Entities)
+		{
+			// Skip non-serialized entities (like the camera)
+			if (entity.Type == Entity.InstanceType.NonSerialized)
+				continue;
+
+			var entityData = BuildEntityData(entity);
+			sceneData.Entities.Add(entityData);
+		}
+		
+		return sceneData;
+	}
+
+	/// <summary>
+	/// Builds entity data from an entity
+	/// </summary>
+	private SceneData.SceneEntityData BuildEntityData(Entity entity)
+	{
+		Vector2 positionToSave;
+		float rotationToSave;
+		Vector2 scaleToSave;
+		
+		if (entity.Transform.Parent != null)
+		{
+			// Entity has a parent - save LOCAL transform values
+			positionToSave = entity.Transform.LocalPosition;
+			rotationToSave = entity.Transform.LocalRotation;
+			scaleToSave = entity.Transform.LocalScale;
+		}
+		else
+		{
+			// Entity has no parent - save WORLD transform values
+			positionToSave = entity.Transform.Position;
+			rotationToSave = entity.Transform.Rotation;
+			scaleToSave = entity.Transform.Scale;
+		}
+
+		var entityData = new SceneData.SceneEntityData
+		{
+			InstanceType = entity.Type,
+			Name = entity.Name,
+			EntityType = entity.GetType().Name,
+			Position = positionToSave,
+			Rotation = rotationToSave,
+			Scale = scaleToSave,
+			ParentEntityName = entity.Transform.Parent?.Entity?.Name,
+			Enabled = entity.Enabled,
+			UpdateOrder = entity.UpdateOrder,
+			Tag = entity.Tag,
+			IsSelectableInEditor = entity.IsSelectableInEditor,
+			DebugRenderEnabled = entity.DebugRenderEnabled,
+			OriginalPrefabName = entity.OriginalPrefabName
+		};
+
+		// Get entity-specific data
+		var entData = entity.GetEntityData();
+		if (entData != null)
+		{
+			entData.ComponentDataList.Clear();
+			
+			// Serialize all components
+			foreach (var component in entity.Components)
+			{
+				if (component.Data != null)
+				{
+					var componentJsonSettings = new Voltage.Persistence.JsonSettings
+					{
+						PrettyPrint = true,
+						TypeNameHandling = Voltage.Persistence.TypeNameHandling.Auto,
+						PreserveReferencesHandling = false
+					};
+					
+					var json = Voltage.Persistence.Json.ToJson(component.Data, componentJsonSettings);
+					entData.ComponentDataList.Add(new ComponentDataEntry
+					{
+						ComponentTypeName = component.GetType().FullName,
+						ComponentName = component.Name,
+						DataTypeName = component.Data.GetType().FullName,
+						Json = json
+					});
+				}
+			}
+			
+			entityData.EntityData = entData;
+		}
+
+		return entityData;
+	}
+
+	/// <summary>
+	/// Applies loaded SceneData to this scene
+	/// </summary>
+	private void ApplySceneData(SceneData sceneData)
+	{
+		if (sceneData == null)
+		{
+			Debug.Error("Cannot apply null SceneData");
+			return;
+		}
+		
+		// Store the SceneData reference
+		SceneData = sceneData;
+		
+		// Apply scene settings
+		ClearColor = sceneData.ClearColor;
+		LetterboxColor = sceneData.LetterboxColor;
+		EnablePostProcessing = sceneData.EnablePostProcessing;
+		
+		// Parse and apply resolution policy
+		if (Enum.TryParse<SceneResolutionPolicy>(sceneData.ResolutionPolicy, out var resolutionPolicy))
+		{
+			SetDesignResolution(
+				sceneData.DesignResolutionWidth,
+				sceneData.DesignResolutionHeight,
+				resolutionPolicy,
+				sceneData.HorizontalBleed,
+				sceneData.VerticalBleed
+			);
+		}
+		else
+		{
+			Debug.Warn($"Unknown resolution policy: {sceneData.ResolutionPolicy}, using default");
+			SetDesignResolution(1920, 1080, SceneResolutionPolicy.BestFit);
+		}
+		
+		// The actual entity loading will happen in Begin() via LoadSceneEntitiesData()
+		Debug.Log($"Applied scene data for: {sceneData.Name}");
+	}
+
+	/// <summary>
+	/// Loads entities from the stored SceneData.
+	/// This is called automatically during scene initialization.
+	/// </summary>
+	private void LoadSceneEntitiesData()
+	{
+		if (SceneData == null || SceneData.Entities == null)
+		{
+			Debug.Warn("No SceneData or entities to load");
+			return;
+		}
+
+		var sceneEntitiesByName = new Dictionary<string, SceneData.SceneEntityData>(StringComparer.OrdinalIgnoreCase);
+		
+		for (var i = 0; i < SceneData.Entities.Count; i++)
+			sceneEntitiesByName[SceneData.Entities[i].Name] = SceneData.Entities[i];
+
+		// Track entities that need parent assignment
+		var entitiesNeedingParents = new List<Entity>();
+
+		// NonSerialized entities (already in the scene, like camera)
+		for (var i = 0; i < Entities.Count; i++)
+		{
+			if (Entities[i].Type != Entity.InstanceType.NonSerialized)
+				continue;
+
+			if (sceneEntitiesByName.TryGetValue(Entities[i].Name, out var sceneEntityData))
+			{
+				LoadEntityData(Entities[i], sceneEntityData);
+				
+				// Check if this entity needs parent assignment later
+				if (!string.IsNullOrEmpty(Entities[i].GetData<string>("_PendingParentName")))
+					entitiesNeedingParents.Add(Entities[i]);
+			}
+		}
+
+		// Serialized & SerializedPrefab entities (to be created now)
+		foreach (var sceneEntity in SceneData.Entities)
+		{
+			if (string.IsNullOrEmpty(sceneEntity.EntityType))
+			{
+				Debug.Error($"EntityType is null or empty for entity: {sceneEntity.Name}");
+				continue;
+			}
+
+			if (sceneEntity.InstanceType == Entity.InstanceType.NonSerialized)
+				continue;
+
+			// Create entity
+			var entity = new Entity(sceneEntity.Name);
+			entity.Type = sceneEntity.InstanceType;
+			AddEntity(entity);
+			
+			LoadEntityData(entity, sceneEntity);
+
+			// Check if this entity needs parent assignment later
+			if (!string.IsNullOrEmpty(entity.GetData<string>("_PendingParentName")))
+				entitiesNeedingParents.Add(entity);
+		}
+
+		AssignParentRelationships(entitiesNeedingParents);
+		
+		Debug.Log($"Loaded {SceneData.Entities.Count} entities from scene data");
+	}
+
+	/// <summary>
+	/// Loads entity data into an entity instance
+	/// </summary>
+	private void LoadEntityData(Entity entity, SceneData.SceneEntityData entityData)
+	{
+		entity.Name = entityData.Name;
+		entity.SetTag(entityData.Tag);
+		entity.Enabled = entityData.Enabled;
+		entity.UpdateOrder = entityData.UpdateOrder;
+		entity.DebugRenderEnabled = entityData.DebugRenderEnabled;
+		entity.Type = entityData.InstanceType;
+		entity.IsSelectableInEditor = entityData.IsSelectableInEditor;
+
+		if (entity.Type == Entity.InstanceType.SerializedPrefab)
+			entity.OriginalPrefabName = entityData.OriginalPrefabName;
+		else
+			entity.OriginalPrefabName = null;
+
+		// Handle transform and parent assignment
+		if (!string.IsNullOrEmpty(entityData.ParentEntityName))
+		{
+			var parentEntity = FindEntity(entityData.ParentEntityName);
+			if (parentEntity != null)
+			{
+				entity.Transform.SetParent(parentEntity.Transform);
+				entity.Transform.SetLocalPosition(entityData.Position);
+				entity.Transform.SetLocalRotation(entityData.Rotation);
+				entity.Transform.SetLocalScale(entityData.Scale);
+			}
+			else
+			{
+				// Parent not found yet, save for later
+				entity.SetData("_PendingParentName", entityData.ParentEntityName);
+				entity.SetData("_PendingLocalPosition", (Vector2)entityData.Position);
+				entity.SetData("_PendingLocalRotation", entityData.Rotation);
+				entity.SetData("_PendingLocalScale", (Vector2)entityData.Scale);
+			}
+		}
+		else
+		{
+			entity.Transform.Position = entityData.Position;
+			entity.Transform.Rotation = entityData.Rotation;
+			entity.Transform.Scale = entityData.Scale;
+		}
+
+		// Load entity-specific data and components
+		if (entityData.EntityData != null)
+		{
+			var entDataType = entityData.EntityData.GetType();
+			var json = Voltage.Persistence.Json.ToJson(entityData.EntityData, true);
+			var deserializedEntityData = (EntityData)Voltage.Persistence.Json.FromJson(json, entDataType);
+
+			// Deep clone ComponentDataList to avoid shared references
+			if (deserializedEntityData.ComponentDataList != null)
+			{
+				deserializedEntityData.ComponentDataList = deserializedEntityData.ComponentDataList
+					.Select(entry =>
+					{
+						var cloneJson = Voltage.Persistence.Json.ToJson(entry, true);
+						return Voltage.Persistence.Json.FromJson<ComponentDataEntry>(cloneJson);
+					})
+					.ToList();
+			}
+
+			entity.SetEntityData(deserializedEntityData);
+
+			var processedComponents = new HashSet<string>();
+
+			// Assign data to already existing components
+			foreach (var comp in entity.ComponentsToAdd)
+			{
+				if (TryAssignComponentData(entity, comp))
+				{
+					var componentId = $"{comp.GetType().FullName}:{comp.Name}";
+					processedComponents.Add(componentId);
+				}
+			}
+
+			// Register callback for components added later
+			entity.OnComponentAdded<Component>(comp =>
+			{
+				var componentId = $"{comp.GetType().FullName}:{comp.Name}";
+				
+				if (!processedComponents.Contains(componentId))
+				{
+					TryAssignComponentData(entity, comp);
+				}
+			});
+		}
+	}
+
+	/// <summary>
+	/// Tries to assign component data from entity data
+	/// </summary>
+	private bool TryAssignComponentData(Entity entity, Component component)
+	{
+		var entityData = entity.GetEntityData();
+
+		if (entityData == null || entityData.ComponentDataList == null)
+			return false;
+
+		for (int i = entityData.ComponentDataList.Count - 1; i >= 0; i--)
+		{
+			var entry = entityData.ComponentDataList[i];
+
+			if (component.Name == entry.ComponentName)
+			{
+				var dataType = ComponentDataTypeRegistrator.DataTypes.TryGetValue(entry.DataTypeName, out var t)
+					? t
+					: null;
+
+				if (dataType != null)
+				{
+					try
+					{
+						var data = (ComponentData)Voltage.Persistence.Json.FromJson(entry.Json, dataType);
+						component.Data = data;
+
+						// Remove the processed entry
+						entityData.ComponentDataList.RemoveAt(i);
+
+						// Update the entity's data
+						entity.SetEntityData(entityData);
+
+						return true;
+					}
+					catch (Exception ex)
+					{
+						Debug.Error($"Error loading component data for {component.Name}: {ex.Message}");
+						return false;
+					}
+				}
+				else
+				{
+					Debug.Error($"Component type '{entry.DataTypeName}' is not registered in ComponentDataTypeRegistrator.DataTypes");
+					return false;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	/// <summary>
+	/// Assigns parent relationships after all entities are loaded
+	/// </summary>
+	private void AssignParentRelationships(List<Entity> entitiesNeedingParents)
+	{
+		foreach (var entity in entitiesNeedingParents)
+		{
+			var parentName = entity.GetData<string>("_PendingParentName");
+			if (string.IsNullOrEmpty(parentName))
+				continue;
+
+			var parentEntity = FindEntity(parentName);
+			if (parentEntity != null)
+			{
+				var savedLocalPosition = entity.GetData<Vector2>("_PendingLocalPosition");
+				var savedLocalRotation = entity.GetData<float>("_PendingLocalRotation");
+				var savedLocalScale = entity.GetData<Vector2>("_PendingLocalScale");
+
+				entity.Transform.SetParent(parentEntity.Transform);
+				entity.Transform.SetLocalPosition(savedLocalPosition);
+				entity.Transform.SetLocalRotation(savedLocalRotation);
+				entity.Transform.SetLocalScale(savedLocalScale);
+			}
+			else
+			{
+				Debug.Error($"Could not find parent entity '{parentName}' for entity '{entity.Name}'");
+			}
+
+			// Clean up temporary data
+			entity.RemoveData("_PendingParentName");
+			entity.RemoveData("_PendingLocalPosition");
+			entity.RemoveData("_PendingLocalRotation");
+			entity.RemoveData("_PendingLocalScale");
+		}
 	}
 
 	#endregion
