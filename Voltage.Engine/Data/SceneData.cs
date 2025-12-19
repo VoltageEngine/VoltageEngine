@@ -1,79 +1,209 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using Microsoft.Xna.Framework;
+using Voltage.Persistence;
 
 namespace Voltage.Data;
 
-[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
+/// <summary>
+/// Complete scene data structure that can be serialized to/from JSON.
+/// Contains all information needed to reconstruct a scene.
+/// </summary>
 public class SceneData
 {
-    public string TiledMapFileName = String.Empty;
+	#region Scene Metadata
 
-    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
-	public List<SceneEntityData> Entities;
+	/// <summary>
+	/// Name of the scene
+	/// </summary>
+	public string Name { get; set; } = "Untitled Scene";
 
-    public SceneData()
-    {
-        Entities = new List<SceneEntityData>();
-    }
+	/// <summary>
+	/// When the scene was created
+	/// </summary>
+	public DateTime CreatedAt { get; set; } = DateTime.Now;
 
-    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
-    public struct SceneEntityData
-    {
-        public Entity.InstanceType InstanceType;
-        public string Name;
-        public string EntityType;
-        public Vector2 Position;
-        public float Rotation;
-        public Vector2 Scale;
-        public EntityData EntityData;
-        public bool Enabled;
-        public int UpdateOrder;
-        public int Tag;
-        public bool IsSelectableInEditor;
-		public bool DebugRenderEnabled;
-        public string ParentEntityName;
-		public string OriginalPrefabName;
+	/// <summary>
+	/// When the scene was last modified
+	/// </summary>
+	public DateTime ModifiedAt { get; set; } = DateTime.Now;
 
-        public SceneEntityData()
-        {
-            InstanceType = Entity.InstanceType.NonSerialized;
-            Name = "";
-            EntityType = "";
-            Position = Vector2.Zero;
-            Rotation = 0f;
-            Scale = Vector2.One;
-            EntityData = new EntityData();
-            Enabled = true;
-            UpdateOrder = 0;
-            IsSelectableInEditor = true;
-            Tag = 0;
-            DebugRenderEnabled = true;
-            ParentEntityName = null;
-            OriginalPrefabName = null;
-        }
-    }
+	/// <summary>
+	/// Optional description of the scene
+	/// </summary>
+	public string Description { get; set; } = string.Empty;
 
-    public T GetEntityData<T>(string entityName) where T : EntityData, new()
-    {
-        // Find matching entity data by name and type
-        foreach (var sceneEntity in Entities)
-            if (sceneEntity.Name.Equals(entityName, StringComparison.OrdinalIgnoreCase) &&
-                sceneEntity.EntityData is T entityData)
-                return entityData;
+	#endregion
 
-        return new T();
-    }
+	#region Scene Settings
 
-    public Entity GetEntity(Scene scene, string name)
-    {
-        for (var i = 0; i < scene.Entities.Count; i++)
-            foreach (var entity in Entities)
-                if (entity.Name.ToLower().Equals(name.ToLower()))
-                    return scene.Entities[i];
+	/// <summary>
+	/// Background clear color for the scene
+	/// </summary>
+	public SerializableColor ClearColor { get; set; } = new SerializableColor(100, 149, 237, 255); // CornflowerBlue
 
+	/// <summary>
+	/// Letterbox color used when rendering
+	/// </summary>
+	public SerializableColor LetterboxColor { get; set; } = new SerializableColor(0, 0, 0, 255); // Black
 
-        throw new Exception($"Entity: {name} not found");
-    }
+	/// <summary>
+	/// Resolution policy for the scene
+	/// </summary>
+	public string ResolutionPolicy { get; set; } = "BestFit";
+
+	/// <summary>
+	/// Design resolution width
+	/// </summary>
+	public int DesignResolutionWidth { get; set; } = 1920;
+
+	/// <summary>
+	/// Design resolution height
+	/// </summary>
+	public int DesignResolutionHeight { get; set; } = 1080;
+
+	/// <summary>
+	/// Horizontal bleed for BestFit resolution policy
+	/// </summary>
+	public int HorizontalBleed { get; set; } = 0;
+
+	/// <summary>
+	/// Vertical bleed for BestFit resolution policy
+	/// </summary>
+	public int VerticalBleed { get; set; } = 0;
+
+	/// <summary>
+	/// Whether post-processing is enabled
+	/// </summary>
+	public bool EnablePostProcessing { get; set; } = true;
+
+	#endregion
+
+	#region Scene Content
+
+	/// <summary>
+	/// Path to associated Tiled map file (if any)
+	/// </summary>
+	public string TiledMapFileName { get; set; } = string.Empty;
+
+	/// <summary>
+	/// List of all serializable entities in the scene
+	/// </summary>
+	public List<SceneEntityData> Entities { get; set; } = new();
+
+	#endregion
+
+	#region Editor Data
+
+	/// <summary>
+	/// Editor-specific data (camera position, selected entities, etc.)
+	/// Not used at runtime
+	/// </summary>
+	public Dictionary<string, string> EditorData { get; set; } = new();
+
+	#endregion
+
+	#region Entity Data
+
+	/// <summary>
+	/// Data for a single entity in the scene
+	/// </summary>
+	public class SceneEntityData
+	{
+		public Entity.InstanceType InstanceType { get; set; }
+		public string Name { get; set; }
+		public string EntityType { get; set; } = "Entity";
+
+		// Transform
+		public SerializableVector2 Position { get; set; }
+		public float Rotation { get; set; }
+		public SerializableVector2 Scale { get; set; } = new SerializableVector2(1, 1);
+
+		// Hierarchy
+		public string ParentEntityName { get; set; }
+
+		// Properties
+		public bool Enabled { get; set; } = true;
+		public int UpdateOrder { get; set; }
+		public int Tag { get; set; }
+		public bool IsSelectableInEditor { get; set; } = true;
+		public bool DebugRenderEnabled { get; set; }
+
+		// Prefab reference
+		public string OriginalPrefabName { get; set; }
+
+		// Entity-specific data
+		public EntityData EntityData { get; set; }
+	}
+
+	#endregion
+
+	#region Helper Structures
+
+	/// <summary>
+	/// Serializable Vector2 wrapper
+	/// </summary>
+	public class SerializableVector2
+	{
+		public float X { get; set; }
+		public float Y { get; set; }
+
+		public SerializableVector2() { }
+
+		public SerializableVector2(float x, float y)
+		{
+			X = x;
+			Y = y;
+		}
+
+		public static implicit operator Vector2(SerializableVector2 v) => new Vector2(v.X, v.Y);
+		public static implicit operator SerializableVector2(Vector2 v) => new SerializableVector2(v.X, v.Y);
+	}
+
+	/// <summary>
+	/// Serializable Color wrapper
+	/// </summary>
+	public class SerializableColor
+	{
+		public byte R { get; set; }
+		public byte G { get; set; }
+		public byte B { get; set; }
+		public byte A { get; set; }
+
+		public SerializableColor() { }
+
+		public SerializableColor(byte r, byte g, byte b, byte a)
+		{
+			R = r;
+			G = g;
+			B = b;
+			A = a;
+		}
+
+		public static implicit operator Color(SerializableColor c) => new Color(c.R, c.G, c.B, c.A);
+		public static implicit operator SerializableColor(Color c) => new SerializableColor(c.R, c.G, c.B, c.A);
+	}
+
+	#endregion
+
+	/// <summary>
+	/// Gets an entity by name from the scene data
+	/// </summary>
+	public SceneEntityData GetEntity(string name)
+	{
+		return Entities.Find(e => e.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+	}
+
+	/// <summary>
+	/// Creates a deep clone of this SceneData
+	/// </summary>
+	public SceneData Clone()
+	{
+		var json = Json.ToJson(this, new JsonSettings
+		{
+			PrettyPrint = false,
+			TypeNameHandling = TypeNameHandling.Auto
+		});
+		return Json.FromJson<SceneData>(json);
+	}
 }

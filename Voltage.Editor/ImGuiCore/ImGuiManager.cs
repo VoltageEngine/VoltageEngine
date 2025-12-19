@@ -160,6 +160,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private List<(Entity entity, Collider collider)> _highlightedEntities = new();
 	private IReadOnlyList<Entity> _lastSelectedEntities = null;
 
+	private bool _showCreateSceneForSavePrompt = false;
+	private string _newSceneNameForSave = "";
+
 	#endregion
 
 	#region Event Handlers
@@ -173,11 +176,145 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	public event Func<string, PrefabData> OnPrefabLoadRequested;
 	public event Action<Entity, object> OnLoadEntityData; // Add this for loading entity data
 
+
+	#region Scene Saving
 	public void InvokeSaveSceneChanges()
 	{
+		if (Core.Scene == null)
+		{
+			NotificationSystem.ShowTimedNotification("No active scene to save!");
+			return;
+		}
+
+		// Check if we're trying to save a scene that hasn't been created yet
+		var sceneManager = SceneManager.Instance;
+		if (!sceneManager.HasLoadedScene)
+		{
+			_newSceneNameForSave = "NewScene";
+			_showCreateSceneForSavePrompt = true;
+			return;
+		}
+
 		OnSaveSceneAsync?.Invoke();
 	}
 
+	private void DrawCreateSceneForSavePrompt()
+	{
+		if (_showCreateSceneForSavePrompt)
+		{
+			ImGui.OpenPopup("create-scene-for-save");
+			_showCreateSceneForSavePrompt = false;
+		}
+
+		var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.4f);
+		ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
+		ImGui.SetNextWindowSize(new Num.Vector2(500, 0), ImGuiCond.Appearing);
+
+		bool open = true;
+		if (ImGui.BeginPopupModal("create-scene-for-save", ref open, ImGuiWindowFlags.AlwaysAutoResize))
+		{
+			ImGui.Text("Save Current Scene");
+			ImGui.Separator();
+
+			ImGui.TextWrapped("You have unsaved changes but no scene file is associated with this scene.");
+			ImGui.TextWrapped("Would you like to create a new scene file to save your changes?");
+
+			VoltageEditorUtils.MediumVerticalSpace();
+
+			ImGui.Text("Scene Name:");
+			ImGui.SetNextItemWidth(450);
+			ImGui.InputText("##SceneName", ref _newSceneNameForSave, 50);
+
+			// Validate scene name
+			bool isValidName = !string.IsNullOrWhiteSpace(_newSceneNameForSave);
+			bool sceneExists = false;
+
+			if (isValidName && _projectManager.HasActiveProject)
+			{
+				var scenePath = Path.Combine(
+					_projectManager.CurrentProject.ScenesFolder,
+					$"{_newSceneNameForSave}.cs"
+				);
+				sceneExists = File.Exists(scenePath);
+			}
+
+			if (sceneExists)
+			{
+				ImGui.TextColored(new Num.Vector4(1.0f, 0.6f, 0.2f, 1.0f),
+					$"Warning: A scene with name '{_newSceneNameForSave}' already exists!");
+			}
+
+			VoltageEditorUtils.MediumVerticalSpace();
+
+			var buttonWidth = 100f;
+			var spacing = 10f;
+			var totalButtonWidth = (buttonWidth * 3) + (spacing * 2);
+			var windowWidth = ImGui.GetWindowSize().X;
+			var centerStart = (windowWidth - totalButtonWidth) * 0.5f;
+
+			ImGui.SetCursorPosX(centerStart);
+
+			// Disable save button if invalid
+			if (!isValidName || sceneExists)
+				ImGui.BeginDisabled();
+
+			if (ImGui.Button("Save", new Num.Vector2(buttonWidth, 0)))
+			{
+				CreateAndSaveScene(_newSceneNameForSave);
+				ImGui.CloseCurrentPopup();
+			}
+
+			if (!isValidName || sceneExists)
+				ImGui.EndDisabled();
+
+			ImGui.SameLine();
+
+			if (ImGui.Button("Don't Save", new Num.Vector2(buttonWidth, 0)))
+			{
+				ImGui.CloseCurrentPopup();
+			}
+
+			ImGui.SameLine();
+
+			if (ImGui.Button("Cancel", new Num.Vector2(buttonWidth, 0)))
+			{
+				ImGui.CloseCurrentPopup();
+			}
+
+			ImGui.EndPopup();
+		}
+	}
+
+	private void CreateAndSaveScene(string sceneName)
+	{
+		if (!_projectManager.HasActiveProject)
+		{
+			NotificationSystem.ShowTimedNotification("No active project!");
+			return;
+		}
+
+		try
+		{
+			var sceneManager = SceneManager.Instance;
+			
+			// Create and save the new scene file
+			if (sceneManager.CreateSceneFile(sceneName))
+			{
+				NotificationSystem.ShowTimedNotification($"Scene created and saved: {sceneName}");
+			}
+			else
+			{
+				NotificationSystem.ShowTimedNotification($"Failed to create scene: {sceneName}");
+			}
+		}
+		catch (Exception ex)
+		{
+			NotificationSystem.ShowTimedNotification($"Failed to create scene: {ex.Message}");
+			Debug.Error($"Failed to create scene: {ex.Message}");
+		}
+	}
+
+#endregion
 	public async Task<bool> InvokePrefabCreated(Entity prefabEntity, bool overrideExistingPrefab)
 	{
 		if (OnPrefabCreated != null)
@@ -374,6 +511,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		DrawEditorToolsBar();
 		DrawProjectFilePicker();
 		DrawSaveChangesPrompt();
+		DrawCreateSceneForSavePrompt();
 		ShowSceneGraphWindow = SceneGraphWindow.Show(ShowSceneGraphWindow);
 		DrawInspectorWindows();
 		DrawEntityInspectors();

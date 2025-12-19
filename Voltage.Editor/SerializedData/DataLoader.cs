@@ -1,5 +1,4 @@
-﻿using Voltage.Data;
-using Voltage.Persistence;
+﻿using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -7,13 +6,15 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
-using Microsoft.Xna.Framework;
-using Voltage.Utils.Extensions;
-using PrefabData = Voltage.Data.PrefabData;
+using Voltage.Data;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Interfaces;
-using Voltage.Editor.Utils;
+using Voltage.Editor.ProjectManagement;
 using Voltage.Editor.Undo.Core;
+using Voltage.Editor.Utils;
+using Voltage.Persistence;
+using Voltage.Utils.Extensions;
+using PrefabData = Voltage.Data.PrefabData;
 
 namespace Voltage.Editor.SerializedData;
 
@@ -105,15 +106,28 @@ public class DataLoader
 
     }
 
-    #endregion
+	#endregion
 
-    #region Save Methods
+	#region Save Methods
 
-    private async Task SaveSceneChanges()
+	private async Task SaveSceneChanges()
     {
         await SaveSceneDataAsync(Core.Scene, HasExitedEditorMode);
 
-        if (HasExitedEditorMode)
+		//TODO: Implement new Saving System
+		// var sceneManager = SceneManager.Instance;
+		//
+		// // Just save the scene - it handles everything internally now
+		// bool success = sceneManager.SaveCurrentScene();
+		//
+		// if (!success)
+		// {
+		// 	NotificationSystem.ShowTimedNotification("Failed to save scene!");
+		// 	return;
+		// }
+		//
+
+		if (HasExitedEditorMode)
             NotificationSystem.ShowTimedNotification(
                 $"WARNING. Only saved EntityData, without Transform and Component data. Must Reset the Scene to save current state!");
         else
@@ -122,6 +136,7 @@ public class DataLoader
         EditorChangeTracker.ClearOnSave();
     }
 
+	//TODO: Rework for it to utilize the custom directories of current GameProject
     public static async Task SaveSceneDataAsync(Voltage.Scene scene, bool ignoreEntityTransform)
     {
         var sourceFilePath = $"{Environment.CurrentDirectory}/Content/Data/Scene/{scene.GetType().Name}.json";

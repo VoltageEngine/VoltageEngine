@@ -96,9 +96,9 @@ public class MainEntityInspector
 				// Get all types that inherit from Component
 				var componentTypes = assembly.GetTypes()
 					.Where(t => typeof(Component).IsAssignableFrom(t) 
-					            && !t.IsAbstract 
-					            && !t.IsInterface
-					            && t.GetConstructor(Type.EmptyTypes) != null) // Has parameterless constructor
+								&& !t.IsAbstract 
+								&& !t.IsInterface
+								&& HasParameterlessConstructor(t)) // Only include types with parameterless constructor
 					.OrderBy(t => t.Name);
 
 				_cachedComponentTypes.AddRange(componentTypes);
@@ -112,6 +112,34 @@ public class MainEntityInspector
 	}
 
 	/// <summary>
+	/// Checks if a type has a parameterless constructor (public or non-public).
+	/// </summary>
+	private static bool HasParameterlessConstructor(Type type)
+	{
+		// Check for public parameterless constructor
+		var publicConstructor = type.GetConstructor(
+			BindingFlags.Public | BindingFlags.Instance, 
+			null, 
+			Type.EmptyTypes, 
+			null
+		);
+		
+		if (publicConstructor != null)
+			return true;
+
+		// Check for non-public parameterless constructor (protected/private)
+		// Some components might have protected constructors
+		var nonPublicConstructor = type.GetConstructor(
+			BindingFlags.NonPublic | BindingFlags.Instance,
+			null,
+			Type.EmptyTypes,
+			null
+		);
+
+		return nonPublicConstructor != null;
+	}
+
+	/// <summary>
 	/// Filters available component types based on search text.
 	/// </summary>
 	private List<Type> GetFilteredComponentTypes()
@@ -121,7 +149,7 @@ public class MainEntityInspector
 
 		return _cachedComponentTypes
 			.Where(t => t.Name.Contains(_componentFilterText, StringComparison.OrdinalIgnoreCase) ||
-			            t.FullName.Contains(_componentFilterText, StringComparison.OrdinalIgnoreCase))
+						t.FullName.Contains(_componentFilterText, StringComparison.OrdinalIgnoreCase))
 			.ToList();
 	}
 
