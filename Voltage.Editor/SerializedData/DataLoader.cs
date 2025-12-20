@@ -74,9 +74,9 @@ public class DataLoader
 
     #region Load Methods
 
-    public static SceneData LoadSceneData(Scene scene)
+    public static SceneData LoadSceneData(string sceneName)
     {
-        var outputFile = $"{ProjectManager.Instance.CurrentProject.ScenesFolder}/{scene.GetType().Name}.vscene";
+        var outputFile = $"{ProjectManager.Instance.CurrentProject.ScenesFolder}/{sceneName}.vscene";
         var outputExists = File.Exists(outputFile);
         var filePath = string.Empty;
 
@@ -88,7 +88,7 @@ public class DataLoader
         {
 #if DEBUG
              NotificationSystem.ShowTimedNotification(
-                $"The .vscene file for this {scene.GetType().Name} scene hasn't been created yet. Create it by saving the scene");
+                $"The .vscene file for this {sceneName} scene hasn't been created yet. Create it by saving the scene");
 #endif
             return null;
         }

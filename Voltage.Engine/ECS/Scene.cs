@@ -269,8 +269,7 @@ public class Scene
 
 		Initialize();
 	}
-
-
+	
 	#region Scene lifecycle
 
 	/// <summary>
@@ -495,8 +494,7 @@ public class Scene
 	}
 
 	#endregion
-
-
+	
 	#region Resolution Policy
 
 	/// <summary>
@@ -715,8 +713,7 @@ public class Scene
 	}
 
 	#endregion
-
-
+	
 	#region Utils
 
 	/// <summary>
@@ -730,7 +727,6 @@ public class Scene
 	}
 
 	#endregion
-
 
 	#region SceneComponent Management
 
@@ -818,7 +814,6 @@ public class Scene
 	}
 
 	#endregion
-
 
 	#region Renderer/PostProcessor Management
 
