@@ -6,6 +6,7 @@ using System.Linq;
 using Microsoft.Xna.Framework;
 using Voltage.Data;
 using Voltage.DeferredLighting;
+using Voltage.Editor.Extensions;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Inspectors;
 using Voltage.Editor.ProjectFile;
@@ -21,7 +22,7 @@ using Voltage.Utils.Extensions;
 
 namespace Voltage.Editor.SceneFile;
 
-public class GameScene : Voltage.Scene
+public class GameScene : SceneComponent
 {
     public TmxMap TiledMap;
     public Entity TiledMapEntity;// Create a dedicated TiledMapEntity to hold TiledMap
@@ -37,18 +38,18 @@ public class GameScene : Voltage.Scene
 	private static readonly int[] AllRenderLayers = Enumerable.Range(-99, 199).ToArray();
 
 
-    public override void Initialize()
+    public GameScene()
     {
-        base.Initialize();
-
+	    Debug.Warn("Game Scene component was added!");
+	    
         sceneEntitiesByName = new Dictionary<string, SceneData.SceneEntityData>();
 
         var projectManager = Core.GetGlobalManager<ProjectManager>();
-
+        
 		if (projectManager?.HasActiveProject == true)
         {
             var designRes = projectManager.CurrentProject.Settings.DesignResolution;
-            SetDesignResolution(
+            Scene.SetDesignResolution(
                 designRes.Width, 
                 designRes.Height, 
                 designRes.ResolutionPolicy,
@@ -60,7 +61,7 @@ public class GameScene : Voltage.Scene
         }
 		else
         {
-            SetDesignResolution(1280, 720, SceneResolutionPolicy.BestFit);
+            Scene.SetDesignResolution(1280, 720, Scene.SceneResolutionPolicy.BestFit);
         }
 
         LoadSceneData();
@@ -74,14 +75,13 @@ public class GameScene : Voltage.Scene
         // //FmodStudio.PlayMusic("event:/MainTheme", true);
     }
 
-    public override void Begin()
+    public override void OnEnabled()
     {
-        base.Begin();
-
-        SceneGraphWindow.OnTmxFileSelected += CreateTiledMap;
-        SceneGraphWindow.OnAsepriteImageSelected += LoadAsepriteImages;//TODO: Fix the rendering layer assignment
+	    base.OnEnabled();
+	    SceneGraphWindow.OnTmxFileSelected += CreateTiledMap;
+	    SceneGraphWindow.OnAsepriteImageSelected += LoadAsepriteImages;//TODO: Fix the rendering layer assignment
     
-        OnFinishedAddingEntities += LoadSceneEntitiesData;
+	    Scene.OnFinishedAddingEntities += LoadSceneEntitiesData;
     }
 
     public override void Update()
@@ -89,14 +89,13 @@ public class GameScene : Voltage.Scene
         base.Update();
     }
 
-    public override void End()
+    public override void OnDisabled()
     {
-        base.End();
+	    base.OnDisabled();
+	    SceneGraphWindow.OnTmxFileSelected -= CreateTiledMap;
+	    SceneGraphWindow.OnAsepriteImageSelected -= LoadAsepriteImages;
 
-        SceneGraphWindow.OnTmxFileSelected -= CreateTiledMap;
-        SceneGraphWindow.OnAsepriteImageSelected -= LoadAsepriteImages;
-
-        OnFinishedAddingEntities -= LoadSceneEntitiesData;
+	    Scene.OnFinishedAddingEntities -= LoadSceneEntitiesData;
     }
 
     #region Entity Registration and Creation
@@ -106,8 +105,8 @@ public class GameScene : Voltage.Scene
     protected void CreateEntity(out Entity entity, string customName = null)
     {
         var newEntity = new Entity(customName ?? "Entity");
-        newEntity.Name = GetUniqueEntityName(newEntity.Name, newEntity);
-        AddEntity(newEntity);
+        newEntity.Name = Scene.GetUniqueEntityName(newEntity.Name, newEntity);
+        Scene.AddEntity(newEntity);
         entity = newEntity;
     }
     #endregion
@@ -116,22 +115,22 @@ public class GameScene : Voltage.Scene
     //Creates the SceneData object
     protected virtual void LoadSceneData()
     {
-        var sceneJsonPath = $"Content/Data/Scene/{GetType().Name}.json";
+        var sceneJsonPath = $"{ProjectManager.Instance.CurrentProject.ScenesFolder}/{GetType().Name}.vscene";
 
         // Create default SceneData and save it
         if (!File.Exists(sceneJsonPath))
         {
-            SceneData = new SceneData();
-            var json = Voltage.Persistence.Json.ToJson(SceneData, true);
+            Scene.SceneData = new SceneData();
+            var json = Voltage.Persistence.Json.ToJson(Scene.SceneData, true);
             Directory.CreateDirectory(Path.GetDirectoryName(sceneJsonPath)!);
             File.WriteAllText(sceneJsonPath, json);
         }
         else
         {
-            SceneData = DataLoader.LoadSceneData(this);
+	        Scene.SceneData = DataLoader.LoadSceneData(ProjectManager.Instance.CurrentProject.ScenesFolder);
         }
 
-        if (SceneData == null)
+        if (Scene.SceneData == null)
             throw new NullReferenceException(
                 "SceneData is NULL. You need to create the JSON file for this scene first!");
     }
@@ -141,44 +140,38 @@ public class GameScene : Voltage.Scene
     {
         sceneEntitiesByName = new(StringComparer.OrdinalIgnoreCase);
 
-        for (var i = 0; i < SceneData.Entities.Count; i++)
-            sceneEntitiesByName[SceneData.Entities[i].Name] = SceneData.Entities[i];
+        for (var i = 0; i < Scene.SceneData.Entities.Count; i++)
+            sceneEntitiesByName[Scene.SceneData.Entities[i].Name] = Scene.SceneData.Entities[i];
 
         // Track entities that need parent assignment
         var entitiesNeedingParents = new List<Entity>();
 
         // NonSerialized entities (already in the scene)
-        for (var i = 0; i < Entities.Count; i++)
+        for (var i = 0; i < Scene.Entities.Count; i++)
         {
-            if (Entities[i].Type != Entity.InstanceType.NonSerialized)
+            if (Scene.Entities[i].Type != Entity.InstanceType.NonSerialized)
                 continue;
 
-            if (sceneEntitiesByName.TryGetValue(Entities[i].Name, out var sceneEntityData))
+            if (sceneEntitiesByName.TryGetValue(Scene.Entities[i].Name, out var sceneEntityData))
             {
-                DataLoader.LoadPredefinedEntityData(Entities[i], sceneEntityData);
+                DataLoader.LoadPredefinedEntityData(Scene.Entities[i], sceneEntityData);
                 
                 // Check if this entity needs parent assignment later
-                if (!string.IsNullOrEmpty(Entities[i].GetData<string>("_PendingParentName")))
-                    entitiesNeedingParents.Add(Entities[i]);
+                if (!string.IsNullOrEmpty(Scene.Entities[i].GetData<string>("_PendingParentName")))
+                    entitiesNeedingParents.Add(Scene.Entities[i]);
             }
         }
 
         // Serialized & SerializedPrefab entities (to be created now)
-        foreach (var sceneEntity in SceneData.Entities)
+        foreach (var sceneEntity in Scene.SceneData.Entities)
         {
-            if (string.IsNullOrEmpty(sceneEntity.EntityType))
-            {
-                Debug.Log(Debug.LogType.Error, $"EntityType is null or empty for entity: {sceneEntity.Name}");
-                continue;
-            }
-
             if (sceneEntity.InstanceType == Entity.InstanceType.NonSerialized)
                 continue;
 
             // Create entity directly
             var entity = new Entity(sceneEntity.Name);
             entity.Type = sceneEntity.InstanceType;
-            AddEntity(entity);
+            Scene.AddEntity(entity);
             
             DataLoader.LoadPredefinedEntityData(entity, sceneEntity);
 
@@ -201,7 +194,7 @@ public class GameScene : Voltage.Scene
             if (string.IsNullOrEmpty(parentName))
                 continue;
 
-            var parentEntity = FindEntity(parentName);
+            var parentEntity = Scene.FindEntity(parentName);
             if (parentEntity != null)
             {
                 var savedLocalPosition = entity.GetData<Vector2>("_PendingLocalPosition");
@@ -239,7 +232,7 @@ public class GameScene : Voltage.Scene
 	protected void CreateTiledMap(TmxFilePicker.TmxSelection tiledMapSelection)
     {
         var oldTmxEntities = new List<Entity>(TmxMapEntities);
-        var oldTmxFileName = SceneData?.TiledMapFileName ?? "";
+        var oldTmxFileName = Scene.SceneData?.TiledMapFileName ?? "";
         var oldTiledMapEntity = TiledMapEntity;
 
         CreateEntity(out TiledMapEntity, "TiledMap");
@@ -250,9 +243,9 @@ public class GameScene : Voltage.Scene
         {
             foreach (var entity in TmxMapEntities)
             {
-                if (SceneData?.Entities != null)
+                if (Scene.SceneData?.Entities != null)
                 {
-                    SceneData.Entities.RemoveAll(e => e.Name == entity.Name);
+	                Scene.SceneData.Entities.RemoveAll(e => e.Name == entity.Name);
                 }
                 entity.Destroy();
             }
@@ -266,8 +259,8 @@ public class GameScene : Voltage.Scene
         try
         {
             var tiledMapPath = tiledMapSelection.FilePath;
-            TiledMap = Content.LoadTiledMap(tiledMapPath);
-            TiledMapEntity.Position = Camera.Position;
+            TiledMap = Scene.Content.LoadTiledMap(tiledMapPath);
+            TiledMapEntity.Position = Scene.Camera.Position;
 
             if (tiledMapSelection.LoadColliders)
                 LoadLevelColliders();
@@ -319,11 +312,11 @@ public class GameScene : Voltage.Scene
             }
 
             newEntities.AddRange(TmxMapEntities.Where(e => e.GetComponent<BoxCollider>() != null));
-            SceneData.TiledMapFileName = tiledMapPath;
+            Scene.SceneData.TiledMapFileName = tiledMapPath;
 
             EditorChangeTracker.PushUndo(
                 new TmxLoadUndoAction(
-                    this,
+	                Scene,
                     newEntities,
                     TiledMapEntity,
                     tiledMapPath,
@@ -341,7 +334,7 @@ public class GameScene : Voltage.Scene
 
             foreach (var entity in newEntities)
             {
-                if (entity != null && entity.Scene == this)
+                if (entity != null && entity.Scene == Scene)
                 {
                     entity.Destroy();
                 }
@@ -349,9 +342,9 @@ public class GameScene : Voltage.Scene
 
             TmxMapEntities = oldTmxEntities;
             TiledMapEntity = oldTiledMapEntity;
-            if (SceneData != null)
+            if (Scene.SceneData != null)
             {
-                SceneData.TiledMapFileName = oldTmxFileName;
+	            Scene.SceneData.TiledMapFileName = oldTmxFileName;
             }
 
             throw;
@@ -381,14 +374,14 @@ public class GameScene : Voltage.Scene
 
         try
         {
-            var asepriteFile = Content.LoadAsepriteFile(selection.FilePath);
+            var asepriteFile = Scene.Content.LoadAsepriteFile(selection.FilePath);
 
             // Extract file name without extension and path (e.g. "MySprite.ase" -> "MySprite")
             var fileName = Path.GetFileNameWithoutExtension(selection.FilePath);
 
             // Parent Entity
             CreateEntity(out var parentEntity, fileName);
-            parentEntity.Transform.Position = Camera.Transform.Position;
+            parentEntity.Transform.Position = Scene.Camera.Transform.Position;
             parentEntity.Type = Entity.InstanceType.Serialized;
 
             var createdEntities = new List<Entity> { parentEntity };
@@ -455,7 +448,7 @@ public class GameScene : Voltage.Scene
 
             EditorChangeTracker.PushUndo(
                 new AsepriteLoadUndoAction(
-                    this,
+	                Scene,
                     createdEntities,
                     parentEntity,
                     selection.FilePath,
@@ -543,22 +536,6 @@ public class GameScene : Voltage.Scene
             }
         }
     }
-
-	#endregion
-
-	#region Scene creation helpers
-
-	/// <summary>
-	/// helper that creates a scene with the DefaultRenderer attached and ready for use
-	/// </summary>
-	/// <returns>The with default renderer.</returns>
-	public static GameScene CreateWithDefaultRenderer(GameScene scene, Color? clearColor = null)
-	{
-		if (clearColor.HasValue)
-			scene.ClearColor = clearColor.Value;
-		scene.AddRenderer(new DefaultRenderer());
-		return scene;
-	}
 
 	#endregion
 }

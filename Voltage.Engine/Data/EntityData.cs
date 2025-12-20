@@ -37,7 +37,6 @@ namespace Voltage.Data
                 ComponentDataList = new List<ComponentDataEntry>()
             };
 
-            // Deep clone the component data list
             if (ComponentDataList != null)
             {
                 foreach (var entry in ComponentDataList)
@@ -47,7 +46,7 @@ namespace Voltage.Data
                         ComponentTypeName = entry.ComponentTypeName,
                         ComponentName = entry.ComponentName,
                         DataTypeName = entry.DataTypeName,
-                        Json = entry.Json // JSON is immutable string, safe to copy reference
+                        Json = entry.Json
                     });
                 }
             }

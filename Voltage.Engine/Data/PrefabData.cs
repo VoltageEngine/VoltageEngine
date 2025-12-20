@@ -43,7 +43,6 @@ namespace Voltage.Data
             {
                 InstanceType = Entity.InstanceType.SerializedPrefab,
                 Name = sceneData.Name,
-                EntityType = sceneData.EntityType,
                 Rotation = sceneData.Rotation,
                 Scale = sceneData.Scale,
                 EntityData = sceneData.EntityData,
@@ -63,7 +62,6 @@ namespace Voltage.Data
             {
                 InstanceType = this.InstanceType,
                 Name = this.Name,
-                EntityType = this.EntityType,
                 Position = position,
                 Rotation = this.Rotation,
                 Scale = this.Scale,
