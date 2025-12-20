@@ -46,6 +46,7 @@
 	<!-- Suppress Roslyn satellite assemblies globally -->
 	<PropertyGroup>
 		<SatellitResourceLanguages>en</SatellitResourceLanguages>
+		<ApplicationIcon>Icon.ico</ApplicationIcon>
 	</PropertyGroup>
 
 	<!-- Remove satellite assemblies from NuGet packages -->
@@ -95,6 +96,10 @@
 		<DefineConstants>OS_MAC</DefineConstants>
 	</PropertyGroup>
 	<ItemGroup>
+	  <None Remove="Icon.bmp" />
+	  <None Remove="Icon.ico" />
+	</ItemGroup>
+	<ItemGroup>
 	  <Content Include="DefaultContent\UI\CursorSelection-UI-ColliderResize.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
@@ -113,6 +118,10 @@
 	  <Content Include="DefaultContent\UI\Inspector-LockMode.aseprite">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
+	</ItemGroup>
+	<ItemGroup>
+	  <EmbeddedResource Include="Icon.bmp" />
+	  <EmbeddedResource Include="Icon.ico" />
 	</ItemGroup>
 
 	<ItemGroup>
