@@ -12,6 +12,8 @@ using Voltage.Editor.Undo;
 using Voltage.Editor.Utils;
 using Num = System.Numerics;
 using Voltage.Editor.Interfaces;
+using Voltage.Editor.ProjectFile;
+using Voltage.Editor.SerializedData;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Undo.EntityActions;
 
@@ -92,7 +94,7 @@ public class SceneGraphWindow
 
 		_cachedPrefabNames.Clear();
 		
-		var prefabsDirectory = "Content/Data/Prefabs";
+		var prefabsDirectory = ProjectManager.Instance.CurrentProject.PrefabsFolder;
 		if (Directory.Exists(prefabsDirectory))
 		{
 			// Search through all EntityType subdirectories
@@ -100,7 +102,7 @@ public class SceneGraphWindow
 			
 			foreach (var entityTypeDir in entityTypeDirectories)
 			{
-				var prefabFiles = Directory.GetFiles(entityTypeDir, "*.json");
+				var prefabFiles = Directory.GetFiles(entityTypeDir, "*.prefab");
 				foreach (var file in prefabFiles)
 				{
 					var fileName = Path.GetFileNameWithoutExtension(file);
@@ -180,7 +182,7 @@ public class SceneGraphWindow
 
 			VoltageEditorUtils.MediumVerticalSpace();
 			if (VoltageEditorUtils.CenteredButton("Save Scene", 0.7f))
-				_imGuiManager.InvokeSaveSceneChanges();
+				DataManager.Instance.InvokeSaveSceneChanges();
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
@@ -386,7 +388,7 @@ public class SceneGraphWindow
 	{
 		try
 		{
-			var prefabsDirectory = "Content/Data/Prefabs";
+			var prefabsDirectory = ProjectManager.Instance.CurrentProject.PrefabsFolder;
 			bool fileDeleted = false;
 
 			if (Directory.Exists(prefabsDirectory))
@@ -395,7 +397,7 @@ public class SceneGraphWindow
 				
 				foreach (var entityTypeDir in entityTypeDirectories)
 				{
-					var prefabFilePath = Path.Combine(entityTypeDir, $"{prefabName}.json");
+					var prefabFilePath = Path.Combine(entityTypeDir, $"{prefabName}.prefab");
 					
 					if (File.Exists(prefabFilePath))
 					{
@@ -473,17 +475,11 @@ public class SceneGraphWindow
 	{
 		try
 		{
-			var prefabData = _imGuiManager.InvokePrefabLoadRequested(prefabName);
+			var prefabData = DataManager.Instance.InvokePrefabLoadRequested(prefabName);
 
 			if (prefabData.EntityData == null)
 			{
 				NotificationSystem.ShowTimedNotification($"Null SerializedPrefab EntityData: {prefabName}");
-				return;
-			}
-
-			if (prefabData.EntityType == null)
-			{
-				NotificationSystem.ShowTimedNotification($"Invalid prefab data format for: {prefabName} - EntityType property not found");
 				return;
 			}
 
@@ -493,7 +489,7 @@ public class SceneGraphWindow
 				entity.Type = Entity.InstanceType.SerializedPrefab;
 				entity.Transform.Position = Voltage.Core.Scene.Camera.Transform.Position;
 
-				_imGuiManager.InvokeLoadEntityData(entity, prefabData);
+				DataManager.Instance.InvokeLoadEntityData(entity, prefabData);
 				entity.Name = Voltage.Core.Scene.GetUniqueEntityName(prefabData.Name, entity);
 				entity.OriginalPrefabName = prefabName;
 
@@ -512,7 +508,7 @@ public class SceneGraphWindow
 			catch
 			{
 				NotificationSystem.ShowTimedNotification(
-					$"Failed to create entity from prefab: {prefabName}. Entity type '{prefabData.EntityType}' not registered.");
+					$"Failed to create entity from prefab: {prefabName}.");
 			}
 		}
 		catch (Exception ex)

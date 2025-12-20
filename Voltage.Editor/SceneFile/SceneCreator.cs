@@ -103,7 +103,6 @@ namespace Voltage.Editor.SceneFile
 				return; // Don't show error for empty field while typing
 			}
 			
-			// Check for invalid characters
 			var invalidChars = Path.GetInvalidFileNameChars();
 			if (_sceneName.IndexOfAny(invalidChars) >= 0)
 			{
@@ -111,7 +110,6 @@ namespace Voltage.Editor.SceneFile
 				return;
 			}
 			
-			// Check if a scene with this name already exists
 			var sceneManager = SceneManager.Instance;
 			if (sceneManager.SceneExists(_sceneName))
 			{
@@ -165,7 +163,7 @@ namespace Voltage.Editor.SceneFile
 		{
 			EditorProcessDebugger.LogInfo("=== Creating New Scene ===", "SceneCreation");
 			EditorProcessDebugger.LogInfo($"Scene name: {_sceneName}", "SceneCreation");
-			
+
 			try
 			{
 				var projectManager = ProjectManager.Instance;
@@ -175,52 +173,58 @@ namespace Voltage.Editor.SceneFile
 					_sceneNameError = "Error: No active project. Please load or create a project first.";
 					return;
 				}
-				
+
 				if (string.IsNullOrWhiteSpace(_sceneName))
 				{
 					_sceneNameError = "Error: Scene name cannot be empty.";
 					return;
 				}
-				
+
 				var scenesFolder = projectManager.CurrentProject.ScenesFolder;
-				var sceneFilePath = Path.Combine(scenesFolder, $"{_sceneName}.json");
-				
+				var sceneFilePath = Path.Combine(scenesFolder, $"{_sceneName}.vscene");
+
 				if (File.Exists(sceneFilePath))
 				{
 					_sceneNameError = $"Error: A scene file already exists at: {sceneFilePath}";
 					return;
 				}
-				
+
 				// Ensure the Scenes folder exists
 				if (!Directory.Exists(scenesFolder))
 				{
 					Directory.CreateDirectory(scenesFolder);
 				}
-				
-				var sceneData = new SceneData();
-				
+
+				var sceneData = new SceneData
+				{
+					Name = _sceneName,
+					FilePath = sceneFilePath,
+					CreatedAt = DateTime.Now,
+					ModifiedAt = DateTime.Now
+				};
+
 				var jsonContent = Voltage.Persistence.Json.ToJson(sceneData, new Voltage.Persistence.JsonSettings
 				{
 					PrettyPrint = true
 				});
-				
+
 				File.WriteAllText(sceneFilePath, jsonContent, new System.Text.UTF8Encoding(false));
-				
+
 				EditorProcessDebugger.LogInfo($"Successfully created scene: {_sceneName} at {sceneFilePath}", "SceneCreation");
-				
+
 				// Invoke scene created event
 				var sceneManager = SceneManager.Instance;
 				sceneManager.InvokeSceneCreated(sceneFilePath);
-				
+
 				// Load the scene if requested
 				if (_createAndLoad)
 				{
 					sceneManager.LoadScene(sceneFilePath);
 				}
-				
+
 				ImGui.CloseCurrentPopup();
 				ResetFields();
-				
+
 				EditorProcessDebugger.LogInfo("=== Scene Creation Complete ===", "SceneCreation");
 			}
 			catch (Exception ex)

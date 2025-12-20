@@ -13,25 +13,10 @@ public class SceneData
 {
 	#region Scene Metadata
 
-	/// <summary>
-	/// Name of the scene
-	/// </summary>
 	public string Name { get; set; } = "Untitled Scene";
-
-	/// <summary>
-	/// When the scene was created
-	/// </summary>
+	public string FilePath { get; set; } = string.Empty;
 	public DateTime CreatedAt { get; set; } = DateTime.Now;
-
-	/// <summary>
-	/// When the scene was last modified
-	/// </summary>
 	public DateTime ModifiedAt { get; set; } = DateTime.Now;
-
-	/// <summary>
-	/// Optional description of the scene
-	/// </summary>
-	public string Description { get; set; } = string.Empty;
 
 	#endregion
 
@@ -53,7 +38,7 @@ public class SceneData
 	public string ResolutionPolicy { get; set; } = "BestFit";
 
 	/// <summary>
-	/// Design resolution width
+	/// Design resolution width (the width and height the scene is designed for)
 	/// </summary>
 	public int DesignResolutionWidth { get; set; } = 1920;
 
@@ -63,12 +48,12 @@ public class SceneData
 	public int DesignResolutionHeight { get; set; } = 1080;
 
 	/// <summary>
-	/// Horizontal bleed for BestFit resolution policy
+	/// Horizontal bleed for BestFit (if selected) resolution policy
 	/// </summary>
 	public int HorizontalBleed { get; set; } = 0;
 
 	/// <summary>
-	/// Vertical bleed for BestFit resolution policy
+	/// Vertical bleed for BestFit (if selected) resolution policy
 	/// </summary>
 	public int VerticalBleed { get; set; } = 0;
 

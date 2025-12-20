@@ -75,10 +75,9 @@ public class Editor : Core
 		Screen.SynchronizeWithVerticalRetrace = false; //Vsync = off
 		// DefaultSamplerState = SamplerState.PointClamp; // pixel perfect rendering
 
-		//Scene = LoadLastOrDefaultScene();
 		ScreenUtils.SetEditorWindowedMode(true);
-		
-		HandleCommandLineArguments();
+		HandleCommandLineArguments(); // when we open a project file through the file explorer
+		SceneManager.Instance.LoadLastUsedScene();
 	}
 
 	protected override void EndRun()
@@ -106,28 +105,17 @@ public class Editor : Core
 	/// </summary>
 	private void TrackSceneChange()
 	{
-		if (Scene != null)
+		var sceneManager = SceneManager.Instance;
+
+		if (sceneManager.HasLoadedScene && !string.IsNullOrWhiteSpace(sceneManager.CurrentScenePath))
 		{
-			PersistentScene.SetLastScene(Scene);
+			PersistentScene.SetLastScenePath(sceneManager.CurrentScenePath);
+		}
+		else
+		{
+			PersistentScene.Clear();
 		}
 	}
-
-	//TODO: Remove this as we load the scenes through json files now
-	/// <summary>
-	/// Loads the last opened scene if available, otherwise returns the default scene.
-	/// </summary>
-	// private Scene LoadLastOrDefaultScene()
-	// {
-	// 	var lastScene = PersistentScene.CreateLastScene();
-	//
-	// 	if (lastScene != null)
-	// 	{
-	// 		return lastScene;
-	// 	}
-	//
-	// 	Debug.Warn("No last scene found, loading default EMPTY SCENE");
-	// 	return new Scene();
-	// }
 
 	protected override void Update(GameTime gameTime)
 	{

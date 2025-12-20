@@ -1,22 +1,24 @@
+using ImGuiNET;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using ImGuiNET;
-using Voltage.Utils;
-using Voltage.Utils.Coroutines;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Inspectors.ObjectInspectors;
+using Voltage.Editor.ProjectFile;
+using Voltage.Editor.SerializedData;
 using Voltage.Editor.Undo;
 using Voltage.Editor.Undo.ComponentActions;
-using Voltage.Editor.Utils;
-using Voltage.Persistence;
-using Num = System.Numerics;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Undo.PrefabActions;
 using Voltage.Editor.Undo.PropertyActions;
+using Voltage.Editor.Utils;
+using Voltage.Persistence;
+using Voltage.Utils;
+using Voltage.Utils.Coroutines;
+using Num = System.Numerics;
 
 namespace Voltage.Editor.Inspectors;
 
@@ -762,7 +764,7 @@ public class MainEntityInspector
 	/// <returns>True if prefab exists, false otherwise</returns>
 	private bool CheckPrefabExists(string prefabName)
 	{
-		var prefabFilePath = $"Content/Data/Prefabs/{prefabName}.json";
+		var prefabFilePath = $"{Path.Combine(ProjectManager.Instance.CurrentProject.PrefabsFolder, prefabName)}.prefab";
 		return File.Exists(prefabFilePath);
 	}
 
@@ -783,7 +785,7 @@ public class MainEntityInspector
 			newPrefab.Name = prefabName;
 			newPrefab.OriginalPrefabName = prefabName;
 
-			bool saveSuccessful = await _imGuiManager.InvokePrefabCreated(newPrefab, canOverride);
+			bool saveSuccessful = await DataManager.Instance.SavePrefabDataAsync(newPrefab, canOverride);
 
 			if (saveSuccessful)
 			{
@@ -816,14 +818,14 @@ public class MainEntityInspector
 		var cleanedName = inputName.Trim();
 		
 		// Check if prefab with this name already exists in the EntityType directory
-		var prefabsDirectory = $"Content/Data/Prefabs/{entityTypeName}";
-		
+		var prefabsDirectory = ProjectManager.Instance.CurrentProject.PrefabsFolder;
+
 		if (!Directory.Exists(prefabsDirectory))
 		{
 			return cleanedName;
 		}
 
-		var prefabFilePath = Path.Combine(prefabsDirectory, $"{cleanedName}.json");
+		var prefabFilePath = Path.Combine(prefabsDirectory, $"{cleanedName}.prefab");
 		
 		if (!File.Exists(prefabFilePath))
 		{
@@ -837,7 +839,7 @@ public class MainEntityInspector
 		do
 		{
 			uniqueName = $"{cleanedName}_{suffix}";
-			prefabFilePath = Path.Combine(prefabsDirectory, $"{uniqueName}.json");
+			prefabFilePath = Path.Combine(prefabsDirectory, $"{uniqueName}.prefab");
 			suffix++;
 		}
 		while (File.Exists(prefabFilePath));
@@ -1131,7 +1133,7 @@ public class MainEntityInspector
 		if (Entity != null && Entity.Type == Entity.InstanceType.SerializedPrefab && !string.IsNullOrEmpty(Entity.OriginalPrefabName))
 		{
 			// Save the prefab using the async event system
-			bool saveSuccessful = await Voltage.Core.GetGlobalManager<ImGuiManager>().InvokePrefabCreated(Entity, true);
+			bool saveSuccessful = await DataManager.Instance.InvokePrefabCreated(Entity, true);
 
 			if (saveSuccessful)
 			{

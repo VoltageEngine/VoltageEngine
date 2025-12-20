@@ -4,67 +4,41 @@ using Voltage;
 namespace Voltage.Editor.Persistence
 {
 	/// <summary>
-	/// Tracks and persists the last opened scene across sessions using EditorSettingsLoader.
+	/// Tracks and persists the last opened scene path across sessions using EditorSettingsLoader.
 	/// </summary>
 	public static class PersistentScene
 	{
 		private const string SettingsKey = "PersistentScene";
-		private const string DefaultSceneName = "";
+		private const string DefaultScenePath = "";
 
 		/// <summary>
-		/// Gets the fully qualified type name of the last opened scene.
+		/// Gets the last opened scene path (can be absolute or relative to the Scenes folder).
 		/// </summary>
-		public static string GetLastSceneName()
+		public static string GetLastScenePath()
 		{
-			return EditorSettingsLoader.LoadSetting(SettingsKey, DefaultSceneName);
+			return EditorSettingsLoader.LoadSetting(SettingsKey, DefaultScenePath);
 		}
 
 		/// <summary>
-		/// Saves the current scene's type name.
+		/// Saves the current scene path.
 		/// </summary>
-		/// <param name="scene">The scene to remember</param>
-		public static void SetLastScene(Scene scene)
+		public static void SetLastScenePath(string scenePath)
 		{
-			if (scene == null)
+			if (string.IsNullOrWhiteSpace(scenePath))
+			{
+				Clear();
 				return;
+			}
 
-			var sceneTypeName = scene.GetType().AssemblyQualifiedName;
-			EditorSettingsLoader.SaveSetting(SettingsKey, sceneTypeName);
+			EditorSettingsLoader.SaveSetting(SettingsKey, scenePath);
 		}
 
 		/// <summary>
-		/// Attempts to create an instance of the last opened scene.
-		/// </summary>
-		/// <returns>A new instance of the last scene, or null if it cannot be created</returns>
-		public static Scene CreateLastScene()
-		{
-			var sceneTypeName = GetLastSceneName();
-			
-			if (string.IsNullOrEmpty(sceneTypeName))
-				return null;
-
-			try
-			{
-				var sceneType = Type.GetType(sceneTypeName);
-				
-				if (sceneType == null || !typeof(Scene).IsAssignableFrom(sceneType))
-					return null;
-
-				return (Scene)Activator.CreateInstance(sceneType);
-			}
-			catch (Exception ex)
-			{
-				Debug.Log(Debug.LogType.Error, $"Failed to create last scene from type '{sceneTypeName}': {ex.Message}");
-				return null;
-			}
-		}
-
-		/// <summary>
-		/// Clears the last scene setting.
+		/// Clears the stored scene reference.
 		/// </summary>
 		public static void Clear()
 		{
-			EditorSettingsLoader.SaveSetting(SettingsKey, DefaultSceneName);
+			EditorSettingsLoader.SaveSetting(SettingsKey, DefaultScenePath);
 		}
 	}
 }

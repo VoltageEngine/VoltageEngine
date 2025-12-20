@@ -137,7 +137,7 @@ namespace Voltage.Editor.ProjectFile
 		/// </summary>
 		private void LoadSettings()
 		{
-			var settingsPath = Path.Combine(ProjectPath, "settings.json");
+			var settingsPath = Path.Combine(ProjectPath, "ProjectSettings.json");
 			
 			// Try to load from settings.json first (the source of truth)
 			if (File.Exists(settingsPath))
@@ -156,7 +156,7 @@ namespace Voltage.Editor.ProjectFile
 				}
 				catch (Exception ex)
 				{
-					EditorProcessDebugger.LogError($"Failed to load settings.json: {ex.Message}", "RuntimeGameProject");
+					EditorProcessDebugger.LogError($"Failed to load ProjectSettings.json: {ex.Message}", "RuntimeGameProject");
 				}
 			}
 			
@@ -166,7 +166,6 @@ namespace Voltage.Editor.ProjectFile
 				_settings = _metadata.Settings;
 				EditorProcessDebugger.LogInfo("Using settings from project metadata", "RuntimeGameProject");
 				
-				// Save to settings.json for future use
 				try
 				{
 					var settingsJson = Voltage.Persistence.Json.ToJson(_settings, new Voltage.Persistence.JsonSettings
@@ -174,55 +173,20 @@ namespace Voltage.Editor.ProjectFile
 						PrettyPrint = true
 					});
 					File.WriteAllText(settingsPath, settingsJson, new System.Text.UTF8Encoding(false));
-					EditorProcessDebugger.LogInfo($"Created settings.json at: {settingsPath}", "RuntimeGameProject");
+					EditorProcessDebugger.LogInfo($"Created ProjectSettings.json at: {settingsPath}", "RuntimeGameProject");
 				}
 				catch (Exception ex)
 				{
-					EditorProcessDebugger.LogError($"Failed to create settings.json: {ex.Message}", "RuntimeGameProject");
+					EditorProcessDebugger.LogError($"Failed to create ProjectSettings.json: {ex.Message}", "RuntimeGameProject");
 				}
 			}
 			else
 			{
-				// Create default settings if nothing exists
-				_settings = CreateDefaultSettings();
+				_settings = new ProjectCreator().CreateDefaultSettings();
 				EditorProcessDebugger.LogWarning("No settings found, created default settings", "RuntimeGameProject");
 			}
 		}
 		
-		/// <summary>
-		/// Creates default settings as a last resort.
-		/// </summary>
-		private ProjectSettings CreateDefaultSettings()
-		{
-			return new ProjectSettings
-			{
-				Display = new ProjectSettings.DisplaySettings
-				{
-					ScreenWidth = 1280,
-					ScreenHeight = 720,
-					IsFullscreen = false,
-					EnableVSync = true
-				},
-				Audio = new ProjectSettings.AudioSettings
-				{
-					MasterVolume = 1.0f,
-					MusicVolume = 0.8f,
-					SFXVolume = 1.0f
-				},
-				DesignResolution = new ProjectSettings.DesignResolutionSettings
-				{
-					Width = 1280,
-					Height = 720,
-					ResolutionPolicy = Scene.SceneResolutionPolicy.BestFit,
-					HorizontalBleed = 0,
-					VerticalBleed = 0
-				},
-				Physics = new ProjectSettings.PhysicsSettings(),
-				Rendering = new ProjectSettings.RenderingSettings(),
-				Entities = new ProjectSettings.EntitySettings(),
-				ContentDirectory = "Content"
-			};
-		}
 		
 		private void ApplyGameSettings()
 		{

@@ -127,7 +127,7 @@ public class GameScene : SceneComponent
         }
         else
         {
-	        Scene.SceneData = DataLoader.LoadSceneData(ProjectManager.Instance.CurrentProject.ScenesFolder);
+	        Scene.SceneData = DataManager.Instance.LoadSceneData(ProjectManager.Instance.CurrentProject.ScenesFolder);
         }
 
         if (Scene.SceneData == null)
@@ -154,7 +154,7 @@ public class GameScene : SceneComponent
 
             if (sceneEntitiesByName.TryGetValue(Scene.Entities[i].Name, out var sceneEntityData))
             {
-                DataLoader.LoadPredefinedEntityData(Scene.Entities[i], sceneEntityData);
+				DataManager.Instance.LoadPredefinedEntityData(Scene.Entities[i], sceneEntityData);
                 
                 // Check if this entity needs parent assignment later
                 if (!string.IsNullOrEmpty(Scene.Entities[i].GetData<string>("_PendingParentName")))
@@ -173,7 +173,7 @@ public class GameScene : SceneComponent
             entity.Type = sceneEntity.InstanceType;
             Scene.AddEntity(entity);
             
-            DataLoader.LoadPredefinedEntityData(entity, sceneEntity);
+            DataManager.Instance.LoadPredefinedEntityData(entity, sceneEntity);
 
             // Check if this entity needs parent assignment later
             if (!string.IsNullOrEmpty(entity.GetData<string>("_PendingParentName")))

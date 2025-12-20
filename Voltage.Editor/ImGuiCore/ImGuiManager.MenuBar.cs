@@ -215,6 +215,19 @@ public partial class ImGuiManager
 
 			if (ImGui.MenuItem("Save Scene", "Ctrl+S"))
 			{
+				if (Core.Scene == null)
+				{
+					Debug.Error("No active scene to save!");
+					return;
+				}
+
+				if (!SceneManager.Instance.HasLoadedScene)
+				{
+					_newSceneNameForSave = "NewScene";
+					_showCreateSceneForSavePrompt = true;
+					Debug.Error("No Scene has been loaded yet!");
+					return;
+				}
 				InvokeSaveSceneChanges();
 			}
 

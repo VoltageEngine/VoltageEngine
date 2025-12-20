@@ -279,10 +279,6 @@ public class Scene
 	/// </summary>
 	public virtual void Initialize()
 	{
-		if (SceneData != null && SceneData.Entities != null && SceneData.Entities.Count > 0)
-		{
-			LoadSceneEntitiesData();
-		}
 	}
 
 	/// <summary>
@@ -301,6 +297,12 @@ public class Scene
 
 	public virtual void Begin()
 	{
+		// Load entities from SceneData AFTER the scene is set as active
+		if (SceneData != null && SceneData.Entities != null && SceneData.Entities.Count > 0)
+		{
+			LoadSceneEntitiesData();
+		}
+
 		if (_renderers.Length == 0)
 		{
 			AddRenderer(new DefaultRenderer());
@@ -1315,7 +1317,7 @@ public class Scene
 	#region Scene Serialization
 
 	/// <summary>
-	/// Loads a scene from a JSON file path
+	/// Loads a scene from a .vscene file path
 	/// </summary>
 	public static Scene LoadFromFile(string scenePath)
 	{
@@ -1334,7 +1336,7 @@ public class Scene
 		try
 		{
 			var jsonContent = File.ReadAllText(scenePath);
-			var sceneData = Voltage.Persistence.Json.FromJson<SceneData>(jsonContent);
+			var sceneData = Persistence.Json.FromJson<SceneData>(jsonContent);
 			
 			if (sceneData == null)
 			{
@@ -1418,7 +1420,6 @@ public class Scene
 		{
 			sceneData.Name = SceneData.Name;
 			sceneData.CreatedAt = SceneData.CreatedAt;
-			sceneData.Description = SceneData.Description;
 			sceneData.TiledMapFileName = SceneData.TiledMapFileName;
 			sceneData.EditorData = SceneData.EditorData != null 
 				? new Dictionary<string, string>(SceneData.EditorData) 
@@ -1548,10 +1549,8 @@ public class Scene
 			return;
 		}
 		
-		// Store the SceneData reference
 		SceneData = sceneData;
 		
-		// Apply scene settings
 		ClearColor = sceneData.ClearColor;
 		LetterboxColor = sceneData.LetterboxColor;
 		EnablePostProcessing = sceneData.EnablePostProcessing;
@@ -1566,15 +1565,15 @@ public class Scene
 				sceneData.HorizontalBleed,
 				sceneData.VerticalBleed
 			);
+
+			// The actual entity loading will happen in Begin() via LoadSceneEntitiesData()
+			Debug.Log($"Applied scene data for: {sceneData.Name}");
 		}
 		else
 		{
 			Debug.Warn($"Unknown resolution policy: {sceneData.ResolutionPolicy}, using default");
 			SetDesignResolution(1920, 1080, SceneResolutionPolicy.BestFit);
 		}
-		
-		// The actual entity loading will happen in Begin() via LoadSceneEntitiesData()
-		Debug.Log($"Applied scene data for: {sceneData.Name}");
 	}
 
 	/// <summary>
@@ -1594,7 +1593,6 @@ public class Scene
 		for (var i = 0; i < SceneData.Entities.Count; i++)
 			sceneEntitiesByName[SceneData.Entities[i].Name] = SceneData.Entities[i];
 
-		// Track entities that need parent assignment
 		var entitiesNeedingParents = new List<Entity>();
 
 		// NonSerialized entities (already in the scene, like camera)
@@ -1619,14 +1617,11 @@ public class Scene
 			if (sceneEntity.InstanceType == Entity.InstanceType.NonSerialized)
 				continue;
 
-			// Create entity
 			var entity = new Entity(sceneEntity.Name);
 			entity.Type = sceneEntity.InstanceType;
 			AddEntity(entity);
-			
 			LoadEntityData(entity, sceneEntity);
 
-			// Check if this entity needs parent assignment later
 			if (!string.IsNullOrEmpty(entity.GetData<string>("_PendingParentName")))
 				entitiesNeedingParents.Add(entity);
 		}
