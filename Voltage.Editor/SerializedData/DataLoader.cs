@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using Voltage.Data;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Interfaces;
-using Voltage.Editor.ProjectManagement;
+using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Utils;
 using Voltage.Persistence;
@@ -21,8 +21,9 @@ namespace Voltage.Editor.SerializedData;
 public class DataLoader
 {
     public bool HasExitedEditorMode = false;
+    private ImGuiManager _imGuiManager;
 
-    public DataLoader(ImGuiManager imGuiManager)
+	public DataLoader(ImGuiManager imGuiManager)
     {
         _imGuiManager = imGuiManager;
         Core.Emitter.AddObserver(CoreEvents.SceneChanged, OnSceneChanged);
@@ -33,7 +34,6 @@ public class DataLoader
         _imGuiManager.OnLoadEntityData += OnLoadEntityData;
     }
 
-    private ImGuiManager _imGuiManager;
     
     private void ChangedToPlayMode()
     {
@@ -74,21 +74,21 @@ public class DataLoader
 
     #region Load Methods
 
-    public static SceneData LoadSceneData(Voltage.Scene scene)
+    public static SceneData LoadSceneData(Scene scene)
     {
-        var outputFile = $"Content/Data/Scene/{scene.GetType().Name}.json";
+        var outputFile = $"{ProjectManager.Instance.CurrentProject.ScenesFolder}/{scene.GetType().Name}.vscene";
         var outputExists = File.Exists(outputFile);
         var filePath = string.Empty;
 
         if (outputExists)
         {
-            filePath = File.ReadAllText($"Content/Data/Scene/{scene.GetType().Name}.json");
+            filePath = File.ReadAllText(outputFile);
         }
         else
         {
 #if DEBUG
              NotificationSystem.ShowTimedNotification(
-                $"The JSON file for this {scene.GetType().Name} scene hasn't been created yet. Create it by saving the scene");
+                $"The .vscene file for this {scene.GetType().Name} scene hasn't been created yet. Create it by saving the scene");
 #endif
             return null;
         }
@@ -101,7 +101,7 @@ public class DataLoader
         catch (SerializationException args)
         {
             throw new SerializationException($"Failed to serialize JSON file: " +
-                                             $"'Content/Data/Scene/{scene.GetType().Name}.json' into SceneData!", args);
+                                             $"{outputFile}' into SceneData!", args);
         }
 
     }
@@ -113,19 +113,6 @@ public class DataLoader
 	private async Task SaveSceneChanges()
     {
         await SaveSceneDataAsync(Core.Scene, HasExitedEditorMode);
-
-		//TODO: Implement new Saving System
-		// var sceneManager = SceneManager.Instance;
-		//
-		// // Just save the scene - it handles everything internally now
-		// bool success = sceneManager.SaveCurrentScene();
-		//
-		// if (!success)
-		// {
-		// 	NotificationSystem.ShowTimedNotification("Failed to save scene!");
-		// 	return;
-		// }
-		//
 
 		if (HasExitedEditorMode)
             NotificationSystem.ShowTimedNotification(
@@ -139,8 +126,8 @@ public class DataLoader
 	//TODO: Rework for it to utilize the custom directories of current GameProject
     public static async Task SaveSceneDataAsync(Voltage.Scene scene, bool ignoreEntityTransform)
     {
-        var sourceFilePath = $"{Environment.CurrentDirectory}/Content/Data/Scene/{scene.GetType().Name}.json";
-        var outputFilePath = $"Content/Data/Scene/{scene.GetType().Name}.json";
+        var sourceFilePath = $"{Environment.CurrentDirectory}/Content/Data/Scene/{scene.GetType().Name}.vscene";
+        var outputFilePath = $"Content/Data/Scene/{scene.GetType().Name}.vscene";
 
         SceneData oldSceneData = null;
         var oldDataExists = File.Exists(sourceFilePath);
@@ -211,7 +198,6 @@ public class DataLoader
             {
                 InstanceType = entity.Type,
                 Name = entity.Name,
-                EntityType = entity.GetType().Name,
                 // Use the determined transform values
                 Position = positionToSave,
                 Rotation = rotationToSave,
@@ -330,7 +316,6 @@ public class DataLoader
             TypeNameHandling = TypeNameHandling.Auto,
             PreserveReferencesHandling = false
         };
-
         try
         {
             var jsonData = Json.ToJson(newSceneData, settings);
@@ -532,8 +517,8 @@ public class DataLoader
                 ? prefabEntity.OriginalPrefabName
                 : prefabEntity.Name;
 
-            var sourceFilePath = $"{prefabsDirectory}/{prefabFileName}.json";
-            var outputFilePath = $"{outputDirectory}/{prefabFileName}.json";
+            var sourceFilePath = $"{prefabsDirectory}/{prefabFileName}.vscene";
+            var outputFilePath = $"{outputDirectory}/{prefabFileName}.vscene";
 
             if (File.Exists(sourceFilePath) && !overrideExistingPrefab)
             {
@@ -614,7 +599,6 @@ public class DataLoader
                     {
                         InstanceType = childEntity.Type,
                         Name = childEntity.Name,
-                        EntityType = childEntity.GetType().Name,
                         Position = childEntity.Transform.LocalPosition,
                         Rotation = childEntity.Transform.LocalRotation,
                         Scale = childEntity.Transform.LocalScale,
@@ -666,7 +650,7 @@ public class DataLoader
             
             foreach (var entityTypeDir in entityTypeDirectories)
             {
-                var prefabFilePath = Path.Combine(entityTypeDir, $"{prefabName}.json");
+                var prefabFilePath = Path.Combine(entityTypeDir, $"{prefabName}.vscene");
                 
                 if (File.Exists(prefabFilePath))
                 {

@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Voltage.Editor.EditorDebug;
-using Voltage.Editor.ProjectManagement;
+using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Utils;
 
 namespace Voltage.Editor.Tools;

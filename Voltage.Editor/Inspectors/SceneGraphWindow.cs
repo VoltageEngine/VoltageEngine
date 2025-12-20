@@ -8,7 +8,6 @@ using Voltage.Utils;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Inspectors.SceneGraphPanes;
-using Voltage.Editor.ProjectManagement;
 using Voltage.Editor.Undo;
 using Voltage.Editor.Utils;
 using Num = System.Numerics;

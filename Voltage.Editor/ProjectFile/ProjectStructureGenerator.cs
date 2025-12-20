@@ -1,11 +1,8 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using Voltage.Editor.EditorDebug;
-using Voltage.Utils;
 
-namespace Voltage.Editor.ProjectManagement
+namespace Voltage.Editor.ProjectFile
 {
 	/// <summary>
 	/// Generates Visual Studio solution and project files for game projects

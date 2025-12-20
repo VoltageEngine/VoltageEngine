@@ -1,11 +1,10 @@
-using Microsoft.Xna.Framework.Content;
 using System;
 using System.IO;
+using Microsoft.Xna.Framework.Content;
 using Voltage.Editor.EditorDebug;
-using Voltage.Editor.Scenes;
-using Voltage.Utils;
+using Voltage.Editor.SceneFile;
 
-namespace Voltage.Editor.ProjectManagement
+namespace Voltage.Editor.ProjectFile
 {
 	/// <summary>
 	/// Runtime implementation of IGameProject that loads project data from ProjectMetadata.

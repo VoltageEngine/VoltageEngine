@@ -6,7 +6,8 @@ using Microsoft.Xna.Framework.Input;
 using Voltage.Console;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Persistence;
-using Voltage.Editor.Scenes;
+using Voltage.Editor.ProjectFile;
+using Voltage.Editor.SceneFile;
 using Voltage.Utils;
 using Voltage.Utils.Coroutines;
 
@@ -29,28 +30,28 @@ public class Editor : Core
 
 		if (Screen.ActualMonitorWidth <= 1920)
 		{
-			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 12); // Normal
-			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 14); // Info
-			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 16); // Warn
-			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 18); // Error
+			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 12); // Normal
+			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 14); // Info
+			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 16); // Warn
+			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 18); // Error
 			options.FontSizeMultiplier = 1f;
 			DebugConsole.RenderScale = 2f;
 		}
 		else if (Screen.ActualMonitorWidth < 3840)
 		{
-			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 16); 
-			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 18); 
-			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 20); 
-			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 22); 
+			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 16); 
+			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 18); 
+			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 20); 
+			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 22); 
 			options.FontSizeMultiplier = 1.1f;
 			DebugConsole.RenderScale = 3f;
 		}
 		else
 		{
-			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 20); 
-			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 22); 
-			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 24); 
-			options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 26); 
+			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 20); 
+			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 22); 
+			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 24); 
+			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 26); 
 			options.FontSizeMultiplier = 1.2f;
 			DebugConsole.RenderScale = 4f;
 		}
@@ -124,7 +125,7 @@ public class Editor : Core
 		}
 
 		Debug.Warn("No last scene found, loading default EMPTY SCENE");
-		return new EmptyScene();
+		return new Scene();
 	}
 
 	protected override void Update(GameTime gameTime)
@@ -172,7 +173,7 @@ public class Editor : Core
 			{
 				Debug.Log($"Loading project from command line: {projectPath}");
 				
-				var projectManager = ProjectManagement.ProjectManager.Instance;
+				var projectManager = ProjectManager.Instance;
 				bool success = projectManager.LoadProject(projectPath);
 				
 				if (success)

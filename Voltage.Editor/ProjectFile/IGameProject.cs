@@ -1,8 +1,7 @@
-﻿using Microsoft.Xna.Framework.Content;
-using System;
-using System.Collections.Generic;
+﻿using System;
+using Microsoft.Xna.Framework.Content;
 
-namespace Voltage.Editor.ProjectManagement
+namespace Voltage.Editor.ProjectFile
 {
 	public interface IGameProject
 	{

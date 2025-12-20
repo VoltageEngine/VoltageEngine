@@ -1,13 +1,13 @@
-using ImGuiNET;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using ImGuiNET;
 using Voltage.Editor.Utils;
 using Voltage.Utils;
 
-namespace Voltage.Editor.ProjectManagement
+namespace Voltage.Editor.ProjectFile
 {
 	/// <summary>
 	/// ImGui window for editing project settings at runtime.
