@@ -177,19 +177,16 @@ namespace Voltage.Editor.ProjectFile
 		private void ValidateProjectName()
 		{
 			_projectNameError = "";
-			
+
+			// Don't show error for empty field while typing
 			if (string.IsNullOrWhiteSpace(_projectName))
 			{
-				return; // Don't show error for empty field while typing
+				return; 
 			}
 			
-			// Check if path is valid
 			if (!string.IsNullOrWhiteSpace(_projectPath))
 			{
-				var fullProjectPath = Path.Combine(_projectPath, _projectName);
-				
-				// Check if directory already exists
-				if (Directory.Exists(fullProjectPath))
+				if (Directory.Exists(Path.Combine(_projectPath, _projectName)))
 				{
 					_projectNameError = $"Error: A project with the name '{_projectName}' already exists at this location.";
 				}
@@ -399,7 +396,8 @@ namespace Voltage.Editor.ProjectFile
 				ResetFields();
 			}
 		}
-		
+
+		#region Actual Project Creation
 		private void CreateProject()
 		{
 			EditorProcessDebugger.LogInfo("=== Starting Project Creation ===", "ProjectCreation");
@@ -438,70 +436,8 @@ namespace Voltage.Editor.ProjectFile
 				Directory.CreateDirectory(dataPath);
 				Directory.CreateDirectory(scenesPath);
 				Directory.CreateDirectory(prefabsPath);
-				
-				var settings = new ProjectSettings
-				{
-					Display = new ProjectSettings.DisplaySettings
-					{
-						ScreenWidth = _screenWidth,
-						ScreenHeight = _screenHeight,
-						IsFullscreen = _isFullscreen,
-						EnableVSync = _enableVSync
-					},
-					Audio = new ProjectSettings.AudioSettings
-					{
-						MasterVolume = _masterVolume,
-						MusicVolume = _musicVolume,
-						SFXVolume = _sfxVolume
-					},
-					DesignResolution = new ProjectSettings.DesignResolutionSettings
-					{
-						Width = _screenWidth,  // Use screen width as default design width
-						Height = _screenHeight, // Use screen height as default design height
-						ResolutionPolicy = Scene.SceneResolutionPolicy.BestFit,
-						HorizontalBleed = 0,
-						VerticalBleed = 0
-					},
-					Physics = new ProjectSettings.PhysicsSettings
-					{
-						PhysicsLayers = new Dictionary<string, int>
-						{
-							{ "Default", 0 },
-							{ "Ground", 1 },
-							{ "Player", 2 },
-							{ "Enemy", 3 },
-							{ "Projectile", 4 }
-						}
-					},
-					Rendering = new ProjectSettings.RenderingSettings
-					{
-						RenderingLayers = new Dictionary<string, int>
-						{
-							{ "Lighting", 100 },
-							{ "BehindAll", 99 },
-							{ "HideObject", 30 },
-							{ "Background", 0 },
-							{ "Entities", 1 },
-							{ "Foreground", -2 },
-							{ "InFrontOfAll", -30 },
-							{ "UIElement", -99 }
-						}
-					},
-					Entities = new ProjectSettings.EntitySettings
-					{
-						EntityTags = new Dictionary<string, int>
-						{
-							{ "Default", 0 },
-							{ "Player", 1 },
-							{ "Enemy", 2 },
-							{ "Collectible", 3 },
-							{ "Environment", 4 }
-						}
-					},
-					ContentDirectory = "Content"
-				};
-				
-				// Create Version
+
+				var settings = CreateDefaultSettings();
 				var version = new Version(_majorVersion, _minorVersion, _buildVersion);
 				
 				// Generate project structure (solution, csproj, folders, etc.)
@@ -518,7 +454,6 @@ namespace Voltage.Editor.ProjectFile
 					return;
 				}
 				
-				// Create project metadata
 				var projectMetadata = new ProjectMetadata
 				{
 					ProjectName = _projectName,
@@ -544,7 +479,7 @@ namespace Voltage.Editor.ProjectFile
 				File.WriteAllText(metadataPath, metadataJson, new System.Text.UTF8Encoding(false));
 				
 				// Save settings
-				var settingsPath = Path.Combine(fullProjectPath, "settings.json");
+				var settingsPath = Path.Combine(fullProjectPath, "ProjectSettings.json");
 				var settingsJson = Voltage.Persistence.Json.ToJson(settings, new Voltage.Persistence.JsonSettings
 				{
 					PrettyPrint = true
@@ -552,7 +487,7 @@ namespace Voltage.Editor.ProjectFile
 				File.WriteAllText(settingsPath, settingsJson, new System.Text.UTF8Encoding(false));
 				
 				// Create a default scene file
-				CreateDefaultScene(scenesPath, _projectName);
+				CreateDefaultScene(scenesPath);
 				
 				// Load the newly created project as the current project
 				var projectManager = ProjectManager.Instance;
@@ -593,9 +528,9 @@ namespace Voltage.Editor.ProjectFile
 			}
 		}
 		
-		private void CreateDefaultScene(string scenesPath, string projectName)
+		private void CreateDefaultScene(string scenesPath)
 		{
-			var defaultScenePath = Path.Combine(scenesPath, "MainScene.json");
+			var defaultScenePath = Path.Combine(scenesPath, "MainScene.vscene");
 			var defaultSceneData = new SceneData();
 			
 			var sceneJson = Voltage.Persistence.Json.ToJson(defaultSceneData, new Voltage.Persistence.JsonSettings
@@ -605,7 +540,8 @@ namespace Voltage.Editor.ProjectFile
 			
 			File.WriteAllText(defaultScenePath, sceneJson, new System.Text.UTF8Encoding(false));
 		}
-		
+		#endregion
+
 		private void ResetFields()
 		{
 			_projectName = "";
@@ -629,30 +565,66 @@ namespace Voltage.Editor.ProjectFile
 			}
 		}
 		
-		private ProjectSettings CreateDefaultSettings()
+		public ProjectSettings CreateDefaultSettings()
 		{
 			return new ProjectSettings
 			{
 				Display = new ProjectSettings.DisplaySettings
 				{
-					ScreenWidth = 1280,
-					ScreenHeight = 720,
-					IsFullscreen = false,
-					EnableVSync = true
+					ScreenWidth = _screenWidth,
+					ScreenHeight = _screenHeight,
+					IsFullscreen = _isFullscreen,
+					EnableVSync = _enableVSync
 				},
 				Audio = new ProjectSettings.AudioSettings
 				{
-					MasterVolume = 1.0f,
-					MusicVolume = 0.8f,
-					SFXVolume = 1.0f
+					MasterVolume = _masterVolume,
+					MusicVolume = _musicVolume,
+					SFXVolume = _sfxVolume
 				},
 				DesignResolution = new ProjectSettings.DesignResolutionSettings
 				{
-					Width = 1280,
-					Height = 720,
+					Width = _screenWidth,  // Use screen width as default design width
+					Height = _screenHeight, // Use screen height as default design height
 					ResolutionPolicy = Scene.SceneResolutionPolicy.BestFit,
 					HorizontalBleed = 0,
 					VerticalBleed = 0
+				},
+				Physics = new ProjectSettings.PhysicsSettings
+				{
+					PhysicsLayers = new Dictionary<string, int>
+					{
+						{ "Default", 0 },
+						{ "Ground", 1 },
+						{ "Player", 2 },
+						{ "Enemy", 3 },
+						{ "Projectile", 4 }
+					}
+				},
+				Rendering = new ProjectSettings.RenderingSettings
+				{
+					RenderingLayers = new Dictionary<string, int>
+					{
+						{ "Lighting", 100 },
+						{ "BehindAll", 99 },
+						{ "HideObject", 30 },
+						{ "Background", 0 },
+						{ "Entities", 1 },
+						{ "Foreground", -2 },
+						{ "InFrontOfAll", -30 },
+						{ "UIElement", -99 }
+					}
+				},
+				Entities = new ProjectSettings.EntitySettings
+				{
+					EntityTags = new Dictionary<string, int>
+					{
+						{ "Default", 0 },
+						{ "Player", 1 },
+						{ "Enemy", 2 },
+						{ "Collectible", 3 },
+						{ "Environment", 4 }
+					}
 				},
 				ContentDirectory = "Content"
 			};

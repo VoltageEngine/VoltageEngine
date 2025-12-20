@@ -21,6 +21,7 @@ using Voltage.Editor.Persistence;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.SceneFile;
 using Voltage.Editor.Scripting;
+using Voltage.Editor.SerializedData;
 using Voltage.Editor.Tools;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Utils;
@@ -70,9 +71,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private DebugWindow _debugWindow = new();
 	private ProjectCreator _projectCreator = new();
 	private SceneCreator _sceneCreator = new();
-
 	private ProjectManager _projectManager;
-
+	private DataManager _dataManager;
+	
 	private Num.Vector2 normalEntityInspectorStartPos;
 	private int entitynspectorInitialSpawnOffset = 0;
 	private static int entitynspectorSpawnOffsetIncremental = 20;
@@ -166,38 +167,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	#endregion
 
-	#region Event Handlers
-
-	/// <summary>
-	/// Can be used to wait for the scene changes to happen first.
-	/// </summary>
-	public event Func<Task> OnSaveSceneAsync;
-
-	public event Func<Entity, bool, Task<bool>> OnPrefabCreated;
-	public event Func<string, PrefabData> OnPrefabLoadRequested;
-	public event Action<Entity, object> OnLoadEntityData; // Add this for loading entity data
-
-
-	#region Scene Saving
-	public void InvokeSaveSceneChanges()
-	{
-		if (Core.Scene == null)
-		{
-			NotificationSystem.ShowTimedNotification("No active scene to save!");
-			return;
-		}
-
-		// Check if we're trying to save a scene that hasn't been created yet
-		var sceneManager = SceneManager.Instance;
-		if (!sceneManager.HasLoadedScene)
-		{
-			_newSceneNameForSave = "NewScene";
-			_showCreateSceneForSavePrompt = true;
-			return;
-		}
-
-		OnSaveSceneAsync?.Invoke();
-	}
+	#region Scene Saving UI
 
 	private void DrawCreateSceneForSavePrompt()
 	{
@@ -234,7 +204,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			{
 				var scenePath = Path.Combine(
 					_projectManager.CurrentProject.ScenesFolder,
-					$"{_newSceneNameForSave}.cs"
+					$"{_newSceneNameForSave}.vscene"
 				);
 				sceneExists = File.Exists(scenePath);
 			}
@@ -297,7 +267,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		try
 		{
 			var sceneManager = SceneManager.Instance;
-			
+
 			// Create and save the new scene file
 			if (sceneManager.CreateSceneFile(sceneName))
 			{
@@ -305,39 +275,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			}
 			else
 			{
-				Debug.Info($"Failed to create scene: {sceneName}");
+				Debug.Error($"Failed to create scene: {sceneName}");
 			}
 		}
 		catch (Exception ex)
 		{
 			Debug.Error($"Failed to create scene: {ex.Message}");
 		}
-	}
-
-#endregion
-	public async Task<bool> InvokePrefabCreated(Entity prefabEntity, bool overrideExistingPrefab)
-	{
-		if (OnPrefabCreated != null)
-		{
-			return await OnPrefabCreated.Invoke(prefabEntity, overrideExistingPrefab);
-		}
-
-		return false;
-	}
-
-	public PrefabData InvokePrefabLoadRequested(string prefabName)
-	{
-		if (OnPrefabLoadRequested != null)
-		{
-			return OnPrefabLoadRequested.Invoke(prefabName);
-		}
-
-		return new PrefabData();
-	}
-
-	public void InvokeLoadEntityData(Entity entity, object entityData)
-	{
-		OnLoadEntityData?.Invoke(entity, entityData);
 	}
 
 	#endregion
@@ -393,6 +337,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		_effectBuildProgressWindow = new EffectBuildProgressWindow();
 
+		_dataManager = DataManager.Instance;
+
 		// Create default Main Entity Inspector window when current scene is finished loading the entities
 		Scene.OnFinishedAddingEntitiesWithData += OpenMainEntityInspector;
 		Core.EmitterWithPending.AddObserver(CoreEvents.Exiting, OnAppExitSaveChanges);
@@ -405,7 +351,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		MainEntityInspector = new MainEntityInspector(this, null);
 
-		// Initialize project manager first
+		// Initialize project manager
 		_projectManager = ProjectManager.Instance;
 		_projectManager.OnProjectLoaded += OnProjectLoaded;
 		_projectManager.OnProjectUnloaded += OnProjectUnloaded;
@@ -413,8 +359,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		InitializeScriptManager();
 	}
-
-
 
 	private void OnSceneLoadedHandler(string scenePath)
 	{
@@ -775,7 +719,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			Core.InvokeSwitchEditMode(!Core.IsEditMode);
 
 		if (ImGui.GetIO().KeyCtrl && ImGui.IsKeyPressed(ImGuiKey.S, false))
+		{
 			InvokeSaveSceneChanges();
+		}
 
 		if (ImGui.IsKeyPressed(ImGuiKey.F6, false))
 			_scriptManager?.ReloadScene();
@@ -788,6 +734,40 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (ImGui.GetIO().KeySuper && ImGui.IsKeyPressed(ImGuiKey.Q, false) && !_pendingExit)
 			OnAppExitSaveChanges(true);
 #endif
+	}
+
+	/// <summary>
+	/// Invokes scene save through DataManager with proper UI validation.
+	/// </summary>
+	private void InvokeSaveSceneChanges()
+	{
+		if (Core.Scene == null)
+		{
+			Debug.Error("No active scene to save!");
+			NotificationSystem.ShowTimedNotification("No active scene to save!");
+			return;
+		}
+
+		if (!SceneManager.Instance.HasLoadedScene)
+		{
+			_newSceneNameForSave = "NewScene";
+			_showCreateSceneForSavePrompt = true;
+			return;
+		}
+
+		// Schedule the async save operation
+		Core.Schedule(0f, false, this, async _ =>
+		{
+			try
+			{
+				await _dataManager.SaveSceneChangesAsync();
+			}
+			catch (Exception ex)
+			{
+				Debug.Error($"Failed to save scene: {ex.Message}");
+				NotificationSystem.ShowTimedNotification($"Save failed: {ex.Message}");
+			}
+		});
 	}
 
 	private void ManageUndoAndRedo()
@@ -1296,7 +1276,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				actionContext = "resetting the scene";
 			else if (popupId.Contains("ProjectClose"))
 				actionContext = "closing the project";
-			
+
 			ImGui.Text("You have unsaved changes!");
 			ImGui.Spacing();
 
@@ -1426,8 +1406,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private async Task SaveSceneAsyncAndThenAct()
 	{
-		if (OnSaveSceneAsync != null)
-			await OnSaveSceneAsync();
+		await _dataManager.SaveSceneChangesAsync();
 	}
 
 	#endregion

@@ -17,7 +17,6 @@ namespace Voltage.Editor.ProjectFile
 		private PersistentString _recentProjects = new("ProjectManager_RecentProjects", "");
 		private const int MaxRecentProjects = 10;
 
-
 		#region Singleton/Instance Access
 
 		private static ProjectManager _instance;
@@ -52,14 +51,8 @@ namespace Voltage.Editor.ProjectFile
 		
 		#region Properties
 		
-		/// <summary>
-		/// The currently active game project.
-		/// </summary>
 		public IGameProject CurrentProject { get; private set; }
-		
-		/// <summary>
-		/// The path to the last opened project.
-		/// </summary>
+
 		public string LastProjectPath
 		{
 			get => _lastProjectPath.Value;
@@ -75,15 +68,8 @@ namespace Voltage.Editor.ProjectFile
 		
 		#region Events
 		
-		/// <summary>
-		/// Invoked when a project is loaded.
-		/// </summary>
 		public event Action<IGameProject> OnProjectLoaded;
-		/// <summary>
-		/// Invoked when a project is changed (old project unloaded, new one loaded).
-		/// </summary>
 		public event Action<IGameProject, IGameProject> OnProjectChanged;
-
 		public event Action OnProjectUnloaded;
 
 		#endregion
@@ -199,43 +185,6 @@ namespace Voltage.Editor.ProjectFile
 		}
 		
 		/// <summary>
-		/// Loads a project from a directory by searching for a .voltage file.
-		/// If multiple .voltage files exist, loads the first one found.
-		/// </summary>
-		/// <param name="projectDirectory">Directory containing the .voltage file</param>
-		/// <returns>True if the project was loaded successfully</returns>
-		public bool LoadProjectFromDirectory(string projectDirectory)
-		{
-			if (string.IsNullOrWhiteSpace(projectDirectory))
-			{
-				Debug.Error("Project directory cannot be null or empty.");
-				return false;
-			}
-			
-			if (!Directory.Exists(projectDirectory))
-			{
-				Debug.Error($"Project directory not found: {projectDirectory}");
-				return false;
-			}
-			
-			// Look for .voltage files in the directory
-			var voltageFiles = Directory.GetFiles(projectDirectory, "*.voltage");
-			
-			if (voltageFiles.Length == 0)
-			{
-				Debug.Error($"No .voltage file found in directory: {projectDirectory}");
-				return false;
-			}
-			
-			if (voltageFiles.Length > 1)
-			{
-				Debug.Warn($"Multiple .voltage files found in directory: {projectDirectory}. Loading the first one.");
-			}
-			
-			return LoadProject(voltageFiles[0]);
-		}
-		
-		/// <summary>
 		/// Unloads the current project.
 		/// </summary>
 		public void UnloadCurrentProject()
@@ -247,13 +196,10 @@ namespace Voltage.Editor.ProjectFile
 			}
 			
 			var project = CurrentProject;
-			
 			project.UnloadContent();
 			Debug.Log($"Unloaded project: {project.ProjectName}");
 			
-			// Clear current project
 			CurrentProject = null;
-			
 			OnProjectUnloaded?.Invoke();
 		}
 		
@@ -283,13 +229,10 @@ namespace Voltage.Editor.ProjectFile
 		{
 			var recentProjects = GetRecentProjects();
 			
-			// Remove if already exists
+			// Remove and add to front if already exists
 			recentProjects.Remove(projectPath);
-			
-			// Add to front
 			recentProjects.Insert(0, projectPath);
 			
-			// Limit to max recent projects
 			if (recentProjects.Count > MaxRecentProjects)
 			{
 				recentProjects = recentProjects.Take(MaxRecentProjects).ToList();
@@ -305,7 +248,6 @@ namespace Voltage.Editor.ProjectFile
 		public void ClearRecentProjects()
 		{
 			_recentProjects.Value = "";
-			EditorProcessDebugger.Log("Cleared recent projects list.");
 		}
 		
 		#endregion

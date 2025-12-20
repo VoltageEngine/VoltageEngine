@@ -6,6 +6,8 @@ using ImGuiNET;
 using Voltage.Utils;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Inspectors.ObjectInspectors;
+using Voltage.Editor.ProjectFile;
+using Voltage.Editor.SerializedData;
 using Voltage.Editor.Undo;
 using Voltage.Editor.Utils;
 using Voltage.Persistence;
@@ -442,7 +444,7 @@ public class EntityInspector
 	/// </summary>
 	private bool CheckPrefabExists(string prefabName)
 	{
-		var prefabFilePath = $"Content/Data/Prefabs/{prefabName}.json";
+		var prefabFilePath = $"{Path.Combine(ProjectManager.Instance.CurrentProject.PrefabsFolder, prefabName)}.prefab";
 		return File.Exists(prefabFilePath);
 	}
 
@@ -458,7 +460,7 @@ public class EntityInspector
 		
 		if (newPrefab != null)
 		{
-			bool saveSuccessful = await _imGuiManager.InvokePrefabCreated(newPrefab, false);
+			bool saveSuccessful = await DataManager.Instance.SavePrefabDataAsync(newPrefab, false);
 			
 			if (saveSuccessful)
 			{
@@ -762,7 +764,7 @@ public class EntityInspector
 		if (Entity != null && Entity.Type == Entity.InstanceType.SerializedPrefab &&
 		    !string.IsNullOrEmpty(Entity.OriginalPrefabName))
 		{
-			bool saveSuccessful = await Voltage.Core.GetGlobalManager<ImGuiManager>().InvokePrefabCreated(Entity, true);
+			bool saveSuccessful = await DataManager.Instance.InvokePrefabCreated(Entity, true);
 
 			if (saveSuccessful)
 			{

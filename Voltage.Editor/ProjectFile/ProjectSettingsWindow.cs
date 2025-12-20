@@ -568,7 +568,7 @@ namespace Voltage.Editor.ProjectFile
 			try
 			{
 				var project = _projectManager.CurrentProject;
-				var settingsPath = Path.Combine(project.ProjectPath, "settings.json");
+				var settingsPath = Path.Combine(project.ProjectPath, "ProjectSettings.json");
 				
 				// Update settings object
 				var settings = project.Settings;

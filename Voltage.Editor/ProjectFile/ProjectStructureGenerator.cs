@@ -229,7 +229,7 @@ namespace {projectName}
 			// Load game settings
 			var settingsPath = System.IO.Path.Combine(
 				AppContext.BaseDirectory, 
-				""settings.json""
+				""ProjectSettings.json""
 			);
 			
 			if (System.IO.File.Exists(settingsPath))

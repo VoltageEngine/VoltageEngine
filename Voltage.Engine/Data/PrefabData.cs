@@ -10,7 +10,6 @@ namespace Voltage.Data
     {
         public Entity.InstanceType InstanceType;
         public string Name;
-        public string EntityType;
         public float Rotation;
         public Vector2 Scale;
         public EntityData EntityData;
@@ -24,7 +23,6 @@ namespace Voltage.Data
         {
             InstanceType = Entity.InstanceType.SerializedPrefab;
             Name = "";
-            EntityType = "";
             Rotation = 0f;
             Scale = Vector2.One;
             EntityData = new EntityData();
