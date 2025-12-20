@@ -40,12 +40,12 @@ public class SceneData
 	/// <summary>
 	/// Background clear color for the scene
 	/// </summary>
-	public SerializableColor ClearColor { get; set; } = new SerializableColor(100, 149, 237, 255); // CornflowerBlue
+	public Color ClearColor { get; set; } = new Color(100, 149, 237, 255); // CornflowerBlue
 
 	/// <summary>
 	/// Letterbox color used when rendering
 	/// </summary>
-	public SerializableColor LetterboxColor { get; set; } = new SerializableColor(0, 0, 0, 255); // Black
+	public Color LetterboxColor { get; set; } = new Color(0, 0, 0, 255); // Black
 
 	/// <summary>
 	/// Resolution policy for the scene
@@ -112,12 +112,11 @@ public class SceneData
 	{
 		public Entity.InstanceType InstanceType { get; set; }
 		public string Name { get; set; }
-		public string EntityType { get; set; } = "Entity";
 
 		// Transform
-		public SerializableVector2 Position { get; set; }
+		public Vector2 Position { get; set; }
 		public float Rotation { get; set; }
-		public SerializableVector2 Scale { get; set; } = new SerializableVector2(1, 1);
+		public Vector2 Scale { get; set; } = new Vector2(1, 1);
 
 		// Hierarchy
 		public string ParentEntityName { get; set; }
@@ -138,53 +137,6 @@ public class SceneData
 
 	#endregion
 
-	#region Helper Structures
-
-	/// <summary>
-	/// Serializable Vector2 wrapper
-	/// </summary>
-	public class SerializableVector2
-	{
-		public float X { get; set; }
-		public float Y { get; set; }
-
-		public SerializableVector2() { }
-
-		public SerializableVector2(float x, float y)
-		{
-			X = x;
-			Y = y;
-		}
-
-		public static implicit operator Vector2(SerializableVector2 v) => new Vector2(v.X, v.Y);
-		public static implicit operator SerializableVector2(Vector2 v) => new SerializableVector2(v.X, v.Y);
-	}
-
-	/// <summary>
-	/// Serializable Color wrapper
-	/// </summary>
-	public class SerializableColor
-	{
-		public byte R { get; set; }
-		public byte G { get; set; }
-		public byte B { get; set; }
-		public byte A { get; set; }
-
-		public SerializableColor() { }
-
-		public SerializableColor(byte r, byte g, byte b, byte a)
-		{
-			R = r;
-			G = g;
-			B = b;
-			A = a;
-		}
-
-		public static implicit operator Color(SerializableColor c) => new Color(c.R, c.G, c.B, c.A);
-		public static implicit operator SerializableColor(Color c) => new SerializableColor(c.R, c.G, c.B, c.A);
-	}
-
-	#endregion
 
 	/// <summary>
 	/// Gets an entity by name from the scene data

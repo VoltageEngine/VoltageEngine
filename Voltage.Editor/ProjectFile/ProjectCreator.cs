@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using ImGuiNET;
 using Voltage.Data;
 using Voltage.Editor.EditorDebug;
@@ -13,7 +10,7 @@ using Voltage.Editor.Utils;
 using Voltage.Utils;
 using Num = System.Numerics;
 
-namespace Voltage.Editor.ProjectManagement
+namespace Voltage.Editor.ProjectFile
 {
 	/// <summary>
 	/// Handles the creation of new game projects through an ImGui popup interface

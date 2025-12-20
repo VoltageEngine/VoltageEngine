@@ -2,13 +2,11 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Voltage.Editor.EditorDebug;
 using Voltage.Editor.Persistence;
 using Voltage.Utils;
 
-namespace Voltage.Editor.ProjectManagement
+namespace Voltage.Editor.ProjectFile
 {
 	/// <summary>
 	/// Global manager that tracks the current and last opened IGameProject.
@@ -89,7 +87,6 @@ namespace Voltage.Editor.ProjectManagement
 		public event Action OnProjectUnloaded;
 
 		#endregion
-	
 
 		#region Initialization
 

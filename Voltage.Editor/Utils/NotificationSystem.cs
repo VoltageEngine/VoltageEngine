@@ -1,53 +1,122 @@
+using System;
+using System.Collections.Generic;
 using ImGuiNET;
 using Voltage.Utils;
 
 namespace Voltage.Editor.Utils;
 
-public class NotificationSystem
+public static class NotificationSystem
 {
-    private static string _notificationText = "";
-    private static float _notificationTimer;
-    private const float NotificationDuration = 4.5f; // Seconds
+	private static readonly Queue<string> _queue = new();
+	private static string _currentText = string.Empty;
+	private static float _timer;
 
-    public static void ShowTimedNotification(string text)
-    {
-        _notificationText = text;
-        _notificationTimer = NotificationDuration;
-    }
+	private const float NotificationDuration = 2.5f;
 
-    public static void Draw()
-    {
-        if (_notificationTimer > 0)
-        {
-            _notificationTimer -= Time.DeltaTime;
+	//TODO: Use this only for most important notification that we need to show the user
+	public static void ShowTimedNotification(string text)
+	{
+		if (string.IsNullOrWhiteSpace(text))
+			return;
 
-            // Calculate position
-            var viewport = ImGui.GetMainViewport();
-            var textSize = ImGui.CalcTextSize(_notificationText);
-            var windowPos = new System.Numerics.Vector2(
-                (viewport.Size.X - textSize.X) * 0.5f, // Center horizontally
-                viewport.Size.Y * 0.2f // 20% from top
-            );
+		_queue.Enqueue(text);
 
-            // Set up window
-            ImGui.SetNextWindowPos(windowPos, ImGuiCond.Always);
-            ImGui.SetNextWindowBgAlpha(0.35f); // Transparent background
-            ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 5f);
+		// If nothing is currently playing, start immediately
+		if (string.IsNullOrEmpty(_currentText))
+		{
+			AdvanceQueue();
+		}
+	}
 
-            // Begin notification window
-            if (ImGui.Begin("##Notification",
-                    ImGuiWindowFlags.NoDecoration |
-                    ImGuiWindowFlags.NoInputs |
-                    ImGuiWindowFlags.AlwaysAutoResize |
-                    ImGuiWindowFlags.NoSavedSettings))
-            {
-                // Fade out effect
-                var alpha = Mathf.Clamp01(_notificationTimer);
-                ImGui.TextColored(new System.Numerics.Vector4(1, 1, 1, alpha), _notificationText);
-            }
+	private static void AdvanceQueue()
+	{
+		if (_queue.Count > 0)
+		{
+			_currentText = _queue.Dequeue();
+			_timer = NotificationDuration;
+		}
+		else
+		{
+			_currentText = string.Empty;
+		}
+	}
 
-            ImGui.End();
-            ImGui.PopStyleVar();
-        }
-    }
+	public static void Draw()
+	{
+		if (string.IsNullOrEmpty(_currentText))
+			return;
+
+		_timer -= Time.DeltaTime;
+		if (_timer <= 0f)
+		{
+			AdvanceQueue();
+			return;
+		}
+
+		DrawMainNotification(ImGui.GetMainViewport());
+		DrawNextPreview(ImGui.GetMainViewport());
+	}
+
+	private static void DrawMainNotification(ImGuiViewportPtr viewport)
+	{
+		var alpha = Mathf.Clamp01(_timer / NotificationDuration);
+		var textSize = ImGui.CalcTextSize(_currentText);
+
+		var pos = new System.Numerics.Vector2(
+			(viewport.Size.X - textSize.X) * 0.5f,
+			viewport.Size.Y * 0.2f
+		);
+
+		ImGui.SetNextWindowPos(pos, ImGuiCond.Always);
+		ImGui.SetNextWindowBgAlpha(0.35f);
+		ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 6f);
+
+		if (ImGui.Begin("##NotificationMain",
+			ImGuiWindowFlags.NoDecoration |
+			ImGuiWindowFlags.NoInputs |
+			ImGuiWindowFlags.AlwaysAutoResize |
+			ImGuiWindowFlags.NoSavedSettings))
+		{
+			ImGui.TextColored(
+				new System.Numerics.Vector4(1, 1, 1, alpha),
+				_currentText
+			);
+		}
+
+		ImGui.End();
+		ImGui.PopStyleVar();
+	}
+
+	private static void DrawNextPreview(ImGuiViewportPtr viewport)
+	{
+		if (_queue.Count == 0)
+			return;
+
+		var nextText = _queue.Peek();
+		var textSize = ImGui.CalcTextSize(nextText);
+
+		var pos = new System.Numerics.Vector2(
+			(viewport.Size.X - textSize.X) * 0.5f,
+			viewport.Size.Y * 0.2f + 40f // offset under main box
+		);
+
+		ImGui.SetNextWindowPos(pos, ImGuiCond.Always);
+		ImGui.SetNextWindowBgAlpha(0.15f);
+		ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 4f);
+
+		if (ImGui.Begin("##NotificationPreview",
+			ImGuiWindowFlags.NoDecoration |
+			ImGuiWindowFlags.NoInputs |
+			ImGuiWindowFlags.AlwaysAutoResize |
+			ImGuiWindowFlags.NoSavedSettings))
+		{
+			ImGui.TextColored(
+				new System.Numerics.Vector4(1, 1, 1, 0.5f),
+				nextText
+			);
+		}
+
+		ImGui.End();
+		ImGui.PopStyleVar();
+	}
 }

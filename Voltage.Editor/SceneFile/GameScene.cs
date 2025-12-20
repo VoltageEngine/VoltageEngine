@@ -1,28 +1,27 @@
-﻿using Microsoft.Xna.Framework;
-using Voltage.Data;
-using Voltage.Sprites;
-using Voltage.Tiled;
-using Voltage.Utils.Extensions;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using Microsoft.Xna.Framework;
+using Voltage.Data;
 using Voltage.DeferredLighting;
-using Voltage.Textures;
-using Voltage.Editor.Inspectors;
 using Voltage.Editor.FilePickers;
-using Voltage.Editor.ProjectManagement;
+using Voltage.Editor.Inspectors;
+using Voltage.Editor.ProjectFile;
 using Voltage.Editor.SerializedData;
 using Voltage.Editor.Undo.AssetActions;
-using Voltage.Editor.Utils;
-using Voltage.Utils;
 using Voltage.Editor.Undo.Core;
-using Voltage.Persistence;
+using Voltage.Editor.Utils;
+using Voltage.Sprites;
+using Voltage.Textures;
+using Voltage.Tiled;
+using Voltage.Utils;
+using Voltage.Utils.Extensions;
 
-namespace Voltage.Editor.Scenes;
+namespace Voltage.Editor.SceneFile;
 
-public class GameScene : Scene
+public class GameScene : Voltage.Scene
 {
     public TmxMap TiledMap;
     public Entity TiledMapEntity;// Create a dedicated TiledMapEntity to hold TiledMap

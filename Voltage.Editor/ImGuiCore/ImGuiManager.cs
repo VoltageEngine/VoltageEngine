@@ -18,7 +18,8 @@ using Voltage.Editor.Inspectors;
 using Voltage.Editor.Inspectors.CustomInspectors;
 using Voltage.Editor.Interfaces;
 using Voltage.Editor.Persistence;
-using Voltage.Editor.ProjectManagement;
+using Voltage.Editor.ProjectFile;
+using Voltage.Editor.SceneFile;
 using Voltage.Editor.Scripting;
 using Voltage.Editor.Tools;
 using Voltage.Editor.Undo.Core;
@@ -289,7 +290,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	{
 		if (!_projectManager.HasActiveProject)
 		{
-			NotificationSystem.ShowTimedNotification("No active project!");
+			Debug.Error("No active project!");
 			return;
 		}
 
@@ -300,16 +301,15 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			// Create and save the new scene file
 			if (sceneManager.CreateSceneFile(sceneName))
 			{
-				NotificationSystem.ShowTimedNotification($"Scene created and saved: {sceneName}");
+				Debug.Info($"Scene created and saved: {sceneName}");
 			}
 			else
 			{
-				NotificationSystem.ShowTimedNotification($"Failed to create scene: {sceneName}");
+				Debug.Info($"Failed to create scene: {sceneName}");
 			}
 		}
 		catch (Exception ex)
 		{
-			NotificationSystem.ShowTimedNotification($"Failed to create scene: {ex.Message}");
 			Debug.Error($"Failed to create scene: {ex.Message}");
 		}
 	}

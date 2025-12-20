@@ -3,12 +3,12 @@ using System.IO;
 using ImGuiNET;
 using Voltage.Data;
 using Voltage.Editor.EditorDebug;
-using Voltage.Editor.Tools;
+using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Utils;
 using Voltage.Utils;
 using Num = System.Numerics;
 
-namespace Voltage.Editor.ProjectManagement
+namespace Voltage.Editor.SceneFile
 {
 	/// <summary>
 	/// Handles the creation of new scene files through an ImGui popup interface.
@@ -74,7 +74,7 @@ namespace Voltage.Editor.ProjectManagement
 			
 			if (ImGui.IsItemHovered())
 			{
-				ImGui.SetTooltip("Name of the new scene file (without .json extension)");
+				ImGui.SetTooltip("Name of the new scene file (without .scene extension)");
 			}
 			
 			// Display error message if there's an error
@@ -133,7 +133,7 @@ namespace Voltage.Editor.ProjectManagement
 			
 			var buttonWidth = 120f;
 			var spacing = 10f;
-			var totalButtonWidth = (buttonWidth * 2) + spacing;
+			var totalButtonWidth = buttonWidth * 2 + spacing;
 			var windowWidth = ImGui.GetWindowSize().X;
 			var centerStart = (windowWidth - totalButtonWidth) * 0.5f;
 			

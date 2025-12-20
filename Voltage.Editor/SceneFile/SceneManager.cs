@@ -5,10 +5,11 @@ using System.Linq;
 using Microsoft.Xna.Framework;
 using Voltage.Data;
 using Voltage.Editor.EditorDebug;
+using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Utils;
 using Voltage.Utils;
 
-namespace Voltage.Editor.ProjectManagement
+namespace Voltage.Editor.SceneFile
 {
     /// <summary>
     /// Manages scene creation, loading, and saving for the current project.
@@ -64,17 +65,11 @@ namespace Voltage.Editor.ProjectManagement
         #region Scene File Management
         
         /// <summary>
-        /// Gets the standard path for scene JSON files
+        /// Gets the standard path for scene files
         /// </summary>
-        private string GetSceneJsonPath(string sceneName)
+        private string GetScenePath(string sceneName)
         {
-            return Path.Combine(
-                Environment.CurrentDirectory,
-                "Content",
-                "Data",
-                "Scenes",
-                $"{sceneName}.json"
-            );
+            return Path.Combine(ProjectManager.Instance.CurrentProject.ScenesFolder, $"{sceneName}.vscene");
         }
         
         /// <summary>
@@ -82,7 +77,7 @@ namespace Voltage.Editor.ProjectManagement
         /// </summary>
         public List<string> GetAllSceneFiles()
         {
-            var scenesDir = Path.Combine(Environment.CurrentDirectory, "Content", "Data", "Scenes");
+            var scenesDir = ProjectManager.Instance.CurrentProject.ScenesFolder;
             
             if (!Directory.Exists(scenesDir))
             {
@@ -90,7 +85,7 @@ namespace Voltage.Editor.ProjectManagement
                 return new List<string>();
             }
             
-            return Directory.GetFiles(scenesDir, "*.json", SearchOption.TopDirectoryOnly).ToList();
+            return Directory.GetFiles(scenesDir, "*.vscene", SearchOption.TopDirectoryOnly).ToList();
         }
         
         /// <summary>
@@ -109,7 +104,7 @@ namespace Voltage.Editor.ProjectManagement
         /// </summary>
         public bool SceneExists(string sceneName)
         {
-            var scenePath = GetSceneJsonPath(sceneName);
+            var scenePath = GetScenePath(sceneName);
             return File.Exists(scenePath);
         }
         
@@ -146,13 +141,10 @@ namespace Voltage.Editor.ProjectManagement
                     Entities = new List<SceneData.SceneEntityData>()
                 };
                 
-                // Apply default settings
                 scene.SetDesignResolution(1920, 1080, Scene.SceneResolutionPolicy.BestFit);
                 
                 CurrentSceneName = sceneName;
                 CurrentScenePath = null; // Not saved yet
-                
-                Debug.Log($"Created new scene: {sceneName}");
                 OnSceneCreated?.Invoke(sceneName);
                 
                 return scene;
@@ -169,7 +161,7 @@ namespace Voltage.Editor.ProjectManagement
         #region Scene Loading
         
         /// <summary>
-        /// Loads a scene from a JSON file and sets it as the active scene
+        /// Loads a scene from a .vscene file and sets it as the active scene
         /// </summary>
         public bool LoadScene(string scenePath)
         {
@@ -205,10 +197,8 @@ namespace Voltage.Editor.ProjectManagement
                 
                 // Set as active scene
                 Core.Scene = scene;
-                
                 Debug.Log($"Successfully loaded scene: {CurrentSceneName}");
                 OnSceneLoaded?.Invoke(scenePath);
-                NotificationSystem.ShowTimedNotification($"Scene loaded: {CurrentSceneName}");
                 
                 return true;
             }
@@ -216,7 +206,6 @@ namespace Voltage.Editor.ProjectManagement
             {
                 Debug.Error($"Failed to load scene from '{scenePath}': {ex.Message}");
                 Debug.Error($"Stack trace: {ex.StackTrace}");
-                NotificationSystem.ShowTimedNotification($"Failed to load scene: {ex.Message}");
                 return false;
             }
         }
@@ -226,7 +215,7 @@ namespace Voltage.Editor.ProjectManagement
         /// </summary>
         public bool LoadSceneByName(string sceneName)
         {
-            var scenePath = GetSceneJsonPath(sceneName);
+            var scenePath = GetScenePath(sceneName);
             return LoadScene(scenePath);
         }
         
@@ -260,9 +249,8 @@ namespace Voltage.Editor.ProjectManagement
                 
                 if (success)
                 {
-                    Debug.Log($"Successfully saved scene: {CurrentSceneName}");
+                    Debug.Info($"Successfully saved scene: {CurrentSceneName}");
                     OnSceneSaved?.Invoke(CurrentScenePath);
-                    NotificationSystem.ShowTimedNotification($"Scene saved: {CurrentSceneName}");
                 }
                 
                 return success;
@@ -276,62 +264,12 @@ namespace Voltage.Editor.ProjectManagement
         }
         
         /// <summary>
-        /// Saves the current scene with a new name
-        /// </summary>
-        public bool SaveSceneAs(string sceneName)
-        {
-            if (Core.Scene == null)
-            {
-                Debug.Error("No active scene to save");
-                return false;
-            }
-
-            var scenePath = GetSceneJsonPath(sceneName);
-            
-            EditorProcessDebugger.LogInfo($"=== Saving Scene As ===", "SceneManagement");
-            EditorProcessDebugger.LogInfo($"New scene name: {sceneName}", "SceneManagement");
-            EditorProcessDebugger.LogInfo($"Scene file: {scenePath}", "SceneManagement");
-            
-            try
-            {
-                // Update scene name in SceneData
-                if (Core.Scene.SceneData != null)
-                {
-                    Core.Scene.SceneData.Name = sceneName;
-                }
-                
-                bool success = Core.Scene.SaveToFile(scenePath);
-                
-                if (success)
-                {
-                    CurrentScenePath = scenePath;
-                    CurrentSceneName = sceneName;
-                    
-                    Debug.Log($"Successfully saved scene as: {sceneName}");
-                    OnSceneSaved?.Invoke(scenePath);
-                    OnSceneCreated?.Invoke(sceneName);
-                    NotificationSystem.ShowTimedNotification($"Scene saved as: {sceneName}");
-                }
-                
-                return success;
-            }
-            catch (Exception ex)
-            {
-                Debug.Error($"Failed to save scene as '{sceneName}': {ex.Message}");
-                NotificationSystem.ShowTimedNotification($"Failed to save scene: {ex.Message}");
-                return false;
-            }
-        }
-        
-        /// <summary>
         /// Sets the current scene path (used when creating new scenes before first save)
         /// </summary>
         public void SetCurrentScenePath(string scenePath, string sceneName = null)
         {
             CurrentScenePath = scenePath;
             CurrentSceneName = sceneName ?? Path.GetFileNameWithoutExtension(scenePath);
-            
-            Debug.Log($"Set current scene: {CurrentSceneName} at {scenePath}");
         }
         
         /// <summary>
@@ -348,25 +286,25 @@ namespace Voltage.Editor.ProjectManagement
                 return false;
             }
 
-            var sceneJsonPath = GetSceneJsonPath(sceneName);
+            var sceneFilePath = GetScenePath(sceneName);
 
             // Check if file already exists
-            if (File.Exists(sceneJsonPath))
+            if (File.Exists(sceneFilePath))
             {
-                Debug.Error($"Scene file already exists: {sceneJsonPath}");
+                Debug.Error($"Scene file already exists: {sceneFilePath}");
                 return false;
             }
 
             EditorProcessDebugger.LogInfo($"=== Creating Scene File ===", "SceneManagement");
             EditorProcessDebugger.LogInfo($"Scene name: {sceneName}", "SceneManagement");
-            EditorProcessDebugger.LogInfo($"Scene path: {sceneJsonPath}", "SceneManagement");
+            EditorProcessDebugger.LogInfo($"Scene path: {sceneFilePath}", "SceneManagement");
             
             try
             {
                 // Initialize SceneData if needed OR update the name if it exists
                 if (Core.Scene.SceneData == null)
                 {
-                    Core.Scene.SceneData = new SceneData
+					Core.Scene.SceneData = new SceneData
                     {
                         Name = sceneName,
                         CreatedAt = DateTime.Now,
@@ -387,7 +325,7 @@ namespace Voltage.Editor.ProjectManagement
                 }
 
                 // Set current path
-                SetCurrentScenePath(sceneJsonPath, sceneName);
+                SetCurrentScenePath(sceneFilePath, sceneName);
 
                 // Save the scene
                 bool success = SaveCurrentScene();
@@ -441,8 +379,8 @@ namespace Voltage.Editor.ProjectManagement
         /// </summary>
         public bool DuplicateScene(string sourceSceneName, string newSceneName)
         {
-            var sourcePath = GetSceneJsonPath(sourceSceneName);
-            var destPath = GetSceneJsonPath(newSceneName);
+            var sourcePath = GetScenePath(sourceSceneName);
+            var destPath = GetScenePath(newSceneName);
             
             if (!File.Exists(sourcePath))
             {
@@ -499,7 +437,7 @@ namespace Voltage.Editor.ProjectManagement
         /// </summary>
         public bool DeleteScene(string sceneName)
         {
-            var scenePath = GetSceneJsonPath(sceneName);
+            var scenePath = GetScenePath(sceneName);
             
             if (!File.Exists(scenePath))
             {

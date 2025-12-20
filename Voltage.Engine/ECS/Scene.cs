@@ -1495,7 +1495,6 @@ public class Scene
 		{
 			InstanceType = entity.Type,
 			Name = entity.Name,
-			EntityType = entity.GetType().Name,
 			Position = positionToSave,
 			Rotation = rotationToSave,
 			Scale = scaleToSave,
@@ -1622,12 +1621,6 @@ public class Scene
 		// Serialized & SerializedPrefab entities (to be created now)
 		foreach (var sceneEntity in SceneData.Entities)
 		{
-			if (string.IsNullOrEmpty(sceneEntity.EntityType))
-			{
-				Debug.Error($"EntityType is null or empty for entity: {sceneEntity.Name}");
-				continue;
-			}
-
 			if (sceneEntity.InstanceType == Entity.InstanceType.NonSerialized)
 				continue;
 
@@ -1644,8 +1637,7 @@ public class Scene
 		}
 
 		AssignParentRelationships(entitiesNeedingParents);
-		
-		Debug.Log($"Loaded {SceneData.Entities.Count} entities from scene data");
+		Debug.Info($"Loaded {SceneData.Entities.Count} entities from scene data");
 	}
 
 	/// <summary>
