@@ -3,14 +3,18 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using ImGuiNET;
-using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Utils;
 
 namespace Voltage.Editor.Styling
 {
     public class LayoutManager
     {
-	    public bool HasPendingReload => _pendingLayoutReload;
+	    /// <summary>
+	    /// Filename pointer for the layout output path
+	    /// </summary>
+	    public byte[] LayoutInitPathUtf8;
+
+		public bool HasPendingReload => _pendingLayoutReload;
 
 	    private bool _pendingLayoutReload = false;
 	    private string _pendingLayoutContent = null;
@@ -19,6 +23,7 @@ namespace Voltage.Editor.Styling
         private readonly string _defaultContentLayoutPath;
         private List<string> _availableLayouts = new();
         private string _currentLayoutName = "Default";
+
 
         public LayoutManager(string defaultLayoutPath)
         {

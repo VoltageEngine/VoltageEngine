@@ -309,11 +309,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		// Set the ini file path BEFORE loading
 		unsafe
 		{
-			// This tells ImGui where to save/load settings
-			var iniPath = System.Text.Encoding.UTF8.GetBytes(_layoutFilePath + "\0");
-			fixed (byte* pathPtr = iniPath)
+			//Make GC does not collect LayoutInitPathUtf8 
+			_layoutManager.LayoutInitPathUtf8 = System.Text.Encoding.UTF8.GetBytes(_layoutFilePath + "\0");
+			fixed (byte* ptr = _layoutManager.LayoutInitPathUtf8)
 			{
-				ImGuiNative.igGetIO()->IniFilename = (byte*)pathPtr;
+				ImGuiNative.igGetIO()->IniFilename = ptr;
 			}
 		}
 
