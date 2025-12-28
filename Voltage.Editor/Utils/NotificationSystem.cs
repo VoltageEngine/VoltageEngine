@@ -13,7 +13,6 @@ public static class NotificationSystem
 
 	private const float NotificationDuration = 2.5f;
 
-	//TODO: Use this only for most important notification that we need to show the user
 	public static void ShowTimedNotification(string text)
 	{
 		if (string.IsNullOrWhiteSpace(text))

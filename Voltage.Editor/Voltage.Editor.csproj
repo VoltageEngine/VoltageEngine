@@ -100,22 +100,22 @@
 	  <None Remove="Icon.ico" />
 	</ItemGroup>
 	<ItemGroup>
-	  <Content Include="DefaultContent\UI\CursorSelection-UI-ColliderResize.png">
+	  <Content Include="DefaultContent\UI\Custom\CursorSelection-UI-ColliderResize.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
-	  <Content Include="DefaultContent\UI\CursorSelection-UI-Normal.png">
+	  <Content Include="DefaultContent\UI\Custom\CursorSelection-UI-Normal.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
-	  <Content Include="DefaultContent\UI\CursorSelection-UI-Resize.png">
+	  <Content Include="DefaultContent\UI\Custom\CursorSelection-UI-Resize.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
-	  <Content Include="DefaultContent\UI\CursorSelection-UI-Rotate.png">
+	  <Content Include="DefaultContent\UI\Custom\CursorSelection-UI-Rotate.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
-	  <Content Include="DefaultContent\UI\CursorSelection-UI.aseprite">
+	  <Content Include="DefaultContent\UI\Custom\CursorSelection-UI.aseprite">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
-	  <Content Include="DefaultContent\UI\Inspector-LockMode.aseprite">
+	  <Content Include="DefaultContent\UI\Custom\Inspector-LockMode.aseprite">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
 	</ItemGroup>
@@ -126,7 +126,8 @@
 
 	<ItemGroup>
 		<PackageReference Include="ImGui.NET" Version="1.89.5" />
-		<PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.4" />
+		<PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.5-preview.1" />
+		<PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5-preview.1" />
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
 	</ItemGroup>
 
@@ -161,6 +162,87 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
 	  <None Update="DefaultContent\Layouts\DefaultLayout.ini">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\alert-triangle.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\check-line.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\checkbox-circle.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\close-circle.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\close-line.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\download-line.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\error-warning-fill.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\export-fill.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\hand.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\image-fill.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\import-fill.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\information.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\pause-circle-fill.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\play-circle-fill.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\question-fill.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\record-circle-fill.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\settings-4-fill.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\alert-hexangular.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\star-fill.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\stop-circle-fill.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\upload-line.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\video-off-fill.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\video-on-fill.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\volume-mute-line.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\volume-up-line.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\zoom-in-fill.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DefaultContent\UI\RemixIcon\zoom-out-fill.png">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
 	</ItemGroup>

@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using ImGuiNET;
+using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Utils;
 using Voltage.Utils;
 
@@ -80,7 +81,7 @@ namespace Voltage.Editor.ProjectFile
 			if (!_projectManager.HasActiveProject)
 			{
 				_isOpen = false;
-				NotificationSystem.ShowTimedNotification("No active project to configure.");
+				EditorDebug.Log("No active project to configure.");
 				return;
 			}
 			
@@ -604,14 +605,14 @@ namespace Voltage.Editor.ProjectFile
 				ApplySettings();
 				
 				_hasUnsavedChanges = false;
-				NotificationSystem.ShowTimedNotification($"Project settings saved to {Path.GetFileName(settingsPath)}");
+				EditorDebug.Log($"Project settings saved to {Path.GetFileName(settingsPath)}");
 				
 				Debug.Log($"Project settings saved: {settingsPath}");
 			}
 			catch (Exception ex)
 			{
 				Debug.Error($"Failed to save project settings: {ex.Message}");
-				NotificationSystem.ShowTimedNotification($"Failed to save settings: {ex.Message}");
+				EditorDebug.Error($"Failed to save settings: {ex.Message}");
 			}
 		}
 		
@@ -629,13 +630,13 @@ namespace Voltage.Editor.ProjectFile
 				//TODO:AUDIO SETTINGS
 				//AudioManager.SetMasterVolume(_masterVolume);
 
-				NotificationSystem.ShowTimedNotification("Settings applied to current session");
+				EditorDebug.Log("Settings applied to current session");
 				Debug.Log("Project settings applied to runtime");
 			}
 			catch (Exception ex)
 			{
 				Debug.Error($"Failed to apply project settings: {ex.Message}");
-				NotificationSystem.ShowTimedNotification($"Failed to apply settings: {ex.Message}");
+				EditorDebug.Log($"Failed to apply settings: {ex.Message}");
 			}
 		}
 		

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Voltage.Editor.EditorDebug;
+using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Persistence;
 using Voltage.Utils;
 
@@ -165,7 +165,7 @@ namespace Voltage.Editor.ProjectFile
 				
 				ProjectSettings.Instance = project.Settings;
 				
-				Debug.Log($"Successfully loaded project: {project.ProjectName} from {voltageFilePath}");
+				EditorDebug.Log($"Successfully loaded project: {project.ProjectName} from {voltageFilePath}");
 				
 				// Invoke events
 				OnProjectLoaded?.Invoke(project);
@@ -197,7 +197,7 @@ namespace Voltage.Editor.ProjectFile
 			
 			var project = CurrentProject;
 			project.UnloadContent();
-			Debug.Log($"Unloaded project: {project.ProjectName}");
+			EditorDebug.Log($"Unloaded project: {project.ProjectName}");
 			
 			CurrentProject = null;
 			OnProjectUnloaded?.Invoke();

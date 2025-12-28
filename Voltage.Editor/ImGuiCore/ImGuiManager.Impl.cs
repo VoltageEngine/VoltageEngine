@@ -43,7 +43,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void LoadSettings()
 	{
-		var fileDataStore = Voltage.Core.Services.GetService<FileDataStore>() ??
+		var fileDataStore = Core.Services.GetService<FileDataStore>() ??
 		                    new FileDataStore(Storage.GetStorageRoot());
 		KeyValueDataStore.Default.Load(fileDataStore);
 
@@ -54,7 +54,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		PreserveGameWindowAspectRatio =
 			KeyValueDataStore.Default.GetBool(kPreserveGameWindowAspectRatio, PreserveGameWindowAspectRatio);
 
-		Voltage.Core.Emitter.AddObserver(CoreEvents.Exiting, PersistSettings);
+		Core.Emitter.AddObserver(CoreEvents.Exiting, PersistSettings);
 	}
 
 	private void PersistSettings()
@@ -65,7 +65,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		KeyValueDataStore.Default.Set(kShowSeperateGameWindow, ShowSeparateGameWindow);
 		KeyValueDataStore.Default.Set(kPreserveGameWindowAspectRatio, PreserveGameWindowAspectRatio);
 
-		KeyValueDataStore.Default.Flush(Voltage.Core.Services.GetOrAddService<FileDataStore>());
+		KeyValueDataStore.Default.Flush(Core.Services.GetOrAddService<FileDataStore>());
 	}
 
 	/// <summary>
@@ -104,13 +104,12 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (_lastRenderTarget == null)
 			return;
 
-		string gameWindowState = Voltage.Core.IsEditMode ? "Paused" : "Playing";
+		string gameWindowState = Core.IsEditMode ? "Paused" : "Playing";
 
 		ImGuiWindowFlags gameWindowFlags =
 			_gameWindowFlags | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse;
 
 		ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Num.Vector2(0, 0));
-
 		ImGui.Begin($"Game: {gameWindowState}###GameWindow", gameWindowFlags);
 
 		GameWindowWidth = ImGui.GetWindowSize().X;
@@ -161,7 +160,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		}
 
 		// NOW draw buttons and text on top using screen coordinates
-		var camera = Voltage.Core.Scene?.Camera;
+		var camera = Core.Scene?.Camera;
 		bool showZoomButton = camera != null && Math.Abs(camera.Zoom - Camera.DefaultZoom) > 0.01f;
 		bool showSpeedButton = Math.Abs(GetDynamicCameraSpeed() - EditModeCameraSpeed) > 0.1f;
 
@@ -207,7 +206,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		}
 
 		// Camera Speed Indicator at top-right
-		if (Voltage.Core.IsEditMode && Math.Abs(GetDynamicCameraSpeed() - EditModeCameraSpeed) > 0.1f)
+		if (Core.IsEditMode && Math.Abs(GetDynamicCameraSpeed() - EditModeCameraSpeed) > 0.1f)
 		{
 			var speedText = $"Camera Speed: {(int)GetDynamicCameraSpeed()}";
 			var speedTextSize = ImGui.CalcTextSize(speedText);
@@ -342,9 +341,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	public override void OnEnabled()
 	{
-		if (Voltage.Core.Scene != null)
+		if (Core.Scene != null)
 		{
-			Voltage.Core.Scene.FinalRenderDelegate = this;
+			Core.Scene.FinalRenderDelegate = this;
 
 			// why call beforeLayout here? If added from the DebugConsole we missed the GlobalManger.update call and ImGui needs NextFrame
 			// called or it fails. Calling NextFrame twice in a frame causes no harm, just missed input.
@@ -355,8 +354,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	public override void OnDisabled()
 	{
 		Unload();
-		if (Voltage.Core.Scene != null)
-			Voltage.Core.Scene.FinalRenderDelegate = null;
+		if (Core.Scene != null)
+			Core.Scene.FinalRenderDelegate = null;
 	}
 
 	public override void Update()
@@ -444,7 +443,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				else
 				{
 					pendingValue = false;
-					Voltage.Core.ConfirmAndExit();
+					Core.ConfirmAndExit();
 				}
 			}
 
@@ -479,7 +478,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 					_requestedResetSceneType = null;
 					break;
 				case ExitPromptType.Exit:
-					Voltage.Core.ConfirmAndExit();
+					Core.ConfirmAndExit();
 					_pendingExit = false;
 					break;
 			}
@@ -503,8 +502,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			if (_isFirstFrame || _layoutManager.HasPendingReload)
 			{
 				// Just render normally without separate game window
-				Voltage.Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
-				Voltage.Core.GraphicsDevice.Clear(letterboxColor);
+				Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
+				Core.GraphicsDevice.Clear(letterboxColor);
 				Graphics.Instance.Batcher.Begin(BlendState.Opaque, samplerState, null, null);
 				Graphics.Instance.Batcher.Draw(source, finalRenderDestinationRect, Color.White);
 				Graphics.Instance.Batcher.End();
@@ -545,14 +544,14 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 			DrawGameWindow();
 
-			Voltage.Core.GraphicsDevice.SamplerStates[0] = samplerState;
-			Voltage.Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
-			Voltage.Core.GraphicsDevice.Clear(letterboxColor);
+			Core.GraphicsDevice.SamplerStates[0] = samplerState;
+			Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
+			Core.GraphicsDevice.Clear(letterboxColor);
 		}
 		else
 		{
-			Voltage.Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
-			Voltage.Core.GraphicsDevice.Clear(letterboxColor);
+			Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
+			Core.GraphicsDevice.Clear(letterboxColor);
 			Graphics.Instance.Batcher.Begin(BlendState.Opaque, samplerState, null, null);
 			Graphics.Instance.Batcher.Draw(source, finalRenderDestinationRect, Color.White);
 			Graphics.Instance.Batcher.End();
@@ -586,7 +585,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			if (disposing)
 			{
-				Voltage.Core.Emitter.RemoveObserver(CoreEvents.SceneChanged, OnSceneChanged);
+				Core.Emitter.RemoveObserver(CoreEvents.SceneChanged, OnSceneChanged);
 				_layoutManager.AutoSaveCurrentLayout();
 
 				// Always save the default .ini for next startup
@@ -606,20 +605,4 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	}
 
 	#endregion
-
-	[Command("toggle-imgui", "Toggles the Dear ImGui renderer")]
-	public static void ToggleImGui()
-	{
-		// install the service if it isnt already there
-		var service = Voltage.Core.GetGlobalManager<ImGuiManager>();
-		if (service == null)
-		{
-			service = new ImGuiManager();
-			Voltage.Core.RegisterGlobalManager(service);
-		}
-		else
-		{
-			service.SetEnabled(!service.Enabled);
-		}
-	}
 }

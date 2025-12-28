@@ -1,8 +1,9 @@
-using System;
+	using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Timers;
+using Voltage.Editor.DebugUtils;
 
 namespace Voltage.Editor.Scripting
 {
@@ -108,7 +109,7 @@ namespace Voltage.Editor.Scripting
 		{
 			try
 			{
-				Debug.Log($"Hot reloading scripts: {string.Join(", ", changedFiles.Select(Path.GetFileName))}");
+				EditorDebug.Log($"Hot reloading scripts: {string.Join(", ", changedFiles.Select(Path.GetFileName))}");
 
 				var allScriptFiles = Directory.GetFiles(_scriptsDirectory, "*.cs", SearchOption.AllDirectories)
 					.Where(f => !f.Contains("obj") && !f.Contains("bin"))
@@ -116,7 +117,7 @@ namespace Voltage.Editor.Scripting
 
 				if (allScriptFiles.Count == 0)
 				{
-					Debug.Warn("No script files found to compile");
+					EditorDebug.Warn("No script files found to compile");
 					return;
 				}
 
@@ -128,7 +129,7 @@ namespace Voltage.Editor.Scripting
 
 				if (result.Success)
 				{
-					Debug.Log($"Successfully compiled {allScriptFiles.Count} script file(s)");
+					EditorDebug.Success($"Successfully compiled {allScriptFiles.Count} script file(s)");
 					OnCompilationComplete?.Invoke(result);
 				}
 				else

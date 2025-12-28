@@ -6,18 +6,13 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using Voltage;
-using Voltage.Data;
-using Voltage.Editor.EditorDebug;
-using Voltage.Editor.EditorStyling;
+using Voltage.Editor.DebugUtils;
+using Voltage.Editor.Styling;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Gizmos;
 using Voltage.Editor.Inspectors;
 using Voltage.Editor.Inspectors.CustomInspectors;
-using Voltage.Editor.Interfaces;
-using Voltage.Editor.Persistence;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.SceneFile;
 using Voltage.Editor.Scripting;
@@ -51,7 +46,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	// Public instances
 	public GizmoSelectionManager CursorSelectionManager => _cursorSelectionManager;
-	public ImguiImageLoader ImageLoader => _imageLoader;
 	public SceneGraphWindow SceneGraphWindow { get; private set; }
 	public MainEntityInspector MainEntityInspector { get; private set; }
 	public bool IsInspectorTabLocked = false;
@@ -85,7 +79,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private ImGuiRenderer _renderer;
 	private ImGuiInput _input = new ImGuiInput();
 	private GizmoSelectionManager _cursorSelectionManager;
-	private ImguiImageLoader _imageLoader;
 	private ImGuiWindowFlags _gameWindowFlags = 0;
 
 	private RenderTarget2D _lastRenderTarget;
@@ -332,8 +325,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		SceneGraphWindow = new SceneGraphWindow();
 		_cursorSelectionManager = new GizmoSelectionManager(this);
 
-		_imageLoader = new ImguiImageLoader();
-		_imageLoader.LoadImages(_renderer);
+		ImguiImageLoader.LoadImages(_renderer);
 
 		_effectBuildProgressWindow = new EffectBuildProgressWindow();
 
@@ -366,32 +358,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void OnSceneSavedHandler(string scenePath)
 	{
-	}
-
-	private void ApplyThemeByName(string themeName)
-	{
-		if (string.IsNullOrWhiteSpace(themeName))
-		{
-			// First time initialization - use default theme
-			VoltageEditorThemes.DarkTheme1();
-			_lastSelectedTheme.Value = "DarkTheme1"; // Save the default
-			return;
-		}
-
-		var themeMethod = typeof(VoltageEditorThemes).GetMethod(themeName,
-			System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
-
-		if (themeMethod != null)
-		{
-			themeMethod.Invoke(null, null);
-			Debug.Log($"Applied theme: {themeName}");
-		}
-		else
-		{
-			Debug.Warn($"Theme '{themeName}' not found, applying default");
-			VoltageEditorThemes.DarkTheme1();
-			_lastSelectedTheme.Value = "DarkTheme1"; // Save the fallback default
-		}
 	}
 
 	/// <summary>
@@ -590,18 +556,18 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 					if (success)
 					{
-						NotificationSystem.ShowTimedNotification(
+						EditorDebug.Log(
 							$"Project loaded: {_projectManager.CurrentProject.ProjectName}");
 					}
 					else
 					{
-						NotificationSystem.ShowTimedNotification(
-							"Failed to load project. Check the console for details.");
+						EditorDebug.Error(
+							"Failed to load project.");
 					}
 				}
 				else
 				{
-					NotificationSystem.ShowTimedNotification("Please select a valid .voltage file.");
+					EditorDebug.Warn("Please select a valid .voltage file.");
 				}
 
 				FilePicker.RemoveFilePicker(_projectFilePicker);
@@ -744,7 +710,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (Core.Scene == null)
 		{
 			Debug.Error("No active scene to save!");
-			NotificationSystem.ShowTimedNotification("No active scene to save!");
+			EditorDebug.Log("No active scene to save!");
 			return;
 		}
 
@@ -765,7 +731,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			catch (Exception ex)
 			{
 				Debug.Error($"Failed to save scene: {ex.Message}");
-				NotificationSystem.ShowTimedNotification($"Save failed: {ex.Message}");
+				EditorDebug.Log($"Save failed: {ex.Message}");
 			}
 		});
 	}
@@ -822,7 +788,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		ImGui.PushStyleColor(ImGuiCol.Button, normalButtonColor);
 		bool normalHovered =
-			ImGui.ImageButton("Normal", _imageLoader.NormalCursorIconID, new Num.Vector2(iconSize, iconSize));
+			ImGui.ImageButton("Normal", ImguiImageLoader.NormalCursorIconID, new Num.Vector2(iconSize, iconSize));
 		if (normalHovered)
 			_cursorSelectionManager.SelectionMode = CursorSelectionMode.Normal;
 		ImGui.PopStyleColor();
@@ -843,7 +809,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		ImGui.PushStyleColor(ImGuiCol.Button, resizeButtonColor);
 		bool resizeHovered =
-			ImGui.ImageButton("Resize", _imageLoader.ResizeCursorIconID, new Num.Vector2(iconSize, iconSize));
+			ImGui.ImageButton("Resize", ImguiImageLoader.ResizeCursorIconID, new Num.Vector2(iconSize, iconSize));
 		if (resizeHovered)
 			_cursorSelectionManager.SelectionMode = CursorSelectionMode.Resize;
 		ImGui.PopStyleColor();
@@ -864,7 +830,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		ImGui.PushStyleColor(ImGuiCol.Button, rotateButtonColor);
 		bool rotateHovered =
-			ImGui.ImageButton("Rotate", _imageLoader.RotateCursorIconID, new Num.Vector2(iconSize, iconSize));
+			ImGui.ImageButton("Rotate", ImguiImageLoader.RotateCursorIconID, new Num.Vector2(iconSize, iconSize));
 		if (rotateHovered)
 			_cursorSelectionManager.SelectionMode = CursorSelectionMode.Rotate;
 		ImGui.PopStyleColor();
@@ -885,7 +851,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		ImGui.PushStyleColor(ImGuiCol.Button, colliderResizeButtonColor);
 
-		bool colliderResizeHovered = ImGui.ImageButton("Collider Resize", _imageLoader.ColliderResizeCursorIconID,
+		bool colliderResizeHovered = ImGui.ImageButton("Collider Resize", ImguiImageLoader.ColliderResizeCursorIconID,
 			new Num.Vector2(iconSize, iconSize));
 		if (colliderResizeHovered)
 			_cursorSelectionManager.SelectionMode = CursorSelectionMode.ColliderResize;
@@ -1382,7 +1348,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		sceneManager.ClearCurrentScene();
 
 		_projectManager.UnloadCurrentProject();
-		NotificationSystem.ShowTimedNotification($"Project closed: {projectName}");
+		EditorDebug.Log($"Project closed: {projectName}");
 
 		EditorChangeTracker.Clear();
 	}

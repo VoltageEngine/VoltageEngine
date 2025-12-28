@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using ImGuiNET;
+using Voltage.Editor.DebugUtils;
 using Voltage.Sprites;
 using Voltage.Textures;
 using Voltage.Tiled;
@@ -784,12 +785,11 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                 if (!string.IsNullOrEmpty(errorMsg) || normalMapSprite == null)
                 {
                     _errorMessage = errorMsg ?? "Failed to load normal map.";
-                    NotificationSystem.ShowTimedNotification(_errorMessage);
+                    EditorDebug.Error(_errorMessage);
                 }
                 else
                 {
                     _errorMessage = "";
-                    NotificationSystem.ShowTimedNotification($"Normal map loaded: {relativePath}");
                 }
             }
         }

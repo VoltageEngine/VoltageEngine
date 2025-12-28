@@ -11,7 +11,7 @@ using Voltage.Utils.Collections;
 using Voltage.Utils.Extensions;
 using System.IO;
 using System.Linq;
-using Voltage.Editor.SerializedData;
+using Voltage.Serialization;
 
 
 namespace Voltage;
@@ -252,7 +252,6 @@ public class Scene
 
 	#endregion
 
-
 	public Scene()
 	{
 		Entities = new EntityList(this);
@@ -266,32 +265,14 @@ public class Scene
 		_resolutionPolicy = _defaultSceneResolutionPolicy;
 		_designResolutionSize = _defaultDesignResolutionSize;
 		_designBleedSize = _defaultDesignBleedSize;
-
-		Initialize();
 	}
 	
 	#region Scene lifecycle
 
 	/// <summary>
-	/// Load entities from SceneData if it exists.
-	/// override this in Scene subclasses and do your loading here. This is called from the contructor after the scene sets itself up but
-	/// before begin is ever called.
-	/// </summary>
-	public virtual void Initialize()
-	{
-	}
-
-	/// <summary>
 	/// override this in Scene subclasses. this will be called when Core sets this scene as the active scene.
 	/// </summary>
 	public virtual void OnStart()
-	{
-	}
-
-	/// <summary>
-	/// override this in Scene subclasses and do any unloading necessary here. this is called when Core removes this scene from the active slot.
-	/// </summary>
-	public virtual void Unload()
 	{
 	}
 
@@ -352,6 +333,13 @@ public class Scene
 			_destinationRenderTarget.Dispose();
 
 		Unload();
+	}
+
+	/// <summary>
+	/// override this in Scene subclasses and do any unloading necessary here. this is called when Core removes this scene from the active slot.
+	/// </summary>
+	public virtual void Unload()
+	{
 	}
 
 	/// <summary>
@@ -1347,13 +1335,12 @@ public class Scene
 			var scene = new Scene();
 			scene.ApplySceneData(sceneData);
 			
-			Debug.Log($"Successfully loaded scene: {sceneData.Name}");
 			return scene;
 		}
 		catch (Exception ex)
 		{
-			Debug.Error($"Failed to load scene from '{scenePath}': {ex.Message}");
-			Debug.Error($"Stack trace: {ex.StackTrace}");
+			Debug.Error($"Failed to load scene from '{scenePath}': {ex.Message}." +
+			            $" \n Stack trace: {ex.StackTrace}");
 			return null;
 		}
 	}
@@ -1373,6 +1360,7 @@ public class Scene
 		{
 			// Build scene data from current state
 			var sceneData = BuildSceneData();
+			sceneData.FilePath = scenePath;
 			
 			// Update modification time
 			sceneData.ModifiedAt = DateTime.Now;
@@ -1487,14 +1475,25 @@ public class Scene
 			scaleToSave = entity.Transform.Scale;
 		}
 
+		var existingId = Guid.Empty;
+		if (SceneData?.Entities != null)
+			existingId = SceneData.Entities.FirstOrDefault(e => string.Equals(e.Name, entity.Name, StringComparison.OrdinalIgnoreCase))?.Id ?? Guid.Empty;
+
+		Guid? parentId = null;
+		var parentName = entity.Transform.Parent?.Entity?.Name;
+		if (SceneData?.Entities != null && !string.IsNullOrWhiteSpace(parentName))
+			parentId = SceneData.Entities.FirstOrDefault(e => string.Equals(e.Name, parentName, StringComparison.OrdinalIgnoreCase))?.Id;
+
 		var entityData = new SceneData.SceneEntityData
 		{
+			Id = existingId != Guid.Empty ? existingId : Guid.NewGuid(),
+			ParentId = parentId,
 			InstanceType = entity.Type,
 			Name = entity.Name,
 			Position = positionToSave,
 			Rotation = rotationToSave,
 			Scale = scaleToSave,
-			ParentEntityName = entity.Transform.Parent?.Entity?.Name,
+			ParentEntityName = parentName,
 			Enabled = entity.Enabled,
 			UpdateOrder = entity.UpdateOrder,
 			Tag = entity.Tag,
@@ -1565,9 +1564,6 @@ public class Scene
 				sceneData.HorizontalBleed,
 				sceneData.VerticalBleed
 			);
-
-			// The actual entity loading will happen in Begin() via LoadSceneEntitiesData()
-			Debug.Log($"Applied scene data for: {sceneData.Name}");
 		}
 		else
 		{
@@ -1589,9 +1585,16 @@ public class Scene
 		}
 
 		var sceneEntitiesByName = new Dictionary<string, SceneData.SceneEntityData>(StringComparer.OrdinalIgnoreCase);
+		var sceneEntitiesById = new Dictionary<Guid, SceneData.SceneEntityData>();
 		
 		for (var i = 0; i < SceneData.Entities.Count; i++)
-			sceneEntitiesByName[SceneData.Entities[i].Name] = SceneData.Entities[i];
+		{
+			var e = SceneData.Entities[i];
+			if (!string.IsNullOrWhiteSpace(e.Name))
+				sceneEntitiesByName[e.Name] = e;
+			if (e.Id != Guid.Empty)
+				sceneEntitiesById[e.Id] = e;
+		}
 
 		var entitiesNeedingParents = new List<Entity>();
 
@@ -1648,28 +1651,36 @@ public class Scene
 		else
 			entity.OriginalPrefabName = null;
 
-		// Handle transform and parent assignment
-		if (!string.IsNullOrEmpty(entityData.ParentEntityName))
+		// Handle transform and parent assignment (prefer ParentId if present)
+		Entity parentEntity = null;
+		if (entityData.ParentId.HasValue && SceneData?.Entities != null)
 		{
-			var parentEntity = FindEntity(entityData.ParentEntityName);
-			if (parentEntity != null)
-			{
-				entity.Transform.SetParent(parentEntity.Transform);
-				entity.Transform.SetLocalPosition(entityData.Position);
-				entity.Transform.SetLocalRotation(entityData.Rotation);
-				entity.Transform.SetLocalScale(entityData.Scale);
-			}
-			else
-			{
-				// Parent not found yet, save for later
-				entity.SetData("_PendingParentName", entityData.ParentEntityName);
-				entity.SetData("_PendingLocalPosition", (Vector2)entityData.Position);
-				entity.SetData("_PendingLocalRotation", entityData.Rotation);
-				entity.SetData("_PendingLocalScale", (Vector2)entityData.Scale);
-			}
+			var parentSceneData = SceneData.Entities.FirstOrDefault(e => e.Id == entityData.ParentId.Value);
+			if (parentSceneData != null)
+				parentEntity = FindEntity(parentSceneData.Name);
+		}
+		if (parentEntity == null && !string.IsNullOrEmpty(entityData.ParentEntityName))
+			parentEntity = FindEntity(entityData.ParentEntityName);
+
+		if (parentEntity != null)
+		{
+			entity.Transform.SetParent(parentEntity.Transform);
+			entity.Transform.SetLocalPosition(entityData.Position);
+			entity.Transform.SetLocalRotation(entityData.Rotation);
+			entity.Transform.SetLocalScale(entityData.Scale);
 		}
 		else
 		{
+			// Parent not found yet, save for later
+			if (entityData.ParentId.HasValue)
+				entity.SetData("_PendingParentId", entityData.ParentId.Value);
+			else if (!string.IsNullOrEmpty(entityData.ParentEntityName))
+				entity.SetData("_PendingParentName", entityData.ParentEntityName);
+
+			entity.SetData("_PendingLocalPosition", (Vector2)entityData.Position);
+			entity.SetData("_PendingLocalRotation", entityData.Rotation);
+			entity.SetData("_PendingLocalScale", (Vector2)entityData.Scale);
+
 			entity.Transform.Position = entityData.Position;
 			entity.Transform.Rotation = entityData.Rotation;
 			entity.Transform.Scale = entityData.Scale;
@@ -1726,6 +1737,7 @@ public class Scene
 	/// </summary>
 	private bool TryAssignComponentData(Entity entity, Component component)
 	{
+		ComponentDataSerializationBootstrap.EnsureInitialized();
 		var entityData = entity.GetEntityData();
 
 		if (entityData == null || entityData.ComponentDataList == null)
@@ -1737,9 +1749,9 @@ public class Scene
 
 			if (component.Name == entry.ComponentName)
 			{
-				var dataType = ComponentDataTypeRegistrator.DataTypes.TryGetValue(entry.DataTypeName, out var t)
-					? t
-					: null;
+				Type dataType = null;
+				if (!string.IsNullOrWhiteSpace(entry.DataTypeName))
+					dataType = Type.GetType(entry.DataTypeName);
 
 				if (dataType != null)
 				{
@@ -1780,11 +1792,22 @@ public class Scene
 	{
 		foreach (var entity in entitiesNeedingParents)
 		{
-			var parentName = entity.GetData<string>("_PendingParentName");
-			if (string.IsNullOrEmpty(parentName))
-				continue;
+			Entity parentEntity = null;
+			var parentId = entity.GetData<Guid>("_PendingParentId");
+			if (parentId != Guid.Empty && SceneData?.Entities != null)
+			{
+				var parentSceneData = SceneData.Entities.FirstOrDefault(e => e.Id == parentId);
+				if (parentSceneData != null)
+					parentEntity = FindEntity(parentSceneData.Name);
+			}
 
-			var parentEntity = FindEntity(parentName);
+			if (parentEntity == null)
+			{
+				var parentName = entity.GetData<string>("_PendingParentName");
+				if (!string.IsNullOrEmpty(parentName))
+					parentEntity = FindEntity(parentName);
+			}
+
 			if (parentEntity != null)
 			{
 				var savedLocalPosition = entity.GetData<Vector2>("_PendingLocalPosition");
@@ -1798,10 +1821,11 @@ public class Scene
 			}
 			else
 			{
-				Debug.Error($"Could not find parent entity '{parentName}' for entity '{entity.Name}'");
+				Debug.Error($"Could not find parent entity for entity '{entity.Name}'");
 			}
 
 			// Clean up temporary data
+			entity.RemoveData("_PendingParentId");
 			entity.RemoveData("_PendingParentName");
 			entity.RemoveData("_PendingLocalPosition");
 			entity.RemoveData("_PendingLocalRotation");

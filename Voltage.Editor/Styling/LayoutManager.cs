@@ -3,20 +3,22 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using ImGuiNET;
+using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Utils;
 
-namespace Voltage.Editor.EditorStyling
+namespace Voltage.Editor.Styling
 {
     public class LayoutManager
     {
-        private readonly string _layoutsDirectory;
+	    public bool HasPendingReload => _pendingLayoutReload;
+
+	    private bool _pendingLayoutReload = false;
+	    private string _pendingLayoutContent = null;
+		private readonly string _layoutsDirectory;
         private readonly string _defaultLayoutPath;
         private readonly string _defaultContentLayoutPath;
         private List<string> _availableLayouts = new();
         private string _currentLayoutName = "Default";
-        
-        private bool _pendingLayoutReload = false;
-        private string _pendingLayoutContent = null;
 
         public LayoutManager(string defaultLayoutPath)
         {
@@ -30,9 +32,7 @@ namespace Voltage.Editor.EditorStyling
             
             InitializeDefaultLayout();
             CreateCustomLayoutIfNeeded();
-            
             SetDefaultContentLayoutReadOnly();
-            
             RefreshLayoutList();
         }
 
@@ -58,8 +58,6 @@ namespace Voltage.Editor.EditorStyling
                     {
                         string customLayoutPath = Path.Combine(_layoutsDirectory, "Custom.ini");
                         File.Copy(_defaultContentLayoutPath, customLayoutPath, overwrite: false);
-                        Debug.Log($"Created default 'Custom' layout at: {customLayoutPath}");
-                        NotificationSystem.ShowTimedNotification("Created default 'Custom' layout for you to modify.");
                     }
                 }
             }
@@ -82,7 +80,6 @@ namespace Voltage.Editor.EditorStyling
                     if (!fileInfo.IsReadOnly)
                     {
                         fileInfo.IsReadOnly = true;
-                        Debug.Log($"Set DefaultLayout.ini to read-only: {_defaultContentLayoutPath}");
                     }
                 }
             }
@@ -104,7 +101,6 @@ namespace Voltage.Editor.EditorStyling
                     if (!File.Exists(_defaultLayoutPath))
                     {
                         File.Copy(_defaultContentLayoutPath, _defaultLayoutPath, overwrite: false);
-                        Debug.Log($"Initialized default layout from: {_defaultContentLayoutPath}");
                     }
                 }
             }
@@ -162,15 +158,14 @@ namespace Voltage.Editor.EditorStyling
         {
             if (string.IsNullOrWhiteSpace(layoutName))
             {
-                Debug.Warn("Cannot save layout with empty name");
+	            NotificationSystem.ShowTimedNotification("Cannot save layout with empty name");
                 return;
             }
 
             // Prevent saving to "Default" layout
             if (layoutName.Equals("Default", StringComparison.OrdinalIgnoreCase))
             {
-                Debug.Warn("Cannot save changes to the Default layout. Create a new layout instead.");
-                NotificationSystem.ShowTimedNotification("Cannot save to Default layout. Create a new layout instead.");
+                NotificationSystem.ShowTimedNotification("Cannot save changes to the Default layout. Create a new layout instead.");
                 return;
             }
 
@@ -186,7 +181,6 @@ namespace Voltage.Editor.EditorStyling
 
                 _currentLayoutName = layoutName;
 
-                Debug.Log($"Layout '{layoutName}' saved successfully to: {targetPath}");
                 RefreshLayoutList();
             }
             catch (Exception ex)
@@ -194,11 +188,6 @@ namespace Voltage.Editor.EditorStyling
                 Debug.Error($"Failed to save layout '{layoutName}': {ex.Message}");
             }
         }
-
-        /// <summary>
-        /// Gets whether a layout reload is pending
-        /// </summary>
-        public bool HasPendingReload => _pendingLayoutReload;
 
         /// <summary>
         /// Applies the pending layout reload (call this early in frame, before any windows are created)
@@ -214,8 +203,6 @@ namespace Voltage.Editor.EditorStyling
                     
                     _pendingLayoutReload = false;
                     _pendingLayoutContent = null;
-                    
-                    Debug.Log("Applied pending layout reload");
                 }
                 catch (Exception ex)
                 {
@@ -233,7 +220,7 @@ namespace Voltage.Editor.EditorStyling
         {
             if (string.IsNullOrWhiteSpace(layoutName))
             {
-                Debug.Warn("Cannot load layout with empty name");
+	            NotificationSystem.ShowTimedNotification("Cannot load layout with empty name");
                 return;
             }
 
@@ -264,7 +251,6 @@ namespace Voltage.Editor.EditorStyling
                     return;
                 }
 
-                // Read the layout content into memory
                 string layoutContent = File.ReadAllText(sourcePath);
 
                 // Schedule layout reload for NEXT FRAME (before windows are created)
@@ -275,9 +261,6 @@ namespace Voltage.Editor.EditorStyling
                 File.WriteAllText(_defaultLayoutPath, layoutContent);
 
                 _currentLayoutName = layoutName;
-
-                Debug.Log($"Layout '{layoutName}' scheduled for reload on next frame");
-                NotificationSystem.ShowTimedNotification($"Layout '{layoutName}' will be applied on next frame...");
             }
             catch (Exception ex)
             {
@@ -309,7 +292,7 @@ namespace Voltage.Editor.EditorStyling
                 if (File.Exists(layoutPath))
                 {
                     File.Delete(layoutPath);
-                    Debug.Log($"Layout '{layoutName}' deleted successfully");
+                    Debug.Success($"Layout '{layoutName}' deleted successfully");
                     RefreshLayoutList();
                 }
                 else
@@ -320,47 +303,6 @@ namespace Voltage.Editor.EditorStyling
             catch (Exception ex)
             {
                 Debug.Error($"Failed to delete layout '{layoutName}': {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Resets to the default layout from DefaultContent
-        /// </summary>
-        public void ResetToDefault()
-        {
-            try
-            {
-                if (File.Exists(_defaultContentLayoutPath))
-                {
-                    // Read from the read-only source
-                    string defaultContent = File.ReadAllText(_defaultContentLayoutPath);
-                    
-                    // Schedule for next frame
-                    _pendingLayoutContent = defaultContent;
-                    _pendingLayoutReload = true;
-                    
-                    // Write to active layout file
-                    File.WriteAllText(_defaultLayoutPath, defaultContent);
-                    
-                    _currentLayoutName = "Default";
-                    Debug.Log("Default layout scheduled for reload on next frame");
-                    NotificationSystem.ShowTimedNotification("Default layout will be applied on next frame...");
-                }
-                else
-                {
-                    // If DefaultContent layout doesn't exist, clear the ini file
-                    if (File.Exists(_defaultLayoutPath))
-                    {
-                        File.Delete(_defaultLayoutPath);
-                    }
-                    
-                    _currentLayoutName = "Default";
-                    Debug.Log("Layout reset to ImGui defaults");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.Error($"Failed to reset layout: {ex.Message}");
             }
         }
 

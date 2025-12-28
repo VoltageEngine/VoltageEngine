@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Persistence;
+using Voltage.Editor.SceneFile;
 using Voltage.Editor.Tools;
 using Voltage.Editor.Utils;
 using Voltage.Utils;
@@ -69,7 +71,7 @@ namespace Voltage.Editor.Scripting
 
 			CompileScripts(EditorSettingsWindow.AutoReloadSceneAfterScriptCompile);
 
-			Debug.Log($"ScriptManager initialized. Scripts directory: {_scriptsDirectory}");
+			EditorDebug.Info($"ScriptManager initialized. Scripts directory: {_scriptsDirectory}");
 		}
 
 		private void CreateExampleScript()
@@ -128,11 +130,11 @@ namespace GameScripts
 			if (result.Success)
 			{
 				_currentScriptAssembly = result.Assembly;
-				NotificationSystem.ShowTimedNotification($"Scripts compiled successfully!");
+				EditorDebug.Log($"Scripts compiled successfully!");
 			}
 			else
 			{
-				NotificationSystem.ShowTimedNotification($"Script compilation failed. Check console for errors.");
+				EditorDebug.Log($"Script compilation failed. Check console for errors.");
 			}
 
 			bool shouldReloadScene = result.Success && 
@@ -171,19 +173,27 @@ namespace GameScripts
 			{
 				OnBeforeSceneReload?.Invoke();
 
-				var currentSceneType = Core.Scene.GetType();
-				Debug.Log($"Reloading scene: {currentSceneType.Name}");
-
-				var newScene = (Scene)Activator.CreateInstance(currentSceneType);
-				Core.Scene = newScene;
+				var lastScenePath = PersistentScene.GetLastScenePath();
+				if (!string.IsNullOrWhiteSpace(lastScenePath) && File.Exists(lastScenePath))
+				{
+					Debug.Log($"Reloading scene from file: {Path.GetFileName(lastScenePath)}");
+					Core.Scene = Scene.LoadFromFile(lastScenePath);
+				}
+				else
+				{
+					var currentSceneType = Core.Scene.GetType();
+					Debug.Log($"Reloading scene (type fallback): {currentSceneType.Name}");
+					var newScene = (Scene)Activator.CreateInstance(currentSceneType);
+					Core.Scene = newScene;
+				}
 
 				OnAfterSceneReload?.Invoke();
-				NotificationSystem.ShowTimedNotification($"Scene reloaded: {currentSceneType.Name}");
+				EditorDebug.Log($"Scene reloaded");
 			}
 			catch (Exception ex)
 			{
 				Debug.Error($"Failed to reload scene: {ex.Message}\n{ex.StackTrace}");
-				NotificationSystem.ShowTimedNotification($"Failed to reload scene: {ex.Message}");
+				EditorDebug.Log($"Failed to reload scene: {ex.Message}");
 			}
 		}
 

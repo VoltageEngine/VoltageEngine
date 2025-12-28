@@ -2,7 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using Voltage.Editor.EditorDebug;
+using Voltage.Editor.DebugUtils;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Utils;
 
@@ -31,7 +31,7 @@ public class EffectBuilder
 		if (project == null)
 		{
 			Debug.Error("Project cannot be null");
-			NotificationSystem.ShowTimedNotification("No project provided for effect building!");
+			EditorDebug.Log("No project provided for effect building!");
 			return false;
 		}
 
@@ -42,7 +42,7 @@ public class EffectBuilder
 			if (string.IsNullOrEmpty(effectsFolder) || !Directory.Exists(effectsFolder))
 			{
 				Debug.Warn($"Effects folder not found for project '{project.ProjectName}': {effectsFolder}");
-				NotificationSystem.ShowTimedNotification($"No effects folder found for '{project.ProjectName}'");
+				EditorDebug.Log($"No effects folder found for '{project.ProjectName}'");
 				return false;
 			}
 
@@ -61,7 +61,7 @@ public class EffectBuilder
 		catch (Exception ex)
 		{
 			Debug.Error($"Error building project effects: {ex.Message}");
-			NotificationSystem.ShowTimedNotification("Failed to build project effects!");
+			EditorDebug.Log("Failed to build project effects!");
 			return false;
 		}
 	}
@@ -81,7 +81,7 @@ public class EffectBuilder
 			if (string.IsNullOrEmpty(solutionDir))
 			{
 				Debug.Error("Could not determine solution directory");
-				NotificationSystem.ShowTimedNotification("Failed to find engine directory!");
+				EditorDebug.Log("Failed to find engine directory!");
 				return false;
 			}
 
@@ -92,7 +92,7 @@ public class EffectBuilder
 			if (!Directory.Exists(engineDir))
 			{
 				Debug.Warn($"Engine directory not found: {engineDir}");
-				NotificationSystem.ShowTimedNotification("Engine directory not found!");
+				EditorDebug.Log("Engine directory not found!");
 				return false;
 			}
 
@@ -101,7 +101,7 @@ public class EffectBuilder
 		catch (Exception ex)
 		{
 			Debug.Error($"Error building engine effects: {ex.Message}");
-			NotificationSystem.ShowTimedNotification("Failed to build engine effects!");
+			EditorDebug.Log("Failed to build engine effects!");
 			return false;
 		}
 	}
@@ -116,34 +116,34 @@ public class EffectBuilder
 		if (project == null)
 		{
 			Debug.Error("Project cannot be null");
-			NotificationSystem.ShowTimedNotification("No project provided for effect building!");
+			EditorDebug.Log("No project provided for effect building!");
 			return false;
 		}
 
 		Debug.Log("Building all effects...");
-		NotificationSystem.ShowTimedNotification("Building all effects...");
+		EditorDebug.Log("Building all effects...");
 
 		bool engineSuccess = BuildEngineEffects();
 		bool projectSuccess = BuildProjectEffects(project);
 
 		if (engineSuccess && projectSuccess)
 		{
-			NotificationSystem.ShowTimedNotification("Successfully built all effects!");
+			EditorDebug.Log("Successfully built all effects!");
 			return true;
 		}
 		else if (engineSuccess)
 		{
-			NotificationSystem.ShowTimedNotification("Engine effects built. Project effects failed or not found.");
+			EditorDebug.Log("Engine effects built. Project effects failed or not found.");
 			return false;
 		}
 		else if (projectSuccess)
 		{
-			NotificationSystem.ShowTimedNotification("Project effects built. Engine effects failed or not found.");
+			EditorDebug.Log("Project effects built. Engine effects failed or not found.");
 			return false;
 		}
 		else
 		{
-			NotificationSystem.ShowTimedNotification("Failed to build effects!");
+			EditorDebug.Log("Failed to build effects!");
 			return false;
 		}
 	}
@@ -160,7 +160,7 @@ public class EffectBuilder
 		if (!Directory.Exists(shaderSrcDir))
 		{
 			Debug.Warn($"Shader source directory not found: {shaderSrcDir}");
-			NotificationSystem.ShowTimedNotification($"No shader source directory found for {contextName}");
+			EditorDebug.Log($"No shader source directory found for {contextName}");
 			return false;
 		}
 
@@ -172,7 +172,7 @@ public class EffectBuilder
 		if (shaderFiles.Length == 0)
 		{
 			Debug.Log($"No shader files (.fx) found in: {shaderSrcDir}");
-			NotificationSystem.ShowTimedNotification($"No shader files found for {contextName}");
+			EditorDebug.Log($"No shader files found for {contextName}");
 			return true; // Not an error, just nothing to compile
 		}
 
@@ -213,7 +213,7 @@ public class EffectBuilder
 			}
 
 			Debug.Log($"Effect build cancelled for {contextName}");
-			NotificationSystem.ShowTimedNotification($"Effect build cancelled for {contextName}");
+			EditorDebug.Log($"Effect build cancelled for {contextName}");
 			OnBuildCompleted?.Invoke(CurrentProgress.SuccessCount, CurrentProgress.FailureCount);
 			return false;
 		}
@@ -336,7 +336,7 @@ public class EffectBuilder
 			Debug.Log(resultMessage);
 		}
 
-		NotificationSystem.ShowTimedNotification(resultMessage);
+		EditorDebug.Log(resultMessage);
 
 		OnBuildCompleted?.Invoke(CurrentProgress.SuccessCount, CurrentProgress.FailureCount);
 
@@ -457,7 +457,7 @@ public class EffectBuilder
 
 			if (success)
 			{
-				EditorProcessDebugger.LogInfo($"Successfully built {project.ProjectName} effects");
+				EditorDebug.Log($"Successfully built {project.ProjectName} effects");
 			}
 		}
 		catch (System.OperationCanceledException)
@@ -505,7 +505,7 @@ public class EffectBuilder
 			bool success = BuildEngineEffects();
 			if (success)
 			{
-				EditorProcessDebugger.LogInfo("Successfully built Engine effects");
+				EditorDebug.Log("Successfully built Engine effects");
 			}
 		}
 		catch (System.OperationCanceledException)
@@ -527,7 +527,7 @@ public class EffectBuilder
 	{
 		if (!projectManager.HasActiveProject)
 		{
-			NotificationSystem.ShowTimedNotification("No active project loaded!");
+			EditorDebug.Log("No active project loaded!");
 			return;
 		}
 
@@ -562,7 +562,7 @@ public class EffectBuilder
 
 			if (success)
 			{
-				EditorProcessDebugger.LogInfo("Successfully built all effects");
+				EditorDebug.Log("Successfully built all effects");
 			}
 		}
 		catch (System.OperationCanceledException)

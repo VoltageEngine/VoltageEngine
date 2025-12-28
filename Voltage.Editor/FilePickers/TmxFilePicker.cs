@@ -3,6 +3,7 @@ using Voltage.Utils;
 using System;
 using System.IO;
 using System.Linq;
+using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Utils;
@@ -175,7 +176,7 @@ namespace Voltage.Editor.FilePickers
                     }
                     else
                     {
-                        NotificationSystem.ShowTimedNotification("Selected file is not inside Content folder!");
+                        EditorDebug.Error("Selected TMX file is not inside Content folder!");
                     }
                 }
 

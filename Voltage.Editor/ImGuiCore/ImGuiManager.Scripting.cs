@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Voltage.Editor.EditorDebug;
+using Voltage.Editor.DebugUtils;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Scripting;
 using Voltage.Editor.Tools;
@@ -24,7 +24,7 @@ public partial class ImGuiManager
 		{
 			if (!_projectManager.HasActiveProject)
 			{
-				EditorProcessDebugger.LogWarning("No active project. Script manager will initialize when a project is loaded.", "ImGuiManager.Scripting");
+				EditorDebug.Warn("No active project. Script manager will initialize when a project is loaded.", "ImGuiManager.Scripting");
 				return;
 			}
 
@@ -35,11 +35,11 @@ public partial class ImGuiManager
 			_scriptManager.OnBeforeSceneReload += OnBeforeSceneReload;
 			_scriptManager.OnAfterSceneReload += OnAfterSceneReload;
 
-			EditorProcessDebugger.LogInfo($"ScriptManager initialized successfully for project: {scriptsPath}", "ImGuiManager.Scripting");
+			EditorDebug.Log($"ScriptManager initialized successfully for project: {scriptsPath}", "ImGuiManager.Scripting");
 		}
 		catch (Exception ex)
 		{
-			EditorProcessDebugger.LogError($"Failed to initialize ScriptManager: {ex.Message}", "ImGuiManager.Scripting");
+			EditorDebug.Error($"Failed to initialize ScriptManager: {ex.Message}", "ImGuiManager.Scripting");
 		}
 	}
 
@@ -52,17 +52,15 @@ public partial class ImGuiManager
 
 	private void OnProjectLoaded(IGameProject project)
 	{
-		Debug.Log($"Project loaded in ImGuiManager: {project.ProjectName}");
 		ReinitializeScriptManager();
-		NotificationSystem.ShowTimedNotification($"Project loaded: {project.ProjectName}");
+		EditorDebug.Log($"Project loaded: {project.ProjectName}");
 	}
 
 	private void OnProjectUnloaded()
 	{
-		Debug.Log("Project unloaded in ImGuiManager");
 		_scriptManager?.Dispose();
 		_scriptManager = null;
-		NotificationSystem.ShowTimedNotification("Project unloaded");
+		EditorDebug.Log("Project unloaded");
 	}
 
 	private void OnScriptCompilationComplete(CompilationResult result, bool shouldReloadScene)
@@ -99,12 +97,12 @@ public partial class ImGuiManager
 
 	private void OnBeforeSceneReload()
 	{
-		Debug.Log("Preparing for scene reload...");
+		EditorDebug.Info("Preparing for scene reload...");
 	}
 
 	private void OnAfterSceneReload()
 	{
-		Debug.Log("Scene reloaded successfully");
+		EditorDebug.Success("Scene reloaded successfully");
 	}
 
 	private void DrawScriptingWindow()
@@ -221,7 +219,7 @@ public partial class ImGuiManager
 				}
 				else
 				{
-					NotificationSystem.ShowTimedNotification($"Scripts folder not found: {scriptsPath}");
+					EditorDebug.Log($"Scripts folder not found: {scriptsPath}");
 				}
 			}
 

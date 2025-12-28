@@ -30,12 +30,13 @@ public class Editor : Core
 
 		if (Screen.ActualMonitorWidth <= 1920)
 		{
+			//TODO: Change the default font later
 			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 12); // Normal
 			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 14); // Info
 			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 16); // Warn
 			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 18); // Error
 			options.FontSizeMultiplier = 1f;
-			DebugConsole.RenderScale = 2f;
+			DebugConsole.RenderScale = 1.5f;
 		}
 		else if (Screen.ActualMonitorWidth < 3840)
 		{
@@ -44,7 +45,7 @@ public class Editor : Core
 			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 20); 
 			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 22); 
 			options.FontSizeMultiplier = 1.1f;
-			DebugConsole.RenderScale = 3f;
+			DebugConsole.RenderScale = 2.5f;
 		}
 		else
 		{
@@ -53,7 +54,7 @@ public class Editor : Core
 			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 24); 
 			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 26); 
 			options.FontSizeMultiplier = 1.2f;
-			DebugConsole.RenderScale = 4f;
+			DebugConsole.RenderScale = 3f;
 		}
 
 		options.IncludeDefaultFont(true);
@@ -75,7 +76,7 @@ public class Editor : Core
 		Screen.SynchronizeWithVerticalRetrace = false; //Vsync = off
 		// DefaultSamplerState = SamplerState.PointClamp; // pixel perfect rendering
 
-		ScreenUtils.SetEditorWindowedMode(true);
+		ScreenUtils.ApplyScreenChange(ScreenUtils.ScreenMode.WindowedMax);
 		HandleCommandLineArguments(); // when we open a project file through the file explorer
 		SceneManager.Instance.LoadLastUsedScene();
 	}
@@ -124,13 +125,13 @@ public class Editor : Core
 #if OS_WINDOWS || LINUX
 		if (Input.IsKeyPressed(Keys.F11))
 		{
-			if (ScreenUtils.IsFullscreen)
+			if (ScreenUtils.Mode == ScreenUtils.ScreenMode.FullScreen)
 			{
-				ScreenUtils.SetEditorWindowedMode(false);
+				ScreenUtils.ApplyScreenChange(ScreenUtils.ScreenMode.Windowed);
 			}
 			else
 			{
-				ScreenUtils.SetFullScreenMode();
+				ScreenUtils.ApplyScreenChange(ScreenUtils.ScreenMode.FullScreen);
 			}
 		}
 #elif OS_MAC

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.SceneFile;
 using Voltage.Editor.Tools;
@@ -282,7 +283,7 @@ public partial class ImGuiManager
 					{
 						if (_themeManager.ApplyTheme(themeName))
 						{
-							NotificationSystem.ShowTimedNotification($"Theme changed to: {themeName}");
+							EditorDebug.Log($"Theme changed to: {themeName}");
 						}
 					}
 				}
@@ -320,7 +321,7 @@ public partial class ImGuiManager
 
 							if (!layoutName.Equals("Default", StringComparison.OrdinalIgnoreCase))
 							{
-								NotificationSystem.ShowTimedNotification(
+								EditorDebug.Log(
 									$"Layout '{layoutName}' loaded. Some windows may require restart for full effect.");
 							}
 						}
@@ -488,7 +489,7 @@ public partial class ImGuiManager
 					// Update the last selected layout to the newly saved one
 					_lastSelectedLayout.Value = layoutName;
 
-					Debug.Log($"Layout saved: {layoutName}");
+					Debug.Success($"Layout saved: {layoutName}");
 
 					_newLayoutName = "";
 					ImGui.CloseCurrentPopup();
@@ -605,7 +606,7 @@ public partial class ImGuiManager
 				}
 				else
 				{
-					NotificationSystem.ShowTimedNotification("Script manager not initialized. Open Scripting window to initialize.");
+					EditorDebug.Log("Script manager not initialized. Open Scripting window to initialize.");
 				}
 			}
 
@@ -617,7 +618,7 @@ public partial class ImGuiManager
 				}
 				else
 				{
-					NotificationSystem.ShowTimedNotification("Script manager not initialized.");
+					EditorDebug.Log("Script manager not initialized.");
 				}
 			}
 
@@ -629,7 +630,7 @@ public partial class ImGuiManager
 				}
 				else
 				{
-					NotificationSystem.ShowTimedNotification("Script manager not initialized.");
+					EditorDebug.Log("Script manager not initialized.");
 				}
 			}
 
@@ -648,7 +649,7 @@ public partial class ImGuiManager
 				}
 				else
 				{
-					NotificationSystem.ShowTimedNotification($"Scripts folder not found: {scriptsPath}");
+					EditorDebug.Log($"Scripts folder not found: {scriptsPath}");
 				}
 			}
 
@@ -796,7 +797,7 @@ public partial class ImGuiManager
 				{
 					if (ImGui.MenuItem("Build Project Effects"))
 					{
-						NotificationSystem.ShowTimedNotification("No active project loaded!");
+						EditorDebug.Log("No active project loaded!");
 					}
 				}
 
@@ -837,7 +838,7 @@ public partial class ImGuiManager
 
 			if (ImGui.MenuItem("Build Game"))
 			{
-				NotificationSystem.ShowTimedNotification("Build-Game = Not Implemented Yet!");
+				EditorDebug.Log("Build-Game = Not Implemented Yet!");
 			}
 
 			if (!hasProject)
