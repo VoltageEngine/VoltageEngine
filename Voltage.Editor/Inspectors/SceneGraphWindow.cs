@@ -135,7 +135,7 @@ public class SceneGraphWindow
 			return false;
 
 		if (_imGuiManager == null)
-			_imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
+			_imGuiManager = Core.GetGlobalManager<ImGuiManager>();
 
 		ImGui.PushStyleVar(ImGuiStyleVar.GrabMinSize, 0.0f);
 		ImGui.PushStyleColor(ImGuiCol.ResizeGrip, new Num.Vector4(0, 0, 0, 0));
@@ -156,11 +156,11 @@ public class SceneGraphWindow
 				VoltageEditorUtils.SmallVerticalSpace();
 
 				if (VoltageEditorUtils.CenteredButton("Edit Mode", 0.8f))
-					Voltage.Core.InvokeSwitchEditMode(false); 
+					Core.InvokeSwitchEditMode(false); 
 
 				VoltageEditorUtils.SmallVerticalSpace();
 				if (VoltageEditorUtils.CenteredButton("Reset Scene", 0.8f))
-					Voltage.Core.InvokeResetScene();
+					Core.InvokeResetScene();
 			}
 			else
 			{
@@ -168,7 +168,7 @@ public class SceneGraphWindow
 				VoltageEditorUtils.SmallVerticalSpace();
 
 				if (VoltageEditorUtils.CenteredButton("Play Mode", 0.8f))
-					Voltage.Core.InvokeSwitchEditMode(true);
+					Core.InvokeSwitchEditMode(true);
 			}
 
 			VoltageEditorUtils.MediumVerticalSpace();
@@ -447,13 +447,13 @@ public class SceneGraphWindow
 	{
 		var entity = new Entity("Entity");
 		entity.Type = Entity.InstanceType.Serialized;
-		entity.Name = Voltage.Core.Scene.GetUniqueEntityName("Entity", entity);
-		entity.Transform.Position = Voltage.Core.Scene.Camera.Transform.Position;
+		entity.Name = Core.Scene.GetUniqueEntityName("Entity", entity);
+		entity.Transform.Position = Core.Scene.Camera.Transform.Position;
 
-		Voltage.Core.Scene.AddEntity(entity);
+		Core.Scene.AddEntity(entity);
 
 		EditorChangeTracker.PushUndo(
-			new EntityCreateDeleteUndoAction(Voltage.Core.Scene, entity, wasCreated: true,
+			new EntityCreateDeleteUndoAction(Core.Scene, entity, wasCreated: true,
 				$"Create Entity {entity.Name}"),
 			entity,
 			$"Create Entity {entity.Name}"
@@ -482,16 +482,16 @@ public class SceneGraphWindow
 
 			try
 			{
-				var entity = Voltage.Core.Scene.SimpleCreateEntity(prefabData.Name, Entity.InstanceType.SerializedPrefab);
+				var entity = Core.Scene.SimpleCreateEntity(prefabData.Name, Entity.InstanceType.SerializedPrefab);
 				entity.Type = Entity.InstanceType.SerializedPrefab;
-				entity.Transform.Position = Voltage.Core.Scene.Camera.Transform.Position;
+				entity.Transform.Position = Core.Scene.Camera.Transform.Position;
 
 				DataManager.Instance.InvokeLoadEntityData(entity, prefabData);
-				entity.Name = Voltage.Core.Scene.GetUniqueEntityName(prefabData.Name, entity);
+				entity.Name = Core.Scene.GetUniqueEntityName(prefabData.Name, entity);
 				entity.OriginalPrefabName = prefabName;
 
 				EditorChangeTracker.PushUndo(
-					new EntityCreateDeleteUndoAction(Voltage.Core.Scene, entity, wasCreated: true,
+					new EntityCreateDeleteUndoAction(Core.Scene, entity, wasCreated: true,
 						$"Create Entity from SerializedPrefab {entity.Name}"),
 					entity,
 					$"Create Entity from SerializedPrefab {entity.Name}"
@@ -519,7 +519,7 @@ public class SceneGraphWindow
 	{
 		var selectedEntity = _imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities.FirstOrDefault();
 
-		if (!Voltage.Core.IsEditMode || selectedEntity == null || !ImGui.IsWindowFocused(ImGuiFocusedFlags.AnyWindow))
+		if (!Core.IsEditMode || selectedEntity == null || !ImGui.IsWindowFocused(ImGuiFocusedFlags.AnyWindow))
 			return; 
 
 		var hierarchyList = BuildHierarchyList();
@@ -604,7 +604,7 @@ public class SceneGraphWindow
 	public List<Entity> BuildHierarchyList()
 	{
 		var result = new List<Entity>();
-		var entities = Voltage.Core.Scene?.Entities;
+		var entities = Core.Scene?.Entities;
 		if (entities == null) return result;
 
 		for (int i = 0; i < entities.Count; i++)

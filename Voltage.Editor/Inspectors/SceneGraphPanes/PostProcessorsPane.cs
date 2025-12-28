@@ -24,9 +24,9 @@ namespace Voltage.Editor.Inspectors.SceneGraphPanes
 			{
 				_isPostProcessorListInitialized = true;
 
-				for (var i = 0; i < Voltage.Core.Scene._postProcessors.Length; i++)
+				for (var i = 0; i < Core.Scene._postProcessors.Length; i++)
 				{
-					var postProcessor = Voltage.Core.Scene._postProcessors.Buffer[i];
+					var postProcessor = Core.Scene._postProcessors.Buffer[i];
 					if (_postProcessorInspectors.Where(inspector => inspector.PostProcessor == postProcessor).Count() == 0)
 						_postProcessorInspectors.Add(new PostProcessorInspector(postProcessor));
 				}
@@ -82,7 +82,7 @@ namespace Voltage.Editor.Inspectors.SceneGraphPanes
 					if (ImGui.Selectable(subclassType.Name))
 					{
 						var postprocessor = (PostProcessor)Activator.CreateInstance(subclassType, new object[] { _postProcessorInspectors.Count });
-						Voltage.Core.Scene.AddPostProcessor(postprocessor);
+						Core.Scene.AddPostProcessor(postprocessor);
 						_isPostProcessorListInitialized = false;
 					}
 				}

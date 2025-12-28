@@ -11,6 +11,7 @@ using Voltage.Editor.Utils;
 using Voltage.Persistence.Binary;
 using Num = System.Numerics;
 using Voltage;
+using Voltage.Editor.SceneFile;
 using Voltage.Editor.Undo.Core;
 
 namespace Voltage.Editor.ImGuiCore;
@@ -23,6 +24,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private const string kShowStyleEditor = "ImGui_ShowStyleEditor";
 	private const string kShowSceneGraphWindow = "ImGui_ShowSceneGraphWindow";
 	private const string kShowCoreWindow = "ImGui_ShowCoreWindow";
+	private const string kShowMainInspectorWindow = "ImGui_ShowMainInspectorWindow";
 	private const string kShowSeperateGameWindow = "ImGui_ShowSeperateGameWindow";
 	private const string kPreserveGameWindowAspectRatio = "ImGui_PreserveGameWindowAspectRatio";
 	private Num.Vector2 _gameWindowCursorOffset;
@@ -50,6 +52,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		ShowStyleEditor = KeyValueDataStore.Default.GetBool(kShowStyleEditor, ShowStyleEditor);
 		ShowSceneGraphWindow = KeyValueDataStore.Default.GetBool(kShowSceneGraphWindow, ShowSceneGraphWindow);
 		ShowCoreWindow = KeyValueDataStore.Default.GetBool(kShowCoreWindow, ShowCoreWindow);
+		ShowMainInspectorWindow = KeyValueDataStore.Default.GetBool(kShowMainInspectorWindow, ShowMainInspectorWindow);
 		ShowSeparateGameWindow = KeyValueDataStore.Default.GetBool(kShowSeperateGameWindow, ShowSeparateGameWindow);
 		PreserveGameWindowAspectRatio =
 			KeyValueDataStore.Default.GetBool(kPreserveGameWindowAspectRatio, PreserveGameWindowAspectRatio);
@@ -62,6 +65,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		KeyValueDataStore.Default.Set(kShowStyleEditor, ShowStyleEditor);
 		KeyValueDataStore.Default.Set(kShowSceneGraphWindow, ShowSceneGraphWindow);
 		KeyValueDataStore.Default.Set(kShowCoreWindow, ShowCoreWindow);
+		KeyValueDataStore.Default.Set(kShowMainInspectorWindow, ShowMainInspectorWindow);
 		KeyValueDataStore.Default.Set(kShowSeperateGameWindow, ShowSeparateGameWindow);
 		KeyValueDataStore.Default.Set(kPreserveGameWindowAspectRatio, PreserveGameWindowAspectRatio);
 
@@ -431,7 +435,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				ImGui.CloseCurrentPopup();
 				if (exitPromptType == ExitPromptType.SceneChange && _requestedSceneType != null)
 				{
-					ChangeScene(_requestedSceneType);
+					LoadSceneByName(SceneManager.Instance.CurrentSceneName);
 					pendingValue = false;
 					_requestedSceneType = null;
 				}
@@ -468,7 +472,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			switch (_pendingActionAfterSave)
 			{
 				case ExitPromptType.SceneChange:
-					ChangeScene(_requestedSceneType);
+					LoadSceneByName(SceneManager.Instance.CurrentSceneName);
 					_pendingSceneChange = false;
 					_requestedSceneType = null;
 					break;

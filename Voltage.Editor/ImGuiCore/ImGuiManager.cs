@@ -47,7 +47,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	// Public instances
 	public GizmoSelectionManager CursorSelectionManager => _cursorSelectionManager;
 	public SceneGraphWindow SceneGraphWindow { get; private set; }
-	public MainEntityInspector MainEntityInspector { get; private set; }
+
+	private List<EntityInspector> _entityInspectors = new();
+	public EntityInspector MainEntityInspector { get; private set; }
 	public bool IsInspectorTabLocked = false;
 
 	public AnimationEventInspector AnimationEventInspectorInstance
@@ -74,7 +76,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private AnimationEventInspector _animationEventInspector;
 	private SpriteAtlasEditorWindow _spriteAtlasEditorWindow;
-	private List<EntityInspector> _entityInspectors = new();
 	private List<Action> _drawCommands = new();
 	private ImGuiRenderer _renderer;
 	private ImGuiInput _input = new ImGuiInput();
@@ -341,7 +342,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		SceneManager.Instance.OnSceneLoaded += OnSceneLoadedHandler;
 		SceneManager.Instance.OnSceneSaved += OnSceneSavedHandler;
 
-		MainEntityInspector = new MainEntityInspector(this, null);
+		OpenMainEntityInspector();
+		_entityInspectors.Add(MainEntityInspector);
 
 		// Initialize project manager
 		_projectManager = ProjectManager.Instance;
@@ -423,9 +425,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		DrawSaveChangesPrompt();
 		DrawCreateSceneForSavePrompt();
 		ShowSceneGraphWindow = SceneGraphWindow.Show(ShowSceneGraphWindow);
-		DrawInspectorWindows();
+		ShowCoreWindow = _coreWindow.Show(ShowCoreWindow);
+		_debugWindow.Draw();
 		DrawEntityInspectors();
-
 		_effectBuildProgressWindow.Draw();
 		_projectCreator.Draw();
 		_sceneCreator.Draw();
@@ -867,30 +869,31 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	}
 
 	/// <summary>
-	/// Inspector tabs for Entity Inspector, Core Window and Debug Window
-	/// </summary>
-	private void DrawInspectorWindows()
-	{
-		if (MainEntityInspector != null && MainEntityInspector.IsOpen)
-		{
-			MainEntityInspector.Draw();
-		}
-
-		if (ShowCoreWindow)
-		{
-			ShowCoreWindow = _coreWindow.Show(ShowCoreWindow);
-		}
-
-		_debugWindow.Draw();
-	}
-
-	/// <summary>
-	/// draws all the EntityInspectors
+	/// draws all the separate EntityInspectors (not Main Entity Inspector)
 	/// </summary>
 	private void DrawEntityInspectors()
 	{
-		for (var i = _entityInspectors.Count - 1; i >= 0; i--)
-			_entityInspectors[i].Draw();
+		MainEntityInspector.IsOpen = ShowMainInspectorWindow;
+		MainEntityInspector.Draw();
+
+		// Only draw and remove non-main inspectors (make sure i starts from 1!)
+		for (int i = 1; i < _entityInspectors.Count; i++)
+		{
+			var inspector = _entityInspectors[i];
+
+			if (inspector == null)
+				continue;
+
+			if (!inspector.IsOpen)
+			{
+				_entityInspectors.RemoveAt(i);
+
+				continue;
+			}
+
+			inspector.Draw();
+		}
+
 	}
 
 	#endregion
@@ -1068,14 +1071,15 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			return;
 
 		entitynspectorInitialSpawnOffset += entitynspectorSpawnOffsetIncremental;
-		var inspector = new EntityInspector(entity, entitynspectorInitialSpawnOffset);
+
+		var inspector = new EntityInspector(this, entity, isMain: false, entitynspectorInitialSpawnOffset);
 		_entityInspectors.Add(inspector);
 
 		inspector.SetWindowFocus();
 	}
 
 	/// <summary>
-	/// Creates (or replaces) a MainEntityInspector
+	/// Creates (or replaces) a EntityInspector
 	/// </summary>
 	/// <param name="entity"></param>
 	public void OpenMainEntityInspector(Entity entity = null)
@@ -1092,7 +1096,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		}
 		else
 		{
-			MainEntityInspector = new MainEntityInspector(this, entity);
+			MainEntityInspector = new EntityInspector(this, null, isMain: true);
 		}
 	}
 
@@ -1455,14 +1459,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void LoadSceneByName(string sceneName)
 	{
-		var sceneManager = SceneManager.Instance;
-		sceneManager.LoadSceneByName(sceneName);
-	}
-
-	private void ChangeScene(Type sceneType)
-	{
-		// This method is no longer needed for scene changes
-		// Keeping for backwards compatibility if needed
-		Debug.Warn("ChangeScene(Type) is deprecated. Use LoadSceneByName instead.");
+		SceneManager.Instance.LoadSceneByName(sceneName);
 	}
 }

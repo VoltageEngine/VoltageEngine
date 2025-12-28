@@ -86,26 +86,26 @@ public class EntityPane
 	public unsafe void Draw()
 	{
 		if (_imGuiManager == null)
-			_imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
+			_imGuiManager = Core.GetGlobalManager<ImGuiManager>();
 
 		// Draw entity tree (with clipper for large lists)
-		if (Voltage.Core.Scene.Entities.Count > MIN_ENTITIES_FOR_CLIPPER)
+		if (Core.Scene.Entities.Count > MIN_ENTITIES_FOR_CLIPPER)
 		{
 			var clipperPtr = ImGuiNative.ImGuiListClipper_ImGuiListClipper();
 			var clipper = new ImGuiListClipperPtr(clipperPtr);
 
-			clipper.Begin(Voltage.Core.Scene.Entities.Count, -1);
+			clipper.Begin(Core.Scene.Entities.Count, -1);
 
 			while (clipper.Step())
 				for (var i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
-					DrawEntity(Voltage.Core.Scene.Entities[i]);
+					DrawEntity(Core.Scene.Entities[i]);
 
 			ImGuiNative.ImGuiListClipper_destroy(clipperPtr);
 		}
 		else
 		{
-			for (var i = 0; i < Voltage.Core.Scene.Entities.Count; i++)
-				DrawEntity(Voltage.Core.Scene.Entities[i]);
+			for (var i = 0; i < Core.Scene.Entities.Count; i++)
+				DrawEntity(Core.Scene.Entities[i]);
 		}
 
 		VoltageEditorUtils.MediumVerticalSpace();
@@ -189,7 +189,7 @@ public class EntityPane
 
 		if (ImGui.IsMouseClicked(0) && ImGui.IsItemClicked() &&
 		    ImGui.GetMousePos().X - ImGui.GetItemRectMin().X > ImGui.GetTreeNodeToLabelSpacing())
-            if (Voltage.Core.Scene.Entities.Count > 0 && Voltage.Core.IsEditMode)
+            if (Core.Scene.Entities.Count > 0 && Core.IsEditMode)
             {
                 if (_previousEntity == null || !_previousEntity.Equals(entity))
                 {
@@ -221,7 +221,7 @@ public class EntityPane
     private void DrawEntityContextMenuPopup(Entity entity)
     {
         if (_imGuiManager == null)
-            _imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
+            _imGuiManager = Core.GetGlobalManager<ImGuiManager>();
 
         if (ImGui.BeginPopup("entityContextMenu"))
         {
@@ -299,11 +299,11 @@ public class EntityPane
             }
 
             if (ImGui.Selectable($"Open {entity.Name} in separate window"))
-                Voltage.Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(entity);
+                Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(entity);
 
             // Entity Commands
             if (ImGui.Selectable("Move Camera to " + entity.Name))
-                if (Voltage.Core.Scene.Entities.Count > 0 && Voltage.Core.IsEditMode)
+                if (Core.Scene.Entities.Count > 0 && Core.IsEditMode)
                     _imGuiManager.CursorSelectionManager.SetCameraTargetPosition(entity.Transform.Position);
 
             // Clone logic
@@ -370,7 +370,7 @@ public class EntityPane
 	    }
 
 	    // Ctrl+D: Duplicate selected
-	    if (Voltage.Core.IsEditMode && gameCtrlDown && Input.IsKeyPressed(Keys.D) && _selectedEntities.Count > 0)
+	    if (Core.IsEditMode && gameCtrlDown && Input.IsKeyPressed(Keys.D) && _selectedEntities.Count > 0)
 	    {
 	        var entitiesToDuplicate = _selectedEntities.Where(e => !ShouldBlockDuplication(e)).ToList();
 	        if (entitiesToDuplicate.Count > 1)
@@ -398,7 +398,7 @@ public class EntityPane
 	    }
 
 	    // Ctrl+C: Copy all selected entities
-	    if (Voltage.Core.IsEditMode && gameCtrlDown && Input.IsKeyPressed(Keys.C) && _selectedEntities.Count > 0)
+	    if (Core.IsEditMode && gameCtrlDown && Input.IsKeyPressed(Keys.C) && _selectedEntities.Count > 0)
 	    {
 	        _copiedEntities = _selectedEntities.ToList();
 	    }
@@ -408,7 +408,7 @@ public class EntityPane
 	    }
 
 	    // Ctrl+V: Paste (duplicate all copied entities)
-	    if (Voltage.Core.IsEditMode && gameCtrlDown && Input.IsKeyPressed(Keys.V) && _copiedEntities.Count > 0)
+	    if (Core.IsEditMode && gameCtrlDown && Input.IsKeyPressed(Keys.V) && _copiedEntities.Count > 0)
 	    {
 	        var entitiesToDuplicate = _copiedEntities.Where(e => !ShouldBlockDuplication(e)).ToList();
 	        if (entitiesToDuplicate.Count > 1)
@@ -436,14 +436,14 @@ public class EntityPane
 	    }
 
 	    // Delete: Remove all selected entities with Undo/Redo support
-	    if (Voltage.Core.IsEditMode && _selectedEntities.Count > 0 &&
+	    if (Core.IsEditMode && _selectedEntities.Count > 0 &&
 	        (Input.IsKeyPressed(Keys.Delete) || ImGui.IsKeyPressed(ImGuiKey.Delete)))
 	    {
 	        var entitiesToDelete = _selectedEntities.ToList();
 
 	        // Push a single undo for all entities
 	        EditorChangeTracker.PushUndo(
-	            new MultiEntityDeleteUndoAction(Voltage.Core.Scene, entitiesToDelete, 
+	            new MultiEntityDeleteUndoAction(Core.Scene, entitiesToDelete, 
 	                $"Deleted: {string.Join(", ", entitiesToDelete.Select(e => e.Name))}"),
 	            entitiesToDelete.FirstOrDefault(),
 	            $"Deleted: {string.Join(", ", entitiesToDelete.Select(e => e.Name))}"
@@ -471,7 +471,7 @@ public class EntityPane
 
 		// Use unique name for each clone
 		string baseName = customName ?? entity.Name;
-		clone.Name = Voltage.Core.Scene.GetUniqueEntityName(baseName, clone);
+		clone.Name = Core.Scene.GetUniqueEntityName(baseName, clone);
 
 		// Set up the clone with basic properties first
 		clone.Transform.Position = entity.Transform.Position;
@@ -558,7 +558,7 @@ public class EntityPane
 		}
 
 		// Add the clone to the scene
-		Voltage.Core.Scene.AddEntity(clone);
+		Core.Scene.AddEntity(clone);
 
 		// Copy children if any exist, but SKIP NonSerialized entities
 		for (var i = 0; i < entity.Transform.ChildCount; i++)
@@ -605,7 +605,7 @@ public class EntityPane
 			// Create a new entity directly
 			var clone = new Entity("Entity");
 			
-            clone.Name = Voltage.Core.Scene.GetUniqueEntityName(entity.Name, clone, clones);
+            clone.Name = Core.Scene.GetUniqueEntityName(entity.Name, clone, clones);
             clone.Transform.Position = entity.Transform.Position;
             clone.Transform.Rotation = entity.Rotation;
             clone.Transform.Scale = entity.Scale;
@@ -695,7 +695,7 @@ public class EntityPane
 
         // Add all clones to the scene after naming
         foreach (var clone in clones)
-            Voltage.Core.Scene.AddEntity(clone);
+            Core.Scene.AddEntity(clone);
 
         return clones;
 	}
@@ -711,7 +711,7 @@ public class EntityPane
 	public Vector2 GetSelectedEntitiesCenter()
     {
         if (SelectedEntities.Count == 0)
-            return Voltage.Core.Scene.Camera.Position;        
+            return Core.Scene.Camera.Position;        
 
         Vector2 sum = Vector2.Zero;
 

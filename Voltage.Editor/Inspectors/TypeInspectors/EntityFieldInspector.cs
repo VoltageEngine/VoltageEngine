@@ -13,7 +13,7 @@ public class EntityFieldInspector : AbstractTypeInspector
 		var entity = GetValue<Entity>();
 
 		if (VoltageEditorUtils.LabelButton(_name, entity.Name))
-			Voltage.Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(entity);
+			Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(entity);
 		HandleTooltip();
 	}
 }

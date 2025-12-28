@@ -38,7 +38,7 @@ public class RendererInspector
 			if (ImGui.Selectable("Remove Renderer"))
 			{
 				isOpen = false;
-				Voltage.Core.Scene.RemoveRenderer(_renderer);
+				Core.Scene.RemoveRenderer(_renderer);
 				ImGui.CloseCurrentPopup();
 			}
 
@@ -59,7 +59,7 @@ public class RendererInspector
 
 			if (Renderer.Camera != null)
 				if (VoltageEditorUtils.LabelButton("Camera", Renderer.Camera.Entity.Name))
-					Voltage.Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(Renderer.Camera.Entity);
+					Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(Renderer.Camera.Entity);
 
 			ImGui.PushStyleVar(ImGuiStyleVar.Alpha, ImGui.GetStyle().Alpha * 0.5f);
 			VoltageEditorUtils.DisableNextWidget();

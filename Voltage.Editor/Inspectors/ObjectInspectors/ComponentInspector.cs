@@ -141,7 +141,7 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 		public override void Draw()
 		{
 			if(_imGuiManager == null)
-				_imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
+				_imGuiManager = Core.GetGlobalManager<ImGuiManager>();
 
 			ImGui.PushID(_scopeId);
 			var isHeaderOpen = ImGui.CollapsingHeader(_name);

@@ -611,7 +611,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             try
             {
                 string relativePath = Path.GetRelativePath(Environment.CurrentDirectory, filePath).Replace('\\', '/');
-                var tiledMap = Voltage.Core.Content.LoadTiledMap(relativePath);
+                var tiledMap = Core.Content.LoadTiledMap(relativePath);
 
                 var imageLayerNames = tiledMap.ImageLayers
                     .Where(layer => !string.IsNullOrEmpty(layer.Name))
@@ -667,7 +667,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             {
                 try
                 {
-                    var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Voltage.Core.Content;
+                    var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Core.Content;
                     if (contentManager != null)
                     {
                         var oldSprite = spriteRenderer.Sprite;
@@ -710,7 +710,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             else
             {
                 // Use SetNormalMap instead of LoadNormalMap, with error and undo support
-                var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Voltage.Core.Content;
+                var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Core.Content;
                 Sprite normalMapSprite = null;
                 string errorMsg = null;
                 try
@@ -804,7 +804,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             {
                 try
                 {
-                    var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Voltage.Core.Content;
+                    var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Core.Content;
                     if (contentManager != null)
                     {
                         var oldSprite = spriteRenderer.Sprite;
@@ -847,7 +847,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             else
             {
                 // SetNormalMap for Aseprite normal maps, with error and undo support
-                var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Voltage.Core.Content;
+                var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Core.Content;
                 Sprite normalMapSprite = null;
                 string errorMsg = null;
                 try
@@ -927,7 +927,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             {
                 try
                 {
-                    var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Voltage.Core.Content;
+                    var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Core.Content;
                     if (contentManager != null)
                     {
                         var oldSprite = spriteRenderer.Sprite;
@@ -970,7 +970,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             else
             {
                 // SetNormalMap for TMX normal maps, with error and undo support
-                var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Voltage.Core.Content;
+                var contentManager = spriteRenderer.Entity?.Scene?.Content ?? Core.Content;
                 Sprite normalMapSprite = null;
                 string errorMsg = null;
                 try

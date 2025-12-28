@@ -59,7 +59,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
         public void Draw()
         {
             if (_imGuiManager == null)
-                _imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
+                _imGuiManager = Core.GetGlobalManager<ImGuiManager>();
 
             bool open = true;
           
@@ -78,7 +78,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                     // Handle window close when no animator is selected
                     if (!open)
                     {
-                        var imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
+                        var imGuiManager = Core.GetGlobalManager<ImGuiManager>();
                         imGuiManager.ShowAnimationEventInspector = false;
                         imGuiManager.UnregisterDrawCommand(Draw);
                         SpriteAnimatorFileInspector.AnimationEventInspectorInstance = null;
@@ -367,7 +367,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             // Handle window close when animator is selected
             if (!open)
             {
-                var imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
+                var imGuiManager = Core.GetGlobalManager<ImGuiManager>();
                 imGuiManager.ShowAnimationEventInspector = false;
                 imGuiManager.UnregisterDrawCommand(Draw);
                 SpriteAnimatorFileInspector.AnimationEventInspectorInstance = null;

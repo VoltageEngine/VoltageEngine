@@ -88,7 +88,7 @@ namespace Voltage.Editor.ImGuiCore
 			}
 
 #if !FNA
-			Voltage.Core.Instance.Window.TextInput += (s, a) =>
+			Core.Instance.Window.TextInput += (s, a) =>
 			{
 				if (a.Character == '\t')
 					return;
@@ -126,8 +126,8 @@ namespace Voltage.Editor.ImGuiCore
 			io.KeySuper = keyboard.IsKeyDown(Keys.LeftWindows) || keyboard.IsKeyDown(Keys.RightWindows);
 
 			// Get actual backbuffer size (accounts for DPI scaling)
-			var backBufferWidth = Voltage.Core.GraphicsDevice.PresentationParameters.BackBufferWidth;
-			var backBufferHeight = Voltage.Core.GraphicsDevice.PresentationParameters.BackBufferHeight;
+			var backBufferWidth = Core.GraphicsDevice.PresentationParameters.BackBufferWidth;
+			var backBufferHeight = Core.GraphicsDevice.PresentationParameters.BackBufferHeight;
 
 			io.DisplaySize = new System.Numerics.Vector2(backBufferWidth, backBufferHeight);
 			

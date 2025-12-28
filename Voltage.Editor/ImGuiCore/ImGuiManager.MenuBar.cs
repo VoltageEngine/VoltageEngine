@@ -33,6 +33,15 @@ public partial class ImGuiManager
 		set => _showSceneGraphWindow.Value = value;
 	}
 
+	private PersistentBool _showMainInspectorWindow = new("ImGui_ShowMainInspectorWindow", true);
+
+	public bool ShowMainInspectorWindow
+	{
+		get => _showMainInspectorWindow.Value;
+		set => _showMainInspectorWindow.Value = value;
+	}
+
+
 	private PersistentBool _showCoreWindow = new("ImGui_ShowCoreWindow", true);
 
 	public bool ShowCoreWindow
@@ -151,7 +160,7 @@ public partial class ImGuiManager
 
 			if (ImGui.MenuItem("Exit"))
 			{
-				Voltage.Core.ConfirmAndExit();
+				Core.ConfirmAndExit();
 			}
 
 			ImGui.EndMenu();
@@ -380,6 +389,17 @@ public partial class ImGuiManager
 
 			if (ImGui.BeginMenu("Window"))
 			{
+				// Main Inspector
+				var showMainInspector = ShowMainInspectorWindow;
+				ImGui.MenuItem("Inspector Window", null, ref showMainInspector);
+				ShowMainInspectorWindow = showMainInspector;
+
+				if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
+				{
+					ImGui.OpenPopup("MainInspectorContextMenu");
+				}
+
+				// Core Window
 				var showCoreWindow = ShowCoreWindow;
 				ImGui.MenuItem("Core Window", null, ref showCoreWindow);
 				ShowCoreWindow = showCoreWindow;
