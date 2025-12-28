@@ -46,7 +46,7 @@ public class TransformInspector
             else
             {
                 if (VoltageEditorUtils.LabelButton("Parent", _transform.Parent.Entity.Name))
-                    Voltage.Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(_transform.Parent.Entity);
+                    Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(_transform.Parent.Entity);
 
                 if (ImGui.Button("Detach From Parent"))
                     _transform.Parent = null;

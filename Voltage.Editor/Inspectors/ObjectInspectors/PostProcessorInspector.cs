@@ -62,7 +62,7 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 				if (ImGui.Selectable("Remove PostProcessor"))
 				{
 					isOpen = false;
-					Voltage.Core.Scene.RemovePostProcessor(_postProcessor);
+					Core.Scene.RemovePostProcessor(_postProcessor);
 					ImGui.CloseCurrentPopup();
 				}
 

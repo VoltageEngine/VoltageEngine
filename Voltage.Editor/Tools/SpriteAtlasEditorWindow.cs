@@ -129,17 +129,17 @@ namespace Voltage.Editor.Tools
 		void LoadTextureAndAtlasFiles()
 		{
 			if (_texturePtr != IntPtr.Zero)
-				Voltage.Core.GetGlobalManager<ImGuiManager>().UnbindTexture(_texturePtr);
+				Core.GetGlobalManager<ImGuiManager>().UnbindTexture(_texturePtr);
 
 			_spriteAtlasData.Clear();
 			_nonEditableAnimations.Clear();
 			_atlasAllowsAnimationEditing = true;
 			_hasSlicedContent = false;
 
-			var _atlasTexture = Texture2D.FromStream(Voltage.Core.GraphicsDevice, File.OpenRead(_sourceImageFile));
+			var _atlasTexture = Texture2D.FromStream(Core.GraphicsDevice, File.OpenRead(_sourceImageFile));
 			_textureSize = new Num.Vector2(_atlasTexture.Width, _atlasTexture.Height);
 			_textureAspectRatio = _textureSize.X / _textureSize.Y;
-			_texturePtr = Voltage.Core.GetGlobalManager<ImGuiManager>().BindTexture(_atlasTexture);
+			_texturePtr = Core.GetGlobalManager<ImGuiManager>().BindTexture(_atlasTexture);
 			_textureLoadedThisFrame = true;
 
 			if (File.Exists(_sourceAtlasFile))
@@ -676,7 +676,7 @@ namespace Voltage.Editor.Tools
 		~SpriteAtlasEditorWindow()
 		{
 			if (_texturePtr != IntPtr.Zero)
-				Voltage.Core.GetGlobalManager<ImGuiManager>().UnbindTexture(_texturePtr);
+				Core.GetGlobalManager<ImGuiManager>().UnbindTexture(_texturePtr);
 		}
 
 	}

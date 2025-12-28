@@ -45,7 +45,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
 			SpriteAnimator animator = _target as SpriteAnimator;
 			
 			if(imGuiManager == null)
-				imGuiManager = Voltage.Core.GetGlobalManager<ImGuiManager>();
+				imGuiManager = Core.GetGlobalManager<ImGuiManager>();
 
 			if (ImGui.Button("Manage Animation Events", new Num.Vector2(-1, 0)))
 			{
@@ -224,7 +224,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                 try
                 {
                     string relativePath = Path.GetRelativePath(Environment.CurrentDirectory, picker.SelectedFile).Replace('\\', '/');
-                    var asepriteFile = Voltage.Core.Content.LoadAsepriteFile(relativePath);
+                    var asepriteFile = Core.Content.LoadAsepriteFile(relativePath);
                     if (asepriteFile != null && asepriteFile.Layers != null)
                     {
                         foreach (var layer in asepriteFile.Layers)
@@ -293,7 +293,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                     try
                     {
                         string relativePath = Path.GetRelativePath(Environment.CurrentDirectory, picker.SelectedFile).Replace('\\', '/');
-                        var asepriteFile = Voltage.Core.Content.LoadAsepriteFile(relativePath);
+                        var asepriteFile = Core.Content.LoadAsepriteFile(relativePath);
                         if (asepriteFile != null && asepriteFile.Tags != null)
                         {
                             foreach (var tag in asepriteFile.Tags)
@@ -335,7 +335,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
         {
             try
             {
-                var contentManager = animator.Entity?.Scene?.Content ?? Voltage.Core.Content;
+                var contentManager = animator.Entity?.Scene?.Content ?? Core.Content;
                 if (contentManager != null)
                 {
                     // Store the old state for undo

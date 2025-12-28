@@ -213,7 +213,7 @@ namespace Voltage.Editor.FilePickers
             try
             {
                 string relativePath = Path.GetRelativePath(Environment.CurrentDirectory, filePath).Replace('\\', '/');
-                var aseFile = Voltage.Core.Content.LoadAsepriteFile(relativePath);
+                var aseFile = Core.Content.LoadAsepriteFile(relativePath);
                 
                 _availableLayers.Clear();
                 _totalFrames = aseFile.Frames.Count;
