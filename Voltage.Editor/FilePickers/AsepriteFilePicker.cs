@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Utils;
@@ -190,7 +191,7 @@ namespace Voltage.Editor.FilePickers
                     }
                     else
                     {
-                        NotificationSystem.ShowTimedNotification("File must be in Content folder!");
+                        EditorDebug.Log("File must be in Content folder!");
                     }
                 }
 
@@ -239,7 +240,7 @@ namespace Voltage.Editor.FilePickers
             }
             catch (Exception ex)
             {
-                NotificationSystem.ShowTimedNotification($"Error loading Aseprite file: {ex.Message}");
+                EditorDebug.Log($"Error loading Aseprite file: {ex.Message}");
                 _availableLayers.Clear();
                 _totalFrames = 0;
                 _isFileSelected = false; 
@@ -434,7 +435,7 @@ namespace Voltage.Editor.FilePickers
             }
             catch (Exception ex)
             {
-                NotificationSystem.ShowTimedNotification($"Error generating sprites: {ex.Message}");
+                EditorDebug.Error($"Error generating sprites: {ex.Message}");
             }
             
             return sprites;

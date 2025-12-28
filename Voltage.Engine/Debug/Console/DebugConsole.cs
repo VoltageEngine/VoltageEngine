@@ -221,7 +221,6 @@ namespace Voltage.Console
 			}
 		}
 
-
 		void HandleKey(Keys key)
 		{
 			if (key != Keys.Tab && key != Keys.LeftShift && key != Keys.RightShift && key != Keys.RightAlt &&
@@ -526,9 +525,12 @@ namespace Voltage.Console
 			Graphics.Instance.Batcher.Begin();
 
 			// setup the rect that encompases the command entry section
-			var commandEntryRect = RectangleExt.FromFloats(HORIZONTAL_PADDING, screenHeight - LINE_HEIGHT * RenderScale,
-				workingWidth, LINE_HEIGHT * RenderScale);
-
+			var commandEntryRect = RectangleExt.FromFloats(
+				HORIZONTAL_PADDING,
+				screenHeight - LINE_HEIGHT * RenderScale - ScreenUtils.TitleBarHeight,
+				workingWidth,
+				LINE_HEIGHT * RenderScale - ScreenUtils.TaskBarBottomOffset);
+			
 			// take into account text padding. move our location up a bit and expand the Rect to accommodate
 			commandEntryRect.Location -= new Point(0, TEXT_PADDING_Y * 2);
 			commandEntryRect.Height += TEXT_PADDING_Y * 2;

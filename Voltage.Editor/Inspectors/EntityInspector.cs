@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using ImGuiNET;
+using Voltage.Editor.DebugUtils;
 using Voltage.Utils;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Inspectors.ObjectInspectors;
@@ -469,12 +470,12 @@ public class EntityInspector
 			}
 			else
 			{
-				NotificationSystem.ShowTimedNotification($"Failed to save prefab: {newPrefab.Name} - SerializedPrefab with this name already exists!");
+				EditorDebug.Error($"Failed to save prefab: {newPrefab.Name} - SerializedPrefab with this name already exists!");
 			}
 		}
 		else
 		{
-			NotificationSystem.ShowTimedNotification($"Failed to create prefab: {prefabName}");
+			EditorDebug.Error($"Failed to create prefab: {prefabName}");
 		}
 	}
 
@@ -525,7 +526,7 @@ public class EntityInspector
 
 		if (_prefabCopiesToModify.Count == 0)
 		{
-			NotificationSystem.ShowTimedNotification($"No other copies of prefab '{Entity.OriginalPrefabName}' found in scene.");
+			EditorDebug.Warn($"No other copies of prefab '{Entity.OriginalPrefabName}' found in scene.");
 			return;
 		}
 
@@ -616,7 +617,7 @@ public class EntityInspector
 		
 		if (prefabCopies.Count == 0)
 		{
-			NotificationSystem.ShowTimedNotification($"No other copies of prefab '{Entity.OriginalPrefabName}' found in scene.");
+			EditorDebug.Warn($"No other copies of prefab '{Entity.OriginalPrefabName}' found in scene.");
 			return;
 		}
 
@@ -697,11 +698,11 @@ public class EntityInspector
 				$"Apply '{Entity.OriginalPrefabName}' to {undoActions.Count} copies"
 			);
 
-			NotificationSystem.ShowTimedNotification($"Applied prefab '{Entity.OriginalPrefabName}' to {undoActions.Count} copies.");
+			EditorDebug.Info($"Applied prefab '{Entity.OriginalPrefabName}' to {undoActions.Count} copies.");
 		}
 		else
 		{
-			NotificationSystem.ShowTimedNotification($"No changes were applied - all copies are already up to date.");
+			EditorDebug.Info($"No changes were applied - all copies are already up to date.");
 		}
 
 		_prefabCopiesToModify.Clear();
@@ -768,12 +769,12 @@ public class EntityInspector
 
 			if (saveSuccessful)
 			{
-				NotificationSystem.ShowTimedNotification(
+				EditorDebug.Log(
 					$"Applied changes to original prefab: {Entity.OriginalPrefabName}");
 			}
 			else
 			{
-				NotificationSystem.ShowTimedNotification(
+				EditorDebug.Log(
 					$"Failed to apply changes to prefab: {Entity.OriginalPrefabName}");
 			}
 		}

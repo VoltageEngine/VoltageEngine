@@ -4,6 +4,7 @@ using System.Linq;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
+using Voltage.Editor.DebugUtils;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Undo;
@@ -362,7 +363,7 @@ public class EntityPane
 	    {
 	        if (entity != null && entity.Type == Entity.InstanceType.NonSerialized)
 	        {
-	            NotificationSystem.ShowTimedNotification("Cannot duplicate NonSerialized entities.");
+	            EditorDebug.Error("Cannot duplicate NonSerialized entities.");
 	            return true; 
 	        }
 	        return false;

@@ -95,6 +95,9 @@ public class SceneData
 	/// </summary>
 	public class SceneEntityData
 	{
+		public Guid Id { get; set; }
+		public Guid? ParentId { get; set; }
+
 		public Entity.InstanceType InstanceType { get; set; }
 		public string Name { get; set; }
 

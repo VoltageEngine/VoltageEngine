@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using ImGuiNET;
 using Voltage.Data;
-using Voltage.Editor.EditorDebug;
+using Voltage.Editor.DebugUtils;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Tools;
 using Voltage.Editor.Utils;
@@ -400,14 +400,14 @@ namespace Voltage.Editor.ProjectFile
 		#region Actual Project Creation
 		private void CreateProject()
 		{
-			EditorProcessDebugger.LogInfo("=== Starting Project Creation ===", "ProjectCreation");
+			EditorDebug.Log("=== Starting Project Creation ===", "ProjectCreation");
 			
 			try
 			{
 				if (string.IsNullOrWhiteSpace(_projectName))
 				{
 					_projectNameError = "Error: Project name cannot be empty.";
-					EditorProcessDebugger.LogError("Project name is empty", "ProjectCreation");
+					EditorDebug.Error("Project name is empty", "ProjectCreation");
 					return;
 				}
 				
@@ -416,7 +416,7 @@ namespace Voltage.Editor.ProjectFile
 				if (Directory.Exists(fullProjectPath))
 				{
 					_projectNameError = $"Error: A project with the name '{_projectName}' already exists at this location.";
-					EditorProcessDebugger.LogError($"Project directory already exists: {fullProjectPath}", "ProjectCreation");
+					EditorDebug.Error($"Project directory already exists: {fullProjectPath}", "ProjectCreation");
 					return;
 				}
 				
@@ -449,8 +449,7 @@ namespace Voltage.Editor.ProjectFile
 				
 				if (!structureCreated)
 				{
-					EditorProcessDebugger.LogError("Failed to create project structure", "ProjectCreation");
-					NotificationSystem.ShowTimedNotification("Failed to create project structure!");
+					EditorDebug.Error("Failed to create project structure", "ProjectCreation");
 					return;
 				}
 				
@@ -495,12 +494,12 @@ namespace Voltage.Editor.ProjectFile
 				
 				if (projectLoaded)
 				{
-					NotificationSystem.ShowTimedNotification($"Project '{_projectName}' created successfully!");
+					EditorDebug.Log($"Project '{_projectName}' created successfully!");
 				}
 				else
 				{
-					EditorProcessDebugger.LogError($"Project created but failed to load from: {metadataPath}", "ProjectCreation");
-					NotificationSystem.ShowTimedNotification($"Project created but failed to load. Check logs.");
+					EditorDebug.Error($"Project created but failed to load from: {metadataPath}", "ProjectCreation");
+					EditorDebug.Log($"Project created but failed to load. Check logs.");
 				}
 
 				if (EditorSettingsWindow.AutoOpenSolutionUponCreation)
@@ -516,14 +515,14 @@ namespace Voltage.Editor.ProjectFile
 					}
 				}
 
-				EditorProcessDebugger.LogInfo("=== Project Creation Complete ===", "ProjectCreation");
+				EditorDebug.Log("=== Project Creation Complete ===", "ProjectCreation");
 				ImGui.CloseCurrentPopup();
 				ResetFields();
 			}
 			catch (Exception ex)
 			{
-				EditorProcessDebugger.LogError($"Exception during project creation: {ex.Message}", "ProjectCreation");
-				EditorProcessDebugger.LogError($"Stack trace: {ex.StackTrace}", "ProjectCreation");
+				EditorDebug.Error($"Exception during project creation: {ex.Message}", "ProjectCreation");
+				EditorDebug.Error($"Stack trace: {ex.StackTrace}", "ProjectCreation");
 				_projectNameError = $"Error: {ex.Message}";
 			}
 		}

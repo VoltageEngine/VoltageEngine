@@ -287,14 +287,14 @@ namespace Voltage
 		{
 			if (string.IsNullOrEmpty(_data?.TiledMapPath))
 			{
-				Debug.Log(Debug.LogType.Warn, "TiledMapRenderer has no TiledMapPath to load from.");
+				Debug.Warn( "TiledMapRenderer has no TiledMapPath to load from.");
 				return;
 			}
 
 			var contentManager = Entity?.Scene?.Content ?? Core.Content;
 			if (contentManager == null)
 			{
-				Debug.Log(Debug.LogType.Warn, $"No content manager available to load TMX file: {_data.TiledMapPath}");
+				Debug.Warn($"No content manager available to load TMX file: {_data.TiledMapPath}");
 				return;
 			}
 
@@ -313,7 +313,7 @@ namespace Voltage
 			}
 			catch (Exception ex)
 			{
-				Debug.Log(Debug.LogType.Error, $"Failed to load TiledMap from {_data.TiledMapPath}: {ex.Message}");
+				Debug.Error($"Failed to load TiledMap from {_data.TiledMapPath}: {ex.Message}");
 			}
 		}
 	}

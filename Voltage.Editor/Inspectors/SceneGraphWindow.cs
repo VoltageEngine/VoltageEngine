@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
+using Voltage.Editor.DebugUtils;
 using Voltage.Utils;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.FilePickers;
@@ -415,21 +416,17 @@ public class SceneGraphWindow
 				// Force prefab cache to reinitialize on next use
 				_prefabCacheInitialized = false;
 				
-				NotificationSystem.ShowTimedNotification($"Successfully deleted prefab: {prefabName}");
-				
 				ImGui.CloseCurrentPopup();
 			}
 			else
 			{
 				var errorMsg = $"SerializedPrefab file not found: {prefabName}";
-				NotificationSystem.ShowTimedNotification(errorMsg);
 				Debug.Error(errorMsg);
 			}
 		}
 		catch (Exception ex)
 		{
 			var errorMsg = $"Failed to delete prefab {prefabName}: {ex.Message}";
-			NotificationSystem.ShowTimedNotification(errorMsg);
 			Debug.Error(errorMsg);
 		}
 	}
@@ -465,7 +462,7 @@ public class SceneGraphWindow
 		_imGuiManager.SceneGraphWindow.EntityPane.SetSelectedEntity(entity, false);
 		_imGuiManager.MainEntityInspector.DelayedSetEntity(entity);
 
-		NotificationSystem.ShowTimedNotification($"Created empty entity: {entity.Name}");
+		EditorDebug.Log($"Created empty entity: {entity.Name}");
 	}
 
 	/// <summary>
@@ -479,7 +476,7 @@ public class SceneGraphWindow
 
 			if (prefabData.EntityData == null)
 			{
-				NotificationSystem.ShowTimedNotification($"Null SerializedPrefab EntityData: {prefabName}");
+				EditorDebug.Log($"Null SerializedPrefab EntityData: {prefabName}");
 				return;
 			}
 
@@ -503,17 +500,17 @@ public class SceneGraphWindow
 				_imGuiManager.SceneGraphWindow.EntityPane.SetSelectedEntity(entity, false);
 				_imGuiManager.MainEntityInspector.DelayedSetEntity(entity);
 
-				NotificationSystem.ShowTimedNotification($"Created entity from prefab: {prefabName}");
+				EditorDebug.Log($"Created entity from prefab: {prefabName}");
 			}
 			catch
 			{
-				NotificationSystem.ShowTimedNotification(
+				EditorDebug.Log(
 					$"Failed to create entity from prefab: {prefabName}.");
 			}
 		}
 		catch (Exception ex)
 		{
-			NotificationSystem.ShowTimedNotification($"Error creating entity from prefab {prefabName}: {ex.Message}");
+			EditorDebug.Log($"Error creating entity from prefab {prefabName}: {ex.Message}");
 		}
 	}
 

@@ -7,42 +7,80 @@ using Voltage;
 
 public class ScreenUtils
 {
-	public static bool IsFullscreen => _isFullscreen;
-	public static bool IsBorderless => _isBorderless;
-	private static bool _isFullscreen = false;
-    private static bool _isBorderless = false;
+	public enum ScreenMode
+	{
+		FullScreen, // True hardware fullscreen
+		Borderless, // Borderless fullscreen
+		WindowedMax, // Window mode that fills the entire screen, with account for the taskbar under it 
+		Windowed 
+	}
 
-    public static void SetFullScreenMode()
+	/// <summary>
+	/// The offset from the bottom part of the screen that the application must have
+	/// </summary>
+	public static int TaskBarBottomOffset = 32 * 2;
+
+	public static ScreenMode Mode { get; private set; }
+	public static int TitleBarHeight = 32;
+
+
+	public static void ApplyScreenChange(ScreenMode mode)
+	{
+		Mode = mode;
+
+		if (Mode == ScreenMode.FullScreen)
+		{
+			SetFullScreenMode();
+		}
+		else if (Mode == ScreenMode.Borderless)
+		{
+			SetBorderlessMode();
+		}
+		else if (Mode == ScreenMode.WindowedMax)
+		{
+			SetWindowedMode(true);
+		}
+		else
+		{
+			SetWindowedMode(true);
+		}
+	}
+
+	private static void SetFullScreenMode()
     {
-        _isFullscreen = true;
-        _isBorderless = false;
         Core.Instance.Window.Position = Point.Zero;
-        ApplyFullscreenChange();
-    }
+		Core.Instance.Window.IsBorderless = false;
+        Screen.PreferredBackBufferWidth = Screen.ActualMonitorWidth;
+        Screen.PreferredBackBufferHeight = Screen.ActualMonitorHeight;
+        Screen.IsFullscreen = true;
+		Screen.ApplyChanges();
+	}
+
+    private static void SetBorderlessMode()
+    {
+	    Core.Instance.Window.Position = Point.Zero;
+		Screen.IsFullscreen = false;
+	    Core.Instance.Window.IsBorderless = true;
+	    Screen.SetSize(Screen.ActualMonitorWidth, Screen.ActualMonitorHeight);
+	    Screen.ApplyChanges();
+	}
 
 	/// <summary>
 	/// Used for the game window, not the editor window.
 	/// </summary>
-	public static void SetEditorWindowedMode(bool maximizedVersion)
+	private static void SetWindowedMode(bool maximizedVersion)
     {
-        _isFullscreen = false;
-        _isBorderless = false;
-
-	    if (maximizedVersion)
+		if (maximizedVersion)
 	    {
-		    int titleBarHeight = 32;
-		    int topBorder = 1;
-		    int taskbarHeight = 48;
-		    
-		    int maxWidth = Screen.MonitorWidth;
+			int maxWidth = Screen.MonitorWidth;
 		    int maxHeight = Screen.MonitorHeight;
 		    
-		    Core.Instance.Window.Position = new Point(0, titleBarHeight);
+		    Core.Instance.Window.Position = new Point(0, TitleBarHeight);
 		    Core.Instance.Window.IsBorderless = false;
 		    Screen.IsFullscreen = false;
-		    Screen.SetSize(maxWidth, maxHeight - titleBarHeight * 2);
+		    Screen.SetSize(maxWidth, maxHeight - TitleBarHeight * 2);
 		}
-	    else
+		else
 	    {
 			int posX = Screen.MonitorWidth / 2;
 			int posY = Screen.MonitorHeight / 2;
@@ -54,56 +92,5 @@ public class ScreenUtils
 		}
 
 		Screen.ApplyChanges();
-    }
-
-	public static void SetGameWindowedMode(bool maximizedVersion)
-	{
-		_isFullscreen = false;
-		_isBorderless = false;
-
-		Core.Instance.Window.Position = new Point(Screen.MonitorWidth / 4, Screen.MonitorHeight / 4);
-		ApplyFullscreenChange();
-	}
-
-	public static void SetBorderlessMode()
-	{
-		_isFullscreen = false;
-		_isBorderless = true;
-		Core.Instance.Window.Position = new Point(Screen.ActualMonitorWidth / 4, Screen.ActualMonitorHeight / 4);
-		ApplyFullscreenChange();
-	}
-
-    private static void ApplyFullscreenChange()
-    {
-        if (_isFullscreen)
-        {
-            // Fullscreen mode
-            if (_isBorderless)
-            {
-                // Borderless fullscreen
-                Screen.IsFullscreen = false;
-                Core.Instance.Window.IsBorderless = true;
-                Screen.SetSize(Screen.ActualMonitorWidth, Screen.ActualMonitorHeight);
-                Screen.ApplyChanges();
-            }
-            else
-            {
-                // True hardware fullscreen
-                Screen.IsFullscreen = true;
-                Core.Instance.Window.IsBorderless = false;
-                Screen.PreferredBackBufferWidth = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width;
-                Screen.PreferredBackBufferHeight = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height;
-                Screen.ApplyChanges();
-            }
-        }
-        else
-        {
-            // Windowed mode
-            Screen.IsFullscreen = false;
-            Core.Instance.Window.IsBorderless = false;
-	        Core.Instance.Window.Position = new Point(0, 0);
-	        Screen.SetSize(Screen.ActualMonitorWidth, Screen.ActualMonitorHeight);
-			Screen.ApplyChanges();
-        }
     }
 }

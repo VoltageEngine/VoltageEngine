@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 using Microsoft.Xna.Framework.Content;
-using Voltage.Editor.EditorDebug;
+using Voltage.Editor.DebugUtils;
 using Voltage.Editor.SceneFile;
 
 namespace Voltage.Editor.ProjectFile
@@ -72,15 +72,15 @@ namespace Voltage.Editor.ProjectFile
 
 		public void Initialize()
 		{
-			EditorProcessDebugger.LogInfo($"Initializing project: {ProjectName}", "RuntimeGameProject");
-			EditorProcessDebugger.LogInfo($"  Version: {Version}", "RuntimeGameProject");
-			EditorProcessDebugger.LogInfo($"  Path: {ProjectPath}", "RuntimeGameProject");
-			EditorProcessDebugger.LogInfo($"  Scripts: {ScriptsFolder}", "RuntimeGameProject");
-			EditorProcessDebugger.LogInfo($"  Effects: {EffectsFolder}", "RuntimeGameProject");
-			EditorProcessDebugger.LogInfo($"  Content: {ContentsFolder}", "RuntimeGameProject");
-			EditorProcessDebugger.LogInfo($"  Data: {DataFolder}", "RuntimeGameProject");
-			EditorProcessDebugger.LogInfo($"  Scenes: {ScenesFolder}", "RuntimeGameProject");
-			EditorProcessDebugger.LogInfo($"  Prefabs: {PrefabsFolder}", "RuntimeGameProject");
+			EditorDebug.Log($"Initializing project: {ProjectName}", "RuntimeGameProject");
+			EditorDebug.Log($"  Version: {Version}", "RuntimeGameProject");
+			EditorDebug.Log($"  Path: {ProjectPath}", "RuntimeGameProject");
+			EditorDebug.Log($"  Scripts: {ScriptsFolder}", "RuntimeGameProject");
+			EditorDebug.Log($"  Effects: {EffectsFolder}", "RuntimeGameProject");
+			EditorDebug.Log($"  Content: {ContentsFolder}", "RuntimeGameProject");
+			EditorDebug.Log($"  Data: {DataFolder}", "RuntimeGameProject");
+			EditorDebug.Log($"  Scenes: {ScenesFolder}", "RuntimeGameProject");
+			EditorDebug.Log($"  Prefabs: {PrefabsFolder}", "RuntimeGameProject");
 
 			if (Settings != null)
 			{
@@ -94,7 +94,7 @@ namespace Voltage.Editor.ProjectFile
 		
 		public Scene CreateInitialScene()
 		{
-			EditorProcessDebugger.LogInfo($"Creating initial GameScene for project: {ProjectName}", "RuntimeGameProject");
+			EditorDebug.Log($"Creating initial GameScene for project: {ProjectName}", "RuntimeGameProject");
 			var scene = new Scene();
 			scene.AddSceneComponent<GameScene>();
 			return scene;
@@ -104,28 +104,28 @@ namespace Voltage.Editor.ProjectFile
 		{
 			if (content == null)
 			{
-				EditorProcessDebugger.LogError("ContentManager is null, cannot load project content.", "RuntimeGameProject");
+				EditorDebug.Error("ContentManager is null, cannot load project content.", "RuntimeGameProject");
 
 				return;
 			}
 			
-			EditorProcessDebugger.LogInfo($"Loading content for project: {ProjectName}", "RuntimeGameProject");
+			EditorDebug.Log($"Loading content for project: {ProjectName}", "RuntimeGameProject");
 			
 			// Set the content root directory to the project's content folder
 			if (Directory.Exists(ContentsFolder))
 			{
 				content.RootDirectory = ContentsFolder;
-				EditorProcessDebugger.LogInfo($"Set content root directory to: {ContentsFolder}", "RuntimeGameProject");
+				EditorDebug.Log($"Set content root directory to: {ContentsFolder}", "RuntimeGameProject");
 			}
 			else
 			{
-				EditorProcessDebugger.LogInfo($"Content folder does not exist: {ContentsFolder}", "RuntimeGameProject");
+				EditorDebug.Log($"Content folder does not exist: {ContentsFolder}", "RuntimeGameProject");
 			}
 		}
 		
 		public void UnloadContent()
 		{
-			EditorProcessDebugger.LogInfo($"Unloading content for project: {ProjectName}", "RuntimeGameProject");
+			EditorDebug.Log($"Unloading content for project: {ProjectName}", "RuntimeGameProject");
 		}
 		
 		#endregion
@@ -149,14 +149,14 @@ namespace Voltage.Editor.ProjectFile
 					
 					if (_settings != null)
 					{
-						EditorProcessDebugger.LogInfo($"Loaded settings from: {settingsPath}", "RuntimeGameProject");
-						EditorProcessDebugger.LogInfo($"  Design Resolution: {_settings.DesignResolution.Width}x{_settings.DesignResolution.Height} ({_settings.DesignResolution.ResolutionPolicy})", "RuntimeGameProject");
+						EditorDebug.Log($"Loaded settings from: {settingsPath}", "RuntimeGameProject");
+						EditorDebug.Log($"  Design Resolution: {_settings.DesignResolution.Width}x{_settings.DesignResolution.Height} ({_settings.DesignResolution.ResolutionPolicy})", "RuntimeGameProject");
 						return;
 					}
 				}
 				catch (Exception ex)
 				{
-					EditorProcessDebugger.LogError($"Failed to load ProjectSettings.json: {ex.Message}", "RuntimeGameProject");
+					EditorDebug.Error($"Failed to load ProjectSettings.json: {ex.Message}", "RuntimeGameProject");
 				}
 			}
 			
@@ -164,7 +164,7 @@ namespace Voltage.Editor.ProjectFile
 			if (_metadata.Settings != null)
 			{
 				_settings = _metadata.Settings;
-				EditorProcessDebugger.LogInfo("Using settings from project metadata", "RuntimeGameProject");
+				EditorDebug.Log("Using settings from project metadata", "RuntimeGameProject");
 				
 				try
 				{
@@ -173,17 +173,17 @@ namespace Voltage.Editor.ProjectFile
 						PrettyPrint = true
 					});
 					File.WriteAllText(settingsPath, settingsJson, new System.Text.UTF8Encoding(false));
-					EditorProcessDebugger.LogInfo($"Created ProjectSettings.json at: {settingsPath}", "RuntimeGameProject");
+					EditorDebug.Log($"Created ProjectSettings.json at: {settingsPath}", "RuntimeGameProject");
 				}
 				catch (Exception ex)
 				{
-					EditorProcessDebugger.LogError($"Failed to create ProjectSettings.json: {ex.Message}", "RuntimeGameProject");
+					EditorDebug.Error($"Failed to create ProjectSettings.json: {ex.Message}", "RuntimeGameProject");
 				}
 			}
 			else
 			{
 				_settings = new ProjectCreator().CreateDefaultSettings();
-				EditorProcessDebugger.LogWarning("No settings found, created default settings", "RuntimeGameProject");
+				EditorDebug.Warn("No settings found, created default settings", "RuntimeGameProject");
 			}
 		}
 		
@@ -198,33 +198,33 @@ namespace Voltage.Editor.ProjectFile
 				// Apply display settings
 				if (Settings.Display != null)
 				{
-					EditorProcessDebugger.LogInfo($"Applying display settings: {Settings.Display.ScreenWidth}x{Settings.Display.ScreenHeight}, " +
+					EditorDebug.Log($"Applying display settings: {Settings.Display.ScreenWidth}x{Settings.Display.ScreenHeight}, " +
 					                              $"Fullscreen: {Settings.Display.IsFullscreen}, VSync: {Settings.Display.EnableVSync}", "RuntimeGameProject");
 				}
 				
 				// Apply design resolution settings
 				if (Settings.DesignResolution != null)
 				{
-					EditorProcessDebugger.LogInfo($"Design resolution loaded: {Settings.DesignResolution.Width}x{Settings.DesignResolution.Height} " +
+					EditorDebug.Log($"Design resolution loaded: {Settings.DesignResolution.Width}x{Settings.DesignResolution.Height} " +
 					                              $"({Settings.DesignResolution.ResolutionPolicy})", "RuntimeGameProject");
 				}
 				
 				// Apply audio settings
 				if (Settings.Audio != null)
 				{
-					EditorProcessDebugger.LogInfo($"Audio settings loaded: Master={Settings.Audio.MasterVolume}, " +
+					EditorDebug.Log($"Audio settings loaded: Master={Settings.Audio.MasterVolume}, " +
 					                              $"Music={Settings.Audio.MusicVolume}, SFX={Settings.Audio.SFXVolume}", "RuntimeGameProject");
 				}
 				
 				// Apply content directory
 				if (!string.IsNullOrWhiteSpace(Settings.ContentDirectory))
 				{
-					EditorProcessDebugger.LogInfo($"Content directory set to: {Settings.ContentDirectory}", "RuntimeGameProject");
+					EditorDebug.Log($"Content directory set to: {Settings.ContentDirectory}", "RuntimeGameProject");
 				}
 			}
 			catch (Exception ex)
 			{
-				EditorProcessDebugger.LogError($"Failed to apply game settings: {ex.Message}", "RuntimeGameProject");
+				EditorDebug.Error($"Failed to apply game settings: {ex.Message}", "RuntimeGameProject");
 			}
 		}
 		

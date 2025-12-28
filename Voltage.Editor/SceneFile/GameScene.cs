@@ -6,6 +6,7 @@ using System.Linq;
 using Microsoft.Xna.Framework;
 using Voltage.Data;
 using Voltage.DeferredLighting;
+using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Extensions;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Inspectors;
@@ -330,7 +331,7 @@ public class GameScene : SceneComponent
         }
         catch (Exception ex)
         {
-            NotificationSystem.ShowTimedNotification($"Failed to load TMX file {tiledMapSelection.FilePath}: {ex.Message}");
+            EditorDebug.Error($"Failed to load TMX file {tiledMapSelection.FilePath}: {ex.Message}");
 
             foreach (var entity in newEntities)
             {
@@ -402,7 +403,7 @@ public class GameScene : SceneComponent
                 var asepriteLayer = asepriteFile.Layers.FirstOrDefault(layer => layer.Name == layerName);
                 if (asepriteLayer == null)
                 {
-                    NotificationSystem.ShowTimedNotification($"Layer '{layerName}' not found in Aseprite file");
+                    EditorDebug.Log($"Layer '{layerName}' not found in Aseprite file");
                     continue;
                 }
 
@@ -459,13 +460,13 @@ public class GameScene : SceneComponent
                 $"Load Aseprite: {fileName}"
             );
 
-            NotificationSystem.ShowTimedNotification(
+            EditorDebug.Log(
                 $"Successfully loaded {createdEntities.Count - 1} layer(s) from {fileName}"
             );
         }
         catch (Exception ex)
         {
-            NotificationSystem.ShowTimedNotification($"Failed to load Aseprite file: {ex.Message}");
+            EditorDebug.Log($"Failed to load Aseprite file: {ex.Message}");
         }
     }
 

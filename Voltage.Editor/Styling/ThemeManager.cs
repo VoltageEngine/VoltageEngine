@@ -2,11 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.Utils;
 using Voltage.Utils;
 
-namespace Voltage.Editor.EditorStyling
+namespace Voltage.Editor.Styling
 {
 	/// <summary>
 	/// Manages ImGui theme selection and persistence.
@@ -63,8 +64,6 @@ namespace Voltage.Editor.EditorStyling
 					_availableThemes[method.Name] = method;
 				}
 			}
-
-			Debug.Log($"Loaded {_availableThemes.Count} available themes");
 		}
 
 		/// <summary>
@@ -76,7 +75,7 @@ namespace Voltage.Editor.EditorStyling
 		{
 			if (string.IsNullOrWhiteSpace(themeName))
 			{
-				Debug.Warn("Cannot apply theme with empty name");
+				NotificationSystem.ShowTimedNotification("Cannot apply theme with empty name");
 				return false;
 			}
 
@@ -87,7 +86,6 @@ namespace Voltage.Editor.EditorStyling
 					themeMethod.Invoke(null, null);
 					_currentThemeName = themeName;
 					_lastSelectedTheme.Value = themeName;
-					Debug.Log($"Applied theme: {themeName}");
 					return true;
 				}
 				catch (Exception ex)

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Voltage.Editor.DebugUtils;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Inspectors.ObjectInspectors;
 using Voltage.Editor.ProjectFile;
@@ -175,11 +176,11 @@ public class MainEntityInspector
 				$"Add {componentType.Name} to {Entity.Name}"
 			);
 
-			NotificationSystem.ShowTimedNotification($"Added {componentType.Name} to {Entity.Name}");
+			EditorDebug.Log($"Added {componentType.Name} to {Entity.Name}");
 		}
 		catch (Exception ex)
 		{
-			NotificationSystem.ShowTimedNotification($"Failed to add {componentType.Name}: {ex.Message}");
+			EditorDebug.Log($"Failed to add {componentType.Name}: {ex.Message}");
 			Debug.Error($"Failed to add component {componentType.Name}: {ex.Message}");
 		}
 	}
@@ -392,7 +393,7 @@ public class MainEntityInspector
 			{
 				lockedButtonColor = new System.Numerics.Vector4(0.2f, 0.5f, 1f, 1f); // blue
 				ImGui.PushStyleColor(ImGuiCol.Button, lockedButtonColor);
-				if(ImGui.ImageButton("Lock Off", _imGuiManager.ImageLoader.LockedInspectorIconId, new Num.Vector2(iconSize, iconSize)))
+				if(ImGui.ImageButton("Lock Off", ImguiImageLoader.LockedInspectorIconId, new Num.Vector2(iconSize, iconSize)))
 				{
 					_imGuiManager.IsInspectorTabLocked = false;
 					_lockedEntity = null;
@@ -405,7 +406,7 @@ public class MainEntityInspector
 			{
 				lockedButtonColor = ImGui.GetStyle().Colors[(int)ImGuiCol.Button];
 				ImGui.PushStyleColor(ImGuiCol.Button, lockedButtonColor);
-				if (ImGui.ImageButton("Lock On", _imGuiManager.ImageLoader.UnlockedInspectorIconId, new Num.Vector2(iconSize, iconSize)))
+				if (ImGui.ImageButton("Lock On", ImguiImageLoader.UnlockedInspectorIconId, new Num.Vector2(iconSize, iconSize)))
 				{
 					_imGuiManager.IsInspectorTabLocked = true;
 					_lockedEntity = Entity;
@@ -790,16 +791,16 @@ public class MainEntityInspector
 			if (saveSuccessful)
 			{
 				_imGuiManager.SceneGraphWindow.AddPrefabToCache(newPrefab.Name);
-				NotificationSystem.ShowTimedNotification($"Successfully created and saved prefab: {newPrefab.Name}");
+				EditorDebug.Info($"Successfully created and saved prefab: {newPrefab.Name}");
 			}
 			else if(!canOverride)
 			{
-				NotificationSystem.ShowTimedNotification($"Failed to save prefab: {newPrefab.Name} - SerializedPrefab with this name already exists!");
+				EditorDebug.Error($"Failed to save prefab: {newPrefab.Name} - SerializedPrefab with this name already exists!");
 			}
 		}
 		else
 		{
-			NotificationSystem.ShowTimedNotification($"Failed to create prefab: {prefabName}");
+			EditorDebug.Error($"Failed to create prefab: {prefabName}");
 		}
 	}
 
@@ -861,7 +862,7 @@ public class MainEntityInspector
 		
 		if (prefabCopies.Count == 0)
 		{
-			NotificationSystem.ShowTimedNotification($"No other copies of prefab '{Entity.OriginalPrefabName}' found in scene.");
+			EditorDebug.Log($"No other copies of prefab '{Entity.OriginalPrefabName}' found in scene.");
 			return;
 		}
 
@@ -951,11 +952,11 @@ public class MainEntityInspector
 				$"Apply '{Entity.OriginalPrefabName}' to {undoActions.Count} copies"
 			);
 
-			NotificationSystem.ShowTimedNotification($"Applied prefab '{Entity.OriginalPrefabName}' to {undoActions.Count} copies.");
+			EditorDebug.Log($"Applied prefab '{Entity.OriginalPrefabName}' to {undoActions.Count} copies.");
 		}
 		else
 		{
-			NotificationSystem.ShowTimedNotification($"No changes were applied - all copies are already up to date.");
+			EditorDebug.Log($"No changes were applied - all copies are already up to date.");
 		}
 
 		_prefabCopiesToModify.Clear();
@@ -993,7 +994,7 @@ public class MainEntityInspector
 
 		if (_prefabCopiesToModify.Count == 0)
 		{
-			NotificationSystem.ShowTimedNotification($"No other copies of prefab '{Entity.OriginalPrefabName}' found in scene.");
+			EditorDebug.Log($"No other copies of prefab '{Entity.OriginalPrefabName}' found in scene.");
 			return;
 		}
 
@@ -1137,11 +1138,11 @@ public class MainEntityInspector
 
 			if (saveSuccessful)
 			{
-				NotificationSystem.ShowTimedNotification($"Applied changes to original prefab: {Entity.OriginalPrefabName}");
+				EditorDebug.Log($"Applied changes to original prefab: {Entity.OriginalPrefabName}");
 			}
 			else
 			{
-				NotificationSystem.ShowTimedNotification($"Failed to apply changes to prefab: {Entity.OriginalPrefabName}");
+				EditorDebug.Log($"Failed to apply changes to prefab: {Entity.OriginalPrefabName}");
 			}
 		}
 	}

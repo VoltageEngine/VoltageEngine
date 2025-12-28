@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using Microsoft.Xna.Framework;
 using Voltage.Data;
-using Voltage.Editor.EditorDebug;
+using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Utils;
@@ -152,12 +152,12 @@ namespace Voltage.Editor.SceneFile
 		/// </summary>
 		public Scene LoadScene(string scenePath)
 		{
-			EditorProcessDebugger.LogInfo($"=== Loading Scene ===", "SceneManagement");
-			EditorProcessDebugger.LogInfo($"Scene file: {scenePath}", "SceneManagement");
+			EditorDebug.Log($"=== Loading Scene ===", "SceneManagement");
+			EditorDebug.Log($"Scene file: {scenePath}", "SceneManagement");
 
 			if (string.IsNullOrWhiteSpace(scenePath))
 			{
-				EditorProcessDebugger.LogError("Scene path cannot be null or empty", "SceneManagement");
+				EditorDebug.Error("Scene path cannot be null or empty", "SceneManagement");
 				return null;
 			}
 
@@ -231,8 +231,8 @@ namespace Voltage.Editor.SceneFile
 				return false;
 			}
 
-			EditorProcessDebugger.LogInfo($"=== Saving Scene ===", "SceneManagement");
-			EditorProcessDebugger.LogInfo($"Scene file: {CurrentScenePath}", "SceneManagement");
+			EditorDebug.Log($"=== Saving Scene ===", "SceneManagement");
+			EditorDebug.Log($"Scene file: {CurrentScenePath}", "SceneManagement");
 
 			try
 			{
@@ -250,7 +250,7 @@ namespace Voltage.Editor.SceneFile
 			catch (Exception ex)
 			{
 				Debug.Error($"Failed to save scene: {ex.Message}");
-				NotificationSystem.ShowTimedNotification($"Failed to save scene: {ex.Message}");
+				EditorDebug.Log($"Failed to save scene: {ex.Message}");
 				return false;
 			}
 		}
@@ -287,9 +287,9 @@ namespace Voltage.Editor.SceneFile
 				return false;
 			}
 
-			EditorProcessDebugger.LogInfo($"=== Creating Scene File ===", "SceneManagement");
-			EditorProcessDebugger.LogInfo($"Scene name: {sceneName}", "SceneManagement");
-			EditorProcessDebugger.LogInfo($"Scene path: {sceneFilePath}", "SceneManagement");
+			EditorDebug.Log($"=== Creating Scene File ===", "SceneManagement");
+			EditorDebug.Log($"Scene name: {sceneName}", "SceneManagement");
+			EditorDebug.Log($"Scene path: {sceneFilePath}", "SceneManagement");
 
 			try
 			{

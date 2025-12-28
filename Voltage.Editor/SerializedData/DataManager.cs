@@ -4,17 +4,16 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Runtime.Serialization;
 using System.Threading.Tasks;
 using Voltage.Data;
-using Voltage.Editor.EditorDebug;
-using Voltage.Editor.ImGuiCore;
+using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Interfaces;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.SceneFile;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Utils;
 using Voltage.Persistence;
+using Voltage.Serialization;
 using Voltage.Utils;
 using Voltage.Utils.Extensions;
 using PrefabData = Voltage.Data.PrefabData;
@@ -108,7 +107,7 @@ public class DataManager : GlobalManager
 				if (OnSaveSceneAsync != null)
 				{
 					await OnSaveSceneAsync.Invoke();
-					NotificationSystem.ShowTimedNotification("Save scene completed successfully");
+					EditorDebug.Log("Save scene completed successfully");
 				}
 				else
 				{
@@ -181,10 +180,10 @@ public class DataManager : GlobalManager
 		await SaveSceneDataAsync(Core.Scene, HasExitedEditorMode);
 
 		if (HasExitedEditorMode)
-			NotificationSystem.ShowTimedNotification(
+			EditorDebug.Log(
 				"WARNING. Only saved EntityData, without Transform and Component data. Must Reset the Scene to save current state!");
 		else
-			NotificationSystem.ShowTimedNotification($"Successfully saved {Core.Scene.SceneData?.Name ?? "Scene"} data");
+			EditorDebug.Log($"Successfully saved {Core.Scene.SceneData?.Name ?? "Scene"} data");
 
 		EditorChangeTracker.ClearOnSave();
 	}
@@ -194,6 +193,7 @@ public class DataManager : GlobalManager
 	/// </summary>
 	public async Task SaveSceneDataAsync(Scene scene, bool ignoreEntityTransform)
 	{
+		ComponentDataSerializationBootstrap.EnsureInitialized();
 		var filePath = SceneManager.Instance.CurrentScenePath;
 
 		if (string.IsNullOrEmpty(filePath))
@@ -290,6 +290,7 @@ public class DataManager : GlobalManager
 
 			var sceneEntityData = new SceneData.SceneEntityData
 			{
+				Id = hasOldData && oldEntityData.Id != Guid.Empty ? oldEntityData.Id : Guid.NewGuid(),
 				InstanceType = entity.Type,
 				Name = entity.Name,
 				Position = positionToSave,
@@ -298,6 +299,11 @@ public class DataManager : GlobalManager
 				ParentEntityName = ignoreEntityTransform && hasOldData
 					? oldEntityData.ParentEntityName
 					: entity.Transform.Parent?.Entity?.Name,
+				ParentId = ignoreEntityTransform && hasOldData
+					? oldEntityData.ParentId
+					: (entity.Transform.Parent?.Entity != null && oldSceneData != null
+						? oldSceneData.Entities.FirstOrDefault(e => string.Equals(e.Name, entity.Transform.Parent.Entity.Name, StringComparison.OrdinalIgnoreCase))?.Id
+						: null),
 				Enabled = entity.Enabled,
 				UpdateOrder = entity.UpdateOrder,
 				Tag = entity.Tag,
@@ -322,7 +328,7 @@ public class DataManager : GlobalManager
 					{
 						foreach (var oldEntry in oldEntityDataClone.ComponentDataList)
 						{
-							var isSaveableComponent = ComponentDataTypeRegistrator.DataTypes.TryGetValue(oldEntry.ComponentTypeName, out var componentType) &&
+							var isSaveableComponent = Type.GetType(oldEntry.ComponentTypeName) is { } componentType &&
 													 typeof(IPlayModeSaveableComponent).IsAssignableFrom(componentType);
 
 							if (!isSaveableComponent)
@@ -517,26 +523,35 @@ public class DataManager : GlobalManager
 			newEntity.OriginalPrefabName = null;
 
 		// Handle transform and parent assignment
-		if (!string.IsNullOrEmpty(entityData.ParentEntityName))
+		Entity parentEntity = null;
+		if (entityData.ParentId.HasValue && newEntity.Scene?.SceneData?.Entities != null)
 		{
-			var parentEntity = newEntity.Scene?.FindEntity(entityData.ParentEntityName);
-			if (parentEntity != null)
-			{
-				newEntity.Transform.SetParent(parentEntity.Transform);
-				newEntity.Transform.SetLocalPosition(entityData.Position);
-				newEntity.Transform.SetLocalRotation(entityData.Rotation);
-				newEntity.Transform.SetLocalScale(entityData.Scale);
-			}
-			else
-			{
-				newEntity.SetData("_PendingParentName", entityData.ParentEntityName);
-				newEntity.SetData("_PendingLocalPosition", entityData.Position);
-				newEntity.SetData("_PendingLocalRotation", entityData.Rotation);
-				newEntity.SetData("_PendingLocalScale", entityData.Scale);
-			}
+			var parentSceneData = newEntity.Scene.SceneData.Entities.FirstOrDefault(e => e.Id == entityData.ParentId.Value);
+			if (parentSceneData != null)
+				parentEntity = newEntity.Scene.FindEntity(parentSceneData.Name);
+		}
+
+		if (parentEntity == null && !string.IsNullOrEmpty(entityData.ParentEntityName))
+			parentEntity = newEntity.Scene?.FindEntity(entityData.ParentEntityName);
+
+		if (parentEntity != null)
+		{
+			newEntity.Transform.SetParent(parentEntity.Transform);
+			newEntity.Transform.SetLocalPosition(entityData.Position);
+			newEntity.Transform.SetLocalRotation(entityData.Rotation);
+			newEntity.Transform.SetLocalScale(entityData.Scale);
 		}
 		else
 		{
+			if (entityData.ParentId.HasValue)
+				newEntity.SetData("_PendingParentId", entityData.ParentId.Value);
+			else if (!string.IsNullOrEmpty(entityData.ParentEntityName))
+				newEntity.SetData("_PendingParentName", entityData.ParentEntityName);
+
+			newEntity.SetData("_PendingLocalPosition", entityData.Position);
+			newEntity.SetData("_PendingLocalRotation", entityData.Rotation);
+			newEntity.SetData("_PendingLocalScale", entityData.Scale);
+
 			newEntity.Transform.Position = entityData.Position;
 			newEntity.Transform.Rotation = entityData.Rotation;
 			newEntity.Transform.Scale = entityData.Scale;
@@ -599,6 +614,7 @@ public class DataManager : GlobalManager
 	[DynamicDependency(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor, typeof(ComponentData))]
 	private bool TryAssignComponentDataFromEntityData(Entity entity, Component component)
 	{
+		ComponentDataSerializationBootstrap.EnsureInitialized();
 		var entityData = entity.GetEntityData();
 
 		if (entityData == null || entityData.ComponentDataList == null)
@@ -610,9 +626,7 @@ public class DataManager : GlobalManager
 
 			if (component.Name == entry.ComponentName)
 			{
-				var dataType = ComponentDataTypeRegistrator.DataTypes.TryGetValue(entry.DataTypeName, out var t)
-					? t
-					: null;
+				var dataType = !string.IsNullOrWhiteSpace(entry.DataTypeName) ? Type.GetType(entry.DataTypeName) : null;
 
 				if (dataType != null)
 				{
@@ -634,8 +648,8 @@ public class DataManager : GlobalManager
 				}
 				else
 				{
-					throw new InvalidOperationException($"Component type '{entry.DataTypeName}' is not registered in ComponentDataTypeRegistrator.DataTypes. " +
-														$"Please add it to the registry to support serialization/deserialization.");
+					throw new InvalidOperationException($"Component data type '{entry.DataTypeName}' could not be resolved. " +
+										$"If this entity was loaded from cooked content, ensure the type id is registered in ComponentDataSerializationBootstrap.");
 				}
 			}
 		}
@@ -654,13 +668,13 @@ public class DataManager : GlobalManager
 	{
 		if (prefabEntity == null)
 		{
-			NotificationSystem.ShowTimedNotification("Entity is null");
+			Debug.Error("Entity is null");
 			return false;
 		}
 
 		if (prefabEntity.Type != Entity.InstanceType.SerializedPrefab)
 		{
-			NotificationSystem.ShowTimedNotification("Entity is not a SerializedPrefab type");
+			Debug.Error("Entity is not a SerializedPrefab type!");
 			return false;
 		}
 

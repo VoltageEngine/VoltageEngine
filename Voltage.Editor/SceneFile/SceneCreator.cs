@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using ImGuiNET;
 using Voltage.Data;
-using Voltage.Editor.EditorDebug;
+using Voltage.Editor.DebugUtils;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Utils;
 using Voltage.Utils;
@@ -161,15 +161,15 @@ namespace Voltage.Editor.SceneFile
 		
 		private void CreateScene()
 		{
-			EditorProcessDebugger.LogInfo("=== Creating New Scene ===", "SceneCreation");
-			EditorProcessDebugger.LogInfo($"Scene name: {_sceneName}", "SceneCreation");
+			EditorDebug.Log("=== Creating New Scene ===", "SceneCreation");
+			EditorDebug.Log($"Scene name: {_sceneName}", "SceneCreation");
 
 			try
 			{
 				var projectManager = ProjectManager.Instance;
 				if (!projectManager.HasActiveProject)
 				{
-					EditorProcessDebugger.LogError("No active project", "SceneCreation");
+					EditorDebug.Error("No active project", "SceneCreation");
 					_sceneNameError = "Error: No active project. Please load or create a project first.";
 					return;
 				}
@@ -210,7 +210,7 @@ namespace Voltage.Editor.SceneFile
 
 				File.WriteAllText(sceneFilePath, jsonContent, new System.Text.UTF8Encoding(false));
 
-				EditorProcessDebugger.LogInfo($"Successfully created scene: {_sceneName} at {sceneFilePath}", "SceneCreation");
+				EditorDebug.Log($"Successfully created scene: {_sceneName} at {sceneFilePath}", "SceneCreation");
 
 				// Invoke scene created event
 				var sceneManager = SceneManager.Instance;
@@ -225,12 +225,12 @@ namespace Voltage.Editor.SceneFile
 				ImGui.CloseCurrentPopup();
 				ResetFields();
 
-				EditorProcessDebugger.LogInfo("=== Scene Creation Complete ===", "SceneCreation");
+				EditorDebug.Log("=== Scene Creation Complete ===", "SceneCreation");
 			}
 			catch (Exception ex)
 			{
-				EditorProcessDebugger.LogError($"Exception: {ex.Message}", "SceneCreation");
-				EditorProcessDebugger.LogError($"Stack trace: {ex.StackTrace}", "SceneCreation");
+				EditorDebug.Error($"Exception: {ex.Message}", "SceneCreation");
+				EditorDebug.Error($"Stack trace: {ex.StackTrace}", "SceneCreation");
 			}
 		}
 		
