@@ -30,29 +30,16 @@ public class Editor : Core
 
 		if (Screen.ActualMonitorWidth <= 1920)
 		{
-			//TODO: Change the default font later
-			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 12); // Normal
-			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 14); // Info
-			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 16); // Warn
-			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 18); // Error
 			options.FontSizeMultiplier = 1f;
 			DebugConsole.RenderScale = 1.5f;
 		}
 		else if (Screen.ActualMonitorWidth < 3840)
 		{
-			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 16); 
-			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 18); 
-			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 20); 
-			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 22); 
 			options.FontSizeMultiplier = 1.1f;
 			DebugConsole.RenderScale = 2.5f;
 		}
 		else
 		{
-			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 20); 
-			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 22); 
-			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 24); 
-			// options.AddFont("DefaultContent/Fonts/Lexend-Medium.ttf", 26); 
 			options.FontSizeMultiplier = 1.2f;
 			DebugConsole.RenderScale = 3f;
 		}
@@ -161,19 +148,11 @@ public class Editor : Core
 				System.IO.File.Exists(projectPath) &&
 				System.IO.Path.GetExtension(projectPath).Equals(".voltage", System.StringComparison.OrdinalIgnoreCase))
 			{
-				Debug.Log($"Loading project from command line: {projectPath}");
-				
 				var projectManager = ProjectManager.Instance;
 				bool success = projectManager.LoadProject(projectPath);
 				
-				if (success)
-				{
-					Debug.Log($"Successfully loaded project: {projectManager.CurrentProject.ProjectName}");
-				}
-				else
-				{
+				if (!success)
 					Debug.Error($"Failed to load project from: {projectPath}");
-				}
 			}
 			else if (!string.IsNullOrWhiteSpace(projectPath))
 			{
