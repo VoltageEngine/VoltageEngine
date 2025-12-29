@@ -879,19 +879,16 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		// Only draw and remove non-main inspectors (make sure i starts from 1!)
 		for (int i = 1; i < _entityInspectors.Count; i++)
 		{
-			var inspector = _entityInspectors[i];
-
-			if (inspector == null)
+			if (_entityInspectors[i] == null)
 				continue;
 
-			if (!inspector.IsOpen)
+			if (!_entityInspectors[i].IsOpen)
 			{
 				_entityInspectors.RemoveAt(i);
-
 				continue;
 			}
 
-			inspector.Draw();
+			_entityInspectors[i].Draw();
 		}
 
 	}

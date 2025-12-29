@@ -138,24 +138,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <None Update="DefaultContent\Fonts\BungeeSpice-Regular.ttf">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\Fonts\Lexend-Black.ttf">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\Fonts\Lexend-Bold.ttf">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\Fonts\Lexend-Light.ttf">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\Fonts\Lexend-Medium.ttf">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\Fonts\Lexend-Regular.ttf">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
 	  <None Update="DefaultContent\Fonts\VoltageDefaultBMFont.fnt">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
@@ -246,6 +228,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <Folder Include="Content\Voltage\Layouts\" />
 	  <Folder Include="Content\Voltage\User\" />
 	</ItemGroup>
 
