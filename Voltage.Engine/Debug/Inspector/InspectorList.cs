@@ -3,7 +3,7 @@ using Microsoft.Xna.Framework;
 using Voltage.UI;
 
 
-#if DEBUG
+#if EDITOR_DEBUG
 namespace Voltage
 {
 	/// <summary>

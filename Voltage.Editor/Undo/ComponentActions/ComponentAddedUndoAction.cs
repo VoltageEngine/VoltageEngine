@@ -9,23 +9,22 @@ namespace Voltage.Editor.Undo.ComponentActions
 	/// </summary>
 	public class ComponentAddedUndoAction : EditorChangeTracker.IEditorAction
 	{
-		private Voltage.Entity _entity;
-		private Voltage.Component _component;
+		private Entity _entity;
+		private Component _component;
 		private Type _componentType;
 		private string _componentName;
 		private bool _wasActuallyAdded;
 
 		public string Description => $"Add {_componentType.Name} to {_entity?.Name ?? "Unknown Entity"}";
 
-		public ComponentAddedUndoAction(Voltage.Entity entity, Voltage.Component component)
+		public ComponentAddedUndoAction(Entity entity, Component component)
 		{
 			_entity = entity;
 			_component = component;
 			_componentType = component.GetType();
 			_componentName = component.Name;
 			
-			// Verify the component was actually added to the entity
-			_wasActuallyAdded = entity.Components.Contains(component);
+			_wasActuallyAdded = entity.ComponentsToAdd.Contains(component);
 			
 			if (!_wasActuallyAdded)
 			{
@@ -77,7 +76,7 @@ namespace Voltage.Editor.Undo.ComponentActions
 			}
 
 			// Check if component already exists before re-adding
-			var existingComponent = _entity.Components
+			var existingComponent = _entity.ComponentsToAdd
 				.FirstOrDefault(c => c.GetType() == _componentType && c.Name == _componentName);
 
 			if (existingComponent != null)
@@ -96,7 +95,7 @@ namespace Voltage.Editor.Undo.ComponentActions
 				// If component reference is lost, create a new instance
 				try
 				{
-					var newComponent = (Voltage.Component)Activator.CreateInstance(_componentType);
+					var newComponent = (Component)Activator.CreateInstance(_componentType);
 					newComponent.Name = _componentName;
 					_entity.AddComponent(newComponent);
 					_component = newComponent;

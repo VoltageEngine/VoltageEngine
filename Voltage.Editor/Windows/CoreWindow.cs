@@ -7,7 +7,7 @@ using Voltage.Editor.Utils;
 using Num = System.Numerics;
 
 
-namespace Voltage.Editor.Inspectors
+namespace Voltage.Editor.Windows
 {
 	class CoreWindow
 	{

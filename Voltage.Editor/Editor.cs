@@ -52,7 +52,7 @@ public class Editor : Core
 		Scene.OnSceneBegin += SetImGuiEditor; //Make sure all values of ImGuiEditor are reset when changing scenes
 		Scene.OnSceneBegin += TrackSceneChange;
 
-#if DEBUG
+#if EDITOR_DEBUG
 		DebugRenderEnabled = true;
 #else
 		DebugRenderEnabled = false;

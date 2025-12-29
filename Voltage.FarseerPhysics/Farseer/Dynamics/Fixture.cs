@@ -291,7 +291,7 @@ namespace FarseerPhysics.Dynamics
 
 		internal Fixture(Body body, Shape shape, object userData = null) : this()
 		{
-#if DEBUG
+#if EDITOR_DEBUG
 			if (shape.ShapeType == ShapeType.Polygon)
 				((PolygonShape) shape).Vertices.attachedToBody = true;
 #endif
@@ -455,7 +455,7 @@ namespace FarseerPhysics.Dynamics
 
 		internal void Destroy()
 		{
-#if DEBUG
+#if EDITOR_DEBUG
 			if (Shape.ShapeType == ShapeType.Polygon)
 				((PolygonShape) Shape).Vertices.attachedToBody = false;
 #endif

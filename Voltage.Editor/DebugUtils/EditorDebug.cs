@@ -10,7 +10,7 @@ namespace Voltage.Editor.DebugUtils
 	/// </summary>
 	internal static class EditorDebug
 	{
-		[Conditional("DEBUG")]
+		[Conditional("EDITOR_DEBUG")]
 		public static void Error(
 			string format,
 			[CallerFilePath] string callerFile = "",
@@ -20,7 +20,7 @@ namespace Voltage.Editor.DebugUtils
 			Voltage.Debug.Error($"[EDITOR] {format}", callerFile, callerLine, args);
 		}
 
-		[Conditional("DEBUG")]
+		[Conditional("EDITOR_DEBUG")]
 		public static void Warn(
 			string format,
 			[CallerFilePath] string callerFile = "",
@@ -30,7 +30,7 @@ namespace Voltage.Editor.DebugUtils
 			Voltage.Debug.Warn($"[EDITOR] {format}", callerFile, callerLine, args);
 		}
 
-		[Conditional("DEBUG")]
+		[Conditional("EDITOR_DEBUG")]
 		public static void Log(
 			string format,
 			[CallerFilePath] string callerFile = "",
@@ -40,7 +40,7 @@ namespace Voltage.Editor.DebugUtils
 			Voltage.Debug.Log($"[EDITOR] {format}", callerFile, callerLine, args);
 		}
 
-		[Conditional("DEBUG")]
+		[Conditional("EDITOR_DEBUG")]
 		public static void Info(
 			string format,
 			[CallerFilePath] string callerFile = "",
@@ -50,7 +50,7 @@ namespace Voltage.Editor.DebugUtils
 			Voltage.Debug.Info($"[EDITOR] {format}", callerFile, callerLine, args);
 		}
 
-		[Conditional("DEBUG")]
+		[Conditional("EDITOR_DEBUG")]
 		public static void Success(
 			string format,
 			[CallerFilePath] string callerFile = "",
@@ -60,7 +60,7 @@ namespace Voltage.Editor.DebugUtils
 			Voltage.Debug.Success($"[EDITOR] {format}", callerFile, callerLine, args);
 		}
 
-		[Conditional("DEBUG")]
+		[Conditional("EDITOR_DEBUG")]
 		public static void Trace(
 			string format,
 			[CallerFilePath] string callerFile = "",
@@ -73,7 +73,7 @@ namespace Voltage.Editor.DebugUtils
 		/// <summary>
 		/// Editor-specific: Log with custom category for filtering
 		/// </summary>
-		[Conditional("DEBUG")]
+		[Conditional("EDITOR_DEBUG")]
 		public static void LogCategory(
 			string category,
 			string format,

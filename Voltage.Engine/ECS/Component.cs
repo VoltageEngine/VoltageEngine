@@ -32,7 +32,7 @@ public struct ComponentDataEntry
 /// </summary>
 public class Component : IComparable<Component>
 {
-	public bool IsSerialized = false;
+	public bool IsSerialized { get; private set; }
 
 	/// <summary>
 	/// the Entity this Component is attached to
@@ -93,6 +93,11 @@ public class Component : IComparable<Component>
 	{
 		Name = name ?? GetType().Name;
 		IsSerialized = isSerialized;
+	}
+
+	public void SetSerialized(bool isOn)
+	{
+		IsSerialized = isOn;
 	}
 
 	/// <summary>

@@ -8,9 +8,9 @@ namespace Voltage.Editor.Undo.EntityActions
     /// </summary>
     public class MultiEntityRotationUndoAction : EditorChangeTracker.IEditorAction
     {
-        private readonly List<Voltage.Entity> _entities;
-        private readonly Dictionary<Voltage.Entity, float> _startRotations;
-        private readonly Dictionary<Voltage.Entity, float> _endRotations;
+        private readonly List<Entity> _entities;
+        private readonly Dictionary<Entity, float> _startRotations;
+        private readonly Dictionary<Entity, float> _endRotations;
         public string Description { get; }
 
         public MultiEntityRotationUndoAction(

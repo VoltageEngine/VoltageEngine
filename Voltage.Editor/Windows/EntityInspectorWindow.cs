@@ -20,9 +20,9 @@ using Voltage.Utils;
 using Voltage.Utils.Coroutines;
 using Num = System.Numerics;
 
-namespace Voltage.Editor.Inspectors;
+namespace Voltage.Editor.Windows;
 
-public class EntityInspector
+public class EntityInspectorWindow
 {
 	private static int _nextId = 0;
 	private readonly int _id;
@@ -55,7 +55,7 @@ public class EntityInspector
 	private static List<Type> _cachedComponentTypes; // Cache to avoid repeated reflection
 	private bool _shouldFocusWindow;
 
-	public EntityInspector(ImGuiManager manager, Entity entity = null, bool isMain = false, int offsetDuringCreation = 0)
+	public EntityInspectorWindow(ImGuiManager manager, Entity entity = null, bool isMain = false, int offsetDuringCreation = 0)
 	{
 		_id = _nextId++;
 		_isMain = isMain;
@@ -140,7 +140,7 @@ public class EntityInspector
 				VoltageEditorUtils.MediumVerticalSpace();
 			}
 		}
-		else if ((_imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities.Count == 1 && Entity != null) || _lockedEntity != null)
+		else if (_imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities.Count == 1 && Entity != null || _lockedEntity != null)
 		{
 			var entityName = Entity.Name;
 			ImGui.SetWindowFontScale(1.5f);
@@ -152,10 +152,10 @@ public class EntityInspector
 			ImGui.SameLine(0, spacing);
 
 			// Lock Mode Button
-			System.Numerics.Vector4 lockedButtonColor;
+			Num.Vector4 lockedButtonColor;
 			if (_imGuiManager.IsInspectorTabLocked)
 			{
-				lockedButtonColor = new System.Numerics.Vector4(0.2f, 0.5f, 1f, 1f); // blue
+				lockedButtonColor = new Num.Vector4(0.2f, 0.5f, 1f, 1f); // blue
 				ImGui.PushStyleColor(ImGuiCol.Button, lockedButtonColor);
 				if(ImGui.ImageButton("Lock Off", ImguiImageLoader.LockedInspectorIconId, new Num.Vector2(iconSize, iconSize)))
 				{
@@ -542,6 +542,7 @@ public class EntityInspector
 		try
 		{
 			var component = (Component)Activator.CreateInstance(componentType);
+			component.SetSerialized(true);
 			Entity.AddComponent(component, true);
 			DelayedSetEntity(Entity);
 
@@ -550,12 +551,9 @@ public class EntityInspector
 				Entity,
 				$"Add {componentType.Name} to {Entity.Name}"
 			);
-
-			EditorDebug.Log($"Added {componentType.Name} to {Entity.Name}");
 		}
 		catch (Exception ex)
 		{
-			EditorDebug.Log($"Failed to add {componentType.Name}: {ex.Message}");
 			Debug.Error($"Failed to add component {componentType.Name}: {ex.Message}");
 		}
 	}
@@ -588,15 +586,14 @@ public class EntityInspector
 
 			VoltageEditorUtils.SmallVerticalSpace();
 
-			// Component list
-			var filteredTypes = GetFilteredComponentTypes();
+			var componentTypes = GetFilteredComponentTypes();
 
-			ImGui.Text($"Available Components ({filteredTypes.Count}):");
+			ImGui.Text($"Available Components ({componentTypes.Count}):");
 			ImGui.Separator();
 
 			if (ImGui.BeginChild("ComponentList", new Num.Vector2(0, 350), true))
 			{
-				foreach (var componentType in filteredTypes)
+				foreach (var componentType in componentTypes)
 				{
 					// Show namespace and type name for clarity
 					var displayName = $"{componentType.Name}";
@@ -744,7 +741,7 @@ public class EntityInspector
 			// Center the buttons
 			var buttonWidth = 80f;
 			var spacing = 10f;
-			var totalButtonWidth = (buttonWidth * 2) + spacing;
+			var totalButtonWidth = buttonWidth * 2 + spacing;
 			var windowWidth = ImGui.GetWindowSize().X;
 			var centerStart = (windowWidth - totalButtonWidth) * 0.5f;
 			
@@ -1070,7 +1067,7 @@ public class EntityInspector
 			// Center the buttons
 			var buttonWidth = 80f;
 			var spacing = 10f;
-			var totalButtonWidth = (buttonWidth * 2) + spacing;
+			var totalButtonWidth = buttonWidth * 2 + spacing;
 			var windowWidth = ImGui.GetWindowSize().X;
 			var centerStart = (windowWidth - totalButtonWidth) * 0.5f;
 			
@@ -1124,7 +1121,7 @@ public class EntityInspector
 			// Center the buttons
 			var buttonWidth = 80f;
 			var spacing = 10f;
-			var totalButtonWidth = (buttonWidth * 2) + spacing;
+			var totalButtonWidth = buttonWidth * 2 + spacing;
 			var windowWidth = ImGui.GetWindowSize().X;
 			var centerStart = (windowWidth - totalButtonWidth) * 0.5f;
 			

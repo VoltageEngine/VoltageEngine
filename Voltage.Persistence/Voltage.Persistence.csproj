@@ -1,6 +1,7 @@
 ﻿<Project>
 	<PropertyGroup>
 		<BaseIntermediateOutputPath>obj\$(MSBuildProjectName)</BaseIntermediateOutputPath>
+		<Configurations>Debug;Release;Editor-Debug;Editor-Release</Configurations>
 	</PropertyGroup>
 	<Import Sdk="Microsoft.NET.Sdk" Project="Sdk.props" />
 
@@ -24,8 +25,16 @@
 		<DefineConstants>TRACE;DEBUG</DefineConstants>
 	</PropertyGroup>
 
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Editor-Debug|AnyCPU'">
+	  <DefineConstants>TRACE;DEBUG</DefineConstants>
+	</PropertyGroup>
+
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
 		<DefineConstants></DefineConstants>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Editor-Release|AnyCPU'">
+	  <DefineConstants />
 	</PropertyGroup>
 
 	<PropertyGroup>

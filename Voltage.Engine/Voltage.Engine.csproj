@@ -8,6 +8,7 @@
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<BaseIntermediateOutputPath>obj\Voltage</BaseIntermediateOutputPath>
 		<GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+		<Configurations>Debug;Release;Editor-Debug;Editor-Release</Configurations>
 	</PropertyGroup>
 
 	<PropertyGroup>
@@ -19,8 +20,16 @@
 		<DefineConstants>TRACE;DEBUG</DefineConstants>
 	</PropertyGroup>
 
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Editor-Debug|AnyCPU'">
+	  <DefineConstants>TRACE;DEBUG</DefineConstants>
+	</PropertyGroup>
+
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
 		<DefineConstants>TRACE</DefineConstants>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Editor-Release|AnyCPU'">
+	  <DefineConstants>TRACE</DefineConstants>
 	</PropertyGroup>
 
 	<!-- Define BUILD constant ONLY when publishing -->

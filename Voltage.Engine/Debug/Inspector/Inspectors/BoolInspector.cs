@@ -1,7 +1,7 @@
 ﻿using Voltage.UI;
 
 
-#if DEBUG
+#if EDITOR_DEBUG
 namespace Voltage
 {
 	public class BoolInspector : Inspector

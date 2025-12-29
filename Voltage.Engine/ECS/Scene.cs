@@ -1707,29 +1707,59 @@ public class Scene
 
 			entity.SetEntityData(deserializedEntityData);
 
-			var processedComponents = new HashSet<string>();
-
-			// Assign data to already existing components
-			foreach (var comp in entity.ComponentsToAdd)
+			// Instantiate components from ComponentDataList
+			if (deserializedEntityData.ComponentDataList != null)
 			{
-				if (TryAssignComponentData(entity, comp))
+				foreach (var componentEntry in deserializedEntityData.ComponentDataList)
 				{
-					var componentId = $"{comp.GetType().FullName}:{comp.Name}";
-					processedComponents.Add(componentId);
+					try
+					{
+						// Get the component type from the type name
+						var componentType = Type.GetType(componentEntry.ComponentTypeName);
+						if (componentType == null)
+						{
+							Debug.Error($"Could not find component type: {componentEntry.ComponentTypeName}");
+							continue;
+						}
+
+						// Create a new instance of the component
+						var component = (Component)Activator.CreateInstance(componentType);
+						component.Name = componentEntry.ComponentName;
+						component.SetSerialized(true);
+
+						// Add the component to the entity
+						entity.AddComponent(component, true);
+					}
+					catch (Exception ex)
+					{
+						Debug.Error($"Failed to instantiate component {componentEntry.ComponentTypeName}: {ex.Message}");
+					}
 				}
 			}
 
-			// Register callback for components added later
-			entity.OnComponentAdded<Component>(comp =>
+		var processedComponents = new HashSet<string>();
+
+		// Assign data to already existing components (including newly added ones)
+		foreach (var comp in entity.ComponentsToAdd)
+		{
+			if (TryAssignComponentData(entity, comp))
 			{
 				var componentId = $"{comp.GetType().FullName}:{comp.Name}";
-				
-				if (!processedComponents.Contains(componentId))
-				{
-					TryAssignComponentData(entity, comp);
-				}
-			});
+				processedComponents.Add(componentId);
+			}
 		}
+
+		// Register callback for components added later (if any are added dynamically)
+		entity.OnComponentAdded<Component>(comp =>
+		{
+			var componentId = $"{comp.GetType().FullName}:{comp.Name}";
+			
+			if (!processedComponents.Contains(componentId))
+			{
+				TryAssignComponentData(entity, comp);
+			}
+		});
+	}
 	}
 
 	/// <summary>

@@ -236,7 +236,7 @@ namespace FarseerPhysics.Dynamics
 
 			ProcessRemovedBodies();
 			ProcessRemovedJoints();
-#if DEBUG && USE_AWAKE_BODY_SET
+#if EDITOR_DEBUG && USE_AWAKE_BODY_SET
             foreach (var b in AwakeBodySet)
             {
                 Debug.Assert(BodyList.Contains(b));

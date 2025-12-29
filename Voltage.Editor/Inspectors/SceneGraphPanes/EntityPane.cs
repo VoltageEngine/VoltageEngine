@@ -7,12 +7,10 @@ using Microsoft.Xna.Framework.Input;
 using Voltage.Editor.DebugUtils;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Undo.Core;
-using Voltage.Editor.Undo;
 using Voltage.Editor.Undo.ComponentActions;
 using Voltage.Editor.Undo.EntityActions;
 using Voltage.Editor.Utils;
 using Voltage.Persistence;
-using static Voltage.Entity;
 
 namespace Voltage.Editor.Inspectors.SceneGraphPanes;
 
@@ -483,11 +481,11 @@ public class EntityPane
 		clone.UpdateInterval = entity.UpdateInterval;
 		clone.UpdateOrder = entity.UpdateOrder;
 
-		if(entity.Type == InstanceType.NonSerialized || entity.Type == InstanceType.Serialized)
-			clone.Type = InstanceType.Serialized;
+		if(entity.Type == Entity.InstanceType.NonSerialized || entity.Type == Entity.InstanceType.Serialized)
+			clone.Type = Entity.InstanceType.Serialized;
 		else
 		{
-			clone.Type = InstanceType.SerializedPrefab;
+			clone.Type = Entity.InstanceType.SerializedPrefab;
 			clone.OriginalPrefabName = entity.OriginalPrefabName;
 		}
 
@@ -586,7 +584,7 @@ public class EntityPane
 			$"Created: {clone.Name}"
 		);
 
-		_imGuiManager.MainEntityInspector.DelayedSetEntity(clone);
+		_imGuiManager.MainEntityInspectorWindow.DelayedSetEntity(clone);
 		
 		return clone;
 	}
@@ -615,11 +613,11 @@ public class EntityPane
             clone.UpdateInterval = entity.UpdateInterval;
             clone.UpdateOrder = entity.UpdateOrder;
 
-            if (entity.Type == InstanceType.NonSerialized || entity.Type == InstanceType.Serialized)
-                clone.Type = InstanceType.Serialized;
+            if (entity.Type == Entity.InstanceType.NonSerialized || entity.Type == Entity.InstanceType.Serialized)
+                clone.Type = Entity.InstanceType.Serialized;
             else
             {
-                clone.Type = InstanceType.SerializedPrefab;
+                clone.Type = Entity.InstanceType.SerializedPrefab;
                 clone.OriginalPrefabName = entity.OriginalPrefabName;
             }
 

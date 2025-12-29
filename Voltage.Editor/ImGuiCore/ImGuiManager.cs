@@ -11,7 +11,6 @@ using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Styling;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Gizmos;
-using Voltage.Editor.Inspectors;
 using Voltage.Editor.Inspectors.CustomInspectors;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.SceneFile;
@@ -23,6 +22,7 @@ using Voltage.Editor.Utils;
 using Voltage.Sprites;
 using Voltage.Utils;
 using Num = System.Numerics;
+using Voltage.Editor.Windows;
 
 
 namespace Voltage.Editor.ImGuiCore;
@@ -48,8 +48,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	public GizmoSelectionManager CursorSelectionManager => _cursorSelectionManager;
 	public SceneGraphWindow SceneGraphWindow { get; private set; }
 
-	private List<EntityInspector> _entityInspectors = new();
-	public EntityInspector MainEntityInspector { get; private set; }
+	private List<EntityInspectorWindow> _entityInspectors = new();
+	public EntityInspectorWindow MainEntityInspectorWindow { get; private set; }
 	public bool IsInspectorTabLocked = false;
 
 	public AnimationEventInspector AnimationEventInspectorInstance
@@ -343,7 +343,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		SceneManager.Instance.OnSceneSaved += OnSceneSavedHandler;
 
 		OpenMainEntityInspector();
-		_entityInspectors.Add(MainEntityInspector);
+		_entityInspectors.Add(MainEntityInspectorWindow);
 
 		// Initialize project manager
 		_projectManager = ProjectManager.Instance;
@@ -873,8 +873,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	/// </summary>
 	private void DrawEntityInspectors()
 	{
-		MainEntityInspector.IsOpen = ShowMainInspectorWindow;
-		MainEntityInspector.Draw();
+		MainEntityInspectorWindow.IsOpen = ShowMainInspectorWindow;
+		MainEntityInspectorWindow.Draw();
 
 		// Only draw and remove non-main inspectors (make sure i starts from 1!)
 		for (int i = 1; i < _entityInspectors.Count; i++)
@@ -1058,7 +1058,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	}
 
 	/// <summary>
-	/// Creates a normal EntityInspector window
+	/// Creates a normal EntityInspectorWindow window
 	/// </summary>
 	/// <param name="entity"></param>
 	public void OpenSeparateEntityInspector(Entity entity)
@@ -1069,14 +1069,14 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		entitynspectorInitialSpawnOffset += entitynspectorSpawnOffsetIncremental;
 
-		var inspector = new EntityInspector(this, entity, isMain: false, entitynspectorInitialSpawnOffset);
+		var inspector = new EntityInspectorWindow(this, entity, isMain: false, entitynspectorInitialSpawnOffset);
 		_entityInspectors.Add(inspector);
 
 		inspector.SetWindowFocus();
 	}
 
 	/// <summary>
-	/// Creates (or replaces) a EntityInspector
+	/// Creates (or replaces) a EntityInspectorWindow
 	/// </summary>
 	/// <param name="entity"></param>
 	public void OpenMainEntityInspector(Entity entity = null)
@@ -1084,21 +1084,21 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (IsInspectorTabLocked)
 			return;
 
-		if (MainEntityInspector != null)
+		if (MainEntityInspectorWindow != null)
 		{
-			if (MainEntityInspector.Entity == entity)
+			if (MainEntityInspectorWindow.Entity == entity)
 				return;
 
-			MainEntityInspector.SetEntity(entity);
+			MainEntityInspectorWindow.SetEntity(entity);
 		}
 		else
 		{
-			MainEntityInspector = new EntityInspector(this, null, isMain: true);
+			MainEntityInspectorWindow = new EntityInspectorWindow(this, null, isMain: true);
 		}
 	}
 
 	/// <summary>
-	/// removes the EntityInspector for this Entity
+	/// removes the EntityInspectorWindow for this Entity
 	/// </summary>
 	/// <param name="entity"></param>
 	public void CloseEntityInspector(Entity entity)
@@ -1120,12 +1120,12 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	}
 
 	/// <summary>
-	/// removes the EntityInspector
+	/// removes the EntityInspectorWindow
 	/// </summary>
-	/// <param name="entityInspector"></param>
-	public void CloseEntityInspector(EntityInspector entityInspector)
+	/// <param name="entityInspectorWindow"></param>
+	public void CloseEntityInspector(EntityInspectorWindow entityInspectorWindow)
 	{
-		_entityInspectors.RemoveAt(_entityInspectors.IndexOf(entityInspector));
+		_entityInspectors.RemoveAt(_entityInspectors.IndexOf(entityInspectorWindow));
 
 		// Reset the previous spawn offset 
 		if (entitynspectorInitialSpawnOffset - entitynspectorSpawnOffsetIncremental >= 0)
@@ -1134,7 +1134,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	public void CloseMainEntityInspector()
 	{
-		MainEntityInspector = null;
+		MainEntityInspectorWindow = null;
 	}
 
 	/// <summary>
@@ -1143,7 +1143,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	/// </summary>
 	public void RefreshMainEntityInspector()
 	{
-		MainEntityInspector?.RefreshComponentInspectors();
+		MainEntityInspectorWindow?.RefreshComponentInspectors();
 	}
 
 	#endregion
