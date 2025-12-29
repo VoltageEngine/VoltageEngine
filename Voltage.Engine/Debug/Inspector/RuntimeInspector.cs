@@ -7,7 +7,7 @@ using Voltage.UI;
 using Voltage;
 
 
-#if DEBUG
+#if EDITOR_DEBUG
 namespace Voltage
 {
 	public class RuntimeInspector : IDisposable

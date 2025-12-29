@@ -17,7 +17,7 @@ namespace Voltage
 
 		public static void DrawIndexedPrimitives( this GraphicsDevice self, PrimitiveType primitiveType, int baseVertex, int startIndex, int primitiveCount )
 		{
-			#if DEBUG
+			#if EDITOR_DEBUG
 			Core.drawCalls++;
 			#endif
 			self.DrawIndexedPrimitives( primitiveType, baseVertex, 0, primitiveCount * 2, startIndex, primitiveCount );

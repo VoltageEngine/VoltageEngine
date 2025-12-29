@@ -98,7 +98,7 @@ public class Core : Game
 	/// </summary>
 	internal static Core _instance;
 
-#if DEBUG
+#if EDITOR_DEBUG
 	internal static long drawCalls;
 	private TimeSpan _frameCounterElapsedTime = TimeSpan.Zero;
 	private int _frameCounter = 0;
@@ -148,7 +148,7 @@ public class Core : Game
 	public Core(int width = 1280, int height = 720, bool isFullScreen = false, string windowTitle = "Voltage",
 		string contentDirectory = "Content", bool hardwareModeSwitch = true)
 	{
-#if DEBUG
+#if EDITOR_DEBUG
 		_windowTitle = windowTitle;
 #endif
 		_instance = this;
@@ -326,7 +326,7 @@ public class Core : Game
 		{
 			_scene.Render();
 
-#if DEBUG
+#if EDITOR_DEBUG
 			if (DebugRenderEnabled)
 				Debug.Render();
 #endif
@@ -342,7 +342,7 @@ public class Core : Game
 
 	protected override void OnExiting(object sender, ExitingEventArgs args)
 	{
-#if DEBUG
+#if EDITOR_DEBUG
 		if (!_allowExit)
 		{
 			args.Cancel = true;
@@ -368,19 +368,19 @@ public class Core : Game
 
 	#region Debug Injection
 
-	[Conditional("DEBUG")]
+	[Conditional("EDITOR_DEBUG")]
 	private void EndDebugUpdate()
 	{
-#if DEBUG
+#if EDITOR_DEBUG
 		DebugConsole.Instance.Update();
 		drawCalls = 0;
 #endif
 	}
 
-	[Conditional("DEBUG")]
+	[Conditional("EDITOR_DEBUG")]
 	private void StartDebugDraw(TimeSpan elapsedGameTime)
 	{
-#if DEBUG
+#if EDITOR_DEBUG
 		// fps counter
 		_frameCounter++;
 		_frameCounterElapsedTime += elapsedGameTime;
@@ -393,16 +393,11 @@ public class Core : Game
 		}
 #endif
 	}
-
-	[Conditional("DEBUG")]
+	[Conditional("EDITOR_DEBUG")]
 	private void EndDebugDraw()
 	{
-#if DEBUG
 		DebugConsole.Instance.Render();
-#if !FNA
-		drawCalls = GraphicsDevice.Metrics.DrawCount;
-#endif
-#endif
+		//drawCalls = GraphicsDevice.Metrics.DrawCount;
 	}
 
 	#endregion

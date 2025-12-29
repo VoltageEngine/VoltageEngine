@@ -7,7 +7,7 @@ using Voltage.Editor.Persistence;
 using Voltage.Editor.Utils;
 using Num = System.Numerics;
 
-namespace Voltage.Editor.Inspectors
+namespace Voltage.Editor.Windows
 {
 	public class DebugWindow
 	{
@@ -231,10 +231,10 @@ namespace Voltage.Editor.Inspectors
 
 		#region Message Icon Methods
 
-		public static IntPtr WarningIconId => Voltage.Editor.Utils.ImguiImageLoader.WarningIconId;
-		public static IntPtr ErrorIconId => Voltage.Editor.Utils.ImguiImageLoader.ErrorIconId;
-		public static IntPtr InfoIconId => Voltage.Editor.Utils.ImguiImageLoader.InfoIconId;
-		public static IntPtr SuccessIconId => Voltage.Editor.Utils.ImguiImageLoader.SuccessIconId;
+		public static nint WarningIconId => ImguiImageLoader.WarningIconId;
+		public static nint ErrorIconId => ImguiImageLoader.ErrorIconId;
+		public static nint InfoIconId => ImguiImageLoader.InfoIconId;
+		public static nint SuccessIconId => ImguiImageLoader.SuccessIconId;
 
 		/// <summary>
 		/// Draws the appropriate icon for the given log type, using the provided color.
@@ -242,7 +242,7 @@ namespace Voltage.Editor.Inspectors
 		private void DrawMessageIcon(Debug.LogType type, Num.Vector4 color)
 		{
 			float iconSize = ImGui.GetFont().FontSize + 4;
-			IntPtr iconId = type switch
+			nint iconId = type switch
 			{
 				Debug.LogType.Error => ErrorIconId,
 				Debug.LogType.Warn => WarningIconId,

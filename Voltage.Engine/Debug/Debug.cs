@@ -97,7 +97,7 @@ namespace Voltage
 				if (_logEntries.Count > 500)
 					_logEntries.RemoveAt(0);
 
-#if DEBUG
+#if EDITOR_DEBUG
 				// Bonus output in case the editor can't start for some reason
 				System.Console.WriteLine($"[{type}] {msg} (at {callerClass}:{callerLine})");
 #endif

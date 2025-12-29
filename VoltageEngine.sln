@@ -14,23 +14,41 @@ EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
+		Editor-Debug|Any CPU = Editor-Debug|Any CPU
+		Editor-Release|Any CPU = Editor-Release|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{8553248E-9E10-C7CA-D710-F6859BC318D0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{8553248E-9E10-C7CA-D710-F6859BC318D0}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{8553248E-9E10-C7CA-D710-F6859BC318D0}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{8553248E-9E10-C7CA-D710-F6859BC318D0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8553248E-9E10-C7CA-D710-F6859BC318D0}.Debug|Any CPU.ActiveCfg = Editor-Debug|Any CPU
+		{8553248E-9E10-C7CA-D710-F6859BC318D0}.Debug|Any CPU.Build.0 = Editor-Debug|Any CPU
+		{8553248E-9E10-C7CA-D710-F6859BC318D0}.Editor-Debug|Any CPU.ActiveCfg = Editor-Debug|Any CPU
+		{8553248E-9E10-C7CA-D710-F6859BC318D0}.Editor-Debug|Any CPU.Build.0 = Editor-Debug|Any CPU
+		{8553248E-9E10-C7CA-D710-F6859BC318D0}.Editor-Release|Any CPU.ActiveCfg = Editor-Release|Any CPU
+		{8553248E-9E10-C7CA-D710-F6859BC318D0}.Editor-Release|Any CPU.Build.0 = Editor-Release|Any CPU
+		{8553248E-9E10-C7CA-D710-F6859BC318D0}.Release|Any CPU.ActiveCfg = Editor-Debug|Any CPU
+		{8553248E-9E10-C7CA-D710-F6859BC318D0}.Release|Any CPU.Build.0 = Editor-Debug|Any CPU
 		{50ECB157-3EE6-77E6-E267-E690D13B9DAD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{50ECB157-3EE6-77E6-E267-E690D13B9DAD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{50ECB157-3EE6-77E6-E267-E690D13B9DAD}.Editor-Debug|Any CPU.ActiveCfg = Editor-Debug|Any CPU
+		{50ECB157-3EE6-77E6-E267-E690D13B9DAD}.Editor-Debug|Any CPU.Build.0 = Editor-Debug|Any CPU
+		{50ECB157-3EE6-77E6-E267-E690D13B9DAD}.Editor-Release|Any CPU.ActiveCfg = Editor-Release|Any CPU
+		{50ECB157-3EE6-77E6-E267-E690D13B9DAD}.Editor-Release|Any CPU.Build.0 = Editor-Release|Any CPU
 		{50ECB157-3EE6-77E6-E267-E690D13B9DAD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{50ECB157-3EE6-77E6-E267-E690D13B9DAD}.Release|Any CPU.Build.0 = Release|Any CPU
 		{0C31E400-0C96-5047-9368-29209166D2A4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{0C31E400-0C96-5047-9368-29209166D2A4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C31E400-0C96-5047-9368-29209166D2A4}.Editor-Debug|Any CPU.ActiveCfg = Editor-Debug|Any CPU
+		{0C31E400-0C96-5047-9368-29209166D2A4}.Editor-Debug|Any CPU.Build.0 = Editor-Debug|Any CPU
+		{0C31E400-0C96-5047-9368-29209166D2A4}.Editor-Release|Any CPU.ActiveCfg = Editor-Release|Any CPU
+		{0C31E400-0C96-5047-9368-29209166D2A4}.Editor-Release|Any CPU.Build.0 = Editor-Release|Any CPU
 		{0C31E400-0C96-5047-9368-29209166D2A4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0C31E400-0C96-5047-9368-29209166D2A4}.Release|Any CPU.Build.0 = Release|Any CPU
 		{8F675E39-BD14-1156-CBF2-6AE91271724C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{8F675E39-BD14-1156-CBF2-6AE91271724C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8F675E39-BD14-1156-CBF2-6AE91271724C}.Editor-Debug|Any CPU.ActiveCfg = Editor-Debug|Any CPU
+		{8F675E39-BD14-1156-CBF2-6AE91271724C}.Editor-Debug|Any CPU.Build.0 = Editor-Debug|Any CPU
+		{8F675E39-BD14-1156-CBF2-6AE91271724C}.Editor-Release|Any CPU.ActiveCfg = Editor-Release|Any CPU
+		{8F675E39-BD14-1156-CBF2-6AE91271724C}.Editor-Release|Any CPU.Build.0 = Editor-Release|Any CPU
 		{8F675E39-BD14-1156-CBF2-6AE91271724C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8F675E39-BD14-1156-CBF2-6AE91271724C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection

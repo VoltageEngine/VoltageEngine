@@ -214,7 +214,7 @@ namespace Voltage.Utils.Coroutines
 				return true;
 			}
 
-#if DEBUG
+#if EDITOR_DEBUG
 
 			// deprecation warning for yielding an int/float
 			if (coroutine.Enumerator.Current is int)

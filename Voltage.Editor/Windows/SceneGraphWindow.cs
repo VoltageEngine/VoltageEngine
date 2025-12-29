@@ -18,7 +18,7 @@ using Voltage.Editor.SerializedData;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Undo.EntityActions;
 
-namespace Voltage.Editor.Inspectors;
+namespace Voltage.Editor.Windows;
 
 public class SceneGraphWindow
 {
@@ -73,13 +73,13 @@ public class SceneGraphWindow
 		TmxFilePicker = new TmxFilePicker(
 			this,
 			"tmx-file-picker",
-			System.IO.Path.Combine(Environment.CurrentDirectory, "Content")
+			Path.Combine(Environment.CurrentDirectory, "Content")
 		);
 		
 		AsepriteFilePicker = new AsepriteFilePicker(
 			this,
 			"aseprite-image-loader",
-			System.IO.Path.Combine(Environment.CurrentDirectory, "Content"), 
+			Path.Combine(Environment.CurrentDirectory, "Content"), 
 			false
 		);
 	}
@@ -359,7 +359,7 @@ public class SceneGraphWindow
 
 			var buttonWidth = 80f;
 			var spacing = 10f;
-			var totalButtonWidth = (buttonWidth * 2) + spacing;
+			var totalButtonWidth = buttonWidth * 2 + spacing;
 			var windowWidth = ImGui.GetWindowSize().X;
 			var centerStart = (windowWidth - totalButtonWidth) * 0.5f;
 			
@@ -460,7 +460,7 @@ public class SceneGraphWindow
 		);
 
 		_imGuiManager.SceneGraphWindow.EntityPane.SetSelectedEntity(entity, false);
-		_imGuiManager.MainEntityInspector.DelayedSetEntity(entity);
+		_imGuiManager.MainEntityInspectorWindow.DelayedSetEntity(entity);
 
 		EditorDebug.Log($"Created empty entity: {entity.Name}");
 	}
@@ -498,7 +498,7 @@ public class SceneGraphWindow
 				);
 
 				_imGuiManager.SceneGraphWindow.EntityPane.SetSelectedEntity(entity, false);
-				_imGuiManager.MainEntityInspector.DelayedSetEntity(entity);
+				_imGuiManager.MainEntityInspectorWindow.DelayedSetEntity(entity);
 
 				EditorDebug.Log($"Created entity from prefab: {prefabName}");
 			}
@@ -523,7 +523,7 @@ public class SceneGraphWindow
 			return; 
 
 		var hierarchyList = BuildHierarchyList();
-		var currentEntity = _imGuiManager?.MainEntityInspector?.Entity;
+		var currentEntity = _imGuiManager?.MainEntityInspectorWindow?.Entity;
 		if (currentEntity == null || hierarchyList.Count == 0)
 			return;
 
