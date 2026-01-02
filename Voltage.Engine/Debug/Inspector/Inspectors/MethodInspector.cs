@@ -3,7 +3,7 @@ using System.Reflection;
 using Voltage.UI;
 
 
-#if EDITOR_DEBUG
+#if EDITOR 
 namespace Voltage
 {
 	public class MethodInspector : Inspector

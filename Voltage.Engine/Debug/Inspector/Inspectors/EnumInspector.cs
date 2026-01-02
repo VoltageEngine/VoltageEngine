@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Voltage.UI;
 
 
-#if EDITOR_DEBUG
+#if EDITOR 
 namespace Voltage
 {
 	public class EnumInspector : Inspector

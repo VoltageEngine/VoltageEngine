@@ -78,7 +78,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private SpriteAtlasEditorWindow _spriteAtlasEditorWindow;
 	private List<Action> _drawCommands = new();
 	private ImGuiRenderer _renderer;
-	private ImGuiInput _input = new ImGuiInput();
+	//private ImGuiInput _input = new ImGuiInput();
 	private GizmoSelectionManager _cursorSelectionManager;
 	private ImGuiWindowFlags _gameWindowFlags = 0;
 
@@ -296,7 +296,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		LoadSettings();
 
-		_renderer = new ImGuiRenderer(Core.Instance, _input);
+		_renderer = new ImGuiRenderer(Core.Instance);
 		_renderer.RebuildFontAtlas(options);
 
 		Core.Emitter.AddObserver(CoreEvents.SceneChanged, OnSceneChanged);
@@ -468,7 +468,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		NotificationSystem.Draw();
 		GlobalKeyCommands();
 
-		_cursorSelectionManager.UpdateSelection();
 		DrawSelectedEntityOutlines();
 
 		if (ShowAnimationEventInspector)
@@ -490,6 +489,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		DrawScriptingWindow();
 		_editorSettingsWindow.Draw();
+		_cursorSelectionManager.UpdateSelection();
 	}
 
 	private void OnEditModeSwitched(bool isEditMode)
@@ -897,10 +897,10 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void UpdateCamera()
 	{
-		ManageCameraZoom();
-
 		if (Core.IsEditMode)
 		{
+			ManageCameraZoom();
+
 			// Camera Dragging with Middle Mouse
 			var mousePos = Input.ScaledMousePosition;
 			if (Input.MiddleMouseButtonPressed)
@@ -960,7 +960,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void ManageCameraZoom()
 	{
-		if (Core.IsEditMode && Input.MouseWheelDelta != 0)
+		if (Input.MouseWheelDelta != 0)
 		{
 			bool isShiftHeld = Input.IsKeyDown(Keys.LeftShift);
 
@@ -968,9 +968,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			{
 				// Modify camera movement speed instead of zoom
 				float speedDelta = Input.MouseWheelDelta * CameraSpeedAdjustmentStep * Time.DeltaTime;
-				_dynamicCameraSpeed = MathHelper.Clamp(_dynamicCameraSpeed + speedDelta,
-					EditModeCameraMinSpeed,
-					EditModeCameraMaxSpeed);
+				SetDynamicCameraSpeed(_dynamicCameraSpeed + speedDelta);
 			}
 			else
 			{

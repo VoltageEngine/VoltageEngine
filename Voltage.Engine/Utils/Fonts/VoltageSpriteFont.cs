@@ -7,7 +7,6 @@ using Voltage.Utils.Extensions;
 
 namespace Voltage.Utils.Fonts
 {
-#if !FNA
 	public class VoltageSpriteFont : IFont
 	{
 		public float LineSpacing => _font.LineSpacing;
@@ -303,66 +302,4 @@ namespace Voltage.Utils.Fonts
 
 		#endregion
 	}
-
-#else
-	public class VoltageSpriteFont : IFont
-	{
-		public float LineSpacing { get { return _font.LineSpacing; } }
-
-		SpriteFont _font;
-
-		/// <summary>
-		/// this sucker gets used a lot so we cache it to avoid having to create it every frame
-		/// </summary>
-#pragma warning disable 0414
-		Matrix _transformationMatrix = Matrix.Identity;
-#pragma warning restore 0414
-
-
-		public VoltageSpriteFont( SpriteFont font )
-		{
-			_font = font;
-		}
-
-
-		public void DrawInto( Batcher batcher, StringBuilder text, Vector2 position, Color color, float rotation, Vector2 origin, Vector2 scale, SpriteEffects effect, float depth )
-		{
-			var source = new FontCharacterSource( text );
-			DrawInto( batcher, ref source, position, color, rotation, origin, scale, effect, depth );
-		}
-
-
-		public void DrawInto( Batcher batcher, string text, Vector2 position, Color color, float rotation, Vector2 origin, Vector2 scale, SpriteEffects effect, float depth )
-		{
-			var source = new FontCharacterSource( text );
-			DrawInto( batcher, ref source, position, color, rotation, origin, scale, effect, depth );
-		}
-
-
-		public void DrawInto( Batcher batcher, ref FontCharacterSource text, Vector2 position, Color color, float rotation, Vector2 origin, Vector2 scale, SpriteEffects effect, float depth )
-		{
-			throw new NotImplementedException("VoltageSpriteFont is not implemented on FNA, we recommend using BitmapFont instead.");
-		}
-
-
-		bool IFont.HasCharacter( char c )
-		{
-			throw new NotImplementedException("VoltageSpriteFont is not implemented on FNA, we recommend using BitmapFont instead.");
-		}
-
-
-		public Vector2 MeasureString( StringBuilder text )
-		{
-			return _font.MeasureString( text );
-		}
-
-
-		public Vector2 MeasureString( string text )
-		{
-			return _font.MeasureString( text );
-		}
-
-	}
-
-#endif
 }

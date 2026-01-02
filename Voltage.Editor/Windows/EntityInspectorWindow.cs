@@ -464,7 +464,6 @@ public class EntityInspectorWindow
 	{
 		_cachedComponentTypes = new List<Type>();
 
-		// Get all loaded assemblies
 		var assemblies = AppDomain.CurrentDomain.GetAssemblies();
 
 		foreach (var assembly in assemblies)
@@ -474,19 +473,21 @@ public class EntityInspectorWindow
 				// Get all types that inherit from Component
 				var componentTypes = assembly.GetTypes()
 					.Where(t => typeof(Component).IsAssignableFrom(t)
-								&& !t.IsAbstract
-								&& !t.IsInterface
-								&& HasParameterlessConstructor(t)) // Only include types with parameterless constructor
+					            && !t.IsAbstract
+					            && !t.IsInterface
+					            && HasParameterlessConstructor(t))
 					.OrderBy(t => t.Name);
 
 				_cachedComponentTypes.AddRange(componentTypes);
 			}
-			catch (ReflectionTypeLoadException)
+			catch (ReflectionTypeLoadException ex)
 			{
-				// Some assemblies might not be fully loaded, skip them
+				Debug.Warn($"Failed to load types from assembly {assembly.FullName}: {ex.Message}");
 				continue;
 			}
 		}
+
+		Debug.Log($"Cached {_cachedComponentTypes.Count} component types from {assemblies.Length} assemblies");
 	}
 
 	/// <summary>

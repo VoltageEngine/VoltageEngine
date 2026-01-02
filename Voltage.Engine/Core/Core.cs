@@ -4,8 +4,6 @@ using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections;
 using System.Diagnostics;
-using Voltage.Sprites;
-using Voltage.BitmapFonts;
 using Voltage.Console;
 using Voltage.Systems;
 using Voltage.Textures;
@@ -15,10 +13,8 @@ using Voltage.Utils.Coroutines;
 using Voltage.Utils.Timers;
 using Voltage.Utils.Tweens;
 
-
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Voltage.Editor")]
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Voltage.Persistence")]
-
 
 namespace Voltage;
 
@@ -76,7 +72,7 @@ public class Core : Game
 	/// <summary>
 	/// default wrapped SamplerState. Determined by the Filter of the defaultSamplerState.
 	/// </summary>
-	/// <value>The default state of the wraped sampler.</value>
+	/// <value>The default state of the wrapped sampler.</value>
 	public static SamplerState DefaultWrappedSamplerState =>
 		DefaultSamplerState.Filter == TextureFilter.Point
 			? SamplerState.PointWrap
@@ -98,7 +94,7 @@ public class Core : Game
 	/// </summary>
 	internal static Core _instance;
 
-#if EDITOR_DEBUG
+#if EDITOR 
 	internal static long drawCalls;
 	private TimeSpan _frameCounterElapsedTime = TimeSpan.Zero;
 	private int _frameCounter = 0;
@@ -148,7 +144,7 @@ public class Core : Game
 	public Core(int width = 1280, int height = 720, bool isFullScreen = false, string windowTitle = "Voltage",
 		string contentDirectory = "Content", bool hardwareModeSwitch = true)
 	{
-#if EDITOR_DEBUG
+#if EDITOR 
 		_windowTitle = windowTitle;
 #endif
 		_instance = this;
@@ -160,10 +156,8 @@ public class Core : Game
 			PreferredBackBufferHeight = height,
 			IsFullScreen = isFullScreen,
 			SynchronizeWithVerticalRetrace = true,
-#if MONOGAME_38
 			HardwareModeSwitch = hardwareModeSwitch,
-			PreferHalfPixelOffset = true
-#endif
+			PreferHalfPixelOffset = false
 		};
 		graphicsManager.DeviceReset += OnGraphicsDeviceReset;
 		graphicsManager.PreferredDepthStencilFormat = DepthFormat.Depth24Stencil8;
@@ -286,12 +280,6 @@ public class Core : Game
 		}
 
 		EndDebugUpdate();
-
-#if FNA
-			// MonoGame only updates old-school XNA Components in Update which we dont care about. FNA's core FrameworkDispatcher needs
-			// Update called though so we do so here.
-			FrameworkDispatcher.Update();
-#endif
 	}
 
 	protected override void Draw(GameTime gameTime)
@@ -326,12 +314,10 @@ public class Core : Game
 		{
 			_scene.Render();
 
-#if EDITOR_DEBUG
 			if (DebugRenderEnabled)
 				Debug.Render();
-#endif
 
-			// render as usual if we dont have an active SceneTransition
+			// render as usual if we don't have an active SceneTransition
 			_scene.PostRender();
 		}
 
@@ -342,7 +328,8 @@ public class Core : Game
 
 	protected override void OnExiting(object sender, ExitingEventArgs args)
 	{
-#if EDITOR_DEBUG
+#if EDITOR
+		// in editor mode we prevent exiting unless confirmed with "Save Scene" popup
 		if (!_allowExit)
 		{
 			args.Cancel = true;
@@ -363,24 +350,21 @@ public class Core : Game
 		_allowExit = true;
 		Exit();
 	}
-	
+
 	#endregion
 
 	#region Debug Injection
 
-	[Conditional("EDITOR_DEBUG")]
+	[Conditional("EDITOR")]
 	private void EndDebugUpdate()
 	{
-#if EDITOR_DEBUG
 		DebugConsole.Instance.Update();
 		drawCalls = 0;
-#endif
 	}
 
-	[Conditional("EDITOR_DEBUG")]
+	[Conditional("EDITOR")]
 	private void StartDebugDraw(TimeSpan elapsedGameTime)
 	{
-#if EDITOR_DEBUG
 		// fps counter
 		_frameCounter++;
 		_frameCounterElapsedTime += elapsedGameTime;
@@ -391,16 +375,16 @@ public class Core : Game
 			_frameCounter = 0;
 			_frameCounterElapsedTime -= TimeSpan.FromSeconds(1);
 		}
-#endif
 	}
-	[Conditional("EDITOR_DEBUG")]
+
+	[Conditional("EDITOR")]
 	private void EndDebugDraw()
 	{
 		DebugConsole.Instance.Render();
-		//drawCalls = GraphicsDevice.Metrics.DrawCount;
+		drawCalls = GraphicsDevice.Metrics.DrawCount;
 	}
 
-	#endregion
+#endregion
 
 	/// <summary>
 	/// Called after a Scene ends, before the next Scene begins

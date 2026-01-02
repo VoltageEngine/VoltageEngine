@@ -21,13 +21,6 @@ namespace Voltage.Editor.ImGuiCore
 		{
 			var io = ImGui.GetIO();
 
-#if FNA
-    // forward clipboard methods to SDL
-    io.SetClipboardTextFn = Marshal.GetFunctionPointerForDelegate<SetClipboardTextDelegate>(SetClipboardText);
-    io.GetClipboardTextFn =
- Marshal.GetFunctionPointerForDelegate<GetClipboardTextDelegate>(SDL2.SDL.SDL_GetClipboardText);
-#endif
-
 			_keys.Clear();
 
 			// Map all XNA Keys to ImGui keys (legacy KeyMap for compatibility)
@@ -86,8 +79,6 @@ namespace Voltage.Editor.ImGuiCore
 					_keys.Add(keyIndex);
 				}
 			}
-
-#if !FNA
 			Core.Instance.Window.TextInput += (s, a) =>
 			{
 				if (a.Character == '\t')
@@ -95,14 +86,6 @@ namespace Voltage.Editor.ImGuiCore
 
 				io.AddInputCharacter(a.Character);
 			};
-#else
-    TextInputEXT.TextInput += c =>
-    {
-        if (c == '\t')
-            return;
-        ImGui.GetIO().AddInputCharacter(c);
-    };
-#endif
 		}
 
 		/// <summary>
@@ -125,15 +108,9 @@ namespace Voltage.Editor.ImGuiCore
 			io.KeyAlt = keyboard.IsKeyDown(Keys.LeftAlt) || keyboard.IsKeyDown(Keys.RightAlt);
 			io.KeySuper = keyboard.IsKeyDown(Keys.LeftWindows) || keyboard.IsKeyDown(Keys.RightWindows);
 
-			// Get actual backbuffer size (accounts for DPI scaling)
-			var backBufferWidth = Core.GraphicsDevice.PresentationParameters.BackBufferWidth;
-			var backBufferHeight = Core.GraphicsDevice.PresentationParameters.BackBufferHeight;
-
-			io.DisplaySize = new System.Numerics.Vector2(backBufferWidth, backBufferHeight);
-			
-			// Get DPI scale for proper framebuffer scaling
-			float dpiScale = GetDpiScale();
-			io.DisplayFramebufferScale = new System.Numerics.Vector2(dpiScale, dpiScale);
+			io.DisplaySize = new System.Numerics.Vector2(Core.GraphicsDevice.PresentationParameters.BackBufferWidth,
+				Core.GraphicsDevice.PresentationParameters.BackBufferHeight);
+			io.DisplayFramebufferScale = new System.Numerics.Vector2(1f, 1f);
 
 			io.MousePos = new System.Numerics.Vector2(mouse.X, mouse.Y);
 
@@ -144,28 +121,6 @@ namespace Voltage.Editor.ImGuiCore
 			var scrollDelta = mouse.ScrollWheelValue - _scrollWheelValue;
 			io.MouseWheel = scrollDelta > 0 ? 1 : scrollDelta < 0 ? -1 : 0;
 			_scrollWheelValue = mouse.ScrollWheelValue;
-		}
-
-		/// <summary>
-		/// Gets the current DPI scale factor
-		/// </summary>
-		private float GetDpiScale()
-		{
-			try
-			{
-#if OS_WINDOWS
-				using (var graphics = System.Drawing.Graphics.FromHwnd(IntPtr.Zero))
-				{
-					return graphics.DpiX / 96.0f;
-				}
-#else
-				return 1.0f;
-#endif
-			}
-			catch
-			{
-				return 1.0f;
-			}
 		}
 	}
 }

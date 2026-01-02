@@ -25,7 +25,7 @@ namespace Voltage.Tiled
 	/// - voltage:slopeTopRight (int): distance in pixels from the tiles top to the slope on the right side
 	/// </summary>
 	public class TiledMapMover :
-#if EDITOR_DEBUG_MOVER
+#if EDITOR
 	RenderableComponent
 #else
 		Component
@@ -461,7 +461,7 @@ namespace Voltage.Tiled
 					var row = !isHorizontal ? primary : secondary;
 					_collidingTilesCoordinates.Add(new Point(col, row));
 
-#if EDITOR_DEBUG_MOVER
+#if EDITOR
 					if(direction.IsHorizontal())
 					{
 						var pos = TiledMap.TileToWorldPosition(new Point(col, row));
@@ -516,7 +516,7 @@ namespace Voltage.Tiled
 		}
 
 
-#if EDITOR_DEBUG_MOVER
+#if EDITOR
 		public override float Width { get { return 10000; } }
 		public override float Height { get { return 10000; } }
 		List<Rectangle> _debugTiles = new List<Rectangle>();

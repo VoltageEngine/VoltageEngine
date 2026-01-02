@@ -57,19 +57,15 @@ namespace Voltage.Editor.Windows
 
 			if (ImGui.CollapsingHeader("Core.defaultSamplerState", ImGuiTreeNodeFlags.DefaultOpen))
 			{
-#if !FNA
 				ImGui.PushStyleVar(ImGuiStyleVar.Alpha, ImGui.GetStyle().Alpha * 0.5f);
 				VoltageEditorUtils.DisableNextWidget();
-#endif
 
 				var currentTextureFilter = (int) Core.DefaultSamplerState.Filter;
 				if (ImGui.Combo("Filter", ref currentTextureFilter, _textureFilters, _textureFilters.Length))
 					Core.DefaultSamplerState.Filter = (TextureFilter) Enum.Parse(typeof(TextureFilter),
 						_textureFilters[currentTextureFilter]);
 
-#if !FNA
 				ImGui.PopStyleVar();
-#endif
 			}
 		}
 	}

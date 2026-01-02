@@ -1111,7 +1111,7 @@ namespace Voltage
 			}
 		}
 
-		[System.Diagnostics.Conditional("DEBUG")]
+		[System.Diagnostics.Conditional("DEBUG"), System.Diagnostics.Conditional("EDITOR")]
 		void CheckBegin()
 		{
 			if (!_beginCalled)

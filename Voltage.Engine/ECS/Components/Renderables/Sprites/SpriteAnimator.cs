@@ -351,7 +351,7 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 		SetSprite(sprite);
 	}
 
-#if EDITOR_DEBUG // Pause/UnPause animations in Play Mode
+#if EDITOR // Pause/UnPause animations in Play Mode
 	public override void OnEnabled()
 	{
 		Core.OnChangedToPlayMode += UnPause;
@@ -365,7 +365,7 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 
 	public virtual void Update()
 	{
-#if EDITOR_DEBUG // Pause in EditMode
+#if EDITOR // Pause in EditMode
 		if(Core.IsEditMode && AnimationState == State.Running)
 			Pause();
 #endif

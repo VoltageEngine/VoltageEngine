@@ -15,6 +15,9 @@ namespace Voltage.Farseer
 		bool _ignoreTransformChanges;
 		internal List<FSJoint> _joints = new List<FSJoint>();
 
+		public FSRigidBody()
+		{
+		}
 
 		#region Configuration
 

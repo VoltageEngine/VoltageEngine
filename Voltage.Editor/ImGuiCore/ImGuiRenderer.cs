@@ -35,14 +35,14 @@ namespace Voltage.Editor.ImGuiCore
 		int _textureId;
 		IntPtr? _fontTextureId;
 
-		private ImGuiInput _input = new ImGuiInput();
+		private ImGuiInput _input;
 
 		// Experimental reinitialization support
 		private bool _shouldReinitialize = false;
 
-		public ImGuiRenderer(Game game, ImGuiInput input)
+		public ImGuiRenderer(Game game)
 		{
-			_input = input;
+			_input = new ImGuiInput();
 
 			unsafe
 			{
@@ -206,45 +206,15 @@ namespace Voltage.Editor.ImGuiCore
 			_loadedTextures.Remove(textureId);
 		}
 
-		// NOTE: Keep for backup to see if the new implementation is more stable
-		// public void BeforeLayout(float deltaTime)
-		// {
-		// 	ImGui.GetIO().DeltaTime = deltaTime;
-		// 	_input.UpdateInput();
-		// 	ImGui.NewFrame();
-		// }
 
 		/// <summary>
 		/// Sets up ImGui for a new frame, should be called at frame start
 		/// </summary>
-		public unsafe void BeforeLayout(float deltaTime)
+		public  void BeforeLayout(float deltaTime)
 		{
-			// Validate context exists and is current
-			if (ImGui.GetCurrentContext() == IntPtr.Zero)
-			{
-				Debug.Warn("ImGui context is invalid, skipping frame");
-				return;
-			}
-
-			try
-			{
-				var io = ImGui.GetIO();
-				if (io.NativePtr == null)
-				{
-					Debug.Warn("ImGui IO is invalid, skipping frame");
-					return;
-				}
-
-				io.DeltaTime = deltaTime;
-				_input.UpdateInput();
-				ImGui.NewFrame();
-			}
-			catch (AccessViolationException ex)
-			{
-				Debug.Error($"ImGui BeforeLayout failed: {ex.Message}");
-				// Attempt to reinitialize on next frame
-				_shouldReinitialize = true;
-			}
+			ImGui.GetIO().DeltaTime = deltaTime;
+			_input.UpdateInput();
+			ImGui.NewFrame();
 		}
 
 
@@ -255,7 +225,7 @@ namespace Voltage.Editor.ImGuiCore
 			_input.SetupInput();
 
 			// Rebuild font atlas
-			var options = new ImGuiOptions(); // Use your current options
+			var options = new ImGuiOptions();
 			RebuildFontAtlas(options);
 		}
 
@@ -268,10 +238,20 @@ namespace Voltage.Editor.ImGuiCore
 
 			unsafe
 			{
+				// Reinitialize BEFORE getting draw data, not after
 				if (_shouldReinitialize)
 				{
 					_shouldReinitialize = false;
+
+					try
+					{
+						// Try to finish the current frame cleanly
+						ImGui.EndFrame();
+					}
+					catch { }
+
 					ReinitializeImGui();
+					return;
 				}
 				RenderDrawData(ImGui.GetDrawData());
 			}
