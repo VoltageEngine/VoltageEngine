@@ -64,7 +64,7 @@ namespace Voltage.Console
 		Keys? _repeatKey = null;
 		bool _canOpen;
 		public static Keys ConsoleKey = Keys.OemTilde;
-#if EDITOR_DEBUG
+#if EDITOR 
 		internal RuntimeInspector _runtimeInspector;
 #endif
 
@@ -507,7 +507,7 @@ namespace Voltage.Console
 
 		internal void Render()
 		{
-#if EDITOR_DEBUG
+#if EDITOR 
 			if (_runtimeInspector != null)
 			{
 				_runtimeInspector.Update();

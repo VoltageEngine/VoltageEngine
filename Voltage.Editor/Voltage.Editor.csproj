@@ -2,8 +2,6 @@
 	<Import Sdk="Microsoft.NET.Sdk" Project="Sdk.props" />
 
 	<PropertyGroup>
-		<Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-		<Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
 		<OutputType>Exe</OutputType>
 		<RootNamespace>Voltage.Editor</RootNamespace>
 		<AssemblyName>Voltage.Editor</AssemblyName>
@@ -13,24 +11,31 @@
 		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
 		<GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-	</PropertyGroup>
-
-	<PropertyGroup>
-		<BaseIntermediateOutputPath>obj\$(MSBuildProjectName)</BaseIntermediateOutputPath>
 		<Configurations>Editor-Debug;Editor-Release</Configurations>
 	</PropertyGroup>
 
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Editor-Debug|AnyCPU' ">
-		<DefineConstants>TRACE;EDITOR_DEBUG</DefineConstants>
+		<DefineConstants>TRACE;EDITOR;EDITOR_DEBUG</DefineConstants>
 	</PropertyGroup>
 
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Editor-Release|AnyCPU' ">
-		<DefineConstants>TRACE;</DefineConstants>
+		<DefineConstants>TRACE;EDITOR</DefineConstants>
 	</PropertyGroup>
 
 	<PropertyGroup>
 		<IsOSX Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' == 'true'">true</IsOSX>
 		<IsLinux Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true'">true</IsLinux>
+	</PropertyGroup>
+
+	<!-- APPEND OS constants instead of replacing -->
+	<PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+		<DefineConstants>$(DefineConstants);OS_WINDOWS</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+		<DefineConstants>$(DefineConstants);OS_LINUX</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+		<DefineConstants>$(DefineConstants);OS_MAC</DefineConstants>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -87,41 +92,11 @@
 		</Content>
 	</ItemGroup>
 
-	<!-- Specify OS types to use in the codebase (e.g. #if OS_WINDOWS #endif )-->
-	<PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
-		<DefineConstants>OS_WINDOWS</DefineConstants>
-	</PropertyGroup>
-	<PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
-		<DefineConstants>OS_LINUX</DefineConstants>
-	</PropertyGroup>
-	<PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
-		<DefineConstants>OS_MAC</DefineConstants>
-	</PropertyGroup>
 	<ItemGroup>
 	  <None Remove="Icon.bmp" />
 	  <None Remove="Icon.ico" />
 	</ItemGroup>
-	<ItemGroup>
-	  <Content Include="DefaultContent\Layouts\DefaultLayout.ini" />
-	  <Content Include="DefaultContent\UI\Custom\CursorSelection-UI-ColliderResize.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </Content>
-	  <Content Include="DefaultContent\UI\Custom\CursorSelection-UI-Normal.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </Content>
-	  <Content Include="DefaultContent\UI\Custom\CursorSelection-UI-Resize.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </Content>
-	  <Content Include="DefaultContent\UI\Custom\CursorSelection-UI-Rotate.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </Content>
-	  <Content Include="DefaultContent\UI\Custom\CursorSelection-UI.aseprite">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </Content>
-	  <Content Include="DefaultContent\UI\Custom\Inspector-LockMode.aseprite">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </Content>
-	</ItemGroup>
+	
 	<ItemGroup>
 	  <EmbeddedResource Include="Icon.bmp" />
 	  <EmbeddedResource Include="Icon.ico" />
@@ -136,97 +111,15 @@
 
 	<ItemGroup>
 	  <ProjectReference Include="..\Voltage.Engine\Voltage.Engine.csproj" />
+	  <ProjectReference Include="..\Voltage.FarseerPhysics\Voltage.FarseerPhysics.csproj" />
 	  <ProjectReference Include="..\Voltage.Persistence\Voltage.Persistence.csproj" />
 	</ItemGroup>
 
+	<!-- Copy DefaultContent to output, but exclude the Effects folder (since we compile them) -->
 	<ItemGroup>
-	  <None Update="DefaultContent\Fonts\VoltageDefaultBMFont.fnt">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\Fonts\VoltageDefaultBMFont.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\alert-triangle.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\check-line.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\checkbox-circle.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\close-circle.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\close-line.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\download-line.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\error-warning-fill.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\export-fill.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\hand.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\image-fill.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\import-fill.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\information.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\pause-circle-fill.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\play-circle-fill.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\question-fill.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\record-circle-fill.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\settings-4-fill.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\alert-hexangular.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\star-fill.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\stop-circle-fill.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\upload-line.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\video-off-fill.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\video-on-fill.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\volume-mute-line.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\volume-up-line.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\zoom-in-fill.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DefaultContent\UI\RemixIcon\zoom-out-fill.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </None>
+		<Content Include="DefaultContent\**\*" Exclude="DefaultContent\Effects\**\*">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
 	</ItemGroup>
 
 	<ItemGroup>

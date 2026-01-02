@@ -1,8 +1,11 @@
-﻿using System.Collections;
-using ImGuiNET;
+﻿using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System;
+using System.Collections;
+using System.Linq;
+using System.Reflection;
 using Voltage.Console;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Persistence;
@@ -23,6 +26,7 @@ public class Editor : Core
 	protected override void Initialize()
 	{
 		base.Initialize();
+		LoadRequiredAssemblies();
 
 		Content.RootDirectory = "Content";
 
@@ -44,6 +48,7 @@ public class Editor : Core
 			DebugConsole.RenderScale = 3f;
 		}
 
+
 		options.IncludeDefaultFont(true);
 		var imGuiManager = new ImGuiManager(options);
 
@@ -52,13 +57,15 @@ public class Editor : Core
 		Scene.OnSceneBegin += SetImGuiEditor; //Make sure all values of ImGuiEditor are reset when changing scenes
 		Scene.OnSceneBegin += TrackSceneChange;
 
-#if EDITOR_DEBUG
+#if EDITOR
 		DebugRenderEnabled = true;
 #else
 		DebugRenderEnabled = false;
 #endif
 		Window.AllowUserResizing = true;
 		ExitOnEscapeKeypress = false;
+
+		//TODO: Load these from the Project Settings
 		IsFixedTimeStep = true; //Run Update() every 60 frames
 		Screen.SynchronizeWithVerticalRetrace = false; //Vsync = off
 		// DefaultSamplerState = SamplerState.PointClamp; // pixel perfect rendering
@@ -80,7 +87,7 @@ public class Editor : Core
 		StartCoroutine(StartInEditMode());
 	}
 
-	// TODO: Refactor ImGuiEditor to NOT rely on a hacky coroutine like this, and instead load the entities correctly
+	// TODO: Refactor Editor to NOT rely on a hacky coroutine like this, and instead load the entities correctly
 	private IEnumerator StartInEditMode()
 	{
 		IsEditMode = false;
@@ -157,6 +164,35 @@ public class Editor : Core
 			else if (!string.IsNullOrWhiteSpace(projectPath))
 			{
 				Debug.Warn($"Invalid project file specified: {projectPath}");
+			}
+		}
+	}
+
+	/// <summary>
+	/// Explicitly loads assemblies that contain components but might not be loaded yet.
+	/// </summary>
+	private static void LoadRequiredAssemblies()
+	{
+		//TODO: Add support for any custom assemblies here
+		var assembliesToLoad = new[]
+		{
+			"Voltage.FarseerPhysics",
+		};
+
+		foreach (var assemblyName in assembliesToLoad)
+		{
+			try
+			{
+				// Try to load the assembly if it's not already loaded
+				var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
+				if (loadedAssemblies.All(a => a.GetName().Name != assemblyName))
+				{
+					Assembly.Load(assemblyName);
+				}
+			}
+			catch (Exception ex)
+			{
+				Debug.Warn($"Could not load assembly {assemblyName}: {ex.Message}");
 			}
 		}
 	}

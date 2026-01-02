@@ -26,7 +26,7 @@ namespace Voltage.Console
 }
 
 
-#if EDITOR_DEBUG
+#if EDITOR 
 namespace Voltage.Console
 {
 	public partial class DebugConsole

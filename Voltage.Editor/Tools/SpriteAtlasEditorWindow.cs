@@ -11,7 +11,6 @@ using Voltage.Utils.Extensions;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Utils;
-using Debug = Voltage.Debug;
 using Num = System.Numerics;
 
 namespace Voltage.Editor.Tools

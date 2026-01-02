@@ -86,7 +86,7 @@ namespace Voltage
 	/// <summary>
 	/// putting this attribute on a class and specifying a subclass of Inspector lets you create custom inspectors for any type. When
 	/// the Inspector finds a field/property of the type with the attribute on it the inspectorType will be instantiated and used.
-	/// Inspectors are only active in DEBUG builds so make sure to wrap your custom inspector subclass in #if EDITOR_DEBUG/#endif.
+	/// Inspectors are only active in DEBUG builds so make sure to wrap your custom inspector subclass in #if EDITOR /#endif.
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
 	public class CustomInspectorAttribute : Attribute

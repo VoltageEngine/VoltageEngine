@@ -250,10 +250,8 @@ namespace Voltage.Farseer
 					result.MinimumTranslationVector = result.Normal * -separation;
 				}
 
-#if EDITOR_DEBUG_FSCOLLISIONS
-				Debug.drawPixel( result.point, 2, Color.Red, 0.2f );
-				Debug.drawLine( result.point, result.point + result.normal * 20, Color.Yellow, 0.2f );
-#endif
+				Debug.DrawPixel(result.Point, 2, Color.Red, 0.2f );
+				Debug.DrawLine(result.Point, result.Point + result.Normal * 20, Color.Yellow, 0.2f);
 
 				return true;
 			}
@@ -285,10 +283,8 @@ namespace Voltage.Farseer
 				result.Point = points[0] * FSConvert.SimToDisplay;
 				result.MinimumTranslationVector = result.Normal * separation;
 
-#if EDITOR_DEBUG_FSCOLLISIONS
-				Debug.drawPixel( result.point, 2, Color.Red, 0.2f );
-				Debug.drawLine( result.point, result.point + result.normal * 20, Color.Yellow, 0.2f );
-#endif
+				Debug.DrawPixel( result.Point, 2, Color.Red, 0.2f );
+				Debug.DrawLine(result.Point, result.Point + result.Normal * 20, Color.Yellow, 0.2f );
 
 				return true;
 			}
@@ -320,10 +316,8 @@ namespace Voltage.Farseer
 				var separation = Vector2.Dot(pointA - pointB, result.Normal) - circleA.Radius - circleB.Radius;
 				result.MinimumTranslationVector = result.Normal * Math.Abs(separation);
 
-#if EDITOR_DEBUG_FSCOLLISIONS
-				Debug.drawPixel( result.point, 5, Color.Red, 0.2f );
-				Debug.drawLine( result.point, result.point + result.normal * 20, Color.Yellow, 0.2f );
-#endif
+				Debug.DrawPixel( result.Point, 5, Color.Red, 0.2f );
+				Debug.DrawLine(result.Point , result.Point + result.Normal * 20, Color.Yellow, 0.2f );
 
 				return true;
 			}
@@ -373,10 +367,8 @@ namespace Voltage.Farseer
 					result.MinimumTranslationVector = result.Normal * -separation;
 				}
 
-#if EDITOR_DEBUG_FSCOLLISIONS
-				Debug.drawPixel( result.point, 5, Color.Red, 0.2f );
-				Debug.drawLine( result.point, result.point + result.normal * 20, Color.Yellow, 0.2f );
-#endif
+				Debug.DrawPixel( result.Point, 5, Color.Red, 0.2f );
+				Debug.DrawLine(result.Point , result.Point + result.Normal * 20, Color.Yellow, 0.2f );
 
 				return true;
 			}
@@ -423,10 +415,8 @@ namespace Voltage.Farseer
 					result.MinimumTranslationVector = result.Normal * -separation;
 				}
 
-#if EDITOR_DEBUG_FSCOLLISIONS
-				Debug.drawPixel( result.point, 5, Color.Red, 0.2f );
-				Debug.drawLine( result.point, result.point + result.normal * 20, Color.Yellow, 0.2f );
-#endif
+				Debug.DrawPixel(result.Point, 5, Color.Red, 0.2f );
+				Debug.DrawLine(result.Point, result.Point + result.Normal * 20, Color.Yellow, 0.2f );
 
 				return true;
 			}

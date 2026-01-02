@@ -180,7 +180,36 @@ namespace Voltage.Editor.Gizmos
 
 		private void HandleBoxSelection()
 		{
-			mouseScreen = Core.Scene.Camera.ScreenToWorldPoint(Input.ScaledMousePosition);
+			// mouseScreen = Core.Scene.Camera.ScreenToWorldPoint(Input.ScaledMousePosition);
+			//
+			// if (!_isBoxSelecting && Input.LeftMouseButtonPressed)
+			// {
+			// 	if (!_ctrlDown && !_shiftDown)
+			// 	{
+			// 		_imGuiManager.SceneGraphWindow.EntityPane.DeselectAllEntities();
+			// 		DeselectEntity();
+			// 	}
+			//
+			// 	_isBoxSelecting = true;
+			// 	_boxSelectStartWorld = Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
+			// 	_boxSelectEndWorld = _boxSelectStartWorld;
+			// }
+			//
+			// if (_isBoxSelecting && Input.LeftMouseButtonDown)
+			// {
+			// 	_boxSelectEndWorld = Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
+			// 	DrawSelectionBox(_boxSelectStartWorld, _boxSelectEndWorld);
+			// }
+			//
+			// if (_isBoxSelecting && Input.LeftMouseButtonReleased)
+			// {
+			// 	_boxSelectEndWorld = Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
+			// 	SelectEntitiesInBox(_boxSelectStartWorld, _boxSelectEndWorld);
+			// 	_isBoxSelecting = false;
+			// }
+
+			// TODO: Try this
+			var worldMouse = Core.Scene.Camera.ScreenToWorldPoint(Input.ScaledMousePosition);
 
 			if (!_isBoxSelecting && Input.LeftMouseButtonPressed)
 			{
@@ -191,25 +220,25 @@ namespace Voltage.Editor.Gizmos
 				}
 
 				_isBoxSelecting = true;
-				_boxSelectStartWorld = Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
-				_boxSelectEndWorld = _boxSelectStartWorld;
+				_boxSelectStartWorld = worldMouse;
+				_boxSelectEndWorld = worldMouse;
 			}
 
 			if (_isBoxSelecting && Input.LeftMouseButtonDown)
 			{
-				_boxSelectEndWorld = Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
-				DrawSelectionBoxVoltage(_boxSelectStartWorld, _boxSelectEndWorld);
+				_boxSelectEndWorld = worldMouse;
+				DrawSelectionBox(_boxSelectStartWorld, _boxSelectEndWorld);
 			}
 
 			if (_isBoxSelecting && Input.LeftMouseButtonReleased)
 			{
-				_boxSelectEndWorld = Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
+				_boxSelectEndWorld = worldMouse;
 				SelectEntitiesInBox(_boxSelectStartWorld, _boxSelectEndWorld);
 				_isBoxSelecting = false;
 			}
 		}
 
-		private void DrawSelectionBoxVoltage(Vector2 worldStart, Vector2 worldEnd)
+		private void DrawSelectionBox(Vector2 worldStart, Vector2 worldEnd)
 		{
 			var camera = Core.Scene.Camera;
 			var min = new Vector2(Math.Min(worldStart.X, worldEnd.X), Math.Min(worldStart.Y, worldEnd.Y));

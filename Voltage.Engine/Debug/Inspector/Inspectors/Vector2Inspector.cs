@@ -3,7 +3,7 @@ using System.Globalization;
 using Voltage.UI;
 
 
-#if EDITOR_DEBUG
+#if EDITOR 
 namespace Voltage
 {
 	public class Vector2Inspector : Inspector

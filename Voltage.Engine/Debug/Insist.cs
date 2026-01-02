@@ -5,7 +5,7 @@ namespace Voltage
 {
 	public static class Insist
 	{
-		[Conditional("EDITOR_DEBUG")]
+		
 		[DebuggerHidden]
 		public static void Fail()
 		{
@@ -14,7 +14,7 @@ namespace Voltage
 		}
 
 
-		[Conditional("EDITOR_DEBUG")]
+		
 		[DebuggerHidden]
 		public static void Fail(string message, params object[] args)
 		{
@@ -23,7 +23,7 @@ namespace Voltage
 		}
 
 
-		[Conditional("EDITOR_DEBUG")]
+		
 		[DebuggerHidden]
 		public static void IsTrue(bool condition)
 		{
@@ -34,7 +34,7 @@ namespace Voltage
 		}
 
 
-		[Conditional("EDITOR_DEBUG")]
+		
 		[DebuggerHidden]
 		public static void IsTrue(bool condition, string message, params object[] args)
 		{
@@ -45,7 +45,7 @@ namespace Voltage
 		}
 
 
-		[Conditional("EDITOR_DEBUG")]
+		
 		[DebuggerHidden]
 		public static void IsFalse(bool condition)
 		{
@@ -53,7 +53,7 @@ namespace Voltage
 		}
 
 
-		[Conditional("EDITOR_DEBUG")]
+		
 		[DebuggerHidden]
 		public static void IsFalse(bool condition, string message, params object[] args)
 		{
@@ -67,7 +67,7 @@ namespace Voltage
 		/// <param name="obj">Object.</param>
 		/// <param name="message">Message.</param>
 		/// <param name="args">Arguments.</param>
-		[Conditional("EDITOR_DEBUG")]
+		
 		[DebuggerHidden]
 		public static void IsNull(object obj)
 		{
@@ -81,7 +81,7 @@ namespace Voltage
 		/// <param name="obj">Object.</param>
 		/// <param name="message">Message.</param>
 		/// <param name="args">Arguments.</param>
-		[Conditional("EDITOR_DEBUG")]
+		
 		[DebuggerHidden]
 		public static void IsNull(object obj, string message, params object[] args)
 		{
@@ -95,7 +95,7 @@ namespace Voltage
 		/// <param name="obj">Object.</param>
 		/// <param name="message">Message.</param>
 		/// <param name="args">Arguments.</param>
-		[Conditional("EDITOR_DEBUG")]
+		
 		[DebuggerHidden]
 		public static void IsNotNull(object obj)
 		{
@@ -109,7 +109,7 @@ namespace Voltage
 		/// <param name="obj">Object.</param>
 		/// <param name="message">Message.</param>
 		/// <param name="args">Arguments.</param>
-		[Conditional("EDITOR_DEBUG")]
+		
 		[DebuggerHidden]
 		public static void IsNotNull(object obj, string message, params object[] args)
 		{
@@ -124,7 +124,7 @@ namespace Voltage
 		/// <param name="second">Second.</param>
 		/// <param name="message">Message.</param>
 		/// <param name="args">Arguments.</param>
-		[Conditional("EDITOR_DEBUG")]
+		
 		[DebuggerHidden]
 		public static void AreEqual(object first, object second, string message, params object[] args)
 		{
@@ -140,7 +140,7 @@ namespace Voltage
 		/// <param name="second">Second.</param>
 		/// <param name="message">Message.</param>
 		/// <param name="args">Arguments.</param>
-		[Conditional("EDITOR_DEBUG")]
+		
 		[DebuggerHidden]
 		public static void AreNotEqual(object first, object second, string message, params object[] args)
 		{

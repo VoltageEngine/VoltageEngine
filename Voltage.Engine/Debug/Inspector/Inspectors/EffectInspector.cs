@@ -7,7 +7,7 @@ using Voltage.Utils.Extensions;
 using Voltage.UI;
 
 
-#if EDITOR_DEBUG
+#if EDITOR 
 namespace Voltage
 {
 	public class EffectInspector : Inspector

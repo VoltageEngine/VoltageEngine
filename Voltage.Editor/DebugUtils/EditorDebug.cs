@@ -5,7 +5,7 @@ namespace Voltage.Editor.DebugUtils
 {
 	/// <summary>
 	/// Debug logging system specifically for editor development.
-	/// Only available in DEBUG builds of the editor.
+	/// Only available in EDITOR_DEBUG configuration of the editor.
 	/// Not accessible to game projects.
 	/// </summary>
 	internal static class EditorDebug
@@ -17,7 +17,7 @@ namespace Voltage.Editor.DebugUtils
 			[CallerLineNumber] int callerLine = 0,
 			params object[] args)
 		{
-			Voltage.Debug.Error($"[EDITOR] {format}", callerFile, callerLine, args);
+			Debug.Error($"[EDITOR] {format}", callerFile, callerLine, args);
 		}
 
 		[Conditional("EDITOR_DEBUG")]
@@ -27,7 +27,7 @@ namespace Voltage.Editor.DebugUtils
 			[CallerLineNumber] int callerLine = 0,
 			params object[] args)
 		{
-			Voltage.Debug.Warn($"[EDITOR] {format}", callerFile, callerLine, args);
+			Debug.Warn($"[EDITOR] {format}", callerFile, callerLine, args);
 		}
 
 		[Conditional("EDITOR_DEBUG")]
@@ -37,7 +37,7 @@ namespace Voltage.Editor.DebugUtils
 			[CallerLineNumber] int callerLine = 0,
 			params object[] args)
 		{
-			Voltage.Debug.Log($"[EDITOR] {format}", callerFile, callerLine, args);
+			Debug.Log($"[EDITOR] {format}", callerFile, callerLine, args);
 		}
 
 		[Conditional("EDITOR_DEBUG")]
@@ -47,7 +47,7 @@ namespace Voltage.Editor.DebugUtils
 			[CallerLineNumber] int callerLine = 0,
 			params object[] args)
 		{
-			Voltage.Debug.Info($"[EDITOR] {format}", callerFile, callerLine, args);
+			Debug.Info($"[EDITOR] {format}", callerFile, callerLine, args);
 		}
 
 		[Conditional("EDITOR_DEBUG")]
@@ -57,7 +57,7 @@ namespace Voltage.Editor.DebugUtils
 			[CallerLineNumber] int callerLine = 0,
 			params object[] args)
 		{
-			Voltage.Debug.Success($"[EDITOR] {format}", callerFile, callerLine, args);
+			Debug.Success($"[EDITOR] {format}", callerFile, callerLine, args);
 		}
 
 		[Conditional("EDITOR_DEBUG")]
@@ -67,7 +67,7 @@ namespace Voltage.Editor.DebugUtils
 			[CallerLineNumber] int callerLine = 0,
 			params object[] args)
 		{
-			Voltage.Debug.Trace($"[EDITOR] {format}", callerFile, callerLine, args);
+			Debug.Trace($"[EDITOR] {format}", callerFile, callerLine, args);
 		}
 
 		/// <summary>
@@ -81,7 +81,7 @@ namespace Voltage.Editor.DebugUtils
 			[CallerLineNumber] int callerLine = 0,
 			params object[] args)
 		{
-			Voltage.Debug.Log($"[{category}] {format}", callerFile, callerLine, args);
+			Debug.Log($"[{category}] {format}", callerFile, callerLine, args);
 		}
 	}
 }

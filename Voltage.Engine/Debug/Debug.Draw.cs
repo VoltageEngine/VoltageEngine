@@ -16,7 +16,7 @@ namespace Voltage
 		static List<DebugDrawItem> _debugDrawItems = new List<DebugDrawItem>();
 		static List<DebugDrawItem> _screenSpaceDebugDrawItems = new List<DebugDrawItem>();
 
-		[Conditional("EDITOR_DEBUG")]
+		[Conditional("EDITOR")]
 		internal static void Render()
 		{
 			if (_debugDrawItems.Count > 0)
@@ -64,7 +64,7 @@ namespace Voltage
 			}
 		}
 
-		[Conditional("EDITOR_DEBUG")]
+		[Conditional("EDITOR")]
 		public static void DrawLine(Vector2 start, Vector2 end, Color color, float duration = 0f)
 		{
 			if (!Core.DebugRenderEnabled)
@@ -73,7 +73,7 @@ namespace Voltage
 			_debugDrawItems.Add(new DebugDrawItem(start, end, color, duration));
 		}
 
-		[Conditional("EDITOR_DEBUG")]
+		[Conditional("EDITOR")]
 		public static void DrawPixel(float x, float y, int size, Color color, float duration = 0f)
 		{
 			if (!Core.DebugRenderEnabled)
@@ -82,7 +82,7 @@ namespace Voltage
 			_debugDrawItems.Add(new DebugDrawItem(x, y, size, color, duration));
 		}
 
-		[Conditional("EDITOR_DEBUG")]
+		[Conditional("EDITOR")]
 		public static void DrawPixel(Vector2 position, int size, Color color, float duration = 0f)
 		{
 			if (!Core.DebugRenderEnabled)
@@ -91,7 +91,7 @@ namespace Voltage
 			_debugDrawItems.Add(new DebugDrawItem(position.X, position.Y, size, color, duration));
 		}
 
-		[Conditional("EDITOR_DEBUG")]
+		[Conditional("EDITOR")]
 		public static void DrawHollowRect(Rectangle rectangle, Color color, float duration = 0f)
 		{
 			if (!Core.DebugRenderEnabled)
@@ -100,7 +100,7 @@ namespace Voltage
 			_debugDrawItems.Add(new DebugDrawItem(rectangle, color, duration));
 		}
 
-		[Conditional("EDITOR_DEBUG")]
+		[Conditional("EDITOR")]
 		public static void DrawHollowBox(Vector2 center, int size, Color color, float duration = 0f)
 		{
 			if (!Core.DebugRenderEnabled)
@@ -111,7 +111,7 @@ namespace Voltage
 				new Rectangle((int)(center.X - halfSize), (int)(center.Y - halfSize), size, size), color, duration));
 		}
 
-		[Conditional("EDITOR_DEBUG")]
+		[Conditional("EDITOR")]
 		public static void DrawHollowBox(Vector2 center, int sizeX, int sizeY, Color color, float duration = 0f)
 		{
 			if (!Core.DebugRenderEnabled)
@@ -123,7 +123,7 @@ namespace Voltage
 				new Rectangle((int)(center.X - sizeX), (int)(center.Y - sizeY), sizeX, sizeY), color, duration));
 		}
 
-		[Conditional("EDITOR_DEBUG")]
+		[Conditional("EDITOR")]
 		public static void DrawText(BitmapFont font, string text, Vector2 position, Color color, float duration = 0f,
 									float scale = 1f)
 		{
@@ -133,7 +133,7 @@ namespace Voltage
 			_debugDrawItems.Add(new DebugDrawItem(font, text, position, color, duration, scale));
 		}
 
-		[Conditional("EDITOR_DEBUG")]
+		[Conditional("EDITOR")]
 		public static void DrawPolygon(Vector2 position, Vector2[] points, Color color, bool closePoly = true, float duration = 0f)
 		{
 			if (!Core.DebugRenderEnabled || points == null || points.Length < 2)
@@ -146,7 +146,7 @@ namespace Voltage
 				DrawLine(position + points[points.Length - 1], position + points[0], color, duration);
 		}
 
-		[Conditional("EDITOR_DEBUG")]
+		[Conditional("EDITOR")]
 		public static void DrawCircle(Vector2 center, float radius, Color color, float duration = 0f, int resolution = 32)
 		{
 			if (!Core.DebugRenderEnabled)
@@ -164,6 +164,7 @@ namespace Voltage
 			}
 		}
 
+		[Conditional("EDITOR")]
 		public static void DrawColliderDelayed(Collider collider, Color color, float duration)
 		{
 			if (collider == null)
@@ -197,7 +198,7 @@ namespace Voltage
 			}
 		}
 
-		[Conditional("EDITOR_DEBUG")]
+		[Conditional("EDITOR")]
 		public static void DrawText(VoltageSpriteFont font, string text, Vector2 position, Color color, float duration = 0f,
 									float scale = 1f)
 		{
@@ -207,20 +208,20 @@ namespace Voltage
 			_debugDrawItems.Add(new DebugDrawItem(font, text, position, color, duration, scale));
 		}
 
-		[Conditional("EDITOR_DEBUG")]
+		[Conditional("EDITOR")]
 		public static void DrawText(string text, float duration = 0)
 		{
 			DrawText(text, Colors.DebugText, duration);
 		}
 
-		[Conditional("EDITOR_DEBUG")]
+		[Conditional("EDITOR")]
 		public static void DrawText(string format, params object[] args)
 		{
 			var text = string.Format(format, args);
 			DrawText(text, Colors.DebugText);
 		}
 
-		[Conditional("EDITOR_DEBUG")]
+		[Conditional("EDITOR")]
 		public static void DrawText(string text, Color color, float duration = 1f, float scale = 1f)
 		{
 			if (!Core.DebugRenderEnabled)
@@ -229,7 +230,7 @@ namespace Voltage
 			_screenSpaceDebugDrawItems.Add(new DebugDrawItem(text, color, duration, scale));
 		}
 
-		[Conditional("EDITOR_DEBUG")]
+		[Conditional("EDITOR")]
 		public static void DrawRect(Rectangle rectangle, Color color, float duration = 0f)
 		{
 			if (!Core.DebugRenderEnabled)
@@ -239,9 +240,7 @@ namespace Voltage
 			_debugDrawItems.Add(new DebugDrawItem(rectangle, color, duration) { drawType = DebugDrawItem.DebugDrawType.FilledRectangle });
 		}
 
-		/// <summary>
-		/// Draws an arrow from start to end, with customizable arrowhead.
-		/// </summary>
+		[Conditional("EDITOR")]
 		public static void DrawArrow(Vector2 start, Vector2 end, float headLength = 12f, float headWidth = 3f, Color color = default, float duration = 0f)
 		{
 			DrawLine(start, end, color, duration);
