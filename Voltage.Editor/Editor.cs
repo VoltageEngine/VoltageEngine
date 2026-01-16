@@ -141,10 +141,14 @@ public class Editor : Core
 #elif OS_MAC
     if (Input.IsKeyDown(Keys.LeftControl) && Input.IsKeyDown(Keys.LeftWindows) && Input.IsKeyPressed(Keys.F))
     {
-        if (ScreenUtils.IsFullscreen)
-            ScreenUtils.SetEditorWindowedMode(false);
-        else
-            ScreenUtils.SetFullScreenMode();
+	    if (ScreenUtils.Mode == ScreenUtils.ScreenMode.FullScreen)
+	    {
+		    ScreenUtils.ApplyScreenChange(ScreenUtils.ScreenMode.Windowed);
+	    }
+	    else
+	    {
+		    ScreenUtils.ApplyScreenChange(ScreenUtils.ScreenMode.FullScreen);
+	    }
     }
 #endif
 	}
