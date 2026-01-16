@@ -9,6 +9,7 @@ using Voltage.Utils;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Inspectors.TypeInspectors;
+using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Undo;
 using Voltage.Editor.Undo.ComponentActions;
 using Num = System.Numerics;
@@ -62,7 +63,6 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
         {
             ImGui.TextColored(new Num.Vector4(0.8f, 0.9f, 1.0f, 1.0f), "Aseprite Animation Selection");
 
-            // Show current animation info if available
             if (!string.IsNullOrEmpty(animator.TextureFilePath))
             {
                 ImGui.Text($"Current File: {Path.GetFileName(animator.TextureFilePath)}");
@@ -74,7 +74,6 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
 
             ImGui.Spacing();
 
-            // Error message section
             if (!string.IsNullOrEmpty(_errorMessage))
             {
                 ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(1.0f, 0.6f, 0.6f, 1.0f));
@@ -83,7 +82,6 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                 ImGui.Spacing();
             }
 
-            // File selection button
             if (ImGui.Button("Load Aseprite Animation"))
             {
                 _errorMessage = "";
@@ -101,7 +99,6 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                 }
             }
 
-            // File picker popup
             DrawAsepriteAnimationFilePickerPopup(animator);
         }
 
@@ -110,7 +107,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             bool isOpen = true;
             if (ImGui.BeginPopupModal("aseprite-anim-file-picker", ref isOpen, ImGuiWindowFlags.AlwaysAutoResize))
             {
-                var picker = FilePicker.GetFilePicker(this, Path.Combine(Environment.CurrentDirectory, "Content"), ".ase|.aseprite");
+                var picker = FilePicker.GetFilePicker(this, ProjectManager.Instance.CurrentProject.ContentsFolder, ".ase|.aseprite");
                 picker.DontAllowTraverselBeyondRootFolder = true;
 
                 if (string.IsNullOrEmpty(picker.SelectedFile) || !File.Exists(picker.SelectedFile))

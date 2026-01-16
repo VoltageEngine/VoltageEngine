@@ -170,7 +170,7 @@ public class GameScene : SceneComponent
                 continue;
 
             // Create entity directly
-            var entity = new Entity(sceneEntity.Name);
+            var entity = new Entity(sceneEntity.Name, Entity.InstanceType.Serialized);
             entity.Type = sceneEntity.InstanceType;
             Scene.AddEntity(entity);
             

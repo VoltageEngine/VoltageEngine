@@ -56,6 +56,7 @@ public class Editor : Core
 
 		Scene.OnSceneBegin += SetImGuiEditor; //Make sure all values of ImGuiEditor are reset when changing scenes
 		Scene.OnSceneBegin += TrackSceneChange;
+		Scene.OnSceneBegin += SetSceneClearColor; // Set grey background color when scene changes
 
 #if EDITOR
 		DebugRenderEnabled = true;
@@ -68,11 +69,13 @@ public class Editor : Core
 		//TODO: Load these from the Project Settings
 		IsFixedTimeStep = true; //Run Update() every 60 frames
 		Screen.SynchronizeWithVerticalRetrace = false; //Vsync = off
-		// DefaultSamplerState = SamplerState.PointClamp; // pixel perfect rendering
 
 		ScreenUtils.ApplyScreenChange(ScreenUtils.ScreenMode.WindowedMax);
 		HandleCommandLineArguments(); // when we open a project file through the file explorer
 		SceneManager.Instance.LoadLastUsedScene();
+		
+		if (Scene != null)
+			Scene.ClearColor = new Color(45, 45, 48);
 	}
 
 	protected override void EndRun()
@@ -80,11 +83,18 @@ public class Editor : Core
 		base.EndRun();
 		Scene.OnSceneBegin -= SetImGuiEditor;
 		Scene.OnSceneBegin -= TrackSceneChange;
+		Scene.OnSceneBegin -= SetSceneClearColor;
 	}
 
 	private void SetImGuiEditor()
 	{
 		StartCoroutine(StartInEditMode());
+	}
+
+	private void SetSceneClearColor()
+	{
+		if (Scene != null)
+			Scene.ClearColor = new Color(45, 45, 48);
 	}
 
 	// TODO: Refactor Editor to NOT rely on a hacky coroutine like this, and instead load the entities correctly
@@ -173,7 +183,7 @@ public class Editor : Core
 	/// </summary>
 	private static void LoadRequiredAssemblies()
 	{
-		//TODO: Add support for any custom assemblies here
+		//IMPORTANT: Add your own custom assemblue through here if it contains Components that the Editor needs to be aware of.
 		var assembliesToLoad = new[]
 		{
 			"Voltage.FarseerPhysics",

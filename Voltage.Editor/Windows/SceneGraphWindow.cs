@@ -445,7 +445,7 @@ public class SceneGraphWindow
 	/// </summary>
 	private void CreateEmptyEntity()
 	{
-		var entity = new Entity("Entity");
+		var entity = new Entity("Entity", Entity.InstanceType.Serialized);
 		entity.Type = Entity.InstanceType.Serialized;
 		entity.Name = Core.Scene.GetUniqueEntityName("Entity", entity);
 		entity.Transform.Position = Core.Scene.Camera.Transform.Position;
@@ -461,8 +461,6 @@ public class SceneGraphWindow
 
 		_imGuiManager.SceneGraphWindow.EntityPane.SetSelectedEntity(entity, false);
 		_imGuiManager.MainEntityInspectorWindow.DelayedSetEntity(entity);
-
-		EditorDebug.Log($"Created empty entity: {entity.Name}");
 	}
 
 	/// <summary>

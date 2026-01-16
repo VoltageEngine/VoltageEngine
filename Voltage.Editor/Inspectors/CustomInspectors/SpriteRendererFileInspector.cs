@@ -1,20 +1,21 @@
-﻿using System;
+﻿using ImGuiNET;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using ImGuiNET;
 using Voltage.Editor.DebugUtils;
+using Voltage.Editor.FilePickers;
+using Voltage.Editor.Inspectors.TypeInspectors;
+using Voltage.Editor.ProjectFile;
+using Voltage.Editor.Undo;
+using Voltage.Editor.Undo.AssetActions;
+using Voltage.Editor.Undo.Core;
+using Voltage.Editor.Utils;
 using Voltage.Sprites;
 using Voltage.Textures;
 using Voltage.Tiled;
 using Voltage.Utils;
-using Voltage.Editor.FilePickers;
-using Voltage.Editor.Inspectors.TypeInspectors;
-using Voltage.Editor.Undo;
-using Voltage.Editor.Undo.AssetActions;
-using Voltage.Editor.Utils;
 using Num = System.Numerics;
-using Voltage.Editor.Undo.Core;
 
 namespace Voltage.Editor.Inspectors.CustomInspectors
 {
@@ -329,7 +330,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             bool isOpen = true;
             if (ImGui.BeginPopupModal("file-picker-png", ref isOpen, ImGuiWindowFlags.AlwaysAutoResize))
             {
-                var picker = FilePicker.GetFilePicker(this, Path.Combine(Environment.CurrentDirectory, "Content"), ".png");
+                var picker = FilePicker.GetFilePicker(this, ProjectManager.Instance.CurrentProject.ContentsFolder, ".png");
                 picker.DontAllowTraverselBeyondRootFolder = true;
 
                 FilePicker.DrawFilePickerContent(picker);
@@ -338,11 +339,13 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
 
                 if (DrawCustomButtons(picker, loadAction, "Open"))
                 {
-                    string contentRoot = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "Content"));
+                    string contentRoot = ProjectManager.Instance.CurrentProject.ContentsFolder;
                     if (picker.SelectedFile.StartsWith(contentRoot, StringComparison.OrdinalIgnoreCase))
                     {
-                        string relativePath = Path.GetRelativePath(Environment.CurrentDirectory, picker.SelectedFile).Replace('\\', '/');
-                        loadAction(GetSpriteRenderer(), relativePath);
+                        // Use the FULL PATH from the picker - this is absolute and will work from the editor
+                        string fullPath = picker.SelectedFile;
+						
+                        loadAction(GetSpriteRenderer(), fullPath);
                         ImGui.CloseCurrentPopup();
                         FilePicker.RemoveFilePicker(picker);
                     }
@@ -367,7 +370,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             bool isOpen = true;
             if (ImGui.BeginPopupModal("file-picker-aseprite", ref isOpen, ImGuiWindowFlags.AlwaysAutoResize))
             {
-                var picker = FilePicker.GetFilePicker(this, Path.Combine(Environment.CurrentDirectory, "Content"), ".aseprite");
+                var picker = FilePicker.GetFilePicker(this, ProjectManager.Instance.CurrentProject.ContentsFolder, ".aseprite");
                 picker.DontAllowTraverselBeyondRootFolder = true;
 
                 ImGui.Text("Aseprite Options:");
@@ -384,21 +387,47 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                 FilePicker.DrawFilePickerContent(picker);
 
                 ImGui.Separator();
-                if (DrawCustomButtons(picker, (sr, path) => LoadAsepriteFileFromPicker(sr, path, _frameNumber, string.IsNullOrEmpty(_layerName) ? null : _layerName, mode), "Load"))
-                {
-                    string contentRoot = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "Content"));
-                    if (picker.SelectedFile.StartsWith(contentRoot, StringComparison.OrdinalIgnoreCase))
-                    {
-                        string relativePath = Path.GetRelativePath(Environment.CurrentDirectory, picker.SelectedFile).Replace('\\', '/');
-                        LoadAsepriteFileFromPicker(spriteRenderer, relativePath, _frameNumber, string.IsNullOrEmpty(_layerName) ? null : _layerName, mode);
-                        ImGui.CloseCurrentPopup();
-                        FilePicker.RemoveFilePicker(picker);
-                    }
-                    else
-                    {
-                        _errorMessage = "File must be in Content folder!";
-                    }
-                }
+				
+				float buttonWidth = 100f;
+				float totalWidth = ImGui.GetContentRegionAvail().X;
+				float rightButtonStart = totalWidth - buttonWidth;
+
+				if (ImGui.Button("Cancel", new Num.Vector2(buttonWidth, 0)))
+				{
+					ImGui.CloseCurrentPopup();
+					FilePicker.RemoveFilePicker(picker);
+				}
+
+				ImGui.SameLine(rightButtonStart);
+
+				bool canConfirm = !string.IsNullOrEmpty(picker.SelectedFile);
+				if (!canConfirm)
+				{
+					ImGui.PushStyleVar(ImGuiStyleVar.Alpha, 0.5f);
+				}
+
+				if (ImGui.Button("Load", new Num.Vector2(buttonWidth, 0)) && canConfirm)
+				{
+					string contentRoot = ProjectManager.Instance.CurrentProject.ContentsFolder;
+					if (picker.SelectedFile.StartsWith(contentRoot, StringComparison.OrdinalIgnoreCase))
+					{
+						// Use the FULL PATH from the picker
+						string fullPath = picker.SelectedFile;
+						
+						LoadAsepriteFileFromPicker(spriteRenderer, fullPath, _frameNumber, string.IsNullOrEmpty(_layerName) ? null : _layerName, mode);
+						ImGui.CloseCurrentPopup();
+						FilePicker.RemoveFilePicker(picker);
+					}
+					else
+					{
+						_errorMessage = "File must be in Content folder!";
+					}
+				}
+
+				if (!canConfirm)
+				{
+					ImGui.PopStyleVar();
+				}
 
                 ImGui.EndPopup();
             }
@@ -415,7 +444,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             bool isOpen = true;
             if (ImGui.BeginPopupModal("file-picker-tmx", ref isOpen, ImGuiWindowFlags.AlwaysAutoResize))
             {
-                var picker = FilePicker.GetFilePicker(this, Path.Combine(Environment.CurrentDirectory, "Content"), ".tmx");
+                var picker = FilePicker.GetFilePicker(this, ProjectManager.Instance.CurrentProject.ContentsFolder, ".tmx");
                 picker.DontAllowTraverselBeyondRootFolder = true;
 
                 ImGui.Text("TMX Options:");
@@ -534,11 +563,13 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
 
                 if (ImGui.Button("Load TMX", new Num.Vector2(buttonWidth, 0)) && fileSelected)
                 {
-                    string contentRoot = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "Content"));
+                    string contentRoot = ProjectManager.Instance.CurrentProject.ContentsFolder;
                     if (picker.SelectedFile.StartsWith(contentRoot, StringComparison.OrdinalIgnoreCase))
                     {
-                        string relativePath = Path.GetRelativePath(Environment.CurrentDirectory, picker.SelectedFile).Replace('\\', '/');
-                        LoadTmxFileFromPicker(spriteRenderer, relativePath, string.IsNullOrEmpty(_imageLayerName) ? null : _imageLayerName, mode);
+                        // Use the FULL PATH from the picker
+                        string fullPath = picker.SelectedFile;
+						
+                        LoadTmxFileFromPicker(spriteRenderer, fullPath, string.IsNullOrEmpty(_imageLayerName) ? null : _imageLayerName, mode);
                         ImGui.CloseCurrentPopup();
                         FilePicker.RemoveFilePicker(picker);
 
