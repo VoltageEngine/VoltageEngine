@@ -23,7 +23,7 @@ using Voltage.Utils.Extensions;
 
 namespace Voltage.Editor.SceneFile;
 
-public class GameScene : SceneComponent
+public class GameSceneComponent : SceneComponent
 {
     public TmxMap TiledMap;
     public Entity TiledMapEntity;// Create a dedicated TiledMapEntity to hold TiledMap
@@ -39,10 +39,8 @@ public class GameScene : SceneComponent
 	private static readonly int[] AllRenderLayers = Enumerable.Range(-99, 199).ToArray();
 
 
-    public GameScene()
+    public GameSceneComponent()
     {
-	    Debug.Warn("Game Scene component was added!");
-	    
         sceneEntitiesByName = new Dictionary<string, SceneData.SceneEntityData>();
 
         var projectManager = Core.GetGlobalManager<ProjectManager>();
