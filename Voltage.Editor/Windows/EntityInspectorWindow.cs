@@ -360,7 +360,7 @@ public class EntityInspectorWindow
 
 					if (ImGui.IsItemHovered())
 					{
-						ImGui.SetTooltip("If FALSE, you won't be able select this \n Entity with your cursor in the Editor.");
+						ImGui.SetTooltip("If FALSE, you won't be able select this \n Entity with your cursor in the game window.");
 					}
 				}
 

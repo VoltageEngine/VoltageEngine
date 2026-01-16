@@ -65,7 +65,7 @@ namespace Voltage.Editor.Gizmos
 		/// Call this from ImGuiManager.LayoutGui or Update to handle selection logic.
 		/// </summary>
 		public void UpdateSelection()
-		{
+		{ 
 			if (ImGui.IsKeyPressed(ImGuiKey._1) || ImGui.IsKeyPressed(ImGuiKey.Q))
 				SelectionMode = CursorSelectionMode.Normal;
 			else if (ImGui.IsKeyPressed(ImGuiKey._2) || ImGui.IsKeyPressed(ImGuiKey.E))
@@ -128,7 +128,7 @@ namespace Voltage.Editor.Gizmos
 					}
 				}
 
-				if (!IsMouseOverGizmo && Core.IsEditMode && 
+				if (!IsMouseOverGizmo && Core.IsEditMode &&
 					!_polygonGizmoHandler.IsDragging && !_rectangleGizmoHandler.IsDragging &&
 					!_transformGizmoHandler.IsDragging && !_rotateGizmoHandler.IsDragging && !_scaleGizmoHandler.IsDragging)
 					HandleBoxSelection();
@@ -180,35 +180,6 @@ namespace Voltage.Editor.Gizmos
 
 		private void HandleBoxSelection()
 		{
-			// mouseScreen = Core.Scene.Camera.ScreenToWorldPoint(Input.ScaledMousePosition);
-			//
-			// if (!_isBoxSelecting && Input.LeftMouseButtonPressed)
-			// {
-			// 	if (!_ctrlDown && !_shiftDown)
-			// 	{
-			// 		_imGuiManager.SceneGraphWindow.EntityPane.DeselectAllEntities();
-			// 		DeselectEntity();
-			// 	}
-			//
-			// 	_isBoxSelecting = true;
-			// 	_boxSelectStartWorld = Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
-			// 	_boxSelectEndWorld = _boxSelectStartWorld;
-			// }
-			//
-			// if (_isBoxSelecting && Input.LeftMouseButtonDown)
-			// {
-			// 	_boxSelectEndWorld = Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
-			// 	DrawSelectionBox(_boxSelectStartWorld, _boxSelectEndWorld);
-			// }
-			//
-			// if (_isBoxSelecting && Input.LeftMouseButtonReleased)
-			// {
-			// 	_boxSelectEndWorld = Core.Scene.Camera.ScreenToWorldPoint(mouseScreen);
-			// 	SelectEntitiesInBox(_boxSelectStartWorld, _boxSelectEndWorld);
-			// 	_isBoxSelecting = false;
-			// }
-
-			// TODO: Try this
 			var worldMouse = Core.Scene.Camera.ScreenToWorldPoint(Input.ScaledMousePosition);
 
 			if (!_isBoxSelecting && Input.LeftMouseButtonPressed)
@@ -218,7 +189,7 @@ namespace Voltage.Editor.Gizmos
 					_imGuiManager.SceneGraphWindow.EntityPane.DeselectAllEntities();
 					DeselectEntity();
 				}
-
+			
 				_isBoxSelecting = true;
 				_boxSelectStartWorld = worldMouse;
 				_boxSelectEndWorld = worldMouse;

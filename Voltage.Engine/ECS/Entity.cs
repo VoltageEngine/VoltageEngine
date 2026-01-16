@@ -304,7 +304,7 @@ public sealed class Entity : IComparable<Entity>
 		DebugRenderEnabled = Core.DebugRenderEnabled;
 		Type = type;
 
-		//Since NonSerialized entities cannot be created in the Editor, we set this to false
+		// Since NonSerialized entities cannot be created in the Editor, we set this to false
 		if (Type == InstanceType.NonSerialized) 
 			IsSelectableInEditor = false;
 	}

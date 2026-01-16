@@ -116,6 +116,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Num.Vector2(0, 0));
 		ImGui.Begin($"Game: {gameWindowState}###GameWindow", gameWindowFlags);
 
+		IsGameWindowFocused = ImGui.IsWindowFocused();
+
+		GameWindowPosition = ImGui.GetWindowPos();
+		GameWindowSize = ImGui.GetWindowSize();
+
 		GameWindowWidth = ImGui.GetWindowSize().X;
 		GameWindowHeight = ImGui.GetWindowSize().Y;
 
@@ -255,6 +260,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				{
 					ImGui.SetWindowFocus();
 					focusedWindow = true;
+					IsGameWindowFocused = true;
 				}
 
 			if (!focusedWindow)

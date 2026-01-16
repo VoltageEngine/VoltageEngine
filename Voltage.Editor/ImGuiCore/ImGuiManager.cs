@@ -865,6 +865,19 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			ImGui.SetTooltip("Resize Colliders (Press T or 4)");
 		}
 
+		// Zoom indicator
+		ImGui.SameLine(0, spacing * 2f);
+		float currentZoom = Core.Scene.Camera.Zoom;
+		int zoomPercentage = (int)(currentZoom * 100f);
+		string zoomText = $"Zoom: {zoomPercentage}%";
+
+		ImGui.TextColored(new System.Numerics.Vector4(0.7f, 0.7f, 0.7f, 1.0f), zoomText);
+
+		if (ImGui.IsItemHovered())
+		{
+			ImGui.SetTooltip("Camera zoom level (Mouse Wheel to adjust)");
+		}
+
 		ImGui.End();
 	}
 
