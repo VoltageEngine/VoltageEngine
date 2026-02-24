@@ -4,6 +4,7 @@ using Voltage;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Undo;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Undo.EntityActions;
@@ -15,20 +16,33 @@ namespace Voltage.Editor.Gizmos
 	/// </summary>
 	public class EntityScaleGizmoHandler
 	{
+		public bool IsDragging => _draggingScaleX || _draggingScaleY;
+		public bool IsMouseOverGizmo { get; private set; }
+
+		private ImGuiManager _imGuiManager;
 		private Dictionary<Entity, Vector2> _dragStartEntityScales = new();
 		private Dictionary<Entity, Vector2> _dragEndEntityScales = new();
 		private Vector2 _dragStartScaleMouse;
 		private bool _draggingScaleX = false;
 		private bool _draggingScaleY = false;
-
-		public bool IsDragging => _draggingScaleX || _draggingScaleY;
-		public bool IsMouseOverGizmo { get; private set; }
+		private float _desiredScreenLength = 90f;
+		private float _minLength = 60f;
+		private float _maxLength = 600f;
+		private float _scaleRectSize = 12f;
+		
+		public EntityScaleGizmoHandler(ImGuiManager imGuiManager)
+		{
+			_imGuiManager = imGuiManager;
+		}
 
 		/// <summary>
 		/// Draws entity scale gizmo and handles interaction
 		/// </summary>
 		public void Draw(List<Entity> selectedEntities, Vector2 worldMouse, Camera camera)
 		{
+			if (_imGuiManager == null)
+				throw new NullReferenceException();
+			
 			IsMouseOverGizmo = false;
 
 			var validEntities = GizmoEntityFilter.GetValidEntities(selectedEntities);
@@ -42,11 +56,9 @@ namespace Voltage.Editor.Gizmos
 				center += e.Transform.Position;
 			center /= validEntities.Count;
 
-			float baseLength = 30f;
-			float minLength = 10f;
-			float maxLength = 100f;
-			float axisLength = baseLength / MathF.Max(camera.RawZoom, 0.01f);
-			axisLength = Math.Clamp(axisLength, minLength, maxLength);
+			// Desired axis length in screen pixels, divided by RawZoom to get world-space size
+			float axisLength = _desiredScreenLength / MathF.Max(camera.RawZoom, 0.01f);
+			axisLength = Math.Clamp(axisLength, _minLength, _maxLength);
 
 			var screenPos = camera.WorldToScreenPoint(center);
 
@@ -86,10 +98,10 @@ namespace Voltage.Editor.Gizmos
 			Debug.DrawLine(center, camera.ScreenToWorldPoint(axisEndY), yColor);
 
 			// Draw rectangles at the end of each axis
-			float rectSize = 8f / camera.RawZoom;
-			Vector2 rectOrigin = new Vector2(rectSize / 2f, rectSize / 2f);
-			Debug.DrawRect(new RectangleF(camera.ScreenToWorldPoint(axisEndX).X - rectOrigin.X, camera.ScreenToWorldPoint(axisEndX).Y - rectOrigin.Y, rectSize, rectSize), xHovered ? Color.Orange : xColor, 0f);
-			Debug.DrawRect(new RectangleF(camera.ScreenToWorldPoint(axisEndY).X - rectOrigin.X, camera.ScreenToWorldPoint(axisEndY).Y - rectOrigin.Y, rectSize, rectSize), yHovered ? Color.Orange : yColor, 0f);
+			float rectFinalSize = _scaleRectSize * _imGuiManager.FontSizeMultiplier / MathF.Max(camera.RawZoom, 0.01f);
+			Vector2 rectOrigin = new Vector2(rectFinalSize / 2f, rectFinalSize / 2f);
+			Debug.DrawRect(new RectangleF(camera.ScreenToWorldPoint(axisEndX).X - rectOrigin.X, camera.ScreenToWorldPoint(axisEndX).Y - rectOrigin.Y, rectFinalSize, rectFinalSize), xHovered ? Color.Orange : xColor, 0f);
+			Debug.DrawRect(new RectangleF(camera.ScreenToWorldPoint(axisEndY).X - rectOrigin.X, camera.ScreenToWorldPoint(axisEndY).Y - rectOrigin.Y, rectFinalSize, rectFinalSize), yHovered ? Color.Orange : yColor, 0f);
 
 			IsMouseOverGizmo = xHovered || yHovered;
 

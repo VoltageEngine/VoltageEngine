@@ -56,9 +56,9 @@ namespace Voltage.Editor.Gizmos
 			_imGuiManager = imGuiManager;
 			_transformGizmoHandler = new EntityTransformGizmoHandler();
 			_rotateGizmoHandler = new EntityRotateGizmoHandler();
-			_scaleGizmoHandler = new EntityScaleGizmoHandler();
+			_scaleGizmoHandler = new EntityScaleGizmoHandler(_imGuiManager);
 			_polygonGizmoHandler = new PolygonColliderGizmoHandler();
-			_rectangleGizmoHandler = new RectangleGizmoHandler();
+			_rectangleGizmoHandler = new RectangleGizmoHandler(_imGuiManager);
 		}
 
 		/// <summary>
@@ -102,7 +102,7 @@ namespace Voltage.Editor.Gizmos
 			if (_imGuiManager.IsGameWindowFocused && IsCursorWithinGameWindow())
 			{
 				var camera = Core.Scene.Camera;
-				var worldMouse = camera.ScreenToWorldPoint(Input.ScaledMousePosition);
+				var worldMouse = camera.ScreenToWorldPoint(Input.MousePosition);
 				var selectedEntities = _imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities;
 
 				if (Core.IsEditMode)
@@ -211,20 +211,17 @@ namespace Voltage.Editor.Gizmos
 
 		private void DrawSelectionBox(Vector2 worldStart, Vector2 worldEnd)
 		{
-			var camera = Core.Scene.Camera;
 			var min = new Vector2(Math.Min(worldStart.X, worldEnd.X), Math.Min(worldStart.Y, worldEnd.Y));
 			var max = new Vector2(Math.Max(worldStart.X, worldEnd.X), Math.Max(worldStart.Y, worldEnd.Y));
-			var rect = new RectangleF(min.X, min.Y, max.X - min.X, max.Y - min.Y);
-			Debug.DrawRect(camera.WorldToScreenRect(rect), Color.CornflowerBlue * 0.7f, 0f);
+			var rect = new Rectangle((int)min.X, (int)min.Y, (int)(max.X - min.X), (int)(max.Y - min.Y));
+			Debug.DrawRect(rect, Color.CornflowerBlue * 0.7f, 0f);
 		}
 
 		private void SelectEntitiesInBox(Vector2 worldStart, Vector2 worldEnd)
 		{
-			var camera = Core.Scene.Camera;
 			var min = new Vector2(Math.Min(worldStart.X, worldEnd.X), Math.Min(worldStart.Y, worldEnd.Y));
 			var max = new Vector2(Math.Max(worldStart.X, worldEnd.X), Math.Max(worldStart.Y, worldEnd.Y));
-			var rect = new RectangleF(min.X, min.Y, max.X - min.X, max.Y - min.Y);
-			var selectionRect = camera.WorldToScreenRect(rect);
+			var selectionRect = new RectangleF(min.X, min.Y, max.X - min.X, max.Y - min.Y);
 			var selectedEntities = new List<Entity>();
 
 			for (int i = Core.Scene.Entities.Count - 1; i >= 0; i--)
@@ -234,17 +231,7 @@ namespace Voltage.Editor.Gizmos
 				if(!entity.IsSelectableInEditor)
 					continue;
 
-				var sprite = entity.GetComponent<SpriteRenderer>();
-				var collider = entity.GetComponent<Collider>();
-				var deferredLight = entity.GetComponent<DeferredLight>();
-
-				if (sprite == null && collider == null && deferredLight == null)
-					continue;
-
-				if (sprite != null)
-					continue;
-
-				RectangleF entityBounds = GetEntityBounds(entity);
+				RectangleF entityBounds = GetEntityBounds(entity, true);
 
 				if (entityBounds.Width <= 0 || entityBounds.Height <= 0)
 					continue;

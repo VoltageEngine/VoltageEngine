@@ -5,6 +5,7 @@ using Voltage.DeferredLighting;
 using Voltage.PhysicsShapes;
 using System;
 using System.Collections.Generic;
+using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Undo;
 using Voltage.Editor.Undo.ComponentActions;
 using Voltage.Editor.Undo.Core;
@@ -32,6 +33,10 @@ namespace Voltage.Editor.Gizmos
 	/// </summary>
 	public class RectangleGizmoHandler
 	{
+		public bool IsDragging => _isDragging;
+		public bool IsMouseOverGizmo { get; private set; }
+
+		private ImGuiManager _imGuiManager;
 		private bool _isDragging = false;
 		private BoxCollider _selectedBoxCollider;
 		private AreaLight _selectedAreaLight;
@@ -39,24 +44,30 @@ namespace Voltage.Editor.Gizmos
 		private Dictionary<BoxCollider, RectangleF> _originalBoxBounds = new();
 		private Dictionary<AreaLight, RectangleF> _originalAreaLightBounds = new();
 		private bool _shiftDown;
+		private float _handleSize = 10f;
 
-		public bool IsDragging => _isDragging;
-		public bool IsMouseOverGizmo { get; private set; }
+		public RectangleGizmoHandler(ImGuiManager imGuiManager)
+		{
+			_imGuiManager = imGuiManager;
+		}
 
 		/// <summary>
 		/// Draws rectangle gizmos for BoxColliders and AreaLights
 		/// </summary>
 		public void Draw(List<BoxCollider> boxColliders, List<AreaLight> areaLights, Vector2 worldMouse, Camera camera, bool shiftDown)
 		{
+			if (_imGuiManager == null)
+				throw new NullReferenceException();
+
 			IsMouseOverGizmo = false;
 			_shiftDown = shiftDown;
 
-			float handleSize = 6f / camera.RawZoom;
+			float finalHandleSize = _handleSize * _imGuiManager.FontSizeMultiplier / camera.RawZoom;
 			float edgeThreshold = 8f / camera.RawZoom;
 
 			if (!_isDragging && Input.LeftMouseButtonPressed)
 			{
-				TryStartDragging(boxColliders, areaLights, worldMouse, handleSize, edgeThreshold);
+				TryStartDragging(boxColliders, areaLights, worldMouse, finalHandleSize, edgeThreshold);
 			}
 
 			if (_isDragging && Input.LeftMouseButtonDown)
@@ -69,7 +80,7 @@ namespace Voltage.Editor.Gizmos
 				EndDragging();
 			}
 
-			DrawHandles(boxColliders, areaLights, handleSize, camera);
+			DrawHandles(boxColliders, areaLights, finalHandleSize, camera);
 		}
 
 		private void TryStartDragging(List<BoxCollider> boxColliders, List<AreaLight> areaLights, Vector2 worldMouse, float handleSize, float edgeThreshold)

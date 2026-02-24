@@ -28,6 +28,10 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private const string kShowSeperateGameWindow = "ImGui_ShowSeperateGameWindow";
 	private const string kPreserveGameWindowAspectRatio = "ImGui_PreserveGameWindowAspectRatio";
 	private Num.Vector2 _gameWindowCursorOffset;
+	private Num.Vector2 _gameImageScreenPos;
+	private Num.Vector2 _gameImageSize;
+	private bool _hasValidGameWindowData;
+	private float _scale;
 
 	[Flags]
 	private enum WindowPosition
@@ -156,6 +160,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		}
 
 		_gameWindowCursorOffset = cursorOffset;
+
+		// Capture the screen-space position of the image BEFORE drawing it.
+		// After ImGui.Image(), the cursor advances past the image, so
+		// GetCursorScreenPos() would return the wrong position if queried later.
+		_gameImageScreenPos = ImGui.GetCursorScreenPos();
+		_gameImageSize = imageSize;
+		_hasValidGameWindowData = true;
 
 		// Only draw the image if we have a valid texture ID
 		if (_renderTargetId != IntPtr.Zero)
@@ -291,25 +302,22 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	/// </summary>
 	private void OverrideMouseInput()
 	{
-		// ImGui.GetCursorScreenPos() is the position of top-left pixel in windows drawable area
-		// Account for the cursor offset when aspect ratio preservation is enabled
-		var offset = new Vector2(
-			ImGui.GetCursorScreenPos().X - _gameWindowCursorOffset.X,
-			ImGui.GetCursorScreenPos().Y - _gameWindowCursorOffset.Y
-		);
+		// Use the image's top-left screen position captured BEFORE ImGui.Image() was drawn.
+		var offset = new Vector2(_gameImageScreenPos.X, _gameImageScreenPos.Y);
 
-		// remove window position offset from our raw input. this gets us normalized back to the top-left origin.
-		// We are essentilly removing any input delta that is not in the game window.
+		// Remove the game window offset from raw mouse input, giving us a position
+		// relative to the top-left of the game image.
 		var normalizedPos = Input.RawMousePosition.ToVector2() - offset;
 
-		var scaleX = ImGui.GetContentRegionAvail().X / _lastRenderTarget.Width;
-		var scaleY = ImGui.GetContentRegionAvail().Y / _lastRenderTarget.Height;
+		// Use the captured image size (not GetContentRegionAvail which returns
+		// remaining space after the image and would be near zero at this point).
+		var scaleX = _gameImageSize.X / _lastRenderTarget.Width;
+		var scaleY = _gameImageSize.Y / _lastRenderTarget.Height;
 
 		// When preserving aspect ratio, use the uniform scale
-		float scale;
 		if (PreserveGameWindowAspectRatio)
 		{
-			scale = Math.Min(scaleX, scaleY);
+			_scale = Math.Min(scaleX, scaleY);
 		}
 		else
 		{
@@ -330,7 +338,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		}
 
 		// Uniform scaling for aspect ratio preservation
-		normalizedPos /= scale;
+		normalizedPos /= _scale;
 
 		// trick the input system. Take our normalizedPos and undo the scale and offsets (do the
 		// reverse of what Input.scaledPosition does) so that any consumers of mouse input can get
@@ -346,6 +354,44 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		Input.SetCurrentMouseState(newMouseState2);
 	}
 
+
+	/// <summary>
+	/// Remaps raw OS mouse coordinates to game-window render-target coordinates.
+	/// Uses the game image position and size captured during the previous frame's DrawGameWindow.
+	/// Must be called before any code that reads Input.ScaledMousePosition for game-window interaction.
+	/// </summary>
+	private void ApplyGameWindowMouseOverride()
+	{
+		if (!_hasValidGameWindowData || _lastRenderTarget == null)
+			return;
+
+		var offset = new Vector2(_gameImageScreenPos.X, _gameImageScreenPos.Y);
+		var normalizedPos = Input.RawMousePosition.ToVector2() - offset;
+
+		var scaleX = _gameImageSize.X / _lastRenderTarget.Width;
+		var scaleY = _gameImageSize.Y / _lastRenderTarget.Height;
+
+		if (PreserveGameWindowAspectRatio)
+		{
+			var scale = Math.Min(scaleX, scaleY);
+			normalizedPos /= scale;
+		}
+		else
+		{
+			normalizedPos.X /= scaleX;
+			normalizedPos.Y /= scaleY;
+		}
+
+		var unNormalizedPos = normalizedPos / Input.ResolutionScale;
+		unNormalizedPos += Input.ResolutionOffset;
+
+		var mouseState = Input.CurrentMouseState;
+		var newMouseState = new MouseState((int)unNormalizedPos.X, (int)unNormalizedPos.Y,
+			mouseState.ScrollWheelValue,
+			mouseState.LeftButton, mouseState.MiddleButton, mouseState.RightButton,
+			mouseState.XButton1, mouseState.XButton2);
+		Input.SetCurrentMouseState(newMouseState);
+	}
 
 	#region GlobalManager Lifecycle
 
