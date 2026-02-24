@@ -464,6 +464,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			DrawEngineEffectsPrompt();
 		}
 
+		// Remap mouse coordinates to game-window space BEFORE UpdateCamera and UpdateSelection.
+		// All editor ImGui widgets (menus, inspectors, scene graph, etc...) have already
+		// finished drawing above with the raw OS mouse coordinates.
+		ApplyGameWindowMouseOverride();
+
 		UpdateCamera();
 		NotificationSystem.Draw();
 		GlobalKeyCommands();
@@ -973,6 +978,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void ManageCameraZoom()
 	{
+		if (!IsGameWindowFocused)
+			return;
+
 		if (Input.MouseWheelDelta != 0)
 		{
 			bool isShiftHeld = Input.IsKeyDown(Keys.LeftShift);

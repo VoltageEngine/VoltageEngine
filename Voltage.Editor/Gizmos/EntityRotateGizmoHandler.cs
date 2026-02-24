@@ -18,6 +18,9 @@ namespace Voltage.Editor.Gizmos
 		private bool _draggingRotate = false;
 		private float _dragStartAngle;
 		private float _dragStartEntityRotation;
+		private float _desiredScreenRadius = 80f;
+		private float _minWorldRadius = 45f;
+		private float _maxWorldRadius = 600f;
 
 		public bool IsDragging => _draggingRotate;
 		public bool IsMouseOverGizmo { get; private set; }
@@ -40,20 +43,18 @@ namespace Voltage.Editor.Gizmos
 			center /= validEntities.Count;
 
 			var screenCenter = camera.WorldToScreenPoint(center);
-
-			float baseRadius = 30f;
-			float minRadius = 28f;
-			float maxRadius = 33f;
-			float radius = baseRadius / MathF.Max(camera.RawZoom, 0.01f);
-			radius = Math.Clamp(radius, minRadius, maxRadius);
+			
+			float worldRadius = _desiredScreenRadius / MathF.Max(camera.RawZoom, 0.01f);
+			worldRadius = Math.Clamp(worldRadius, _minWorldRadius, _maxWorldRadius);
 
 			Color circleColor = Color.CornflowerBlue;
 
 			var mousePos = Input.ScaledMousePosition;
 			float distToCenter = Vector2.Distance(mousePos, screenCenter);
 
-			// Only allow rotation if cursor is inside the circle
-			bool hoveredCircle = distToCenter <= radius;
+			// Screen-space radius for hit-testing (world radius * RawZoom = screen pixels)
+			float screenRadius = worldRadius * camera.RawZoom;
+			bool hoveredCircle = distToCenter <= screenRadius;
 
 			if (hoveredCircle)
 			{
@@ -63,10 +64,10 @@ namespace Voltage.Editor.Gizmos
 			if (_draggingRotate)
 				circleColor = Color.Yellow;
 
-			Debug.DrawCircle(center, radius / camera.RawZoom, circleColor);
+			Debug.DrawCircle(center, worldRadius, circleColor);
 
 			// Draw up (Y) and right (X) axes for visual reference only
-			DrawRotateGizmoAxesUpRight(center, radius, camera, validEntities[0].Transform.Rotation);
+			DrawRotateGizmoAxesUpRight(center, worldRadius, camera, validEntities[0].Transform.Rotation);
 
 			// Start rotation only if mouse is inside the circle
 			if (!_draggingRotate && hoveredCircle && Input.LeftMouseButtonPressed)
@@ -127,7 +128,8 @@ namespace Voltage.Editor.Gizmos
 
 		private void DrawRotateGizmoAxesUpRight(Vector2 center, float radius, Camera camera, float rotation)
 		{
-			float axisLength = radius * 0.7f / camera.RawZoom;
+			// radius is already in world space, just scale for the axes
+			float axisLength = radius * 0.7f;
 
 			// Right (X) axis
 			Vector2 axisXDir = new Vector2(MathF.Cos(rotation), MathF.Sin(rotation));

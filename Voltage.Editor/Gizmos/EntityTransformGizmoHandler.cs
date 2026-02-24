@@ -16,58 +16,64 @@ namespace Voltage.Editor.Gizmos
 	/// </summary>
 	public class EntityTransformGizmoHandler
 	{
+		public bool IsDragging => _draggingX || _draggingY;
+		public bool IsMouseOverGizmo { get; private set; }
+
 		private bool _draggingX = false;
 		private bool _draggingY = false;
 		private Vector2 _dragStartWorldMouse;
 		private Dictionary<Entity, Vector2> _dragStartEntityPositions = new();
 		private Dictionary<Entity, Vector2> _dragEndEntityPositions = new();
-
-		public bool IsDragging => _draggingX || _draggingY;
-		public bool IsMouseOverGizmo { get; private set; }
+		private float _desiredScreenLength = 90f;
+		private float _minLength = 60f;
+		private float _maxLength = 600f;
 
 		/// <summary>
 		/// Draws entity transform arrows and handles interaction
 		/// </summary>
-		public void Draw(List<Entity> selectedEntities, Vector2 worldMouse, Camera camera)
+		public void Draw(List<Entity> entities, Vector2 worldMouse, Camera camera)
 		{
 			IsMouseOverGizmo = false;
 
-			var validEntities = GizmoEntityFilter.GetValidEntities(selectedEntities);
+			var selectedEntities = GizmoEntityFilter.GetValidEntities(entities);
 
-			if (validEntities.Count == 0)
+			if (selectedEntities.Count == 0)
 				return;
 
 			// Calculate center using valid entities only
 			Vector2 center = Vector2.Zero;
-			foreach (var e in validEntities)
+			foreach (var e in selectedEntities)
 			{
 				center += e.Transform.Position;
 			}
-			center /= validEntities.Count;
+			center /= selectedEntities.Count;
 
-			float baseLength = 30f;
-			float minLength = 10f;
-			float maxLength = 100f;
-			float axisLength = baseLength / MathF.Max(camera.RawZoom, 0.01f);
-			axisLength = Math.Clamp(axisLength, minLength, maxLength);
+			float axisLength = _desiredScreenLength / MathF.Max(camera.RawZoom, 0.01f);
+			axisLength = Math.Clamp(axisLength, _minLength, _maxLength);
 
 			float baseWidth = 4f;
-			float maxWidth = 16f;
+			float maxWidth = 12f;
 			float scaledWidth = baseWidth;
-			if (camera.RawZoom > 1f)
-				scaledWidth = MathF.Min(baseWidth * camera.RawZoom, maxWidth);
+			// Scale arrow width inversely with zoom so it stays constant on screen
+			scaledWidth = baseWidth / MathF.Max(camera.RawZoom, 0.01f);
+			scaledWidth = Math.Clamp(scaledWidth, 2f, maxWidth);
 
+			// World-space endpoints for the arrows
+			var worldEndX = center + new Vector2(axisLength, 0);
+			var worldEndY = center + new Vector2(0, -axisLength);
+
+			// Screen-space positions for hit-testing
 			var screenPos = camera.WorldToScreenPoint(center);
-			var axisEndX = camera.WorldToScreenPoint(center + new Vector2(axisLength, 0));
-			var axisEndY = camera.WorldToScreenPoint(center + new Vector2(0, -axisLength));
+			var screenEndX = camera.WorldToScreenPoint(worldEndX);
+			var screenEndY = camera.WorldToScreenPoint(worldEndY);
 
 			Color xColor = Color.Red;
 			Color yColor = Color.LimeGreen;
 
 			var mousePos = Input.ScaledMousePosition;
 
-			bool xHovered = IsMouseNearLine(mousePos, screenPos, axisEndX);
-			bool yHovered = IsMouseNearLine(mousePos, screenPos, axisEndY);
+			bool xHovered = IsMouseNearLine(mousePos, screenPos, screenEndX);
+			bool yHovered = IsMouseNearLine(mousePos, screenPos, screenEndY);
 
 			IsMouseOverGizmo = xHovered || yHovered;
 
@@ -81,17 +87,18 @@ namespace Voltage.Editor.Gizmos
 			else if (yHovered)
 				yColor = Color.Orange;
 
-			Debug.DrawArrow(center, center + new Vector2(axisLength, 0), scaledWidth, scaledWidth, xColor);
-			Debug.DrawArrow(center, center + new Vector2(0, -axisLength), scaledWidth, scaledWidth, yColor);
+			Debug.DrawArrow(center, worldEndX, scaledWidth, scaledWidth, xColor);
+			Debug.DrawArrow(center, worldEndY, scaledWidth, scaledWidth, yColor);
 
-			// FIXED: Pass validEntities instead of selectedEntities
-			HandleDragging(validEntities, worldMouse, camera, center, xHovered, yHovered);
+			// Convert mouse to world space for dragging
+			var worldMousePos = camera.ScreenToWorldPoint(mousePos);
+			HandleDragging(selectedEntities, worldMousePos, camera, center, xHovered, yHovered);
 		}
 
-		private void HandleDragging(List<Entity> validEntities, Vector2 worldMouse, Camera camera, Vector2 center,
+		private void HandleDragging(List<Entity> selectedEntities, Vector2 worldMouse, Camera camera, Vector2 center,
 			bool xHovered, bool yHovered)
 		{
-			if (validEntities.Count == 0)
+			if (selectedEntities.Count == 0)
 				return;
 
 			var mousePos = Input.ScaledMousePosition;
@@ -118,7 +125,7 @@ namespace Voltage.Editor.Gizmos
 					}
 
 					_dragStartEntityPositions.Clear();
-					foreach (var entity in validEntities)
+					foreach (var entity in selectedEntities)
 					{
 						_dragStartEntityPositions[entity] = entity.Transform.Position;
 					}
@@ -131,7 +138,7 @@ namespace Voltage.Editor.Gizmos
 			if ((_draggingX || _draggingY) && Input.LeftMouseButtonDown)
 			{
 				var delta = worldMouse - _dragStartWorldMouse;
-				foreach (var entity in validEntities)
+				foreach (var entity in selectedEntities)
 				{
 					var startPos = _dragStartEntityPositions.TryGetValue(entity, out var pos)
 						? pos
@@ -162,13 +169,13 @@ namespace Voltage.Editor.Gizmos
 				_draggingY = false;
 
 				_dragEndEntityPositions = new Dictionary<Entity, Vector2>();
-				foreach (var entity in validEntities)
+				foreach (var entity in selectedEntities)
 				{
 					_dragEndEntityPositions[entity] = entity.Transform.Position;
 				}
 
 				// Only push undo if any entity moved
-				bool anyMoved = validEntities.Any(e =>
+				bool anyMoved = selectedEntities.Any(e =>
 					_dragStartEntityPositions.TryGetValue(e, out var startPos) &&
 					_dragEndEntityPositions.TryGetValue(e, out var endPos) &&
 					startPos != endPos
@@ -178,13 +185,13 @@ namespace Voltage.Editor.Gizmos
 				{
 					EditorChangeTracker.PushUndo(
 						new MultiEntityTransformUndoAction(
-							validEntities.ToList(),
+							selectedEntities.ToList(),
 							_dragStartEntityPositions,
 							_dragEndEntityPositions,
-							$"Moved {string.Join(", ", validEntities.Select(e => e.Name))}"
+							$"Moved {string.Join(", ", selectedEntities.Select(e => e.Name))}"
 						),
-						validEntities.First(),
-						$"Moved {string.Join(", ", validEntities.Select(e => e.Name))}"
+						selectedEntities.First(),
+						$"Moved {string.Join(", ", selectedEntities.Select(e => e.Name))}"
 					);
 				}
 			}

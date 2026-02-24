@@ -15,7 +15,7 @@ namespace Voltage
 			{
 				if (Shape is Box box)
 					return box.Width;
-				return 1f; // Default fallback
+				return 30f; // Default fallback
 			}
 			set => SetWidth(value);
 		}
@@ -28,7 +28,7 @@ namespace Voltage
 			{
 				if (Shape is Box box)
 					return box.Height;
-				return 1f; // Default fallback
+				return 30f; 
 			}
 			set => SetHeight(value);
 		}
@@ -42,7 +42,7 @@ namespace Voltage
 		{
 			// we stick a 1x1 box in here as a placeholder until the next frame when the Collider is added to the Entity and can get more
 			// accurate auto-sizing data
-			Shape = new Box(1, 1);
+			Shape = new Box(30, 30);
 			_colliderRequiresAutoSizing = true;
 		}
 
