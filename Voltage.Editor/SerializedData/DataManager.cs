@@ -398,6 +398,16 @@ public class DataManager : GlobalManager
 								Json = json
 							});
 						}
+						else
+						{
+							entityData.ComponentDataList.Add(new ComponentDataEntry
+							{
+								ComponentTypeName = component.GetType().FullName,
+								ComponentName = component.Name,
+								DataTypeName = null,
+								Json = null
+							});
+						}
 					}
 
 					sceneEntityData.EntityData = entityData;
@@ -571,7 +581,33 @@ public class DataManager : GlobalManager
 					.ToList();
 			}
 
-			newEntity.SetEntityData(deserializedEntityData);
+		newEntity.SetEntityData(deserializedEntityData);
+
+			// Instantiate components from ComponentDataList
+			if (deserializedEntityData.ComponentDataList != null)
+			{
+				foreach (var componentEntry in deserializedEntityData.ComponentDataList)
+				{
+					try
+					{
+						var componentType = ResolveType(componentEntry.ComponentTypeName);
+						if (componentType == null)
+						{
+							Debug.Error($"Could not find component type: {componentEntry.ComponentTypeName}");
+							continue;
+						}
+
+						var component = (Component)Activator.CreateInstance(componentType);
+						component.Name = componentEntry.ComponentName;
+						component.SetSerialized(true);
+						newEntity.AddComponent(component, true);
+					}
+					catch (Exception ex)
+					{
+						Debug.Error($"Failed to instantiate component {componentEntry.ComponentTypeName}: {ex.Message}");
+					}
+				}
+			}
 
 			var processedComponents = new HashSet<string>();
 
@@ -608,6 +644,25 @@ public class DataManager : GlobalManager
 	}
 
 	/// <summary>
+	/// Resolves a type by its full name, searching all loaded assemblies if Type.GetType fails.
+	/// </summary>
+	private static Type ResolveType(string typeName)
+	{
+		var type = Type.GetType(typeName);
+		if (type != null)
+			return type;
+
+		foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+		{
+			type = assembly.GetType(typeName);
+			if (type != null)
+				return type;
+		}
+
+		return null;
+	}
+
+	/// <summary>
 	/// Tries to assign component data from entity data.
 	/// </summary>
 	[DynamicDependency(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor, typeof(List<SceneData.SceneEntityData>))]
@@ -626,7 +681,15 @@ public class DataManager : GlobalManager
 
 			if (component.Name == entry.ComponentName)
 			{
-				var dataType = !string.IsNullOrWhiteSpace(entry.DataTypeName) ? Type.GetType(entry.DataTypeName) : null;
+				// Data-less component (e.g. script component with no ComponentData override)
+				if (string.IsNullOrWhiteSpace(entry.DataTypeName))
+				{
+					entityData.ComponentDataList.RemoveAt(i);
+					entity.SetEntityData(entityData);
+					return true;
+				}
+
+				var dataType = ResolveType(entry.DataTypeName);
 
 				if (dataType != null)
 				{
@@ -728,6 +791,16 @@ public class DataManager : GlobalManager
 						ComponentName = component.Name,
 						DataTypeName = component.Data.GetType().FullName,
 						Json = json
+					});
+				}
+				else
+				{
+					entityData.ComponentDataList.Add(new ComponentDataEntry
+					{
+						ComponentTypeName = component.GetType().FullName,
+						ComponentName = component.Name,
+						DataTypeName = null,
+						Json = null
 					});
 				}
 			}

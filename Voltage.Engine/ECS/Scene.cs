@@ -1529,6 +1529,18 @@ public class Scene
 						Json = json
 					});
 				}
+				else
+				{
+					// Save data-less components (e.g. script components with no ComponentData override)
+					// so they are recreated when the scene is reloaded
+					entData.ComponentDataList.Add(new ComponentDataEntry
+					{
+						ComponentTypeName = component.GetType().FullName,
+						ComponentName = component.Name,
+						DataTypeName = null,
+						Json = null
+					});
+				}
 			}
 			
 			entityData.EntityData = entData;
@@ -1715,7 +1727,7 @@ public class Scene
 					try
 					{
 						// Get the component type from the type name
-						var componentType = Type.GetType(componentEntry.ComponentTypeName);
+						var componentType = ResolveType(componentEntry.ComponentTypeName);
 						if (componentType == null)
 						{
 							Debug.Error($"Could not find component type: {componentEntry.ComponentTypeName}");
@@ -1779,9 +1791,15 @@ public class Scene
 
 			if (component.Name == entry.ComponentName)
 			{
-				Type dataType = null;
-				if (!string.IsNullOrWhiteSpace(entry.DataTypeName))
-					dataType = Type.GetType(entry.DataTypeName);
+				// Data-less component (e.g. script component with no ComponentData override)
+				if (string.IsNullOrWhiteSpace(entry.DataTypeName))
+				{
+					entityData.ComponentDataList.RemoveAt(i);
+					entity.SetEntityData(entityData);
+					return true;
+				}
+
+				Type dataType = ResolveType(entry.DataTypeName);
 
 				if (dataType != null)
 				{
@@ -1792,8 +1810,6 @@ public class Scene
 
 						// Remove the processed entry
 						entityData.ComponentDataList.RemoveAt(i);
-
-						// Update the entity's data
 						entity.SetEntityData(entityData);
 
 						return true;
@@ -1813,6 +1829,29 @@ public class Scene
 		}
 
 		return false;
+	}
+
+	/// <summary>
+	/// Resolves a type by its full name, searching all loaded assemblies if Type.GetType fails.
+	/// This is necessary for dynamically compiled script assemblies which Type.GetType cannot find
+	/// since it only searches the calling assembly and core libraries by default.
+	/// </summary>
+	private static Type ResolveType(string typeName)
+	{
+		// Try the standard lookup first (works for engine/framework types)
+		var type = Type.GetType(typeName);
+		if (type != null)
+			return type;
+
+		// Fall back to searching all loaded assemblies (needed for dynamically compiled scripts)
+		foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+		{
+			type = assembly.GetType(typeName);
+			if (type != null)
+				return type;
+		}
+
+		return null;
 	}
 
 	/// <summary>
