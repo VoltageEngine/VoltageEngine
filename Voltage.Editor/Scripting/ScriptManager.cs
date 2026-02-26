@@ -8,6 +8,7 @@ using Voltage.Editor.Persistence;
 using Voltage.Editor.SceneFile;
 using Voltage.Editor.Tools;
 using Voltage.Editor.Utils;
+using Voltage.Editor.Windows;
 using Voltage.Utils;
 
 namespace Voltage.Editor.Scripting
@@ -131,6 +132,10 @@ namespace GameScripts
 			{
 				_currentScriptAssembly = result.Assembly;
 				EditorDebug.Log($"Scripts compiled successfully!");
+
+				// Invalidate the component type cache so newly compiled script components
+				// appear in the editor's "Add Component" dropdown
+				Windows.EntityInspectorWindow.InvalidateComponentTypeCache();
 			}
 			else
 			{

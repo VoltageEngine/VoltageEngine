@@ -460,25 +460,38 @@ public class EntityInspectorWindow
 	/// <summary>
 	/// Caches all available Component types with parameterless constructors using reflection.
 	/// </summary>
+	/// <summary>
+	/// Invalidates the cached component types so they are rebuilt on next access.
+	/// Call this after script recompilation to pick up new/changed component types.
+	/// </summary>
+	public static void InvalidateComponentTypeCache()
+	{
+		_cachedComponentTypes = null;
+	}
+
 	private static void CacheAvailableComponentTypes()
 	{
-		_cachedComponentTypes = new List<Type>();
-
 		var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+
+		// Use a dictionary keyed by FullName so that types from newer (recompiled)
+		// assemblies overwrite duplicates from older ones that are still in memory.
+		var typesByFullName = new Dictionary<string, Type>();
 
 		foreach (var assembly in assemblies)
 		{
 			try
 			{
-				// Get all types that inherit from Component
 				var componentTypes = assembly.GetTypes()
 					.Where(t => typeof(Component).IsAssignableFrom(t)
 					            && !t.IsAbstract
 					            && !t.IsInterface
-					            && HasParameterlessConstructor(t))
-					.OrderBy(t => t.Name);
+					            && HasParameterlessConstructor(t));
 
-				_cachedComponentTypes.AddRange(componentTypes);
+				foreach (var type in componentTypes)
+				{
+					// Later assemblies (e.g. recompiled scripts) overwrite earlier ones
+					typesByFullName[type.FullName] = type;
+				}
 			}
 			catch (ReflectionTypeLoadException ex)
 			{
@@ -486,6 +499,8 @@ public class EntityInspectorWindow
 				continue;
 			}
 		}
+
+		_cachedComponentTypes = typesByFullName.Values.OrderBy(t => t.Name).ToList();
 
 		Debug.Log($"Cached {_cachedComponentTypes.Count} component types from {assemblies.Length} assemblies");
 	}
@@ -523,6 +538,9 @@ public class EntityInspectorWindow
 	/// </summary>
 	private List<Type> GetFilteredComponentTypes()
 	{
+		if (_cachedComponentTypes == null)
+			CacheAvailableComponentTypes();
+
 		if (string.IsNullOrWhiteSpace(_componentFilterText))
 			return _cachedComponentTypes;
 
