@@ -341,6 +341,9 @@ public class DataManager : GlobalManager
 					// Then, add current IPlayModeSaveableComponent components (update them)
 					foreach (var component in entity.Components)
 					{
+						if (!component.IsSerialized)
+							continue;
+
 						if (component.Data != null)
 						{
 							var isSaveableComponent = component is IPlayModeSaveableComponent;
@@ -373,13 +376,16 @@ public class DataManager : GlobalManager
 			}
 			else
 			{
-				// Edit Mode: Save all component data
+				// Edit Mode: Save only serialized component data
 				if (entityData != null)
 				{
 					entityData.ComponentDataList.Clear();
 
 					foreach (var component in entity.Components)
 					{
+						if (!component.IsSerialized)
+							continue;
+
 						if (component.Data != null)
 						{
 							var componentJsonSettings = new JsonSettings
@@ -775,6 +781,9 @@ public class DataManager : GlobalManager
 
 			foreach (var component in prefabEntity.ComponentsToAdd.Concat(prefabEntity.Components))
 			{
+				if (!component.IsSerialized)
+					continue;
+
 				if (component.Data != null)
 				{
 					var componentJsonSettings = new JsonSettings
