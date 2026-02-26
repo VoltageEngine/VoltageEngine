@@ -1508,9 +1508,12 @@ public class Scene
 		{
 			entData.ComponentDataList.Clear();
 			
-			// Serialize all components
+			// Serialize only components marked as serialized (added via editor/scene data)
 			foreach (var component in entity.Components)
 			{
+				if (!component.IsSerialized)
+					continue;
+
 				if (component.Data != null)
 				{
 					var componentJsonSettings = new Voltage.Persistence.JsonSettings

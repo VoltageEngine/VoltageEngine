@@ -144,7 +144,30 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 				_imGuiManager = Core.GetGlobalManager<ImGuiManager>();
 
 			ImGui.PushID(_scopeId);
-			var isHeaderOpen = ImGui.CollapsingHeader(_name);
+
+			// Highlight non-serialized (code-created) components with a light green header
+			var isRuntimeOnly = !_component.IsSerialized;
+			if (isRuntimeOnly)
+			{
+				ImGui.PushStyleColor(ImGuiCol.Header, new Num.Vector4(0.2f, 0.45f, 0.2f, 0.6f));
+				ImGui.PushStyleColor(ImGuiCol.HeaderHovered, new Num.Vector4(0.25f, 0.5f, 0.25f, 0.7f));
+				ImGui.PushStyleColor(ImGuiCol.HeaderActive, new Num.Vector4(0.3f, 0.55f, 0.3f, 0.8f));
+			}
+
+			var isHeaderOpen = ImGui.CollapsingHeader(isRuntimeOnly ? $"{_name}  [Runtime Only]" : _name);
+
+			if (isRuntimeOnly)
+				ImGui.PopStyleColor(3);
+
+			// Show tooltip for runtime-only components
+			if (isRuntimeOnly && ImGui.IsItemHovered())
+			{
+				ImGui.BeginTooltip();
+				ImGui.TextColored(new Num.Vector4(0.5f, 1f, 0.5f, 1f), "Runtime Only Component");
+				ImGui.Text("This component was added through code and will not be saved.");
+				ImGui.Text("It will be recreated automatically when the script runs.");
+				ImGui.EndTooltip();
+			}
 
 			// context menu has to be outside the isHeaderOpen block so it works open or closed
 			if (ImGui.BeginPopupContextItem())

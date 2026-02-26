@@ -135,7 +135,7 @@ namespace GameScripts
 
 				// Invalidate the component type cache so newly compiled script components
 				// appear in the editor's "Add Component" dropdown
-				Windows.EntityInspectorWindow.InvalidateComponentTypeCache();
+				EntityInspectorWindow.InvalidateComponentTypeCache();
 			}
 			else
 			{
