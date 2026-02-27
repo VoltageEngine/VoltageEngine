@@ -795,7 +795,7 @@ namespace Voltage
 
 		#region Component/RenderableComponent
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
 			_basicEffect = Entity.Scene.Content.LoadMonoGameEffect<BasicEffect>();
 			_basicEffect.World = Matrix.Identity;

@@ -85,7 +85,7 @@ namespace Voltage
 			return this;
 		}
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
 			OriginNormalized = Vector2Ext.HalfVector();
 		}

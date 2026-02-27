@@ -36,7 +36,7 @@ namespace Voltage.Farseer
 
 		#region Component lifecycle
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
 			_ownerBody = this.GetComponent<FSRigidBody>();
 			Insist.IsNotNull(_ownerBody, "Joint added to an Entity with no RigidBody!");

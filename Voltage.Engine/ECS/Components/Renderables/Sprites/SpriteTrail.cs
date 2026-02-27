@@ -252,7 +252,7 @@ namespace Voltage.Sprites
 			}
 		}
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
 			if (_sprite == null)
 				_sprite = this.GetComponent<SpriteRenderer>();

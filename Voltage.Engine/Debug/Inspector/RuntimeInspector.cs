@@ -142,7 +142,7 @@ namespace Voltage
 
 			// since we arent using this as a Component on an Entity we'll fake it here
 			ui = new UICanvas();
-			ui.OnAddedToEntity();
+			ui.OnStart();
 			ui.Stage.IsFullScreen = true;
 
 			_table = new Table();

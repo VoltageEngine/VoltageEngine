@@ -218,7 +218,7 @@ namespace Voltage
 
 		#region Component/RenderableComponent overrides
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
 			_basicEffect = Entity.Scene.Content.LoadMonoGameEffect<BasicEffect>();
 			_basicEffect.VertexColorEnabled = _vertexColorEnabled;

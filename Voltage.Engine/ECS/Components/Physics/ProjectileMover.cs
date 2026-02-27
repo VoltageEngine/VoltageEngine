@@ -14,7 +14,7 @@ namespace Voltage
 		Collider _collider;
 
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
 			_collider = Entity.GetComponent<Collider>();
 			Debug.WarnIf(_collider == null, "ProjectileMover has no Collider. ProjectilMover requires a Collider!");

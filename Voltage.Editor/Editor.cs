@@ -54,7 +54,6 @@ public class Editor : Core
 
 		RegisterGlobalManager(imGuiManager);
 
-		Scene.OnSceneBegin += SetImGuiEditor; //Make sure all values of ImGuiEditor are reset when changing scenes
 		Scene.OnSceneBegin += TrackSceneChange;
 		Scene.OnSceneBegin += SetSceneClearColor; // Set grey background color when scene changes
 
@@ -81,28 +80,15 @@ public class Editor : Core
 	protected override void EndRun()
 	{
 		base.EndRun();
-		Scene.OnSceneBegin -= SetImGuiEditor;
 		Scene.OnSceneBegin -= TrackSceneChange;
 		Scene.OnSceneBegin -= SetSceneClearColor;
 	}
 
-	private void SetImGuiEditor()
-	{
-		StartCoroutine(StartInEditMode());
-	}
 
 	private void SetSceneClearColor()
 	{
 		if (Scene != null)
 			Scene.ClearColor = new Color(45, 45, 48);
-	}
-
-	// TODO: Refactor Editor to NOT rely on a hacky coroutine like this, and instead load the entities correctly
-	private IEnumerator StartInEditMode()
-	{
-		IsEditMode = false;
-		yield return Coroutine.WaitForSeconds(0.05f);
-		IsEditMode = true;
 	}
 
 	/// <summary>
@@ -187,7 +173,7 @@ public class Editor : Core
 	/// </summary>
 	private static void LoadRequiredAssemblies()
 	{
-		//IMPORTANT: Add your own custom assemblue through here if it contains Components that the Editor needs to be aware of.
+		//IMPORTANT: Add your own custom assemblies through here if they contain Components that the Editor needs to be aware of.
 		var assembliesToLoad = new[]
 		{
 			"Voltage.FarseerPhysics",
@@ -197,7 +183,6 @@ public class Editor : Core
 		{
 			try
 			{
-				// Try to load the assembly if it's not already loaded
 				var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
 				if (loadedAssemblies.All(a => a.GetName().Name != assemblyName))
 				{

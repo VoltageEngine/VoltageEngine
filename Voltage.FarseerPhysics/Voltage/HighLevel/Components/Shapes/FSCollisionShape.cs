@@ -115,7 +115,7 @@ namespace Voltage.Farseer
 
 		#region Component lifecycle
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
 			CreateFixture();
 		}

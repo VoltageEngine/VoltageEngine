@@ -114,9 +114,9 @@ namespace Voltage.Shadows
 
 		#region Component overrides
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
-			base.OnAddedToEntity();
+			base.OnStart();
 			RecalculatePolyPoints();
 		}
 

@@ -130,7 +130,7 @@ namespace Voltage.Farseer
 		#endregion
 
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
 			if (world == null)
 				world = Entity.Scene.GetOrCreateSceneComponent<FSWorld>();

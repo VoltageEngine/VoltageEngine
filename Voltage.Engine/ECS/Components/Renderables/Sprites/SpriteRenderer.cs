@@ -521,9 +521,9 @@ namespace Voltage.Sprites
 		/// Called when this component is added to an entity. 
 		/// If we have saved texture file path data, load the image automatically.
 		/// </summary>
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
-			base.OnAddedToEntity();
+			base.OnStart();
 
 			// If we have texture file path data but no sprite loaded, load it
 			if (!string.IsNullOrEmpty(_data?.TextureFilePath) && Sprite == null)

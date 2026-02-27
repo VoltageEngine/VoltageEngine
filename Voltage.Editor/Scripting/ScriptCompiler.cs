@@ -8,6 +8,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Emit;
 using Voltage.Editor.DebugUtils;
+using Voltage.Editor.ProjectFile;
 using Voltage.Utils;
 
 namespace Voltage.Editor.Scripting
@@ -111,11 +112,14 @@ namespace Voltage.Editor.Scripting
 		}
 
 		/// <summary>
-		/// Get metadata references from currently loaded assemblies for compilation
+		/// Get metadata references from currently loaded assemblies for compilation.
+		/// Prefers the local EngineLibs copy when a project is loaded, falling back
+		/// to the live assemblies in the AppDomain if EngineLibs is not available.
 		/// </summary>
 		private static List<MetadataReference> GetMetadataReferences()
 		{
 			var references = new List<MetadataReference>();
+			var addedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
 			// Add core .NET references
 			var coreAssemblies = new[]
@@ -128,37 +132,68 @@ namespace Voltage.Editor.Scripting
 
 			foreach (var assembly in coreAssemblies)
 			{
-				if (!string.IsNullOrEmpty(assembly.Location))
+				if (!string.IsNullOrEmpty(assembly.Location) && addedPaths.Add(assembly.Location))
 				{
 					references.Add(MetadataReference.CreateFromFile(assembly.Location));
 				}
 			}
 
-			// Add MonoGame/FNA references
-			var monogameAssemblies = new[]
-			{
-				typeof(Microsoft.Xna.Framework.Vector2).Assembly,
-				typeof(Microsoft.Xna.Framework.Graphics.Texture2D).Assembly,
-			};
+			// Try to use the project's local EngineLibs copy for Voltage and MonoGame references.
+			// This ensures the compiler sees the exact same API surface the editor is running with,
+			// even if the on-disk build output DLLs are stale.
+			var projectPath = ProjectManager.Instance?.CurrentProject?.ProjectPath;
+			bool usedEngineLibs = false;
 
-			foreach (var assembly in monogameAssemblies)
+			if (!string.IsNullOrEmpty(projectPath) && EngineLibsSync.IsReady(projectPath))
 			{
-				if (!string.IsNullOrEmpty(assembly.Location))
+				var engineLibsPath = EngineLibsSync.GetEngineLibsPath(projectPath);
+				var dlls = Directory.GetFiles(engineLibsPath, "*.dll");
+
+				foreach (var dll in dlls)
 				{
-					references.Add(MetadataReference.CreateFromFile(assembly.Location));
+					if (addedPaths.Add(dll))
+					{
+						references.Add(MetadataReference.CreateFromFile(dll));
+					}
 				}
+
+				usedEngineLibs = dlls.Length > 0;
+
+				if (usedEngineLibs)
+					EditorDebug.Log($"Using EngineLibs references from: {engineLibsPath}", "ScriptCompilation");
 			}
 
-			// Add Voltage references
-			var voltageAssemblies = AppDomain.CurrentDomain.GetAssemblies()
-				.Where(a => a.GetName().Name?.StartsWith("Voltage") == true)
-				.ToArray();
-
-			foreach (var assembly in voltageAssemblies)
+			// Fallback: if EngineLibs is not available, use the live loaded assemblies
+			if (!usedEngineLibs)
 			{
-				if (!string.IsNullOrEmpty(assembly.Location))
+				EditorDebug.Log("EngineLibs not available, falling back to loaded assembly locations.", "ScriptCompilation");
+
+				// Add MonoGame/FNA references
+				var monogameAssemblies = new[]
 				{
-					references.Add(MetadataReference.CreateFromFile(assembly.Location));
+					typeof(Microsoft.Xna.Framework.Vector2).Assembly,
+					typeof(Microsoft.Xna.Framework.Graphics.Texture2D).Assembly,
+				};
+
+				foreach (var assembly in monogameAssemblies)
+				{
+					if (!string.IsNullOrEmpty(assembly.Location) && addedPaths.Add(assembly.Location))
+					{
+						references.Add(MetadataReference.CreateFromFile(assembly.Location));
+					}
+				}
+
+				// Add Voltage references
+				var voltageAssemblies = AppDomain.CurrentDomain.GetAssemblies()
+					.Where(a => a.GetName().Name?.StartsWith("Voltage") == true)
+					.ToArray();
+
+				foreach (var assembly in voltageAssemblies)
+				{
+					if (!string.IsNullOrEmpty(assembly.Location) && addedPaths.Add(assembly.Location))
+					{
+						references.Add(MetadataReference.CreateFromFile(assembly.Location));
+					}
 				}
 			}
 
@@ -177,7 +212,7 @@ namespace Voltage.Editor.Scripting
 				foreach (var dllName in runtimeReferences)
 				{
 					var path = Path.Combine(runtimePath, dllName);
-					if (File.Exists(path))
+					if (File.Exists(path) && addedPaths.Add(path))
 					{
 						references.Add(MetadataReference.CreateFromFile(path));
 					}

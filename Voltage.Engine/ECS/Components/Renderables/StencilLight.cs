@@ -87,7 +87,7 @@ namespace Voltage
 
 		#region Component and RenderableComponent
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
 			_lightEffect = Entity.Scene.Content.LoadVoltageEffect<StencilLightEffect>();
 			_lightEffect.Radius = _radius * MathHelper.Max(Entity.Transform.Scale.X, Entity.Transform.Scale.Y);
