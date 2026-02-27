@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using Voltage.Editor.DebugUtils;
+using Voltage.Editor.Scripting;
+using Voltage.Editor.Scripting;
 
 namespace Voltage.Editor.ProjectFile
 {
@@ -32,6 +34,9 @@ namespace Voltage.Editor.ProjectFile
 				Directory.CreateDirectory(effectsFolder);
 				Directory.CreateDirectory(contentFolder);
 				Directory.CreateDirectory(propertiesFolder);
+
+				// Sync engine DLLs into the new project before generating files that reference them
+				EngineLibsSync.SyncToProject(projectPath);
 
 				// Create .csproj file
 				CreateProjectFile(projectName, projectPath, version);
@@ -66,23 +71,12 @@ namespace Voltage.Editor.ProjectFile
 		{
 			var projectFilePath = Path.Combine(projectPath, $"{projectName}.csproj");
 			EditorDebug.Log($"Creating project file: {projectFilePath}", "ProjectStructure");
-			
-			var voltageEditorPath = FindVoltageEditorPath();
-			var voltageEnginePath = FindVoltageEnginePath();
-			var voltagePersistencePath = FindVoltagePersistencePath();
-			
-			EditorDebug.Log($"Voltage Editor path: {voltageEditorPath}", "ProjectStructure");
-			EditorDebug.Log($"Voltage Engine path: {voltageEnginePath}", "ProjectStructure");
-			EditorDebug.Log($"Voltage Persistence path: {voltagePersistencePath}", "ProjectStructure");
-			
-			// Use relative paths if possible
-			var relativeEditorPath = GetRelativePath(projectPath, voltageEditorPath);
-			var relativeEnginePath = GetRelativePath(projectPath, voltageEnginePath);
-			var relativePersistencePath = GetRelativePath(projectPath, voltagePersistencePath);
-			
-			EditorDebug.Log($"Relative Editor path: {relativeEditorPath}", "ProjectStructure");
-			EditorDebug.Log($"Relative Engine path: {relativeEnginePath}", "ProjectStructure");
-			EditorDebug.Log($"Relative Persistence path: {relativePersistencePath}", "ProjectStructure");
+
+			// Build DLL references pointing to the local EngineLibs folder.
+			// This makes the game project fully self-contained — no dependency on the
+			// engine source tree path, so the project works anywhere it's opened.
+			var engineLibsPath = EngineLibsSync.GetEngineLibsPath(projectPath);
+			var engineLibsRelative = GetRelativePath(projectPath, engineLibsPath);
 
 			var csprojContent = $@"<Project Sdk=""Microsoft.NET.Sdk"">
 
@@ -111,27 +105,19 @@ namespace Voltage.Editor.ProjectFile
     <PackageReference Include=""MonoGame.Content.Builder.Task"" Version=""3.8.1.*"" />
   </ItemGroup>
 
+  <!--
+    EngineLibs: local copies of the Voltage engine DLLs, auto-synced by the Voltage Editor
+    on every project load. Do NOT commit this folder (it is .gitignored).
+    If these DLLs are missing, open the project in the Voltage Editor first to regenerate them.
+  -->
   <ItemGroup>
-    <ProjectReference Include=""{relativeEnginePath}\Voltage.Engine.csproj"" />
-    <ProjectReference Include=""{relativeEditorPath}\Voltage.Editor.csproj"" />
-    <ProjectReference Include=""{relativePersistencePath}\Voltage.Persistence.csproj"" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include=""Scripts\"" />
-    <Folder Include=""Effects\"" />
-    <Folder Include=""Content\"" />
+    <Reference Include=""$(MSBuildThisFileDirectory){engineLibsRelative}\*.dll"" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include=""Content\**\*.*"">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-  </ItemGroup>
-
-  <!-- Compile scripts at build time if needed -->
-  <ItemGroup>
-    <Compile Include=""Scripts\**\*.cs"" />
   </ItemGroup>
 
 </Project>";
@@ -176,10 +162,8 @@ EndGlobal";
 		{
 			var programFilePath = Path.Combine(projectPath, "Program.cs");
 
-			var programContent = $@"
-using System;
+			var programContent = $@"using System;
 using Voltage;
-using Voltage.Editor.ProjectManagement;
 
 namespace {projectName}
 {{
@@ -207,10 +191,10 @@ namespace {projectName}
 		{{
 			// Load game settings
 			var settingsPath = System.IO.Path.Combine(
-				AppContext.BaseDirectory, 
+				AppContext.BaseDirectory,
 				""ProjectSettings.json""
 			);
-			
+
 			if (System.IO.File.Exists(settingsPath))
 			{{
 				var json = System.IO.File.ReadAllText(settingsPath);
@@ -222,10 +206,10 @@ namespace {projectName}
 		protected override void Initialize()
 		{{
 			base.Initialize();
-			
+
 			// Set window title
 			Window.Title = ""{projectName}"";
-			
+
 			// Load initial scene
 			Scene = new MainScene();
 		}}
@@ -234,13 +218,12 @@ namespace {projectName}
 	/// <summary>
 	/// Main game scene
 	/// </summary>
-	public class MainScene : GameScene
+	public class MainScene : Scene
 	{{
-		public override void Initialize()
+		public override void OnStart()
 		{{
-			base.Initialize();
-	
-			Debug.Info(""MainScene initialized!"");
+			base.OnStart();
+			Debug.Log(""MainScene started!"");
 		}}
 	}}
 }}
@@ -280,8 +263,7 @@ using System.Runtime.InteropServices;
 		{
 			var exampleScriptPath = Path.Combine(scriptsFolder, "ExampleComponent.cs");
 
-			var exampleScriptContent = $@"
-using Microsoft.Xna.Framework;
+			var exampleScriptContent = $@"using Microsoft.Xna.Framework;
 using Voltage;
 using Voltage.Utils;
 
@@ -293,18 +275,18 @@ namespace {projectName}.Scripts
 	public class ExampleComponent : Component, IUpdatable
 	{{
 		public float Speed = 100f;
-		
+
 		public override void OnStart()
 		{{
 			base.OnStart();
 			Debug.Log($""ExampleComponent added to {{Entity.Name}}"");
 		}}
-		
+
 		public void Update()
 		{{
 			// Example: Simple movement
 			var velocity = Vector2.Zero;
-			
+
 			if (Input.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.W))
 				velocity.Y -= 1;
 			if (Input.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.S))
@@ -313,7 +295,7 @@ namespace {projectName}.Scripts
 				velocity.X -= 1;
 			if (Input.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.D))
 				velocity.X += 1;
-			
+
 			if (velocity != Vector2.Zero)
 			{{
 				velocity.Normalize();
@@ -366,7 +348,7 @@ bld/
 Content/bin/
 Content/obj/
 
-# Voltage Engine - auto-synced engine DLLs (regenerated by the editor on project load)
+# Voltage Engine - auto-synced engine DLLs (regenerated by the Voltage Editor on project load)
 EngineLibs/
 
 # Rider
@@ -391,7 +373,7 @@ Thumbs.db
 				var editorCsproj = Path.Combine(di.FullName, "Voltage.Editor", "Voltage.Editor.csproj");
 				if (File.Exists(editorCsproj))
 					return Path.GetDirectoryName(editorCsproj);
-				
+
 				di = di.Parent;
 			}
 
@@ -408,7 +390,7 @@ Thumbs.db
 				var engineCsproj = Path.Combine(di.FullName, "Voltage.Engine", "Voltage.Engine.csproj");
 				if (File.Exists(engineCsproj))
 					return Path.GetDirectoryName(engineCsproj);
-				
+
 				di = di.Parent;
 			}
 
@@ -431,7 +413,7 @@ Thumbs.db
 					EditorDebug.Log($"Found Voltage.Persistence at: {foundPath}", "ProjectStructure");
 					return foundPath;
 				}
-				
+
 				di = di.Parent;
 			}
 
