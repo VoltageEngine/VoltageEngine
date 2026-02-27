@@ -453,9 +453,9 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 	/// Called when this component is added to an entity. 
 	/// If we have saved texture file path data, load the image automatically.
 	/// </summary>
-	public override void OnAddedToEntity()
+	public override void OnStart()
 	{
-		base.OnAddedToEntity();
+		base.OnStart();
 
 		if (LoadLastAnimation())
 		{

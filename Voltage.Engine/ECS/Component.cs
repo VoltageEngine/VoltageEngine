@@ -23,7 +23,7 @@ public struct ComponentDataEntry
 
 /// <summary>
 /// Execution order:
-/// - OnAddedToEntity
+/// - OnStart
 /// - OnEnabled
 ///
 /// Removal:
@@ -112,7 +112,7 @@ public class Component : IComparable<Component>
 	/// Called when this component is added to a scene after all pending component changes are committed. At this point, the Entity field
 	/// is set and the Entity.Scene is also set.
 	/// </summary>
-	public virtual void OnAddedToEntity()
+	public virtual void OnStart()
 	{
 	}
 

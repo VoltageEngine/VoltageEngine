@@ -63,7 +63,7 @@ namespace Voltage
 		float originalIntensity;
 
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
 			_spriteRenderer = Entity.GetComponent<RenderableComponent>();
 			originalColor = _spriteRenderer.Color;

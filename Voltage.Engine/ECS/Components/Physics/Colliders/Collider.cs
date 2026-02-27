@@ -268,7 +268,7 @@ namespace Voltage
 
 		#region Component Lifecycle
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
 			if (_colliderRequiresAutoSizing)
 			{

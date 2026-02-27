@@ -190,9 +190,9 @@ namespace Voltage
 			}
 		}
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
-			base.OnAddedToEntity();
+			base.OnStart();
 			
 			// Auto-load TiledMap if we have a path but no map loaded
 			if (!string.IsNullOrEmpty(_data?.TiledMapPath) && TiledMap == null)

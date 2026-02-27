@@ -161,7 +161,7 @@ namespace Voltage.Farseer
 		}
 
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
 			CreateBody();
 		}

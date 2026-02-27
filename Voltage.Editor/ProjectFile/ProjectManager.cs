@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Persistence;
+using Voltage.Editor.Scripting;
 using Voltage.Utils;
 
 namespace Voltage.Editor.ProjectFile
@@ -162,6 +163,10 @@ namespace Voltage.Editor.ProjectFile
 				AddToRecentProjects(voltageFilePath);
 				
 				project.Initialize();
+				
+				// Sync engine DLLs into the project's EngineLibs folder so the Roslyn script
+				// compiler and the game project's IDE always reference up-to-date assemblies.
+				EngineLibsSync.SyncToProject(project.ProjectPath);
 				
 				ProjectSettings.Instance = project.Settings;
 				

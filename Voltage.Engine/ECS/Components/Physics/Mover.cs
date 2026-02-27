@@ -14,7 +14,7 @@ namespace Voltage
 	{
 		ColliderTriggerHelper _triggerHelper;
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
 			_triggerHelper = new ColliderTriggerHelper(Entity);
 		}

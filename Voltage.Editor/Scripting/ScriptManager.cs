@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Persistence;
+using Voltage.Editor.ProjectFile;
 using Voltage.Editor.SceneFile;
 using Voltage.Editor.Tools;
 using Voltage.Editor.Utils;
@@ -97,7 +98,7 @@ namespace GameScripts
 	{
 		public float Speed = 100f;
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
 			Console.WriteLine(""ExampleScript added to entity: "" + Entity.Name);
 		}
@@ -225,6 +226,12 @@ namespace GameScripts
 		/// <param name="reloadSceneOnSuccess">Whether to reload the scene if compilation succeeds</param>
 		public void CompileScripts(bool reloadSceneOnSuccess = false)
 		{
+			// Ensure EngineLibs are up-to-date before compiling so Roslyn
+			// references the latest engine DLLs, not stale on-disk builds.
+			var projectPath = ProjectManager.Instance?.CurrentProject?.ProjectPath;
+			if (!string.IsNullOrEmpty(projectPath))
+				EngineLibsSync.SyncToProject(projectPath);
+
 			// Store the reload preference temporarily
 			var originalAutoReload = AutoReloadSceneOnChange;
 			

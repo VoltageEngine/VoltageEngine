@@ -26,7 +26,7 @@ namespace Voltage.Sprites
 			_spriteToMime = spriteToMime;
 		}
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
 			if (_spriteToMime == null)
 				_spriteToMime = this.GetComponent<SpriteRenderer>();

@@ -178,7 +178,7 @@ namespace Voltage
 				Velocity += force * 100000 * (_inverseMass * Time.DeltaTime * Time.DeltaTime);
 		}
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
 			_collider = Entity.GetComponent<Collider>();
 			Debug.WarnIf(_collider == null, "ArcadeRigidbody has no Collider. ArcadeRigidbody requires a Collider!");

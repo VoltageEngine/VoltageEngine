@@ -165,7 +165,7 @@ public class ComponentList : IEnumerable<Component>
 			for (var i = 0; i < _tempBufferList.Count; i++)
 			{
 				var component = _tempBufferList[i];
-				component.OnAddedToEntity();
+				component.OnStart();
 
 				// component.enabled checks both the Entity and the Component
 				if (component.Enabled)

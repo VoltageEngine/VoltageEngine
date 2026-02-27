@@ -32,7 +32,7 @@ namespace Voltage
 		}
 
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
 			Stage.Entity = Entity;
 

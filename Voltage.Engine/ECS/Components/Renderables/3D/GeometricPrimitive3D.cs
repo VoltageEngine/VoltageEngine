@@ -50,9 +50,9 @@ namespace Voltage
 			_indexBuffer.SetData(_indices.ToArray());
 		}
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
-			base.OnAddedToEntity();
+			base.OnStart();
 
 			_basicEffect = Entity.Scene.Content.LoadMonoGameEffect<BasicEffect>();
 			_basicEffect.VertexColorEnabled = true;

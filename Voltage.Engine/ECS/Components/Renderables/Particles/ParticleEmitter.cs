@@ -108,7 +108,7 @@ namespace Voltage.Particles
 
 		#region Component/RenderableComponent
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
 			if (_playOnAwake)
 				Play();

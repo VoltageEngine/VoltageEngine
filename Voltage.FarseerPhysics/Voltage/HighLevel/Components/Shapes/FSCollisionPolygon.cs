@@ -70,7 +70,7 @@ namespace Voltage.Farseer
 		#endregion
 
 
-		public override void OnAddedToEntity()
+		public override void OnStart()
 		{
 			UpdateVerts();
 			CreateFixture();
