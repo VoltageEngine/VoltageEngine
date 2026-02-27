@@ -27,7 +27,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private const string kShowMainInspectorWindow = "ImGui_ShowMainInspectorWindow";
 	private const string kShowSeperateGameWindow = "ImGui_ShowSeperateGameWindow";
 	private const string kPreserveGameWindowAspectRatio = "ImGui_PreserveGameWindowAspectRatio";
-	private Num.Vector2 _gameWindowCursorOffset;
 	private Num.Vector2 _gameImageScreenPos;
 	private Num.Vector2 _gameImageSize;
 	private bool _hasValidGameWindowData;
@@ -158,8 +157,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			imageSize = ImGui.GetContentRegionAvail();
 		}
-
-		_gameWindowCursorOffset = cursorOffset;
 
 		// Capture the screen-space position of the image BEFORE drawing it.
 		// After ImGui.Image(), the cursor advances past the image, so
