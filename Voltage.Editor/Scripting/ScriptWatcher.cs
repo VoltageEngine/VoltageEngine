@@ -23,6 +23,12 @@ namespace Voltage.Editor.Scripting
 		public event Action<CompilationResult> OnCompilationComplete;
 
 		/// <summary>
+		/// When true, file changes will automatically trigger compilation.
+		/// When false, file changes are still detected and logged but compilation is not triggered.
+		/// </summary>
+		public bool AutoCompileOnFileChange { get; set; } = true;
+
+		/// <summary>
 		/// Debounce delay in milliseconds to avoid multiple compilations
 		/// </summary>
 		public double DebounceDelay { get; set; } = 500;
@@ -93,6 +99,13 @@ namespace Voltage.Editor.Scripting
 				if (_isCompiling || _changedFiles.Count == 0)
 					return;
 
+				if (!AutoCompileOnFileChange)
+				{
+					Debug.Log($"Script files changed but auto-compile is disabled. Use 'Compile Scripts' to apply changes.");
+					_changedFiles.Clear();
+					return;
+				}
+
 				_isCompiling = true;
 				var changedFilesCopy = new List<string>(_changedFiles);
 				_changedFiles.Clear();
@@ -130,22 +143,23 @@ namespace Voltage.Editor.Scripting
 				if (result.Success)
 				{
 					EditorDebug.Success($"Successfully compiled {allScriptFiles.Count} script file(s)");
-					OnCompilationComplete?.Invoke(result);
 				}
-				else
-				{
-					Debug.Error("Script compilation failed:");
-					foreach (var error in result.Errors)
-					{
-						Debug.Error($"  {error}");
-					}
-					OnCompilationComplete?.Invoke(result);
-				}
+
+				// Always fire the event so ScriptManager can handle logging and scene reload
+				OnCompilationComplete?.Invoke(result);
 			}
 			catch (Exception ex)
 			{
-				Debug.Error($"Error during script hot reload: {ex.Message}\n{ex.StackTrace}");
+				Debug.Error($"Error during script compilation: {ex.Message}\n{ex.StackTrace}");
 				_progressWindow?.Complete(false, 0);
+
+				// Fire the event with a failure result so ScriptManager is notified
+				OnCompilationComplete?.Invoke(new CompilationResult
+				{
+					Success = false,
+					Errors = new List<string> { $"Internal error: {ex.Message}" },
+					Assembly = null
+				});
 			}
 			finally
 			{

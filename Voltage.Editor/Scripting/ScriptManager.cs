@@ -31,7 +31,12 @@ namespace Voltage.Editor.Scripting
 		public bool EnableHotReload
 		{
 			get => _enableHotReload.Value;
-			set => _enableHotReload.Value = value;
+			set
+			{
+				_enableHotReload.Value = value;
+				if (_scriptWatcher != null)
+					_scriptWatcher.AutoCompileOnFileChange = value;
+			}
 		}
 
 		public bool AutoReloadSceneOnChange
@@ -68,6 +73,7 @@ namespace Voltage.Editor.Scripting
 			}
 
 			_scriptWatcher = new ScriptWatcher(_scriptsDirectory);
+			_scriptWatcher.AutoCompileOnFileChange = _enableHotReload.Value;
 			_scriptWatcher.OnCompilationComplete += HandleCompilationComplete;
 
 			CompileScripts(EditorSettingsWindow.AutoReloadSceneAfterScriptCompile);
@@ -131,6 +137,11 @@ namespace GameScripts
 			if (result.Success)
 			{
 				_currentScriptAssembly = result.Assembly;
+
+				// Update the engine's reference so Scene.ResolveType uses the latest assembly
+				// instead of stale types from old assemblies still loaded in the AppDomain.
+				Scene.LatestScriptAssembly = result.Assembly;
+
 				EditorDebug.Log($"Scripts compiled successfully!");
 
 				// Invalidate the component type cache so newly compiled script components
@@ -139,6 +150,12 @@ namespace GameScripts
 			}
 			else
 			{
+				// Show each compilation error as a Debug.Error so it appears in the editor console
+				Debug.Error("Script compilation failed with errors:");
+				foreach (var error in result.Errors)
+				{
+					Debug.Error($"  {error}");
+				}
 				EditorDebug.Log($"Script compilation failed. Check console for errors.");
 			}
 
