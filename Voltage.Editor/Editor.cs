@@ -1,9 +1,6 @@
-﻿using ImGuiNET;
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using System;
-using System.Collections;
 using System.Linq;
 using System.Reflection;
 using Voltage.Console;
@@ -12,7 +9,6 @@ using Voltage.Editor.Persistence;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.SceneFile;
 using Voltage.Utils;
-using Voltage.Utils.Coroutines;
 
 #if OS_MAC
 using System;
@@ -29,7 +25,7 @@ public class Editor : Core
 		LoadRequiredAssemblies();
 
 		Content.RootDirectory = "Content";
-
+		IsEditMode = true;
 		var options = new ImGuiOptions();
 
 		if (Screen.ActualMonitorWidth <= 1920)
@@ -38,7 +34,7 @@ public class Editor : Core
 			DebugConsole.RenderScale = 1.5f;
 		}
 		else if (Screen.ActualMonitorWidth < 3840)
-		{
+		{ 
 			options.FontSizeMultiplier = 1.1f;
 			DebugConsole.RenderScale = 2.5f;
 		}

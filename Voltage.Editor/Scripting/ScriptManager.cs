@@ -141,7 +141,7 @@ namespace GameScripts
 
 				// Update the engine's reference so Scene.ResolveType uses the latest assembly
 				// instead of stale types from old assemblies still loaded in the AppDomain.
-				Scene.LatestScriptAssembly = result.Assembly;
+				Core.LatestScriptAssembly = result.Assembly;
 
 				EditorDebug.Log($"Scripts compiled successfully!");
 

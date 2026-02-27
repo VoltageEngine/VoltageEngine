@@ -88,12 +88,6 @@ public partial class Scene
 		BestFit
 	}
 
-	/// <summary>
-	/// The most recently compiled script assembly. Set this after each successful script compilation
-	/// so that ResolveType can find types from the latest scripts instead of stale ones from old assemblies.
-	/// </summary>
-	public static System.Reflection.Assembly LatestScriptAssembly { get; set; }
-
 	public SceneData SceneData;
 
 	/// <summary>

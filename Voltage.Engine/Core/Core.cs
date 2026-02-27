@@ -21,6 +21,12 @@ namespace Voltage;
 public class Core : Game
 {
 	/// <summary>
+	/// The most recently compiled script assembly. Set this after each successful script compilation
+	/// so that ResolveType can find types from the latest scripts instead of stale ones from old assemblies.
+	/// </summary>
+	public static System.Reflection.Assembly LatestScriptAssembly { get; set; }
+
+	/// <summary>
 	/// core emitter. emits only Core level events.
 	/// </summary>
 	public static Emitter<CoreEvents> Emitter;

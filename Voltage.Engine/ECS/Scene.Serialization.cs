@@ -558,9 +558,9 @@ namespace Voltage
 
 			// Check the latest script assembly first to ensure newly compiled types take priority
 			// over stale types from old assemblies that are still loaded in the AppDomain.
-			if (LatestScriptAssembly != null)
+			if (Core.LatestScriptAssembly != null)
 			{
-				type = LatestScriptAssembly.GetType(typeName);
+				type = Core.LatestScriptAssembly.GetType(typeName);
 				if (type != null)
 					return type;
 			}

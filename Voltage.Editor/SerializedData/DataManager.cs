@@ -180,10 +180,16 @@ public class DataManager : GlobalManager
 		await SaveSceneDataAsync(Core.Scene, HasExitedEditorMode);
 
 		if (HasExitedEditorMode)
+		{
 			EditorDebug.Log(
 				"WARNING. Only saved EntityData, without Transform and Component data. Must Reset the Scene to save current state!");
+			NotificationSystem.ShowTimedNotification("WARNING. Only saved EntityData, without Transform and Component data. Must Reset the Scene to save current state!");
+		}
 		else
+		{
 			EditorDebug.Log($"Successfully saved {Core.Scene.SceneData?.Name ?? "Scene"} data");
+			NotificationSystem.ShowTimedNotification($"Successfully saved {Core.Scene.SceneData?.Name ?? "Scene"} data");
+		}
 
 		EditorChangeTracker.ClearOnSave();
 	}
