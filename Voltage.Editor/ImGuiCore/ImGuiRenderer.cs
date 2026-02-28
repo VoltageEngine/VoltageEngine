@@ -212,7 +212,25 @@ namespace Voltage.Editor.ImGuiCore
 		/// </summary>
 		public  void BeforeLayout(float deltaTime)
 		{
-			ImGui.GetIO().DeltaTime = deltaTime;
+			if (ImGui.GetCurrentContext() == IntPtr.Zero)
+				return;
+
+			// Ensure font atlas has been built
+			if (!_fontTextureId.HasValue)
+				return;
+
+			var io = ImGui.GetIO();
+
+			// Ensure display size is valid before starting a new frame
+			if (io.DisplaySize.X <= 0 || io.DisplaySize.Y <= 0)
+			{
+				_input.UpdateInput();
+
+				if (io.DisplaySize.X <= 0 || io.DisplaySize.Y <= 0)
+					return;
+			}
+
+			io.DeltaTime = deltaTime;
 			_input.UpdateInput();
 			ImGui.NewFrame();
 		}
