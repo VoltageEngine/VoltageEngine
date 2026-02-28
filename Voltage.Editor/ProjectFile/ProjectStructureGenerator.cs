@@ -105,14 +105,27 @@ namespace Voltage.Editor.ProjectFile
     <PackageReference Include=""MonoGame.Content.Builder.Task"" Version=""3.8.1.*"" />
   </ItemGroup>
 
-  <!--
-    EngineLibs: local copies of the Voltage engine DLLs, auto-synced by the Voltage Editor
-    on every project load. Do NOT commit this folder (it is .gitignored).
-    If these DLLs are missing, open the project in the Voltage Editor first to regenerate them.
-  -->
-  <ItemGroup>
-    <Reference Include=""$(MSBuildThisFileDirectory){engineLibsRelative}\*.dll"" />
-  </ItemGroup>
+   <!--
+   EngineLibs: local copies of the Voltage engine DLLs, auto-synced by the Voltage Editor
+   on every project load. Do NOT commit this folder (it is .gitignored).
+   If these DLLs are missing, open the project in the Voltage Editor first to regenerate them.
+ -->
+ <ItemGroup>
+   <!-- Runtime engine references. The source generator DLL is excluded here
+        because it must be loaded as an Analyzer, not a runtime assembly. -->
+   <Reference Include=""$(MSBuildThisFileDirectory)EngineLibs\*.dll""
+              Exclude=""$(MSBuildThisFileDirectory)EngineLibs\Voltage.SourceGenerators.dll"" />
+ </ItemGroup>
+
+ <!--
+   Voltage.SourceGenerators: Roslyn incremental source generator that auto-generates a
+   ComponentData subclass and Data property override for every partial Component subclass.
+   Produces AOT-safe, zero-reflection serialization code at compile time.
+   Must be declared as an Analyzer item, not a Reference.
+ -->
+ <ItemGroup>
+   <Analyzer Include=""$(MSBuildThisFileDirectory)EngineLibs\Voltage.SourceGenerators.dll"" />
+ </ItemGroup>
 
   <ItemGroup>
     <Content Include=""Content\**\*.*"">
@@ -272,7 +285,7 @@ namespace {projectName}.Scripts
 	/// <summary>
 	/// Example component that can be attached to entities
 	/// </summary>
-	public class ExampleComponent : Component, IUpdatable
+	public partial class ExampleComponent : Component, IUpdatable
 	{{
 		public float Speed = 100f;
 

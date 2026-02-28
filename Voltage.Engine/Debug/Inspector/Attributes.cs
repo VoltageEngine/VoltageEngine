@@ -93,7 +93,6 @@ namespace Voltage
 	{
 		public Type InspectorType;
 
-
 		public CustomInspectorAttribute(Type inspectorType)
 		{
 			InspectorType = inspectorType;

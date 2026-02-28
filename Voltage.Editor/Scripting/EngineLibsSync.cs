@@ -88,6 +88,10 @@ namespace Voltage.Editor.Scripting
 				}
 			}
 
+			// The source generator DLL is a Roslyn analyzer (netstandard2.0) and is never loaded
+			// into the AppDomain, so it must be copied separately by file path.
+			SyncSourceGeneratorDll(engineLibsPath);
+
 			if (synced > 0)
 				EditorDebug.Log($"Synced {synced} engine DLL(s) to: {engineLibsPath}", "EngineLibsSync");
 			else
@@ -118,14 +122,62 @@ namespace Voltage.Editor.Scripting
 		}
 
 		/// <summary>
+		/// The file name of the Roslyn source generator DLL.
+		/// This assembly is never loaded into the editor's AppDomain (it is a netstandard2.0 analyzer),
+		/// so it must be located and copied by file path rather than through reflection.
+		/// </summary>
+		public const string SourceGeneratorDllName = "Voltage.SourceGenerators.dll";
+
+		/// <summary>
+		/// Copies Voltage.SourceGenerators.dll into the project's EngineLibs folder.
+		/// The generator is a Roslyn analyzer (netstandard2.0) and is never loaded into the
+		/// editor's AppDomain, so it cannot be discovered via GetAssembliesToSync().
+		/// We locate it by searching next to the currently executing editor assembly.
+		/// Returns true if the file was found and copied (or was already up to date).
+		/// </summary>
+		private static bool SyncSourceGeneratorDll(string engineLibsPath)
+		{
+			// The generator DLL is deployed alongside the editor executable.
+			var editorDir = Path.GetDirectoryName(typeof(EngineLibsSync).Assembly.Location);
+			if (string.IsNullOrEmpty(editorDir))
+				return false;
+
+			var sourcePath = Path.Combine(editorDir, SourceGeneratorDllName);
+			if (!File.Exists(sourcePath))
+			{
+				EditorDebug.Warn($"Source generator DLL not found at: {sourcePath}", "EngineLibsSync");
+				return false;
+			}
+
+			var destPath = Path.Combine(engineLibsPath, SourceGeneratorDllName);
+			if (!ShouldCopyFile(sourcePath, destPath))
+				return true;
+
+			try
+			{
+				File.Copy(sourcePath, destPath, overwrite: true);
+				EditorDebug.Log($"Copied {SourceGeneratorDllName} to EngineLibs.", "EngineLibsSync");
+				return true;
+			}
+			catch (Exception ex)
+			{
+				EditorDebug.Error($"Failed to copy {SourceGeneratorDllName}: {ex.Message}", "EngineLibsSync");
+				return false;
+			}
+		}
+
+		/// <summary>
 		/// Collects all assemblies that should be synced: Voltage.* and MonoGame/FNA.
+		/// Note: Voltage.SourceGenerators is intentionally excluded here because it is a
+		/// netstandard2.0 Roslyn analyzer and is never loaded into the AppDomain at runtime.
+		/// It is handled separately by SyncSourceGeneratorDll().
 		/// </summary>
 		private static List<Assembly> GetAssembliesToSync()
 		{
 			var result = new List<Assembly>();
 			var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-			// Voltage assemblies
+			// Voltage assemblies (excludes Voltage.SourceGenerators — it is never loaded at runtime)
 			foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
 			{
 				var name = asm.GetName().Name;

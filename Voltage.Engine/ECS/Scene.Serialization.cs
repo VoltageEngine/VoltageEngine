@@ -551,6 +551,9 @@ namespace Voltage
 		/// </summary>
 		private static Type ResolveType(string typeName)
 		{
+			if (string.IsNullOrEmpty(typeName))
+				return null;
+
 			// Try the standard lookup first (works for engine/framework types)
 			var type = Type.GetType(typeName);
 			if (type != null)
@@ -566,8 +569,15 @@ namespace Voltage
 			}
 
 			// Fall back to searching all loaded assemblies (needed for dynamically compiled scripts)
+			// but skip stale DynamicScripts assemblies — only the LatestScriptAssembly is authoritative.
 			foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
 			{
+				// Skip old dynamically compiled script assemblies to avoid resolving
+				// stale types from previously loaded projects still in the AppDomain.
+				var assemblyName = assembly.GetName().Name;
+				if (assemblyName != null && assemblyName.StartsWith("DynamicScripts"))
+					continue;
+
 				type = assembly.GetType(typeName);
 				if (type != null)
 					return type;

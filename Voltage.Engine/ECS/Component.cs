@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
 using Voltage.Persistence;
+using Voltage.Serialization;
 
 namespace Voltage;
 
@@ -51,6 +52,18 @@ public class Component : IComparable<Component>
 		get => Entity.Transform;
 	}
 
+	/// <summary>
+	/// Gets or sets the serializable data for this component.
+	///
+	/// Override priority (highest to lowest):
+	/// 1. Manual override in engine components (SpriteRenderer, Collider, lights, etc.)
+	/// 2. Source-generated override emitted by Voltage.SourceGenerators for partial Component subclasses.
+	///
+	/// The base returns null. A component whose class is NOT marked partial will produce no
+	/// serialization entry and its fields will reset on scene reload - making the missing
+	/// partial keyword visible immediately in the editor rather than silently working via
+	/// reflection and then breaking in a published build.
+	/// </summary>
 	public virtual ComponentData Data
 	{
 		get => null;

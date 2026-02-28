@@ -1,4 +1,4 @@
-﻿<Project>
+<Project>
 	<Import Sdk="Microsoft.NET.Sdk" Project="Sdk.props" />
 
 	<PropertyGroup>
@@ -113,6 +113,16 @@
 	  <ProjectReference Include="..\Voltage.Engine\Voltage.Engine.csproj" />
 	  <ProjectReference Include="..\Voltage.FarseerPhysics\Voltage.FarseerPhysics.csproj" />
 	  <ProjectReference Include="..\Voltage.Persistence\Voltage.Persistence.csproj" />
+	  <!--
+	    Reference the source generator project as a normal dependency (NOT as an Analyzer).
+	    The editor loads Voltage.SourceGenerators.dll at runtime to run the ComponentDataGenerator
+	    via CSharpGeneratorDriver during dynamic script compilation. This also ensures the DLL
+	    gets copied to the editor's output directory so EngineLibsSync can deploy it to game projects.
+	  -->
+	  <ProjectReference Include="..\Voltage.SourceGenerators\Voltage.SourceGenerators\Voltage.SourceGenerators.csproj"
+                    ReferenceOutputAssembly="true"
+                    OutputItemType=""
+                    SetTargetFramework="TargetFramework=netstandard2.0" />
 	</ItemGroup>
 
 	<!-- Copy DefaultContent to output, but exclude the Effects folder (since we compile them) -->
