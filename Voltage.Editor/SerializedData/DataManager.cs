@@ -656,16 +656,36 @@ public class DataManager : GlobalManager
 	}
 
 	/// <summary>
-	/// Resolves a type by its full name, searching all loaded assemblies if Type.GetType fails.
+	/// Resolves a type by its full name, searching all loaded assemblies if Type.GetType() fails.
+	/// When a LatestScriptAssembly is set, it is checked first to ensure newly compiled script types
+	/// take priority over stale types from previously loaded assemblies.
 	/// </summary>
 	private static Type ResolveType(string typeName)
 	{
+		if (string.IsNullOrEmpty(typeName))
+			return null;
+
 		var type = Type.GetType(typeName);
 		if (type != null)
 			return type;
 
+		// Check the latest script assembly first to ensure newly compiled types take priority
+		// over stale types from old assemblies that are still loaded in the AppDomain.
+		if (Core.LatestScriptAssembly != null)
+		{
+			type = Core.LatestScriptAssembly.GetType(typeName);
+			if (type != null)
+				return type;
+		}
+
+		// Fall back to searching all loaded assemblies but skip stale DynamicScripts
+		// assemblies. Only the LatestScriptAssembly is authoritative for script types.
 		foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
 		{
+			var assemblyName = assembly.GetName().Name;
+			if (assemblyName != null && assemblyName.StartsWith("DynamicScripts"))
+				continue;
+
 			type = assembly.GetType(typeName);
 			if (type != null)
 				return type;

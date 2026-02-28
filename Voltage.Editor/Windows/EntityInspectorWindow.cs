@@ -479,6 +479,12 @@ public class EntityInspectorWindow
 
 		foreach (var assembly in assemblies)
 		{
+			// Skip stale dynamically compiled script assemblies.
+			var assemblyName = assembly.GetName().Name;
+			if (assemblyName != null && assemblyName.StartsWith("DynamicScripts")
+				&& assembly != Core.LatestScriptAssembly)
+				continue;
+
 			try
 			{
 				var componentTypes = assembly.GetTypes()

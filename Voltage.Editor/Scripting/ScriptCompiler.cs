@@ -72,6 +72,20 @@ namespace Voltage.Editor.Scripting
 				)
 			);
 
+			// Run the Voltage.SourceGenerators source generator to produce ComponentData
+			// overrides for partial Component subclasses. This mirrors what MSBuild does
+			// during a normal project build via the <Analyzer> item.
+			compilation = RunSourceGenerators(compilation, errors);
+			if (errors.Any())
+			{
+				return new CompilationResult
+				{
+					Success = false,
+					Errors = errors,
+					Assembly = null
+				};
+			}
+
 			// Emit to memory stream
 			using var ms = new MemoryStream();
 			EmitResult result = compilation.Emit(ms);
@@ -151,6 +165,11 @@ namespace Voltage.Editor.Scripting
 
 				foreach (var dll in dlls)
 				{
+					// Skip the source generator DLL - it is a netstandard2.0 Roslyn analyzer
+					// and must not be added as a runtime metadata reference.
+					if (Path.GetFileName(dll).Equals(EngineLibsSync.SourceGeneratorDllName, StringComparison.OrdinalIgnoreCase))
+						continue;
+
 					if (addedPaths.Add(dll))
 					{
 						references.Add(MetadataReference.CreateFromFile(dll));
@@ -220,6 +239,114 @@ namespace Voltage.Editor.Scripting
 			}
 
 			return references;
+		}
+
+		/// <summary>
+		/// Cached source generator instances loaded from the Voltage.SourceGenerators DLL.
+		/// Loaded once on first compilation and reused for all subsequent compilations.
+		/// </summary>
+		private static IReadOnlyList<ISourceGenerator> _cachedGenerators;
+
+		/// <summary>
+		/// Runs the Voltage.SourceGenerators source generator against the compilation.
+		/// The generator is loaded from the Voltage.SourceGenerators.dll located next to
+		/// the editor executable. This is the same DLL that gets synced to EngineLibs for
+		/// standalone project builds via the Analyzer MSBuild item.
+		///
+		/// If the generator DLL cannot be found or loaded, compilation proceeds without it
+		/// (a warning is logged). Generator-produced diagnostics with Error severity are
+		/// added to the errors list.
+		/// </summary>
+		private static CSharpCompilation RunSourceGenerators(CSharpCompilation compilation, List<string> errors)
+		{
+			var generators = GetSourceGenerators();
+			if (generators == null || generators.Count == 0)
+				return compilation;
+
+			try
+			{
+				var driver = CSharpGeneratorDriver.Create(generators);
+				driver = (CSharpGeneratorDriver)driver.RunGeneratorsAndUpdateCompilation(
+					compilation, out var updatedCompilation, out var generatorDiagnostics);
+
+				foreach (var diag in generatorDiagnostics)
+				{
+					if (diag.Severity == DiagnosticSeverity.Error)
+					{
+						var msg = $"[SourceGenerator] {diag.GetMessage()}";
+						errors.Add(msg);
+						EditorDebug.Error(msg, "ScriptCompilation");
+					}
+					else if (diag.Severity == DiagnosticSeverity.Warning)
+					{
+						EditorDebug.Warn($"[SourceGenerator] {diag.GetMessage()}", "ScriptCompilation");
+					}
+				}
+
+				var generatedTreeCount = updatedCompilation.SyntaxTrees.Count() - compilation.SyntaxTrees.Count();
+				if (generatedTreeCount > 0)
+					EditorDebug.Log($"Source generator produced {generatedTreeCount} additional file(s).", "ScriptCompilation");
+
+				return (CSharpCompilation)updatedCompilation;
+			}
+			catch (Exception ex)
+			{
+				EditorDebug.Error($"Failed to run source generators: {ex.Message}", "ScriptCompilation");
+				return compilation;
+			}
+		}
+
+		/// <summary>
+		/// Loads the source generator instances from the Voltage.SourceGenerators.dll.
+		/// The DLL is located next to the editor executable. Results are cached.
+		/// </summary>
+		private static IReadOnlyList<ISourceGenerator> GetSourceGenerators()
+		{
+			if (_cachedGenerators != null)
+				return _cachedGenerators;
+
+			var editorDir = Path.GetDirectoryName(typeof(ScriptCompiler).Assembly.Location);
+			if (string.IsNullOrEmpty(editorDir))
+			{
+				EditorDebug.Warn("Cannot determine editor directory for source generator loading.", "ScriptCompilation");
+				_cachedGenerators = Array.Empty<ISourceGenerator>();
+				return _cachedGenerators;
+			}
+
+			var generatorDllPath = Path.Combine(editorDir, EngineLibsSync.SourceGeneratorDllName);
+			if (!File.Exists(generatorDllPath))
+			{
+				EditorDebug.Warn($"Source generator DLL not found at: {generatorDllPath}. " +
+					"ComponentData will not be auto-generated for editor scripts.", "ScriptCompilation");
+				_cachedGenerators = Array.Empty<ISourceGenerator>();
+				return _cachedGenerators;
+			}
+
+			try
+			{
+				var generatorAssembly = Assembly.LoadFrom(generatorDllPath);
+				var generators = new List<ISourceGenerator>();
+
+				foreach (var type in generatorAssembly.GetTypes())
+				{
+					if (typeof(IIncrementalGenerator).IsAssignableFrom(type) && !type.IsAbstract)
+					{
+						var instance = (IIncrementalGenerator)Activator.CreateInstance(type);
+						generators.Add(instance.AsSourceGenerator());
+						EditorDebug.Log($"Loaded source generator: {type.FullName}", "ScriptCompilation");
+					}
+				}
+
+				_cachedGenerators = generators;
+				EditorDebug.Log($"Loaded {generators.Count} source generator(s) from {EngineLibsSync.SourceGeneratorDllName}.", "ScriptCompilation");
+			}
+			catch (Exception ex)
+			{
+				EditorDebug.Error($"Failed to load source generators from {generatorDllPath}: {ex.Message}", "ScriptCompilation");
+				_cachedGenerators = Array.Empty<ISourceGenerator>();
+			}
+
+			return _cachedGenerators;
 		}
 	}
 
