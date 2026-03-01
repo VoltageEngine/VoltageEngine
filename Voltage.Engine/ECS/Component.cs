@@ -33,7 +33,7 @@ public struct ComponentDataEntry
 /// </summary>
 public class Component : IComparable<Component>
 {
-	public bool IsSerialized { get; private set; }
+	public bool IsSerialized { get; protected set; }
 
 	/// <summary>
 	/// the Entity this Component is attached to

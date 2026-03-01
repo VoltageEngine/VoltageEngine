@@ -31,6 +31,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private Num.Vector2 _gameImageSize;
 	private bool _hasValidGameWindowData;
 	private float _scale;
+	private bool _isDisposed = false; // To detect redundant calls
 
 	[Flags]
 	private enum WindowPosition
@@ -629,9 +630,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 
 	#region IDisposable Support
-
-	private bool _isDisposed = false; // To detect redundant calls
-
 	private void Dispose(bool disposing)
 	{
 		if (!_isDisposed)
@@ -646,6 +644,19 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				{
 					ImGui.SaveIniSettingsToDisk(_layoutFilePath);
 				}
+			}
+
+			// Free the pinned GCHandle to avoid a memory leak.
+			// This must happen outside the 'if (disposing)' block to ensure
+			// cleanup even during finalizer runs.
+			if (_iniFilenamePinnedHandle.IsAllocated)
+			{
+				// Clear ImGui's pointer first to avoid it writing through a freed handle
+				unsafe
+				{
+					ImGuiNative.igGetIO()->IniFilename = null;
+				}
+				_iniFilenamePinnedHandle.Free();
 			}
 
 			_isDisposed = true;

@@ -16,6 +16,68 @@ namespace Voltage
 			internal float bottom;
 		}
 
+		#region Component Data
+
+		public class CameraComponentData : ComponentData
+		{
+			public float RawZoom;
+			public float MinimumZoom;
+			public float MaximumZoom;
+			public float PositionZ3D;
+			public float NearClipPlane3D;
+			public float FarClipPlane3D;
+			public float InsetLeft;
+			public float InsetRight;
+			public float InsetTop;
+			public float InsetBottom;
+		}
+
+		private CameraComponentData _data = new CameraComponentData();
+
+		public override ComponentData Data
+		{
+			get
+			{
+				_data.Enabled = Enabled;
+				_data.RawZoom = _zoom;
+				_data.MinimumZoom = _minimumZoom;
+				_data.MaximumZoom = _maximumZoom;
+				_data.PositionZ3D = PositionZ3D;
+				_data.NearClipPlane3D = NearClipPlane3D;
+				_data.FarClipPlane3D = FarClipPlane3D;
+				_data.InsetLeft = _inset.left;
+				_data.InsetRight = _inset.right;
+				_data.InsetTop = _inset.top;
+				_data.InsetBottom = _inset.bottom;
+				return _data;
+			}
+			set
+			{
+				if (value is CameraComponentData cameraData)
+				{
+					Enabled = cameraData.Enabled;
+					_minimumZoom = cameraData.MinimumZoom;
+					_maximumZoom = cameraData.MaximumZoom;
+					_zoom = cameraData.RawZoom;
+					PositionZ3D = cameraData.PositionZ3D;
+					NearClipPlane3D = cameraData.NearClipPlane3D;
+					FarClipPlane3D = cameraData.FarClipPlane3D;
+					_inset = new CameraInset
+					{
+						left = cameraData.InsetLeft,
+						right = cameraData.InsetRight,
+						top = cameraData.InsetTop,
+						bottom = cameraData.InsetBottom
+					};
+					_areMatrixesDirty = true;
+					_areBoundsDirty = true;
+					_data = cameraData;
+				}
+			}
+		}
+
+		#endregion
+
 		#region Fields and Properties
 
 		public static float DefaultZoom = 0f;
@@ -295,6 +357,7 @@ namespace Voltage
 		public Camera()
 		{
 			SetZoom(0);
+			IsSerialized = true;
 		}
 
 
