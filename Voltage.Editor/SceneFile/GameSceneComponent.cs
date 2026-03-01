@@ -114,25 +114,36 @@ public class GameSceneComponent : SceneComponent
     //Creates the SceneData object
     protected virtual void LoadSceneData()
     {
-        var sceneJsonPath = $"{ProjectManager.Instance.CurrentProject.ScenesFolder}/{GetType().Name}.vscene";
+		var sceneJsonPath = $"{ProjectManager.Instance.CurrentProject.ScenesFolder}/{GetType().Name}.vscene";
 
-        // Create default SceneData and save it
-        if (!File.Exists(sceneJsonPath))
-        {
-            Scene.SceneData = new SceneData();
-            var json = Voltage.Persistence.Json.ToJson(Scene.SceneData, true);
-            Directory.CreateDirectory(Path.GetDirectoryName(sceneJsonPath)!);
-            File.WriteAllText(sceneJsonPath, json);
-        }
-        else
-        {
-	        Scene.SceneData = DataManager.Instance.LoadSceneData(ProjectManager.Instance.CurrentProject.ScenesFolder);
-        }
+		// Create default SceneData and save it
+		if (!File.Exists(sceneJsonPath))
+		{
+			Scene.SceneData = new SceneData();
+			var json = Voltage.Persistence.Json.ToJson(Scene.SceneData, true);
+			Directory.CreateDirectory(Path.GetDirectoryName(sceneJsonPath)!);
+			File.WriteAllText(sceneJsonPath, json);
+		}
+		else
+		{
+			Scene.SceneData = DataManager.Instance.LoadSceneData(sceneJsonPath);
+		}
 
-        if (Scene.SceneData == null)
-            throw new NullReferenceException(
-                "SceneData is NULL. You need to create the JSON file for this scene first!");
-    }
+		if (Scene.SceneData == null)
+			throw new NullReferenceException(
+				"SceneData is NULL. You need to create the JSON file for this scene first!");
+
+		var projectManager = Core.GetGlobalManager<ProjectManager>();
+		if (projectManager?.HasActiveProject == true)
+		{
+			var designRes = projectManager.CurrentProject.Settings.DesignResolution;
+			Scene.SceneData.DesignResolutionWidth = designRes.Width;
+			Scene.SceneData.DesignResolutionHeight = designRes.Height;
+			Scene.SceneData.ResolutionPolicy = designRes.ResolutionPolicy.ToString();
+			Scene.SceneData.HorizontalBleed = designRes.HorizontalBleed;
+			Scene.SceneData.VerticalBleed = designRes.VerticalBleed;
+		}
+	}
 
     //Assigns Transform components to each object in the scene
     protected virtual void LoadSceneEntitiesData()

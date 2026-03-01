@@ -211,10 +211,32 @@ public class SceneManager : GlobalManager
 				return null;
 			}
 
+
+			if (ProjectManager.Instance.HasActiveProject)
+			{
+				var designRes = ProjectManager.Instance.CurrentProject.Settings.DesignResolution;
+				scene.SetDesignResolution(
+					designRes.Width,
+					designRes.Height,
+					designRes.ResolutionPolicy,
+					designRes.HorizontalBleed,
+					designRes.VerticalBleed
+				);
+
+				if (scene.SceneData != null)
+				{
+					scene.SceneData.DesignResolutionWidth = designRes.Width;
+					scene.SceneData.DesignResolutionHeight = designRes.Height;
+					scene.SceneData.ResolutionPolicy = designRes.ResolutionPolicy.ToString();
+					scene.SceneData.HorizontalBleed = designRes.HorizontalBleed;
+					scene.SceneData.VerticalBleed = designRes.VerticalBleed;
+				}
+			}
+
 			// Update current scene info
 			CurrentScenePath = scenePath;
 			CurrentSceneName = scene.SceneData?.Name ?? Path.GetFileNameWithoutExtension(scenePath);
-
+			
 			Core.Scene = scene;
 			OnSceneLoaded?.Invoke(scenePath);
 			PersistentScene.SetLastScenePath(CurrentScenePath);
