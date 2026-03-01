@@ -129,7 +129,6 @@ namespace Voltage.Editor.Styling
                 di = di.Parent;
             }
 
-            // Fallback to base directory
             return AppContext.BaseDirectory;
         }
 

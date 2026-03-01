@@ -257,7 +257,7 @@ public partial class Scene
 		RenderableComponents = new RenderableComponentList();
 		Content = new VoltageContentManager();
 
-		var cameraEntity = SimpleCreateEntity<EntityData>("camera", Entity.InstanceType.NonSerialized);
+		var cameraEntity = SimpleCreateEntity<EntityData>("Camera (Main)", Entity.InstanceType.NonSerialized);
 		Camera = cameraEntity.AddComponent(new Camera());
 
 		// setup our resolution policy. we'll commit it in begin

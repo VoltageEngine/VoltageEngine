@@ -21,6 +21,7 @@ using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Utils;
 using Voltage.Sprites;
 using Voltage.Utils;
+using System.Runtime.InteropServices;
 using Num = System.Numerics;
 using Voltage.Editor.Windows;
 
@@ -158,6 +159,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private bool _showCreateSceneForSavePrompt = false;
 	private string _newSceneNameForSave = "";
+
+	// Pinned handle for the ImGui ini filename to prevent GC relocation
+	private GCHandle _iniFilenamePinnedHandle;
 
 	#endregion
 
@@ -307,15 +311,15 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		var io = ImGui.GetIO();
 		io.ConfigFlags |= ImGuiConfigFlags.DockingEnable;
 
-		// Set the ini file path BEFORE loading
+		// Pin the layout path bytes so the pointer remains valid for ImGui's entire lifetime.
+		// The previous 'fixed' block only pinned during the constructor scope, causing the GC
+		// to relocate the array afterwards — resulting in a dangling IniFilename pointer and
+		// corrupted .ini artifacts during compilation.
+		_layoutManager.LayoutInitPathUtf8 = System.Text.Encoding.UTF8.GetBytes(_layoutFilePath + "\0");
+		_iniFilenamePinnedHandle = GCHandle.Alloc(_layoutManager.LayoutInitPathUtf8, GCHandleType.Pinned);
 		unsafe
 		{
-			//Make GC does not collect LayoutInitPathUtf8 
-			_layoutManager.LayoutInitPathUtf8 = System.Text.Encoding.UTF8.GetBytes(_layoutFilePath + "\0");
-			fixed (byte* ptr = _layoutManager.LayoutInitPathUtf8)
-			{
-				ImGuiNative.igGetIO()->IniFilename = ptr;
-			}
+			ImGuiNative.igGetIO()->IniFilename = (byte*)_iniFilenamePinnedHandle.AddrOfPinnedObject();
 		}
 
 		LoadLastSelectedLayout();
@@ -556,8 +560,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			{
 				var selectedFile = _projectFilePicker.SelectedFile;
 
-				// Validate .voltage file
-				if (Path.GetExtension(selectedFile).Equals(".voltage", StringComparison.OrdinalIgnoreCase))
+				// Guard against null SelectedFile — FilePicker.Draw() can return true
+				// from a double-click on "../" (directory navigation) because the
+				// IsMouseDoubleClicked check is not scoped to file selectables.
+				if (!string.IsNullOrEmpty(selectedFile) &&
+					Path.GetExtension(selectedFile).Equals(".voltage", StringComparison.OrdinalIgnoreCase))
 				{
 					bool success = _projectManager.LoadProject(selectedFile);
 
@@ -572,14 +579,17 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 							"Failed to load project.");
 					}
 				}
-				else
+				else if (!string.IsNullOrEmpty(selectedFile))
 				{
 					EditorDebug.Warn("Please select a valid .voltage file.");
 				}
 
-				FilePicker.RemoveFilePicker(_projectFilePicker);
-				_projectFilePicker = null;
-				ImGui.CloseCurrentPopup();
+				if (!string.IsNullOrEmpty(selectedFile))
+				{
+					FilePicker.RemoveFilePicker(_projectFilePicker);
+					_projectFilePicker = null;
+					ImGui.CloseCurrentPopup();
+				}
 			}
 
 			ImGui.EndPopup();
@@ -1364,8 +1374,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private void CloseCurrentProject()
 	{
 		var projectName = _projectManager.CurrentProject?.ProjectName;
-		var sceneManager = SceneManager.Instance;
-		sceneManager.ClearCurrentScene();
 
 		_projectManager.UnloadCurrentProject();
 		EditorDebug.Log($"Project closed: {projectName}");

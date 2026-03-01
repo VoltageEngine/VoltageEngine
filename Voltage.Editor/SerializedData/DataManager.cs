@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -46,6 +47,36 @@ public class DataManager : GlobalManager
 	}
 
 	public bool HasExitedEditorMode { get; private set; } = false;
+
+	#region Editor Camera Persistence
+
+	// EditorData keys for persisting the editor camera state per-scene.
+	// Stored in SceneData.EditorData (a Dictionary<string, string>) so the
+	// camera entity stays NonSerialized and no duplicate is ever created.
+	private const string kEditorCameraPosX = "EditorCamera.PositionX";
+	private const string kEditorCameraPosY = "EditorCamera.PositionY";
+	private const string kEditorCameraZoom = "EditorCamera.Zoom";
+	private const string kEditorCameraRotation = "EditorCamera.Rotation";
+
+	/// <summary>
+	/// Snapshots the editor camera state into SceneData.EditorData.
+	/// Only writes in Edit Mode so PlayMode camera changes are never persisted.
+	/// Called automatically before scene serialization.
+	/// </summary>
+	private static void SaveEditorCameraState(Scene scene)
+	{
+		if (scene?.Camera == null || scene.SceneData == null)
+			return;
+
+		if (!Core.IsEditMode)
+			return;
+
+		var ed = scene.SceneData.EditorData;
+		ed[kEditorCameraPosX] = scene.Camera.Position.X.ToString(CultureInfo.InvariantCulture);
+		ed[kEditorCameraPosY] = scene.Camera.Position.Y.ToString(CultureInfo.InvariantCulture);
+	}
+
+	#endregion
 
 	#region Events
 
@@ -208,6 +239,20 @@ public class DataManager : GlobalManager
 			throw new InvalidOperationException("Cannot save scene without a file path. Create a scene file first.");
 		}
 
+		// Validate the save target belongs to the current project to prevent
+		// cross-project contamination when projects are switched.
+		if (!ProjectManager.Instance.IsPathInCurrentProject(filePath))
+		{
+			Debug.Error($"Cannot save scene: target path '{filePath}' does not belong to the current project '{ProjectManager.Instance.CurrentProject?.ProjectName}'.");
+			throw new InvalidOperationException(
+				$"Scene save path mismatch. Target '{filePath}' is outside the current project. " +
+				"This usually means the project was changed without clearing the scene state.");
+		}
+
+		// Snapshot editor camera into SceneData.EditorData before serializing.
+		// Already guarded against PlayMode internally.
+		SaveEditorCameraState(scene);
+
 		SceneData oldSceneData = null;
 		var oldDataExists = File.Exists(filePath);
 
@@ -233,6 +278,7 @@ public class DataManager : GlobalManager
 			newSceneData.CreatedAt = scene.SceneData.CreatedAt;
 			newSceneData.ModifiedAt = DateTime.Now;
 			newSceneData.TiledMapFileName = scene.SceneData.TiledMapFileName;
+			newSceneData.EditorData = scene.SceneData.EditorData;
 		}
 		else if (oldSceneData != null)
 		{
@@ -241,6 +287,7 @@ public class DataManager : GlobalManager
 			newSceneData.CreatedAt = oldSceneData.CreatedAt;
 			newSceneData.ModifiedAt = DateTime.Now;
 			newSceneData.TiledMapFileName = oldSceneData.TiledMapFileName;
+			newSceneData.EditorData = oldSceneData.EditorData;
 		}
 		else
 		{
@@ -616,7 +663,7 @@ public class DataManager : GlobalManager
 					}
 					catch (Exception ex)
 					{
-						Debug.Error($"Failed to instantiate component {componentEntry.ComponentTypeName}: {ex.Message}");
+					 Debug.Error($"Failed to instantiate component {componentEntry.ComponentTypeName}: {ex.Message}");
 					}
 				}
 			}

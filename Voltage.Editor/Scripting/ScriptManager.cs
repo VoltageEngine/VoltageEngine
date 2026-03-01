@@ -182,7 +182,8 @@ namespace GameScripts
 		}
 
 		/// <summary>
-		/// Reloads the current scene
+		/// Reloads the current scene using SceneManager as the single source of truth
+		/// rather than PersistentScene (which is project-agnostic).
 		/// </summary>
 		public void ReloadScene()
 		{
@@ -196,11 +197,11 @@ namespace GameScripts
 			{
 				OnBeforeSceneReload?.Invoke();
 
-				var lastScenePath = PersistentScene.GetLastScenePath();
-				if (!string.IsNullOrWhiteSpace(lastScenePath) && File.Exists(lastScenePath))
+				var sceneManager = SceneManager.Instance;
+				if (sceneManager.HasLoadedScene)
 				{
-					Debug.Log($"Reloading scene from file: {Path.GetFileName(lastScenePath)}");
-					Core.Scene = Scene.LoadFromFile(lastScenePath);
+					Debug.Log($"Reloading scene from file: {Path.GetFileName(sceneManager.CurrentScenePath)}");
+					sceneManager.ReloadCurrentScene();
 				}
 				else
 				{
