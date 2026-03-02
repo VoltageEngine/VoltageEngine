@@ -138,7 +138,6 @@ public class DataManager : GlobalManager
 				if (OnSaveSceneAsync != null)
 				{
 					await OnSaveSceneAsync.Invoke();
-					EditorDebug.Log("Save scene completed successfully");
 				}
 				else
 				{
@@ -223,6 +222,83 @@ public class DataManager : GlobalManager
 		}
 
 		EditorChangeTracker.ClearOnSave();
+	}
+
+	/// <summary>
+	/// Collects all serialized components from an entity, including both the live
+	/// Components list and the pending ComponentsToAdd list.
+	/// </summary>
+	private static IEnumerable<Component> GetAllSerializedComponents(Entity entity)
+	{
+		return entity.Components
+			.Concat(entity.ComponentsToAdd)
+			.Where(c => c.IsSerialized);
+	}
+
+	/// <summary>
+	/// Serializes a single component into a ComponentDataEntry.
+	/// If the component's Data property returns null but the component's runtime type
+	/// comes from a DynamicScripts assembly, this is likely a source-generator failure
+	/// and a diagnostic warning is logged.
+	/// </summary>
+	private static ComponentDataEntry SerializeComponent(Component component)
+	{
+		var data = component.Data;
+
+		if (data != null)
+		{
+			var componentJsonSettings = new JsonSettings
+			{
+				PrettyPrint = true,
+				TypeNameHandling = TypeNameHandling.Auto,
+				PreserveReferencesHandling = false
+			};
+
+			var json = Json.ToJson(data, componentJsonSettings);
+			return new ComponentDataEntry
+			{
+				ComponentTypeName = component.GetType().FullName,
+				ComponentName = component.Name,
+				DataTypeName = data.GetType().FullName,
+				Json = json
+			};
+		}
+
+		// Data is null — check if this is unexpected (script component that should
+		// have had a source-generated Data override but doesn't).
+		var componentAssembly = component.GetType().Assembly;
+		var assemblyName = componentAssembly.GetName().Name;
+		if (assemblyName != null && assemblyName.StartsWith("DynamicScripts"))
+		{
+			// This component lives in a dynamically compiled script assembly.
+			// If the source generator ran correctly, it should have a Data override
+			// that returns non-null. Log a diagnostic to help track down the issue.
+			var hasDataOverride = component.GetType().GetProperty("Data",
+				System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.DeclaredOnly) != null;
+
+			if (!hasDataOverride)
+			{
+				Debug.Warn($"[Serialization] Component '{component.Name}' ({component.GetType().FullName}) " +
+					$"has no Data override. The source generator may not have run. " +
+					$"Ensure the class is marked 'partial' and Voltage.SourceGenerators.dll is present. " +
+					$"Assembly: {componentAssembly.GetName().Name}");
+			}
+			else
+			{
+				// Has the override but it returned null — this shouldn't happen with
+				// the standard generated code. Could be a custom override returning null.
+				Debug.Warn($"[Serialization] Component '{component.Name}' ({component.GetType().FullName}) " +
+					$"has a Data override but it returned null. Check the generated Data getter.");
+			}
+		}
+
+		return new ComponentDataEntry
+		{
+			ComponentTypeName = component.GetType().FullName,
+			ComponentName = component.Name,
+			DataTypeName = null,
+			Json = null
+		};
 	}
 
 	/// <summary>
@@ -392,33 +468,11 @@ public class DataManager : GlobalManager
 					}
 
 					// Then, add current IPlayModeSaveableComponent components (update them)
-					foreach (var component in entity.Components)
+					foreach (var component in GetAllSerializedComponents(entity))
 					{
-						if (!component.IsSerialized)
-							continue;
-
-						if (component.Data != null)
+						if (component is IPlayModeSaveableComponent && component.Data != null)
 						{
-							var isSaveableComponent = component is IPlayModeSaveableComponent;
-
-							if (isSaveableComponent)
-							{
-								var componentJsonSettings = new JsonSettings
-								{
-									PrettyPrint = true,
-									TypeNameHandling = TypeNameHandling.Auto,
-									PreserveReferencesHandling = false
-								};
-
-								var json = Json.ToJson(component.Data, componentJsonSettings);
-								updatedComponentDataList.Add(new ComponentDataEntry
-								{
-									ComponentTypeName = component.GetType().FullName,
-									ComponentName = component.Name,
-									DataTypeName = component.Data.GetType().FullName,
-									Json = json
-								});
-							}
+							updatedComponentDataList.Add(SerializeComponent(component));
 						}
 					}
 
@@ -429,44 +483,13 @@ public class DataManager : GlobalManager
 			}
 			else
 			{
-				// Edit Mode: Save only serialized component data
 				if (entityData != null)
 				{
 					entityData.ComponentDataList.Clear();
 
-					foreach (var component in entity.Components)
+					foreach (var component in GetAllSerializedComponents(entity))
 					{
-						if (!component.IsSerialized)
-							continue;
-
-						if (component.Data != null)
-						{
-							var componentJsonSettings = new JsonSettings
-							{
-								PrettyPrint = true,
-								TypeNameHandling = TypeNameHandling.Auto,
-								PreserveReferencesHandling = false
-							};
-
-							var json = Json.ToJson(component.Data, componentJsonSettings);
-							entityData.ComponentDataList.Add(new ComponentDataEntry
-							{
-								ComponentTypeName = component.GetType().FullName,
-								ComponentName = component.Name,
-								DataTypeName = component.Data.GetType().FullName,
-								Json = json
-							});
-						}
-						else
-						{
-							entityData.ComponentDataList.Add(new ComponentDataEntry
-							{
-								ComponentTypeName = component.GetType().FullName,
-								ComponentName = component.Name,
-								DataTypeName = null,
-								Json = null
-							});
-						}
+						entityData.ComponentDataList.Add(SerializeComponent(component));
 					}
 
 					sceneEntityData.EntityData = entityData;
@@ -487,7 +510,6 @@ public class DataManager : GlobalManager
 		{
 			var jsonData = Json.ToJson(newSceneData, settings);
 			await File.WriteAllTextAsync(filePath, jsonData);
-			Debug.Log($"Scene saved successfully: {filePath}");
 		}
 		catch (Exception ex)
 		{
@@ -790,8 +812,11 @@ public class DataManager : GlobalManager
 				}
 				else
 				{
-					throw new InvalidOperationException($"Component data type '{entry.DataTypeName}' could not be resolved. " +
-										$"If this entity was loaded from cooked content, ensure the type id is registered in ComponentDataSerializationBootstrap.");
+					Debug.Warn($"Could not resolve component data type '{entry.DataTypeName}' for component '{component.Name}'. " +
+						"The data will be skipped. Re-save the scene to clear stale entries.");
+					entityData.ComponentDataList.RemoveAt(i);
+					entity.SetEntityData(entityData);
+					return true;
 				}
 			}
 		}
@@ -852,39 +877,9 @@ public class DataManager : GlobalManager
 			var entityData = prefabEntity.GetEntityData().Clone();
 			entityData.ComponentDataList.Clear();
 
-			foreach (var component in prefabEntity.ComponentsToAdd.Concat(prefabEntity.Components))
+			foreach (var component in GetAllSerializedComponents(prefabEntity))
 			{
-				if (!component.IsSerialized)
-					continue;
-
-				if (component.Data != null)
-				{
-					var componentJsonSettings = new JsonSettings
-					{
-						PrettyPrint = true,
-						TypeNameHandling = TypeNameHandling.Auto,
-						PreserveReferencesHandling = false
-					};
-
-					var json = Json.ToJson(component.Data, componentJsonSettings);
-					entityData.ComponentDataList.Add(new ComponentDataEntry
-					{
-						ComponentTypeName = component.GetType().FullName,
-						ComponentName = component.Name,
-						DataTypeName = component.Data.GetType().FullName,
-						Json = json
-					});
-				}
-				else
-				{
-					entityData.ComponentDataList.Add(new ComponentDataEntry
-					{
-						ComponentTypeName = component.GetType().FullName,
-						ComponentName = component.Name,
-						DataTypeName = null,
-						Json = null
-					});
-				}
+				entityData.ComponentDataList.Add(SerializeComponent(component));
 			}
 
 			prefabData.ChildEntities.Clear();

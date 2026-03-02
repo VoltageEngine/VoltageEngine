@@ -202,7 +202,6 @@ public class SceneManager : GlobalManager
 
 		try
 		{
-			// Load scene from file
 			var scene = Scene.LoadFromFile(scenePath);
 
 			if (scene == null)
@@ -215,6 +214,7 @@ public class SceneManager : GlobalManager
 			if (ProjectManager.Instance.HasActiveProject)
 			{
 				var designRes = ProjectManager.Instance.CurrentProject.Settings.DesignResolution;
+
 				scene.SetDesignResolution(
 					designRes.Width,
 					designRes.Height,

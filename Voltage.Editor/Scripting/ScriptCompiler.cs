@@ -261,7 +261,12 @@ namespace Voltage.Editor.Scripting
 		{
 			var generators = GetSourceGenerators();
 			if (generators == null || generators.Count == 0)
+			{
+				Debug.Error("[ScriptCompiler] No source generators available! " +
+					"Partial Component subclasses will NOT have ComponentData generated. " +
+					"Ensure Voltage.SourceGenerators.dll is present next to the editor executable.");
 				return compilation;
+			}
 
 			try
 			{
@@ -286,6 +291,9 @@ namespace Voltage.Editor.Scripting
 				var generatedTreeCount = updatedCompilation.SyntaxTrees.Count() - compilation.SyntaxTrees.Count();
 				if (generatedTreeCount > 0)
 					EditorDebug.Log($"Source generator produced {generatedTreeCount} additional file(s).", "ScriptCompilation");
+				else
+					EditorDebug.Warn("Source generator ran but produced 0 files. " +
+						"Ensure script Component classes are marked 'partial'.", "ScriptCompilation");
 
 				return (CSharpCompilation)updatedCompilation;
 			}
@@ -298,29 +306,24 @@ namespace Voltage.Editor.Scripting
 
 		/// <summary>
 		/// Loads the source generator instances from the Voltage.SourceGenerators.dll.
-		/// The DLL is located next to the editor executable. Results are cached.
+		/// Searches multiple locations to handle different deployment scenarios
+		/// (VS debug, published, single-file, etc.). Results are cached.
 		/// </summary>
 		private static IReadOnlyList<ISourceGenerator> GetSourceGenerators()
 		{
 			if (_cachedGenerators != null)
 				return _cachedGenerators;
 
-			var editorDir = Path.GetDirectoryName(typeof(ScriptCompiler).Assembly.Location);
-			if (string.IsNullOrEmpty(editorDir))
+			var generatorDllPath = FindSourceGeneratorDll();
+			if (generatorDllPath == null)
 			{
-				EditorDebug.Warn("Cannot determine editor directory for source generator loading.", "ScriptCompilation");
+				Debug.Error($"[ScriptCompiler] {EngineLibsSync.SourceGeneratorDllName} not found in any search path. " +
+					"ComponentData will NOT be auto-generated for script components.");
 				_cachedGenerators = Array.Empty<ISourceGenerator>();
 				return _cachedGenerators;
 			}
 
-			var generatorDllPath = Path.Combine(editorDir, EngineLibsSync.SourceGeneratorDllName);
-			if (!File.Exists(generatorDllPath))
-			{
-				EditorDebug.Warn($"Source generator DLL not found at: {generatorDllPath}. " +
-					"ComponentData will not be auto-generated for editor scripts.", "ScriptCompilation");
-				_cachedGenerators = Array.Empty<ISourceGenerator>();
-				return _cachedGenerators;
-			}
+			EditorDebug.Log($"Loading source generator from: {generatorDllPath}", "ScriptCompilation");
 
 			try
 			{
@@ -337,16 +340,95 @@ namespace Voltage.Editor.Scripting
 					}
 				}
 
+				if (generators.Count == 0)
+				{
+					// DLL was found and loaded but no IIncrementalGenerator types were discovered.
+					// This can happen due to a Roslyn version mismatch between the editor's
+					// Microsoft.CodeAnalysis and the generator's referenced version.
+					Debug.Error($"[ScriptCompiler] {EngineLibsSync.SourceGeneratorDllName} was loaded but " +
+						$"contains 0 IIncrementalGenerator implementations. " +
+						$"This may indicate a Microsoft.CodeAnalysis version mismatch. " +
+						$"Editor Roslyn: {typeof(CSharpCompilation).Assembly.GetName().Version}, " +
+						$"Generator assembly: {generatorAssembly.GetName().Version}");
+
+					// Log all types for debugging
+					var allTypes = generatorAssembly.GetTypes();
+					foreach (var t in allTypes)
+					{
+						var interfaces = t.GetInterfaces().Select(i => i.FullName);
+						EditorDebug.Log($"  Type: {t.FullName} implements: [{string.Join(", ", interfaces)}]", "ScriptCompilation");
+					}
+				}
+
 				_cachedGenerators = generators;
 				EditorDebug.Log($"Loaded {generators.Count} source generator(s) from {EngineLibsSync.SourceGeneratorDllName}.", "ScriptCompilation");
 			}
 			catch (Exception ex)
 			{
-				EditorDebug.Error($"Failed to load source generators from {generatorDllPath}: {ex.Message}", "ScriptCompilation");
+				Debug.Error($"[ScriptCompiler] Failed to load source generators from {generatorDllPath}: {ex.Message}");
+				if (ex.InnerException != null)
+					Debug.Error($"  Inner: {ex.InnerException.Message}");
 				_cachedGenerators = Array.Empty<ISourceGenerator>();
 			}
 
 			return _cachedGenerators;
+		}
+
+		/// <summary>
+		/// Searches for the Voltage.SourceGenerators.dll in multiple locations:
+		/// 1. Next to the editor assembly (Assembly.Location)
+		/// 2. AppContext.BaseDirectory
+		/// 3. Current working directory
+		/// 4. The project's EngineLibs folder (if a project is loaded)
+		/// Returns the full path if found, null otherwise.
+		/// </summary>
+		private static string FindSourceGeneratorDll()
+		{
+			var dllName = EngineLibsSync.SourceGeneratorDllName;
+			var searchPaths = new List<string>();
+
+			// Strategy 1: Next to the editor assembly
+			var asmLocation = typeof(ScriptCompiler).Assembly.Location;
+			if (!string.IsNullOrEmpty(asmLocation))
+			{
+				var dir = Path.GetDirectoryName(asmLocation);
+				if (!string.IsNullOrEmpty(dir))
+					searchPaths.Add(dir);
+			}
+
+			// Strategy 2: AppContext.BaseDirectory
+			var baseDir = AppContext.BaseDirectory;
+			if (!string.IsNullOrEmpty(baseDir))
+				searchPaths.Add(baseDir);
+
+			// Strategy 3: Current working directory
+			var cwd = Environment.CurrentDirectory;
+			if (!string.IsNullOrEmpty(cwd))
+				searchPaths.Add(cwd);
+
+			// Strategy 4: Project EngineLibs folder
+			var projectPath = ProjectManager.Instance?.CurrentProject?.ProjectPath;
+			if (!string.IsNullOrEmpty(projectPath))
+				searchPaths.Add(EngineLibsSync.GetEngineLibsPath(projectPath));
+
+			// Deduplicate and search
+			var searched = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			foreach (var dir in searchPaths)
+			{
+				if (string.IsNullOrEmpty(dir) || !searched.Add(dir))
+					continue;
+
+				var candidate = Path.Combine(dir, dllName);
+				EditorDebug.Log($"Searching for source generator at: {candidate}", "ScriptCompilation");
+				if (File.Exists(candidate))
+					return candidate;
+			}
+
+			// Log all searched paths for diagnostic
+			Debug.Error($"[ScriptCompiler] Searched {searched.Count} paths for {dllName}: " +
+				string.Join(", ", searched));
+
+			return null;
 		}
 	}
 

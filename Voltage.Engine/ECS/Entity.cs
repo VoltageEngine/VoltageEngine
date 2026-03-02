@@ -95,7 +95,7 @@ public sealed class Entity : IComparable<Entity>
 	public bool IsSelectableInEditor = true;
 
 	[JsonExclude] 
-	public List<Component> ComponentsToAdd => Components._componentsToAdd;
+	public List<Component> ComponentsToAdd => Components.ComponentsToAdd;
 
 	/// <summary>
 	/// use this however you want to. It can later be used to query the scene for all Entities with a specific tag

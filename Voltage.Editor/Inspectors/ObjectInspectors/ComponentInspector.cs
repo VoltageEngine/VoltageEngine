@@ -22,13 +22,15 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 		public override Entity Entity => _component.Entity;
 		public override Component Component => _component;
 
-		Component _component;
-		string _name;
-		List<Action> _componentDelegateMethods = new List<Action>();
-		
+		private readonly Component _component;
+		private readonly string _name;
+
+		// Basically buttons for components, like "Apply Sprite Changes" on SpriteRenderer, or "Reset Transform" on Transform, etc.
+		private readonly List<Action> _componentDelegateMethods = new List<Action>(); 
+
 		// Separate lists for regular and read-only struct inspectors
-		private List<AbstractTypeInspector> _regularInspectors = new List<AbstractTypeInspector>();
-		private List<AbstractTypeInspector> _readOnlyStructInspectors = new List<AbstractTypeInspector>();
+		private readonly List<AbstractTypeInspector> _regularInspectors = new List<AbstractTypeInspector>();
+		private readonly List<AbstractTypeInspector> _readOnlyStructInspectors = new List<AbstractTypeInspector>();
 		private bool _isReadOnlyStructsOpen = false;
 
 		public ComponentInspector(Component component)
@@ -252,10 +254,6 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 
 			if (isHeaderOpen)
 			{
-				var enabled = _component.Enabled;
-				if (ImGui.Checkbox("Enabled", ref enabled))
-					_component.SetEnabled(enabled);
-
 				// Draw regular inspectors
 				for (var i = _regularInspectors.Count - 1; i >= 0; i--)
 				{
@@ -306,7 +304,6 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 					}
 				}
 				
-				// Draw delegate methods (buttons)
 				foreach (var action in _componentDelegateMethods)
 					action();
 			}
@@ -331,10 +328,7 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 
 			try
 			{
-				// Store old data for undo
-				var oldData = targetComponent.Data;
-
-				// Get the source component's data
+				var oldData = targetComponent.Data;// Store old data for undo
 				var sourceData = sourceComponent.Data;
 
 				if (sourceData == null)
@@ -343,7 +337,6 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 					return;
 				}
 
-				// DEEP CLONE using JSON serialization (most reliable approach)
 				ComponentData clonedData;
 				try
 				{
