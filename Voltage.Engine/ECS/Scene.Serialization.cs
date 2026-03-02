@@ -216,8 +216,12 @@ namespace Voltage
 			{
 				entData.ComponentDataList.Clear();
 
+				// Include both live and pending-add components.
+				var allComponents = entity.Components
+					.Concat(entity.ComponentsToAdd);
+
 				// Serialize only components marked as serialized (added via editor/scene data)
-				foreach (var component in entity.Components)
+				foreach (var component in allComponents)
 				{
 					if (!component.IsSerialized)
 						continue;
@@ -533,8 +537,11 @@ namespace Voltage
 					}
 					else
 					{
-						Debug.Error($"Component type '{entry.DataTypeName}' is not registered in ComponentDataTypeRegistrator.DataTypes");
-						return false;
+						Debug.Warn($"Could not resolve component data type '{entry.DataTypeName}' for component '{component.Name}'. " +
+							"The data will be skipped. Re-save the scene to clear stale entries.");
+						entityData.ComponentDataList.RemoveAt(i);
+						entity.SetEntityData(entityData);
+						return true;
 					}
 				}
 			}

@@ -26,7 +26,7 @@ public class ComponentList : IEnumerable<Component>
 	/// <summary>
 	/// The list of components that were added this frame. Used to group the components so we can process them simultaneously
 	/// </summary>
-	internal List<Component> _componentsToAdd = new();
+	internal List<Component> ComponentsToAdd = new();
 
 	/// <summary>
 	/// The list of components that were marked for removal this frame. Used to group the components so we can process them simultaneously
@@ -62,7 +62,7 @@ public class ComponentList : IEnumerable<Component>
 
 	public void Add(Component component)
 	{
-		_componentsToAdd.Add(component);
+		ComponentsToAdd.Add(component);
 	}
 
 	public void Remove(Component component)
@@ -71,9 +71,9 @@ public class ComponentList : IEnumerable<Component>
 			$"You are trying to remove a Component ({component}) that you already removed");
 
 		// this may not be a live Component so we have to watch out for if it hasnt been processed yet but it is being removed in the same frame
-		if (_componentsToAdd.Contains(component))
+		if (ComponentsToAdd.Contains(component))
 		{
-			_componentsToAdd.Remove(component);
+			ComponentsToAdd.Remove(component);
 			return;
 		}
 
@@ -90,7 +90,7 @@ public class ComponentList : IEnumerable<Component>
 
 		_components.Clear();
 		_updatableComponents.Clear();
-		_componentsToAdd.Clear();
+		ComponentsToAdd.Clear();
 		_componentsToRemove.Clear();
 	}
 
@@ -142,11 +142,11 @@ public class ComponentList : IEnumerable<Component>
 		}
 
 		// handle additions
-		if (_componentsToAdd.Count > 0)
+		if (ComponentsToAdd.Count > 0)
 		{
-			for (int i = 0, count = _componentsToAdd.Count; i < count; i++)
+			for (int i = 0, count = ComponentsToAdd.Count; i < count; i++)
 			{
-				var component = _componentsToAdd[i];
+				var component = ComponentsToAdd[i];
 				if (component is RenderableComponent)
 					_entity.Scene.RenderableComponents.Add(component as RenderableComponent);
 
@@ -158,7 +158,7 @@ public class ComponentList : IEnumerable<Component>
 			}
 
 			// clear before calling onAddedToEntity in case more Components are added then
-			_componentsToAdd.Clear();
+			ComponentsToAdd.Clear();
 			_isComponentListUnsorted = true;
 
 			// now that all components are added to the scene, we loop through again and call onAddedToEntity/onEnabled
@@ -215,9 +215,9 @@ public class ComponentList : IEnumerable<Component>
 
 		// we optionally check the pending components just in case addComponent and getComponent are called in the same frame
 		if (!onlyReturnInitializedComponents)
-			for (var i = 0; i < _componentsToAdd.Count; i++)
+			for (var i = 0; i < ComponentsToAdd.Count; i++)
 			{
-				var component = _componentsToAdd[i];
+				var component = ComponentsToAdd[i];
 				if (component is T)
 					return component as T;
 			}
@@ -241,9 +241,9 @@ public class ComponentList : IEnumerable<Component>
 		}
 
 		// we also check the pending components just in case addComponent and getComponent are called in the same frame
-		for (var i = 0; i < _componentsToAdd.Count; i++)
+		for (var i = 0; i < ComponentsToAdd.Count; i++)
 		{
-			var component = _componentsToAdd[i];
+			var component = ComponentsToAdd[i];
 			if (component is T)
 				components.Add(component as T);
 		}
@@ -297,9 +297,9 @@ public class ComponentList : IEnumerable<Component>
 			if (_components.Buffer[i].Enabled)
 				_components.Buffer[i].OnEntityTransformChanged(comp);
 
-		for (var i = 0; i < _componentsToAdd.Count; i++)
-			if (_componentsToAdd[i].Enabled)
-				_componentsToAdd[i].OnEntityTransformChanged(comp);
+		for (var i = 0; i < ComponentsToAdd.Count; i++)
+			if (ComponentsToAdd[i].Enabled)
+				ComponentsToAdd[i].OnEntityTransformChanged(comp);
 	}
 
 	internal void OnEntityEnabled()
@@ -346,7 +346,7 @@ public class ComponentList : IEnumerable<Component>
 	/// <returns></returns>
 	public List<Component> GetComponentsToAddList()
 	{
-		 return _componentsToAdd;
+		 return ComponentsToAdd;
 	}
 
 	#endregion
@@ -368,9 +368,9 @@ public class ComponentList : IEnumerable<Component>
 		}
 
 		// we also check the pending components just in case addComponent and getComponent are called in the same frame
-		for (var i = 0; i < _componentsToAdd.Count; i++)
+		for (var i = 0; i < ComponentsToAdd.Count; i++)
 		{
-			var component = _componentsToAdd[i];
+			var component = ComponentsToAdd[i];
 			if (component is T && component.Name == name)
 				return component as T;
 		}

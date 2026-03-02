@@ -1,4 +1,4 @@
-<Project>
+﻿<Project>
 	<Import Sdk="Microsoft.NET.Sdk" Project="Sdk.props" />
 
 	<PropertyGroup>
@@ -6,13 +6,14 @@
 		<RootNamespace>Voltage.Editor</RootNamespace>
 		<AssemblyName>Voltage.Editor</AssemblyName>
 		<TargetFramework>net8.0</TargetFramework>
-		<RuntimeIdentifiers>win-x86;win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
-		<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+		<RuntimeIdentifiers>win-x86;win-x64;linux-x64;osx-x64;win-arm64;linux-arm;linux-arm64;osx-arm64</RuntimeIdentifiers>
 		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
 		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
 		<GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<Configurations>Editor-Debug;Editor-Release</Configurations>
+		<SelfContained>true</SelfContained>
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
 	</PropertyGroup>
 
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Editor-Debug|AnyCPU' ">
@@ -48,7 +49,7 @@
 
 	<!-- Copy ImGui native code to output -->
 	<PropertyGroup>
-		<ImGuiRuntimes>$(NuGetPackageRoot)\imgui.net\**\runtimes\</ImGuiRuntimes>
+		<ImGuiRuntimes>$(NuGetPackageRoot)\imgui.net\1.89.5\runtimes\</ImGuiRuntimes>
 	</PropertyGroup>
 
 	<!-- Suppress Roslyn satellite assemblies globally -->
@@ -75,19 +76,23 @@
 	</Target>
 
 	<ItemGroup>
-		<Content Include="$(ImGuiRuntimes)win-x86\native\*.dll" Condition="'$(OS)' == 'Windows_NT' AND '$(Platform)' != 'x64'">
+		<Content Include="$(ImGuiRuntimes)win-x86\native\*.dll"
+		         Condition="'$(OS)' == 'Windows_NT' AND '$(RuntimeIdentifier)' == 'win-x86'">
 			<Link>%(Filename)%(Extension)</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
-		<Content Include="$(ImGuiRuntimes)win-x64\native\*.dll" Condition="'$(OS)' == 'Windows_NT' AND '$(Platform)' != 'x86'">
+		<Content Include="$(ImGuiRuntimes)win-x64\native\*.dll"
+		         Condition="'$(OS)' == 'Windows_NT' AND '$(RuntimeIdentifier)' == 'win-x64'">
 			<Link>%(Filename)%(Extension)</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
-		<Content Include="$(ImGuiRuntimes)osx-x64\native\*.dylib" Condition="'$(OS)' != 'Windows_NT' AND $(IsOSX) == 'true'">
+		<Content Include="$(ImGuiRuntimes)osx-x64\native\*.dylib"
+		         Condition="'$(OS)' != 'Windows_NT' AND $(IsOSX) == 'true'">
 			<Link>libcimgui.dylib</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
-		<Content Include=".$(ImGuiRuntimes)linux-x64\native\*.so" Condition="'$(OS)' != 'Windows_NT' AND $(IsLinux) == 'true'">
+		<Content Include=".$(ImGuiRuntimes)linux-x64\native\*.so"
+		         Condition="'$(OS)' != 'Windows_NT' AND $(IsLinux) == 'true'">
 			<Link>%(Filename)%(Extension)</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
@@ -121,9 +126,8 @@
 	    gets copied to the editor's output directory so EngineLibsSync can deploy it to game projects.
 	  -->
 	  <ProjectReference Include="..\Voltage.SourceGenerators\Voltage.SourceGenerators\Voltage.SourceGenerators.csproj"
-                    ReferenceOutputAssembly="true"
-                    OutputItemType=""
-                    SetTargetFramework="TargetFramework=netstandard2.0" />
+                  OutputItemType="Analyzer"
+                  ReferenceOutputAssembly="false" />
 	</ItemGroup>
 
 	<!-- Copy DefaultContent to output, but exclude the Effects folder (since we compile them) -->
@@ -137,6 +141,31 @@
 	  <Folder Include="Content\Voltage\Layouts\" />
 	  <Folder Include="Content\Voltage\User\" />
 	</ItemGroup>
+
+	<!-- Ensure MonoGame native libraries (SDL2, OpenAL, etc.) are included in publish output.
+	     MonoGame.Framework.DesktopGL uses custom MSBuild targets for native lib copy during build,
+	     but these are bypassed during publish. This target fills that gap. -->
+	<Target Name="CopyMonoGameNativeLibsToPublish" AfterTargets="ComputeFilesToPublish">
+		<PropertyGroup>
+			<MonoGameRuntimes>$(NuGetPackageRoot)monogame.framework.desktopgl\3.8.5-preview.1\runtimes\</MonoGameRuntimes>
+		</PropertyGroup>
+
+		<ItemGroup Condition="$(RuntimeIdentifier.StartsWith('win'))">
+			<ResolvedFileToPublish Include="$(MonoGameRuntimes)$(RuntimeIdentifier)\native\*.*"
+			                      RelativePath="%(Filename)%(Extension)"
+			                      CopyToPublishDirectory="PreserveNewest" />
+		</ItemGroup>
+		<ItemGroup Condition="$(RuntimeIdentifier.StartsWith('linux'))">
+			<ResolvedFileToPublish Include="$(MonoGameRuntimes)$(RuntimeIdentifier)\native\*.*"
+			                      RelativePath="%(Filename)%(Extension)"
+			                      CopyToPublishDirectory="PreserveNewest" />
+		</ItemGroup>
+		<ItemGroup Condition="$(RuntimeIdentifier.StartsWith('osx'))">
+			<ResolvedFileToPublish Include="$(MonoGameRuntimes)$(RuntimeIdentifier)\native\*.*"
+			                      RelativePath="%(Filename)%(Extension)"
+			                      CopyToPublishDirectory="PreserveNewest" />
+		</ItemGroup>
+	</Target>
 
 	<Import Sdk="Microsoft.NET.Sdk" Project="Sdk.targets" />
 </Project>
