@@ -360,6 +360,10 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void OnSceneLoadedHandler(string scenePath)
 	{
+		if (Core.Scene != null)
+		{
+			DataManager.RestoreEditorCameraState(Core.Scene);
+		}
 	}
 
 	private void OnSceneSavedHandler(string scenePath)
