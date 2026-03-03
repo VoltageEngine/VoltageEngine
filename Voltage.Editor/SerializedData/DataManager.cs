@@ -55,8 +55,6 @@ public class DataManager : GlobalManager
 	// camera entity stays NonSerialized and no duplicate is ever created.
 	private const string kEditorCameraPosX = "EditorCamera.PositionX";
 	private const string kEditorCameraPosY = "EditorCamera.PositionY";
-	private const string kEditorCameraZoom = "EditorCamera.Zoom";
-	private const string kEditorCameraRotation = "EditorCamera.Rotation";
 
 	/// <summary>
 	/// Snapshots the editor camera state into SceneData.EditorData.
@@ -74,6 +72,49 @@ public class DataManager : GlobalManager
 		var ed = scene.SceneData.EditorData;
 		ed[kEditorCameraPosX] = scene.Camera.Position.X.ToString(CultureInfo.InvariantCulture);
 		ed[kEditorCameraPosY] = scene.Camera.Position.Y.ToString(CultureInfo.InvariantCulture);
+	}
+
+	/// <summary>
+	/// Restores the editor camera state from SceneData.EditorData.
+	/// Should be called after the scene and its entities have been fully loaded.
+	/// Also updates the ImGuiManager's camera target position so the lerp
+	/// doesn't fight the restored position.
+	/// </summary>
+	public static void RestoreEditorCameraState(Scene scene)
+	{
+		if (scene?.Camera == null || scene.SceneData == null)
+			return;
+
+		var ed = scene.SceneData.EditorData;
+		if (ed == null)
+			return;
+
+		float posX = 0f, posY = 0f;
+		bool hasPosition = false;
+
+		if (ed.TryGetValue(kEditorCameraPosX, out var posXStr) &&
+			float.TryParse(posXStr, System.Globalization.NumberStyles.Float, CultureInfo.InvariantCulture, out posX) &&
+			ed.TryGetValue(kEditorCameraPosY, out var posYStr) &&
+			float.TryParse(posYStr, System.Globalization.NumberStyles.Float, CultureInfo.InvariantCulture, out posY))
+		{
+			hasPosition = true;
+		}
+
+		if (hasPosition)
+		{
+			var restoredPos = new Microsoft.Xna.Framework.Vector2(posX, posY);
+			scene.Camera.Position = restoredPos;
+
+			// Also update the ImGuiManager's camera target so the lerp
+			// doesn't snap back to the default position on the next frame.
+			var imGuiManager = Core.GetGlobalManager<Voltage.Editor.ImGuiCore.ImGuiManager>();
+			if (imGuiManager != null)
+			{
+				imGuiManager.CameraTargetPosition = restoredPos;
+			}
+
+			Debug.Log($"Restored editor camera position: ({posX}, {posY})");
+		}
 	}
 
 	#endregion
