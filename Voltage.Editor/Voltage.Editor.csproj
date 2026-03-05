@@ -76,36 +76,22 @@
 	</Target>
 
 	<ItemGroup>
-		<Content Include="$(ImGuiRuntimes)win-x86\native\*.dll"
-		         Condition="'$(OS)' == 'Windows_NT' AND '$(RuntimeIdentifier)' == 'win-x86'">
+		<Content Include="$(ImGuiRuntimes)win-x86\native\*.dll" Condition="'$(OS)' == 'Windows_NT' AND '$(RuntimeIdentifier)' == 'win-x86'">
 			<Link>%(Filename)%(Extension)</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
-		<Content Include="$(ImGuiRuntimes)win-x64\native\*.dll"
-		         Condition="'$(OS)' == 'Windows_NT' AND '$(RuntimeIdentifier)' == 'win-x64'">
+		<Content Include="$(ImGuiRuntimes)win-x64\native\*.dll" Condition="'$(OS)' == 'Windows_NT' AND '$(RuntimeIdentifier)' == 'win-x64'">
 			<Link>%(Filename)%(Extension)</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
-		<Content Include="$(ImGuiRuntimes)osx-x64\native\*.dylib"
-		         Condition="'$(OS)' != 'Windows_NT' AND $(IsOSX) == 'true'">
+		<Content Include="$(ImGuiRuntimes)osx-x64\native\*.dylib" Condition="'$(OS)' != 'Windows_NT' AND $(IsOSX) == 'true'">
 			<Link>libcimgui.dylib</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
-		<Content Include=".$(ImGuiRuntimes)linux-x64\native\*.so"
-		         Condition="'$(OS)' != 'Windows_NT' AND $(IsLinux) == 'true'">
+		<Content Include=".$(ImGuiRuntimes)linux-x64\native\*.so" Condition="'$(OS)' != 'Windows_NT' AND $(IsLinux) == 'true'">
 			<Link>%(Filename)%(Extension)</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
-	</ItemGroup>
-
-	<ItemGroup>
-	  <None Remove="Icon.bmp" />
-	  <None Remove="Icon.ico" />
-	</ItemGroup>
-	
-	<ItemGroup>
-	  <EmbeddedResource Include="Icon.bmp" />
-	  <EmbeddedResource Include="Icon.ico" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -125,9 +111,7 @@
 	    via CSharpGeneratorDriver during dynamic script compilation. This also ensures the DLL
 	    gets copied to the editor's output directory so EngineLibsSync can deploy it to game projects.
 	  -->
-	  <ProjectReference Include="..\Voltage.SourceGenerators\Voltage.SourceGenerators\Voltage.SourceGenerators.csproj"
-                  OutputItemType="Analyzer"
-                  ReferenceOutputAssembly="false" />
+	  <ProjectReference Include="..\Voltage.SourceGenerators\Voltage.SourceGenerators\Voltage.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	</ItemGroup>
 
 	<!-- Copy DefaultContent to output, but exclude the Effects folder (since we compile them) -->
@@ -135,6 +119,14 @@
 		<Content Include="DefaultContent\**\*" Exclude="DefaultContent\Effects\**\*">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
+	</ItemGroup>
+	<ItemGroup>
+	  <None Remove="Icon.bmp" />
+	  <None Remove="Icon.ico" />
+	</ItemGroup>
+	<ItemGroup>
+	  <EmbeddedResource Include="Icon.bmp" />
+	  <EmbeddedResource Include="Icon.ico" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -151,19 +143,13 @@
 		</PropertyGroup>
 
 		<ItemGroup Condition="$(RuntimeIdentifier.StartsWith('win'))">
-			<ResolvedFileToPublish Include="$(MonoGameRuntimes)$(RuntimeIdentifier)\native\*.*"
-			                      RelativePath="%(Filename)%(Extension)"
-			                      CopyToPublishDirectory="PreserveNewest" />
+			<ResolvedFileToPublish Include="$(MonoGameRuntimes)$(RuntimeIdentifier)\native\*.*" RelativePath="%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
 		</ItemGroup>
 		<ItemGroup Condition="$(RuntimeIdentifier.StartsWith('linux'))">
-			<ResolvedFileToPublish Include="$(MonoGameRuntimes)$(RuntimeIdentifier)\native\*.*"
-			                      RelativePath="%(Filename)%(Extension)"
-			                      CopyToPublishDirectory="PreserveNewest" />
+			<ResolvedFileToPublish Include="$(MonoGameRuntimes)$(RuntimeIdentifier)\native\*.*" RelativePath="%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
 		</ItemGroup>
 		<ItemGroup Condition="$(RuntimeIdentifier.StartsWith('osx'))">
-			<ResolvedFileToPublish Include="$(MonoGameRuntimes)$(RuntimeIdentifier)\native\*.*"
-			                      RelativePath="%(Filename)%(Extension)"
-			                      CopyToPublishDirectory="PreserveNewest" />
+			<ResolvedFileToPublish Include="$(MonoGameRuntimes)$(RuntimeIdentifier)\native\*.*" RelativePath="%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
 		</ItemGroup>
 	</Target>
 
