@@ -6,7 +6,7 @@ using Voltage.Editor.DebugUtils;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Utils;
 
-namespace Voltage.Editor.Tools;
+namespace Voltage.Editor.Effects;
 
 public class EffectsCompiler
 {
@@ -460,7 +460,7 @@ public class EffectsCompiler
 				EditorDebug.Log($"Successfully built {project.ProjectName} effects");
 			}
 		}
-		catch (System.OperationCanceledException)
+		catch (OperationCanceledException)
 		{
 			Debug.Log($"Build cancelled for {project.ProjectName}");
 		}
@@ -508,7 +508,7 @@ public class EffectsCompiler
 				EditorDebug.Log("Successfully built Engine effects");
 			}
 		}
-		catch (System.OperationCanceledException)
+		catch (OperationCanceledException)
 		{
 			Debug.Log("Engine effects build cancelled");
 		}
@@ -565,7 +565,7 @@ public class EffectsCompiler
 				EditorDebug.Log("Successfully built all effects");
 			}
 		}
-		catch (System.OperationCanceledException)
+		catch (OperationCanceledException)
 		{
 			Debug.Log("Build all effects cancelled");
 		}

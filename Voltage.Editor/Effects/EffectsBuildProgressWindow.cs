@@ -2,7 +2,7 @@ using System;
 using Voltage.Editor.Utils;
 using Voltage.Utils;
 
-namespace Voltage.Editor.Tools
+namespace Voltage.Editor.Effects
 {
 	/// <summary>
 	/// ImGui window that displays progress of effect compilation using the reusable progress window

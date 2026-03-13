@@ -127,8 +127,8 @@ namespace Voltage.Editor.Scripting
 
 		/// <summary>
 		/// Get metadata references from currently loaded assemblies for compilation.
-		/// Prefers the local EngineLibs copy when a project is loaded, falling back
-		/// to the live assemblies in the AppDomain if EngineLibs is not available.
+		/// Uses the live loaded assemblies from the AppDomain rather than globbing
+		/// EngineLibs/*.dll, which would pick up native DLLs that Roslyn cannot read.
 		/// </summary>
 		private static List<MetadataReference> GetMetadataReferences()
 		{
@@ -152,34 +152,30 @@ namespace Voltage.Editor.Scripting
 				}
 			}
 
-			// Try to use the project's local EngineLibs copy for Voltage and MonoGame references.
-			// This ensures the compiler sees the exact same API surface the editor is running with,
-			// even if the on-disk build output DLLs are stale.
+			// Use the project's EngineLibs for Voltage and MonoGame references, but only
+			// load KNOWN MANAGED DLLs by name — never glob *.dll which picks up native binaries.
 			var projectPath = ProjectManager.Instance?.CurrentProject?.ProjectPath;
 			bool usedEngineLibs = false;
 
 			if (!string.IsNullOrEmpty(projectPath) && EngineLibsSync.IsReady(projectPath))
 			{
 				var engineLibsPath = EngineLibsSync.GetEngineLibsPath(projectPath);
-				var dlls = Directory.GetFiles(engineLibsPath, "*.dll");
+				int added = 0;
 
-				foreach (var dll in dlls)
+				foreach (var dllName in EngineLibsSync.ManagedReferenceDlls)
 				{
-					// Skip the source generator DLL - it is a netstandard2.0 Roslyn analyzer
-					// and must not be added as a runtime metadata reference.
-					if (Path.GetFileName(dll).Equals(EngineLibsSync.SourceGeneratorDllName, StringComparison.OrdinalIgnoreCase))
-						continue;
-
-					if (addedPaths.Add(dll))
+					var dllPath = Path.Combine(engineLibsPath, dllName);
+					if (File.Exists(dllPath) && addedPaths.Add(dllPath))
 					{
-						references.Add(MetadataReference.CreateFromFile(dll));
+						references.Add(MetadataReference.CreateFromFile(dllPath));
+						added++;
 					}
 				}
 
-				usedEngineLibs = dlls.Length > 0;
+				usedEngineLibs = added > 0;
 
 				if (usedEngineLibs)
-					EditorDebug.Log($"Using EngineLibs references from: {engineLibsPath}", "ScriptCompilation");
+					EditorDebug.Log($"Using {added} EngineLibs references from: {engineLibsPath}", "ScriptCompilation");
 			}
 
 			// Fallback: if EngineLibs is not available, use the live loaded assemblies
@@ -249,13 +245,6 @@ namespace Voltage.Editor.Scripting
 
 		/// <summary>
 		/// Runs the Voltage.SourceGenerators source generator against the compilation.
-		/// The generator is loaded from the Voltage.SourceGenerators.dll located next to
-		/// the editor executable. This is the same DLL that gets synced to EngineLibs for
-		/// standalone project builds via the Analyzer MSBuild item.
-		///
-		/// If the generator DLL cannot be found or loaded, compilation proceeds without it
-		/// (a warning is logged). Generator-produced diagnostics with Error severity are
-		/// added to the errors list.
 		/// </summary>
 		private static CSharpCompilation RunSourceGenerators(CSharpCompilation compilation, List<string> errors)
 		{
@@ -306,8 +295,6 @@ namespace Voltage.Editor.Scripting
 
 		/// <summary>
 		/// Loads the source generator instances from the Voltage.SourceGenerators.dll.
-		/// Searches multiple locations to handle different deployment scenarios
-		/// (VS debug, published, single-file, etc.). Results are cached.
 		/// </summary>
 		private static IReadOnlyList<ISourceGenerator> GetSourceGenerators()
 		{
@@ -342,16 +329,12 @@ namespace Voltage.Editor.Scripting
 
 				if (generators.Count == 0)
 				{
-					// DLL was found and loaded but no IIncrementalGenerator types were discovered.
-					// This can happen due to a Roslyn version mismatch between the editor's
-					// Microsoft.CodeAnalysis and the generator's referenced version.
 					Debug.Error($"[ScriptCompiler] {EngineLibsSync.SourceGeneratorDllName} was loaded but " +
 						$"contains 0 IIncrementalGenerator implementations. " +
 						$"This may indicate a Microsoft.CodeAnalysis version mismatch. " +
 						$"Editor Roslyn: {typeof(CSharpCompilation).Assembly.GetName().Version}, " +
 						$"Generator assembly: {generatorAssembly.GetName().Version}");
 
-					// Log all types for debugging
 					var allTypes = generatorAssembly.GetTypes();
 					foreach (var t in allTypes)
 					{
@@ -375,12 +358,7 @@ namespace Voltage.Editor.Scripting
 		}
 
 		/// <summary>
-		/// Searches for the Voltage.SourceGenerators.dll in multiple locations:
-		/// 1. Next to the editor assembly (Assembly.Location)
-		/// 2. AppContext.BaseDirectory
-		/// 3. Current working directory
-		/// 4. The project's EngineLibs folder (if a project is loaded)
-		/// Returns the full path if found, null otherwise.
+		/// Searches for the Voltage.SourceGenerators.dll in multiple locations.
 		/// </summary>
 		private static string FindSourceGeneratorDll()
 		{
@@ -411,6 +389,16 @@ namespace Voltage.Editor.Scripting
 			if (!string.IsNullOrEmpty(projectPath))
 				searchPaths.Add(EngineLibsSync.GetEngineLibsPath(projectPath));
 
+			// Strategy 5: Source generator project build output (during development)
+			var solutionDir = FindSolutionDir();
+			if (solutionDir != null)
+			{
+				var generatorProjectDir = Path.Combine(
+					solutionDir, "Voltage.SourceGenerators", "Voltage.SourceGenerators");
+				searchPaths.Add(Path.Combine(generatorProjectDir, "bin", "Debug", "netstandard2.0"));
+				searchPaths.Add(Path.Combine(generatorProjectDir, "bin", "Release", "netstandard2.0"));
+			}
+
 			// Deduplicate and search
 			var searched = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			foreach (var dir in searchPaths)
@@ -424,9 +412,25 @@ namespace Voltage.Editor.Scripting
 					return candidate;
 			}
 
-			// Log all searched paths for diagnostic
 			Debug.Error($"[ScriptCompiler] Searched {searched.Count} paths for {dllName}: " +
 				string.Join(", ", searched));
+
+			return null;
+		}
+
+		/// <summary>
+		/// Finds the solution root directory by walking up from the editor's base directory.
+		/// </summary>
+		private static string FindSolutionDir()
+		{
+			var dir = AppContext.BaseDirectory;
+			var di = new DirectoryInfo(dir);
+			while (di != null)
+			{
+				if (Directory.Exists(Path.Combine(di.FullName, "Voltage.Engine")))
+					return di.FullName;
+				di = di.Parent;
+			}
 
 			return null;
 		}

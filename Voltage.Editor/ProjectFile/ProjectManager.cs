@@ -6,6 +6,7 @@ using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.SceneFile;
 using Voltage.Editor.Scripting;
+using Voltage.Project;
 using Voltage.Utils;
 
 namespace Voltage.Editor.ProjectFile;

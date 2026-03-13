@@ -3,6 +3,7 @@ using System.IO;
 using Microsoft.Xna.Framework.Content;
 using Voltage.Editor.DebugUtils;
 using Voltage.Editor.SceneFile;
+using Voltage.Project;
 
 namespace Voltage.Editor.ProjectFile
 {

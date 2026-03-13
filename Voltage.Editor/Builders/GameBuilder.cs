@@ -63,8 +63,9 @@ public static class GameBuilder
 		EditorDebug.Log($"=== Starting Game Build for '{projectName}' ({platform.DisplayName}, {configuration}) ===", "GameBuilder");
 		EditorDebug.Log($"Build output: {buildDir}", "GameBuilder");
 
-		// Total steps: 1) dotnet publish, 2) Voltage content, 3) Project assets, 4) Data folder, 5) Project settings
-		OnBuildStarted?.Invoke(5);
+		// Total steps: 1) Build runtime engine libs, 2) dotnet publish, 3) Voltage content,
+		//              4) Project assets, 5) Data folder, 6) Project settings
+		OnBuildStarted?.Invoke(6);
 
 		try
 		{
@@ -77,10 +78,32 @@ public static class GameBuilder
 
 			cancellationToken.ThrowIfCancellationRequested();
 
-			// Step 1: Publish the game project (self-contained + trimmed)
+			// Step 1: Build engine DLLs in Release (no EDITOR) and sync to EngineLibs
+			OnBuildStepStarted?.Invoke("Building runtime engine libraries (without EDITOR)...");
+			bool runtimeLibsSuccess = await Task.Run(
+				() => EngineLibsSync.BuildRuntimeLibs(project.ProjectPath, debugBuild),
+				cancellationToken);
+			OnBuildStepCompleted?.Invoke("Build runtime engine libraries", runtimeLibsSuccess);
+
+			if (!runtimeLibsSuccess)
+			{
+				OnBuildFinished?.Invoke(false, "Failed to build runtime engine libraries. Check console for errors.");
+
+				// Restore editor-flavored DLLs so the Roslyn script compiler keeps working
+				EngineLibsSync.SyncToProject(project.ProjectPath);
+				return false;
+			}
+
+			cancellationToken.ThrowIfCancellationRequested();
+
+			// Step 2: Publish the game project (self-contained + trimmed)
 			OnBuildStepStarted?.Invoke($"Publishing game executable ({platform.DisplayName}, {configuration}, AOT + Trimmed)...");
 			bool publishSuccess = await Task.Run(() => PublishProject(project, platform, configuration, buildDir, cancellationToken), cancellationToken);
 			OnBuildStepCompleted?.Invoke("Publish game executable", publishSuccess);
+
+			// Restore editor-flavored DLLs immediately after publish so the Roslyn script
+			// compiler and IDE references continue to work correctly.
+			EngineLibsSync.SyncToProject(project.ProjectPath);
 
 			if (!publishSuccess)
 			{
@@ -90,33 +113,33 @@ public static class GameBuilder
 
 			cancellationToken.ThrowIfCancellationRequested();
 
-			// Step 2: Copy Voltage engine content files (compiled effects, fonts, etc.)
+			// Step 3: Copy Voltage engine content files (compiled effects, fonts, etc.)
 			OnBuildStepStarted?.Invoke("Copying Voltage engine content...");
 			bool voltageContentSuccess = CopyVoltageContent(buildDir);
 			OnBuildStepCompleted?.Invoke("Copy Voltage engine content", voltageContentSuccess);
 
 			cancellationToken.ThrowIfCancellationRequested();
 
-			// Step 3: Copy project assets (Content folder)
+			// Step 4: Copy project assets (Content folder)
 			OnBuildStepStarted?.Invoke("Copying project assets...");
 			bool assetsSuccess = CopyProjectAssets(project, buildDir, compileAssets);
 			OnBuildStepCompleted?.Invoke("Copy project assets", assetsSuccess);
 
 			cancellationToken.ThrowIfCancellationRequested();
 
-			// Step 4: Copy project Data folder (scenes, prefabs, serialized data)
+			// Step 5: Copy project Data folder (scenes, prefabs, serialized data)
 			OnBuildStepStarted?.Invoke("Copying project data...");
 			bool dataSuccess = CopyProjectData(project, buildDir);
 			OnBuildStepCompleted?.Invoke("Copy project data", dataSuccess);
 
 			cancellationToken.ThrowIfCancellationRequested();
 
-			// Step 5: Copy project settings
+			// Step 6: Copy project settings
 			OnBuildStepStarted?.Invoke("Copying project settings...");
 			bool settingsSuccess = CopyProjectSettings(project, buildDir);
 			OnBuildStepCompleted?.Invoke("Copy project settings", settingsSuccess);
 
-			bool allSuccess = publishSuccess && voltageContentSuccess && assetsSuccess && dataSuccess && settingsSuccess;
+			bool allSuccess = runtimeLibsSuccess && publishSuccess && voltageContentSuccess && assetsSuccess && dataSuccess && settingsSuccess;
 
 			if (allSuccess)
 			{
@@ -135,6 +158,9 @@ public static class GameBuilder
 		{
 			EditorDebug.Log("Game build cancelled.", "GameBuilder");
 			OnBuildFinished?.Invoke(false, "Build cancelled.");
+
+			// Restore editor DLLs on cancellation too
+			EngineLibsSync.SyncToProject(project.ProjectPath);
 			return false;
 		}
 		catch (Exception ex)
@@ -142,12 +168,16 @@ public static class GameBuilder
 			EditorDebug.Error($"Game build failed: {ex.Message}", "GameBuilder");
 			EditorDebug.Error($"Stack trace: {ex.StackTrace}", "GameBuilder");
 			OnBuildFinished?.Invoke(false, $"Build failed: {ex.Message}");
+
+			// Restore editor DLLs on failure
+			EngineLibsSync.SyncToProject(project.ProjectPath);
 			return false;
 		}
 	}
 
 	/// <summary>
 	/// Publishes the game project using dotnet publish as an AOT, trimmed deployment.
+	/// Note: EngineLibs should already contain runtime (non-EDITOR) DLLs at this point.
 	/// </summary>
 	private static bool PublishProject(IGameProject project, BuildPlatform platform, string configuration, string buildDir, CancellationToken cancellationToken)
 	{
@@ -161,9 +191,6 @@ public static class GameBuilder
 				EditorDebug.Error($"Project file not found: {csprojPath}", "GameBuilder");
 				return false;
 			}
-
-			// Sync engine DLLs before building
-			EngineLibsSync.SyncToProject(project.ProjectPath);
 
 			EnsureGenerateAssemblyInfoDisabled(csprojPath);
 

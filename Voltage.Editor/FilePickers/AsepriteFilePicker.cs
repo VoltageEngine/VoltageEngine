@@ -7,9 +7,9 @@ using System.IO;
 using System.Linq;
 using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Persistence;
-using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Utils;
 using Num = System.Numerics;
+using Voltage.Project;
 
 namespace Voltage.Editor.FilePickers
 {

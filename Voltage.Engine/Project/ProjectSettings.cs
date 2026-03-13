@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Voltage.Editor.ProjectFile
+namespace Voltage.Project
 {
 	public class ProjectSettings
 	{
