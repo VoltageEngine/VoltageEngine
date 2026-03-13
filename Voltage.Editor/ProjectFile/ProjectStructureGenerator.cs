@@ -137,15 +137,21 @@ namespace Voltage.Editor.ProjectFile
 			var projectFilePath = Path.Combine(projectPath, $"{projectName}.csproj");
 			EditorDebug.Log($"Creating project file: {projectFilePath}", "ProjectStructure");
 
-			// Build DLL references pointing to the local EngineLibs folder.
-			// This makes the game project fully self-contained — no dependency on the
-			// engine source tree path, so the project works anywhere it's opened.
-			var engineLibsPath = EngineLibsSync.GetEngineLibsPath(projectPath);
-			var engineLibsRelative = GetRelativePath(projectPath, engineLibsPath);
-
-			// Resolve the MonoGame version from the currently running editor so the
-			// game project always references the exact same packages.
 			var monoGameVersion = GetMonoGameVersion();
+
+			// Build explicit <Reference> items for each managed engine DLL.
+			// We NEVER glob EngineLibs\*.dll because that picks up native binaries
+			// (SDL2, clretwrc, System.IO.Compression.Native, etc.) which breaks MSBuild
+			// reference resolution and causes "System.Void is not defined" errors.
+			var referenceItems = new System.Text.StringBuilder();
+			foreach (var dllName in EngineLibsSync.ManagedReferenceDlls)
+			{
+				var assemblyName = Path.GetFileNameWithoutExtension(dllName);
+				referenceItems.AppendLine($"    <Reference Include=\"{assemblyName}\">");
+				referenceItems.AppendLine($"      <HintPath>$(MSBuildThisFileDirectory)EngineLibs\\{dllName}</HintPath>");
+				referenceItems.AppendLine($"      <Private>false</Private>");
+				referenceItems.AppendLine($"    </Reference>");
+			}
 
 			var csprojContent = $@"<Project Sdk=""Microsoft.NET.Sdk"">
 
@@ -181,27 +187,26 @@ namespace Voltage.Editor.ProjectFile
     <PackageReference Include=""MonoGame.Content.Builder.Task"" Version=""{monoGameVersion}"" />
   </ItemGroup>
 
-   <!--
-   EngineLibs: local copies of the Voltage engine DLLs, auto-synced by the Voltage Editor
-   on every project load. Do NOT commit this folder (it is .gitignored).
-   If these DLLs are missing, open the project in the Voltage Editor first to regenerate them.
- -->
- <ItemGroup>
-   <!-- Runtime engine references. The source generator DLL is excluded here
-        because it must be loaded as an Analyzer, not a runtime assembly. -->
-   <Reference Include=""$(MSBuildThisFileDirectory)EngineLibs\*.dll""
-              Exclude=""$(MSBuildThisFileDirectory)EngineLibs\Voltage.SourceGenerators.dll"" />
- </ItemGroup>
+  <!--
+    EngineLibs: local copies of the Voltage engine DLLs, auto-synced by the Voltage Editor
+    on every project load. Do NOT commit this folder (it is .gitignored).
+    If these DLLs are missing, open the project in the Voltage Editor first to regenerate them.
 
- <!--
-   Voltage.SourceGenerators: Roslyn incremental source generator that auto-generates a
-   ComponentData subclass and Data property override for every partial Component subclass.
-   Produces AOT-safe, zero-reflection serialization code at compile time.
-   Must be declared as an Analyzer item, not a Reference.
- -->
- <ItemGroup>
-   <Analyzer Include=""$(MSBuildThisFileDirectory)EngineLibs\Voltage.SourceGenerators.dll"" />
- </ItemGroup>
+    IMPORTANT: Only managed DLLs are listed here. Never add native binaries (SDL2, OpenAL,
+    clretwrc, etc.) — they are resolved automatically by the MonoGame NuGet package.
+  -->
+  <ItemGroup>
+{referenceItems}  </ItemGroup>
+
+  <!--
+    Voltage.SourceGenerators: Roslyn incremental source generator that auto-generates a
+    ComponentData subclass and Data property override for every partial Component subclass.
+    Produces AOT-safe, zero-reflection serialization code at compile time.
+    Must be declared as an Analyzer item, not a Reference.
+  -->
+  <ItemGroup>
+    <Analyzer Include=""$(MSBuildThisFileDirectory)EngineLibs\Voltage.SourceGenerators.dll"" />
+  </ItemGroup>
 
   <ItemGroup>
     <Content Include=""Content\**\*.*"">
@@ -253,8 +258,7 @@ EndGlobal";
 
 			var programContent = $@"using System;
 using Voltage;
-using Voltage.Data;
-using Voltage.Editor.ProjectFile;
+using Voltage.Project;
 
 namespace {projectName}
 {{

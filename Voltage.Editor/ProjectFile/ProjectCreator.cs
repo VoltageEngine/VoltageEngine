@@ -7,6 +7,7 @@ using Voltage.Editor.DebugUtils;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Tools;
 using Voltage.Editor.Utils;
+using Voltage.Project;
 using Voltage.Utils;
 using Num = System.Numerics;
 

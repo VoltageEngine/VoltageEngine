@@ -15,6 +15,7 @@ using Voltage.Editor.Undo.AssetActions;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Utils;
 using Voltage.Editor.Windows;
+using Voltage.Project;
 using Voltage.Sprites;
 using Voltage.Textures;
 using Voltage.Tiled;

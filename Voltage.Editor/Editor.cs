@@ -28,9 +28,6 @@ public class Editor : Core
 		IsEditMode = true;
 		var options = new ImGuiOptions();
 
-#if EDITOR
-		Debug.Error("HEllo there");
-#endif
 		if (Screen.ActualMonitorWidth <= 1920)
 		{
 			options.FontSizeMultiplier = 1f;

@@ -368,13 +368,16 @@ public class Core : Game
 	[Conditional("EDITOR")]
 	private void EndDebugUpdate()
 	{
+#if EDITOR
 		DebugConsole.Instance.Update();
 		drawCalls = 0;
+#endif
 	}
 
 	[Conditional("EDITOR")]
 	private void StartDebugDraw(TimeSpan elapsedGameTime)
 	{
+#if EDITOR
 		// fps counter
 		_frameCounter++;
 		_frameCounterElapsedTime += elapsedGameTime;
@@ -385,13 +388,16 @@ public class Core : Game
 			_frameCounter = 0;
 			_frameCounterElapsedTime -= TimeSpan.FromSeconds(1);
 		}
+#endif
 	}
 
 	[Conditional("EDITOR")]
 	private void EndDebugDraw()
 	{
+#if EDITOR
 		DebugConsole.Instance.Render();
 		drawCalls = GraphicsDevice.Metrics.DrawCount;
+#endif
 	}
 
 #endregion
