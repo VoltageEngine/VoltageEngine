@@ -5,7 +5,7 @@ namespace Voltage.Editor.Tools;
 /// <summary>
 /// Tracks the progress of effect compilation
 /// </summary>
-public class EffectBuildProgress
+public class EffectsCompileProgress
 {
     public int TotalFiles { get; set; }
     public int CompletedFiles { get; set; }
@@ -16,7 +16,7 @@ public class EffectBuildProgress
     
     public float Progress => TotalFiles > 0 ? (float)CompletedFiles / TotalFiles : 0f;
     
-    public event Action<EffectBuildProgress> OnProgressChanged;
+    public event Action<EffectsCompileProgress> OnProgressChanged;
     
     public void UpdateProgress(string currentFile)
     {

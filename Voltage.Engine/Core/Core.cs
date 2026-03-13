@@ -233,7 +233,11 @@ public class Core : Game
 			System.Console.WriteLine($"Embedded resource: {name}");
 		}
 
-		var font = Content.LoadBitmapFont("Content/VoltageDefaultBMFont.fnt");
+#if EDITOR
+		var font = Content.LoadBitmapFont("DefaultContent/Fonts/VoltageDefaultBMFont.fnt");
+#else
+		var font = Content.LoadBitmapFont("Content/Voltage/Fonts/VoltageDefaultBMFont.fnt");
+#endif
 		Graphics.Instance = new Graphics(font);
 	}
 
@@ -357,7 +361,7 @@ public class Core : Game
 		Exit();
 	}
 
-	#endregion
+#endregion
 
 	#region Debug Injection
 

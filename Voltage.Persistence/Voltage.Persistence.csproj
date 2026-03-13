@@ -19,7 +19,7 @@
 	</PropertyGroup>
 
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Editor-Debug|AnyCPU' ">
-		<DefineConstants>TRACE;EDITOR;</DefineConstants>
+		<DefineConstants>TRACE;EDITOR;EDITOR_DEBUG</DefineConstants>
 	</PropertyGroup>
 
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Editor-Release|AnyCPU' ">

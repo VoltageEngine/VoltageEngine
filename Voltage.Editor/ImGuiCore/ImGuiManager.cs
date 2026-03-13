@@ -24,6 +24,8 @@ using Voltage.Utils;
 using System.Runtime.InteropServices;
 using Num = System.Numerics;
 using Voltage.Editor.Windows;
+using Voltage.Editor.Builders;
+using Voltage.Editor.Effects;
 
 
 namespace Voltage.Editor.ImGuiCore;
@@ -133,8 +135,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private bool _isFirstFrame = true;
 
 	// Build effects progress window
-	private EffectBuildProgressWindow _effectBuildProgressWindow;
+	private EffectsCompileProgressWindow _effectsCompileProgressWindow;
 	private System.Threading.CancellationTokenSource _effectBuildCancelToken;
+
+	// Game build window
+	private GameBuildWindow _gameBuildWindow;
 
 	// Engine effects check
 	private bool _hasCheckedEngineEffects = false;
@@ -245,7 +250,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 			ImGui.SameLine();
 
-			if (ImGui.Button("Cancel", new Num.Vector2(buttonWidth, 0)))
+			if (ImGui.Button("Cancel", new Num.Vector2(buttonWidth, 0))
+				)
 			{
 				ImGui.CloseCurrentPopup();
 			}
@@ -332,7 +338,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		ImguiImageLoader.LoadImages(_renderer);
 
-		_effectBuildProgressWindow = new EffectBuildProgressWindow();
+		_effectsCompileProgressWindow = new EffectsCompileProgressWindow();
+		_gameBuildWindow = new GameBuildWindow();
 
 		_dataManager = DataManager.Instance;
 
@@ -436,7 +443,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		ShowCoreWindow = _coreWindow.Show(ShowCoreWindow);
 		_debugWindow.Draw();
 		DrawEntityInspectors();
-		_effectBuildProgressWindow.Draw();
+		_effectsCompileProgressWindow.Draw();
+		_gameBuildWindow.Draw();
 		_projectCreator.Draw();
 		_sceneCreator.Draw();
 		_projectSettingsWindow.Draw();
@@ -783,6 +791,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			DrawProjectMenu();
 			DrawViewMenu();
 			DrawScriptingMenu();
+			DrawEffectsMenu();
 			DrawBuildMenu();
 			DrawHelpMenu();
 
