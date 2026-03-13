@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using Voltage.Editor.DebugUtils;
+using Voltage.Editor.Effects;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.SceneFile;
 using Voltage.Editor.Tools;
@@ -169,7 +170,6 @@ public partial class ImGuiManager
 
 	private void DrawProjectMenu()
 	{
-		//TODO: Add ProjectSettings menu item
 		if (ImGui.BeginMenu("Project"))
 		{
 			if (ImGui.BeginMenu("New Scene"))
@@ -562,7 +562,7 @@ public partial class ImGuiManager
 
 		if (ImGui.Button("Yes", new Vector2(buttonWidth, 0)))
 		{
-			EffectBuilder.BuildEditorEngineEffects(_effectBuildProgressWindow, ref _effectBuildCancelToken);
+			EffectsCompiler.BuildEditorEngineEffects(_effectsCompileProgressWindow, ref _effectBuildCancelToken);
 			_showEngineEffectsPrompt = false;
 			_engineEffectsCheckComplete = true;
 			ImGui.CloseCurrentPopup();
@@ -791,74 +791,105 @@ public partial class ImGuiManager
 		}
 	}
 
-	private void DrawBuildMenu()
+	private void DrawEffectsMenu()
 	{
-		if (ImGui.BeginMenu("Build"))
+		if (ImGui.BeginMenu("Effects"))
 		{
 			bool hasProject = _projectManager.HasActiveProject;
-
-			if (ImGui.BeginMenu("Build Effects"))
-			{
-				if (!hasProject)
-				{
-					ImGui.BeginDisabled();
-				}
-
-				if (hasProject)
-				{
-					var projectName = _projectManager.CurrentProject.ProjectName;
-
-					if (ImGui.MenuItem($"Build \"{projectName}\" Effects"))
-					{
-						EffectBuilder.BuildEditorProjectEffects(_projectManager, _effectBuildProgressWindow, ref _effectBuildCancelToken);
-					}
-				}
-				else
-				{
-					if (ImGui.MenuItem("Build Project Effects"))
-					{
-						EditorDebug.Log("No active project loaded!");
-					}
-				}
-
-				if (!hasProject)
-				{
-					ImGui.EndDisabled();
-				}
-
-			if (ImGui.MenuItem("Build Engine Effects"))
-			{
-				EffectBuilder.BuildEditorEngineEffects(_effectBuildProgressWindow, ref _effectBuildCancelToken);
-			}
-
-			ImGui.Separator();
-
-				if (!hasProject)
-				{
-					ImGui.BeginDisabled();
-				}
-
-			if (ImGui.MenuItem("Build ALL Effects"))
-			{
-				EffectBuilder.BuildEditorAllEffects(_projectManager, _effectBuildProgressWindow, ref _effectBuildCancelToken);
-			}
-
-			if (!hasProject)
-				{
-					ImGui.EndDisabled();
-				}
-
-				ImGui.EndMenu();
-			}
 
 			if (!hasProject)
 			{
 				ImGui.BeginDisabled();
 			}
 
-			if (ImGui.MenuItem("Build Game"))
+			if (hasProject)
 			{
-				EditorDebug.Log("Build-Game = Not Implemented Yet!");
+				var projectName = _projectManager.CurrentProject.ProjectName;
+
+				if (ImGui.MenuItem($"Compile \"{projectName}\" Effects"))
+				{
+					EffectsCompiler.BuildEditorProjectEffects(_projectManager, _effectsCompileProgressWindow, ref _effectBuildCancelToken);
+				}
+			}
+			else
+			{
+				if (ImGui.MenuItem("Compile Project Effects"))
+				{
+					EditorDebug.Log("No active project loaded!");
+				}
+			}
+
+			if (!hasProject)
+			{
+				ImGui.EndDisabled();
+			}
+
+			if (ImGui.MenuItem("Compile Engine Effects"))
+			{
+				EffectsCompiler.BuildEditorEngineEffects(_effectsCompileProgressWindow, ref _effectBuildCancelToken);
+			}
+
+			ImGui.Separator();
+
+			if (!hasProject)
+			{
+				ImGui.BeginDisabled();
+			}
+
+			if (ImGui.MenuItem("Compile ALL Effects"))
+			{
+				EffectsCompiler.BuildEditorAllEffects(_projectManager, _effectsCompileProgressWindow, ref _effectBuildCancelToken);
+			}
+
+			if (!hasProject)
+			{
+				ImGui.EndDisabled();
+			}
+
+			ImGui.EndMenu();
+		}
+	}
+
+	private void DrawBuildMenu()
+	{
+		if (ImGui.BeginMenu("Build"))
+		{
+			bool hasProject = _projectManager.HasActiveProject;
+
+			if (!hasProject)
+			{
+				ImGui.BeginDisabled();
+			}
+
+			if (ImGui.MenuItem("Build Game..."))
+			{
+				_gameBuildWindow.OpenBuildPopup();
+			}
+
+			bool isBuildInProgress = _gameBuildWindow.IsBuilding;
+			if (isBuildInProgress)
+			{
+				ImGui.BeginDisabled();
+			}
+
+			if (ImGui.MenuItem("Build and Run", "Ctrl+F5"))
+			{
+				_gameBuildWindow.BuildAndRun();
+			}
+
+			if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+			{
+				if (isBuildInProgress)
+					ImGui.SetTooltip("A build is already in progress.");
+				else if (!hasProject)
+					ImGui.SetTooltip("No active project.");
+				else
+					ImGui.SetTooltip("Builds with the last selected options and launches the game executable.");
+			}
+
+			if (isBuildInProgress)
+			{
+				ImGui.EndDisabled();
 			}
 
 			if (!hasProject)

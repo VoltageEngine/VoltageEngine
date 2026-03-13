@@ -28,6 +28,12 @@ namespace Voltage.Editor.ProjectFile
 
 		public string ContentDirectory { get; set; } = "Content";
 
+		/// <summary>
+		/// The .vscene file name (without extension) that the game loads on startup.
+		/// When empty, the game creates a default empty scene.
+		/// </summary>
+		public string InitialScene { get; set; } = "";
+
 		public class DisplaySettings
 		{
 			public int ScreenWidth { get; set; } = 1280;

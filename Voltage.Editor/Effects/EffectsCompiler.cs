@@ -8,9 +8,9 @@ using Voltage.Editor.Utils;
 
 namespace Voltage.Editor.Tools;
 
-public class EffectBuilder
+public class EffectsCompiler
 {
-	public static EffectBuildProgress CurrentProgress { get; private set; }
+	public static EffectsCompileProgress CurrentProgress { get; private set; }
 	private static System.Threading.CancellationToken _currentCancellationToken;
 	private static Process _currentProcess;
 	private static readonly object _processLock = new object();
@@ -179,7 +179,7 @@ public class EffectBuilder
 		Debug.Log($"Found {shaderFiles.Length} shader file(s) to compile for {contextName}");
 
 		// Initialize progress tracking
-		CurrentProgress = new EffectBuildProgress
+		CurrentProgress = new EffectsCompileProgress
 		{
 			TotalFiles = shaderFiles.Length,
 			CompletedFiles = 0,
@@ -418,7 +418,7 @@ public class EffectBuilder
 	/// Builds effects for the current project.
 	/// </summary>
 	public static void BuildEditorProjectEffects(ProjectManager projectManager,
-		EffectBuildProgressWindow progressWindow, ref System.Threading.CancellationTokenSource buildCancellationToken)
+		EffectsCompileProgressWindow progressWindow, ref System.Threading.CancellationTokenSource buildCancellationToken)
 	{
 		if (!projectManager.HasActiveProject)
 		{
@@ -474,7 +474,7 @@ public class EffectBuilder
 	/// <summary>
 	/// Builds effects for the Voltage Engine.
 	/// </summary>
-	public static void BuildEditorEngineEffects(EffectBuildProgressWindow progressWindow,
+	public static void BuildEditorEngineEffects(EffectsCompileProgressWindow progressWindow,
 		ref System.Threading.CancellationTokenSource buildCancellationToken)
 	{
 		if (!IsMgfxcAvailable())
@@ -522,7 +522,7 @@ public class EffectBuilder
 	/// <summary>
 	/// Builds all effects (both project and engine).
 	/// </summary>
-	public static void BuildEditorAllEffects(ProjectManager projectManager, EffectBuildProgressWindow progressWindow,
+	public static void BuildEditorAllEffects(ProjectManager projectManager, EffectsCompileProgressWindow progressWindow,
 		ref System.Threading.CancellationTokenSource buildCancellationToken)
 	{
 		if (!projectManager.HasActiveProject)

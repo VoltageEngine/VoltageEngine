@@ -7,20 +7,20 @@ namespace Voltage.Editor.Tools
 	/// <summary>
 	/// ImGui window that displays progress of effect compilation using the reusable progress window
 	/// </summary>
-	public class EffectBuildProgressWindow
+	public class EffectsCompileProgressWindow
 	{
 		private CompilationProgressWindow _progressWindow;
 		private CompilationProgress _currentProgress;
 		private System.Threading.CancellationTokenSource _cancellationTokenSource;
 		
-		public EffectBuildProgressWindow()
+		public EffectsCompileProgressWindow()
 		{
 			_progressWindow = new CompilationProgressWindow(isScriptProgress: false, onCancel: OnCancelRequested);
 
-			EffectBuilder.OnBuildStarted += OnBuildStarted;
-			EffectBuilder.OnFileCompiling += OnFileCompiling;
-			EffectBuilder.OnFileCompiled += OnFileCompiled;
-			EffectBuilder.OnBuildCompleted += OnBuildCompleted;
+			EffectsCompiler.OnBuildStarted += OnBuildStarted;
+			EffectsCompiler.OnFileCompiling += OnFileCompiling;
+			EffectsCompiler.OnFileCompiled += OnFileCompiled;
+			EffectsCompiler.OnBuildCompleted += OnBuildCompleted;
 		}
 
 		public void SetCancellationToken(System.Threading.CancellationTokenSource cancellationTokenSource)

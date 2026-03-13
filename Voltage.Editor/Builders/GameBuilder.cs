@@ -1,0 +1,520 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Voltage.Editor.DebugUtils;
+using Voltage.Editor.ProjectFile;
+using Voltage.Editor.Scripting;
+using Voltage.Editor.Utils;
+
+namespace Voltage.Editor.Builders;
+
+/// <summary>
+/// Handles building/exporting a game project into a standalone executable.
+/// Produces a "Build" directory inside the game project folder containing:
+///   - The published executable (AOT + trimmed)
+///   - Voltage engine content files (compiled effects, etc.)
+///   - Project content/assets (copied raw or compiled via MGCB)
+///   - Project Data folder (scenes, prefabs, serialized component data)
+///   - Project settings
+/// </summary>
+public static class GameBuilder
+{
+	// Events for progress tracking
+	public static event Action<string> OnBuildStepStarted;
+	public static event Action<string, bool> OnBuildStepCompleted;
+	public static event Action<int> OnBuildStarted;
+	public static event Action<bool, string> OnBuildFinished;
+
+	/// <summary>
+	/// Builds the game project into a standalone executable.
+	/// </summary>
+	/// <param name="project">The game project to build</param>
+	/// <param name="platform">Target platform to publish for</param>
+	/// <param name="compileAssets">If true, assets would be compiled via MGCB (not yet implemented). If false, assets are copied raw.</param>
+	/// <param name="debugBuild">If true, publishes in Debug configuration; otherwise Release.</param>
+	/// <param name="cancellationToken">Token to cancel the build</param>
+	/// <returns>True if build succeeded</returns>
+	public static async Task<bool> BuildGameAsync(IGameProject project, BuildPlatform platform, bool compileAssets, bool debugBuild, CancellationToken cancellationToken)
+	{
+		if (project == null)
+		{
+			EditorDebug.Error("No project provided for game build!", "GameBuilder");
+			OnBuildFinished?.Invoke(false, "No project provided.");
+			return false;
+		}
+
+		if (platform == null)
+		{
+			EditorDebug.Error("No target platform specified for game build!", "GameBuilder");
+			OnBuildFinished?.Invoke(false, "No target platform specified.");
+			return false;
+		}
+
+		var configuration = debugBuild ? "Debug" : "Release";
+
+		// Each platform gets its own subfolder: Build/win-x64, Build/linux-x64, etc.
+		var buildDir = Path.Combine(project.ProjectPath, "Build", platform.FolderSuffix);
+		var projectName = project.ProjectName;
+
+		EditorDebug.Log($"=== Starting Game Build for '{projectName}' ({platform.DisplayName}, {configuration}) ===", "GameBuilder");
+		EditorDebug.Log($"Build output: {buildDir}", "GameBuilder");
+
+		// Total steps: 1) dotnet publish, 2) Voltage content, 3) Project assets, 4) Data folder, 5) Project settings
+		OnBuildStarted?.Invoke(5);
+
+		try
+		{
+			// Clean and create build directory
+			if (Directory.Exists(buildDir))
+			{
+				Directory.Delete(buildDir, true);
+			}
+			Directory.CreateDirectory(buildDir);
+
+			cancellationToken.ThrowIfCancellationRequested();
+
+			// Step 1: Publish the game project (self-contained + trimmed)
+			OnBuildStepStarted?.Invoke($"Publishing game executable ({platform.DisplayName}, {configuration}, AOT + Trimmed)...");
+			bool publishSuccess = await Task.Run(() => PublishProject(project, platform, configuration, buildDir, cancellationToken), cancellationToken);
+			OnBuildStepCompleted?.Invoke("Publish game executable", publishSuccess);
+
+			if (!publishSuccess)
+			{
+				OnBuildFinished?.Invoke(false, "Failed to publish game executable. Check console for errors.");
+				return false;
+			}
+
+			cancellationToken.ThrowIfCancellationRequested();
+
+			// Step 2: Copy Voltage engine content files (compiled effects, fonts, etc.)
+			OnBuildStepStarted?.Invoke("Copying Voltage engine content...");
+			bool voltageContentSuccess = CopyVoltageContent(buildDir);
+			OnBuildStepCompleted?.Invoke("Copy Voltage engine content", voltageContentSuccess);
+
+			cancellationToken.ThrowIfCancellationRequested();
+
+			// Step 3: Copy project assets (Content folder)
+			OnBuildStepStarted?.Invoke("Copying project assets...");
+			bool assetsSuccess = CopyProjectAssets(project, buildDir, compileAssets);
+			OnBuildStepCompleted?.Invoke("Copy project assets", assetsSuccess);
+
+			cancellationToken.ThrowIfCancellationRequested();
+
+			// Step 4: Copy project Data folder (scenes, prefabs, serialized data)
+			OnBuildStepStarted?.Invoke("Copying project data...");
+			bool dataSuccess = CopyProjectData(project, buildDir);
+			OnBuildStepCompleted?.Invoke("Copy project data", dataSuccess);
+
+			cancellationToken.ThrowIfCancellationRequested();
+
+			// Step 5: Copy project settings
+			OnBuildStepStarted?.Invoke("Copying project settings...");
+			bool settingsSuccess = CopyProjectSettings(project, buildDir);
+			OnBuildStepCompleted?.Invoke("Copy project settings", settingsSuccess);
+
+			bool allSuccess = publishSuccess && voltageContentSuccess && assetsSuccess && dataSuccess && settingsSuccess;
+
+			if (allSuccess)
+			{
+				EditorDebug.Log($"=== Game Build Complete ({platform.DisplayName}, {configuration}): {buildDir} ===", "GameBuilder");
+				OnBuildFinished?.Invoke(true, $"Build succeeded! Output: {buildDir}");
+			}
+			else
+			{
+				EditorDebug.Warn("Game build completed with some warnings. Check console.", "GameBuilder");
+				OnBuildFinished?.Invoke(true, "Build completed with warnings. Check console for details.");
+			}
+
+			return allSuccess;
+		}
+		catch (OperationCanceledException)
+		{
+			EditorDebug.Log("Game build cancelled.", "GameBuilder");
+			OnBuildFinished?.Invoke(false, "Build cancelled.");
+			return false;
+		}
+		catch (Exception ex)
+		{
+			EditorDebug.Error($"Game build failed: {ex.Message}", "GameBuilder");
+			EditorDebug.Error($"Stack trace: {ex.StackTrace}", "GameBuilder");
+			OnBuildFinished?.Invoke(false, $"Build failed: {ex.Message}");
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// Publishes the game project using dotnet publish as an AOT, trimmed deployment.
+	/// </summary>
+	private static bool PublishProject(IGameProject project, BuildPlatform platform, string configuration, string buildDir, CancellationToken cancellationToken)
+	{
+		try
+		{
+			var csprojPath = Path.Combine(project.ProjectPath, $"{project.ProjectName}.csproj");
+
+			if (!File.Exists(csprojPath))
+			{
+				Debug.Error($"Project file not found: {csprojPath}");
+				EditorDebug.Error($"Project file not found: {csprojPath}", "GameBuilder");
+				return false;
+			}
+
+			// Sync engine DLLs before building
+			EngineLibsSync.SyncToProject(project.ProjectPath);
+
+			EnsureGenerateAssemblyInfoDisabled(csprojPath);
+
+			var arguments = $"publish \"{csprojPath}\" " +
+			                $"-c {configuration} " +
+			                $"-r {platform.RuntimeIdentifier} " +
+			                $"-o \"{buildDir}\" " +
+			                $"--self-contained true " +
+			                $"-p:PublishSingleFile=true " +
+			                $"-p:PublishTrimmed=true " +
+			                $"-p:TrimMode=link " +
+			                $"-p:IncludeNativeLibrariesForSelfExtract=true";
+
+			EditorDebug.Log($"Running: dotnet {arguments}", "GameBuilder");
+
+			var processInfo = new ProcessStartInfo
+			{
+				FileName = "dotnet",
+				Arguments = arguments,
+				UseShellExecute = false,
+				RedirectStandardOutput = true,
+				RedirectStandardError = true,
+				CreateNoWindow = true,
+				WorkingDirectory = project.ProjectPath
+			};
+
+			using var process = Process.Start(processInfo);
+			if (process == null)
+			{
+				Debug.Error("Failed to start dotnet publish process");
+				return false;
+			}
+
+			// Read stdout and stderr asynchronously to prevent deadlocks on large output
+			var outputTask = process.StandardOutput.ReadToEndAsync();
+			var errorTask = process.StandardError.ReadToEndAsync();
+			process.WaitForExit();
+
+			var output = outputTask.Result;
+			var error = errorTask.Result;
+
+			if (cancellationToken.IsCancellationRequested)
+				return false;
+
+			if (!string.IsNullOrWhiteSpace(output))
+				EditorDebug.Log($"dotnet publish output:\n{output}", "GameBuilder");
+
+			if (process.ExitCode != 0)
+			{
+				Debug.Error($"dotnet publish failed (exit code {process.ExitCode})");
+				if (!string.IsNullOrWhiteSpace(error))
+					Debug.Error($"Errors:\n{error}");
+				if (!string.IsNullOrWhiteSpace(output))
+					Debug.Error($"Output:\n{output}");
+				return false;
+			}
+
+			EditorDebug.Log("dotnet publish succeeded.", "GameBuilder");
+			return true;
+		}
+		catch (Exception ex)
+		{
+			Debug.Error($"Error during dotnet publish: {ex.Message}");
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// Finds the game executable in the build output directory.
+	/// </summary>
+	public static string FindGameExecutable(IGameProject project, BuildPlatform platform)
+	{
+		var buildDir = Path.Combine(project.ProjectPath, "Build", platform.FolderSuffix);
+		if (!Directory.Exists(buildDir))
+			return null;
+
+		// On Windows, look for .exe; on Linux/macOS, look for file without extension
+		var exeName = platform.RuntimeIdentifier.StartsWith("win")
+			? $"{project.ProjectName}.exe"
+			: project.ProjectName;
+
+		var exePath = Path.Combine(buildDir, exeName);
+		return File.Exists(exePath) ? exePath : null;
+	}
+
+	/// <summary>
+	/// Ensures the .csproj contains GenerateAssemblyInfo=false to prevent CS0579
+	/// duplicate assembly attribute errors when Properties/AssemblyInfo.cs exists.
+	/// This patches older projects created before the fix was added to the template.
+	/// </summary>
+	private static void EnsureGenerateAssemblyInfoDisabled(string csprojPath)
+	{
+		try
+		{
+			var content = File.ReadAllText(csprojPath);
+
+			if (content.Contains("GenerateAssemblyInfo", StringComparison.OrdinalIgnoreCase))
+				return; // Already present, nothing to do
+
+			// Check if Properties/AssemblyInfo.cs exists — only patch if it does
+			var projectDir = Path.GetDirectoryName(csprojPath);
+			var assemblyInfoPath = Path.Combine(projectDir!, "Properties", "AssemblyInfo.cs");
+			if (!File.Exists(assemblyInfoPath))
+				return; // No manual AssemblyInfo, auto-generation is fine
+
+			// Insert <GenerateAssemblyInfo>false</GenerateAssemblyInfo> into the first PropertyGroup
+			const string marker = "</PropertyGroup>";
+			var insertIndex = content.IndexOf(marker, StringComparison.Ordinal);
+			if (insertIndex < 0)
+				return;
+
+			var insertion = "\n    <!-- Disable auto-generated assembly info to avoid conflicts with Properties/AssemblyInfo.cs -->" +
+			                "\n    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>\n  ";
+
+			content = content.Insert(insertIndex, insertion);
+			File.WriteAllText(csprojPath, content);
+
+			EditorDebug.Log("Patched .csproj with GenerateAssemblyInfo=false", "GameBuilder");
+		}
+		catch (Exception ex)
+		{
+			EditorDebug.Warn($"Could not patch .csproj for GenerateAssemblyInfo: {ex.Message}", "GameBuilder");
+		}
+	}
+
+	/// <summary>
+	/// Copies the Voltage engine content files (compiled effects, fonts, etc.) to the build output.
+	/// These are located in the editor's Content/Voltage directory.
+	/// </summary>
+	private static bool CopyVoltageContent(string buildDir)
+	{
+		try
+		{
+			var editorDir = FindEditorProjectDir();
+			var voltageContentSrc = Path.Combine(editorDir, "Content", "Voltage");
+
+			if (!Directory.Exists(voltageContentSrc))
+			{
+				Debug.Warn($"Voltage content directory not found: {voltageContentSrc}");
+				EditorDebug.Warn("No Voltage engine content found to copy. Effects may be missing.", "GameBuilder");
+				return true;
+			}
+
+			// Editor-only directories that should NOT be included in game builds
+			var excludedDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+			{
+				"Layouts",
+				"User"
+			};
+
+			var voltageContentDest = Path.Combine(buildDir, "Content", "Voltage");
+			CopyDirectoryRecursiveFiltered(voltageContentSrc, voltageContentDest, excludedDirs);
+
+			// Copy the default bitmap font and its texture into Content/Voltage/Fonts.
+			// Core.Initialize() loads it from "Content/Voltage/Fonts/VoltageDefaultBMFont.fnt".
+			var contentSrcDir = Path.Combine(editorDir, "Content");
+			var fontDestDir = Path.Combine(voltageContentDest, "Fonts");
+			Directory.CreateDirectory(fontDestDir);
+
+			var defaultFontFiles = new[]
+			{
+				"VoltageDefaultBMFont.fnt",
+				"VoltageDefaultBMFont_0.png"
+			};
+
+			foreach (var fontFile in defaultFontFiles)
+			{
+				var srcPath = Path.Combine(contentSrcDir, fontFile);
+				if (File.Exists(srcPath))
+				{
+					var destPath = Path.Combine(fontDestDir, fontFile);
+					File.Copy(srcPath, destPath, true);
+					EditorDebug.Log($"Copied default font file: {fontFile}", "GameBuilder");
+				}
+				else
+				{
+					EditorDebug.Warn($"Default font file not found: {srcPath}", "GameBuilder");
+				}
+			}
+
+			var copiedFiles = Directory.Exists(voltageContentDest)
+				? Directory.GetFiles(voltageContentDest, "*.*", SearchOption.AllDirectories)
+				: Array.Empty<string>();
+			EditorDebug.Log($"Copied {copiedFiles.Length} Voltage engine content file(s).", "GameBuilder");
+			return true;
+		}
+		catch (Exception ex)
+		{
+			Debug.Error($"Error copying Voltage content: {ex.Message}");
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// Recursively copies a directory and all its contents, excluding directories whose names
+	/// match any entry in the <paramref name="excludedDirNames"/> set.
+	/// </summary>
+	private static void CopyDirectoryRecursiveFiltered(string sourceDir, string destDir, HashSet<string> excludedDirNames)
+	{
+		Directory.CreateDirectory(destDir);
+
+		foreach (var file in Directory.GetFiles(sourceDir))
+		{
+			var destFile = Path.Combine(destDir, Path.GetFileName(file));
+			File.Copy(file, destFile, true);
+		}
+
+		foreach (var dir in Directory.GetDirectories(sourceDir))
+		{
+			var dirName = Path.GetFileName(dir);
+			if (excludedDirNames.Contains(dirName))
+				continue;
+
+			CopyDirectoryRecursiveFiltered(dir, Path.Combine(destDir, dirName), excludedDirNames);
+		}
+	}
+
+	/// <summary>
+	/// Copies the project's Content folder (assets) to the build output.
+	/// If compileAssets is false, files are copied as-is. If true, MGCB compilation would be used (not yet implemented).
+	/// </summary>
+	private static bool CopyProjectAssets(IGameProject project, string buildDir, bool compileAssets)
+	{
+		try
+		{
+			var contentSrc = project.ContentsFolder;
+
+			if (!Directory.Exists(contentSrc))
+			{
+				EditorDebug.Log("No Content folder found in project, skipping asset copy.", "GameBuilder");
+				return true;
+			}
+
+			var contentDest = Path.Combine(buildDir, "Content");
+			CopyDirectoryRecursive(contentSrc, contentDest);
+
+			var copiedFiles = Directory.Exists(contentDest)
+				? Directory.GetFiles(contentDest, "*.*", SearchOption.AllDirectories)
+				: Array.Empty<string>();
+			EditorDebug.Log($"Copied {copiedFiles.Length} project content file(s).", "GameBuilder");
+			return true;
+		}
+		catch (Exception ex)
+		{
+			Debug.Error($"Error copying project assets: {ex.Message}");
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// Copies the project's Data folder (scenes, prefabs, serialized component data) to the build output.
+	/// Also copies the compiled scripts DLL if available.
+	/// </summary>
+	private static bool CopyProjectData(IGameProject project, string buildDir)
+	{
+		try
+		{
+			// Copy the Data folder (scenes, prefabs, etc.)
+			var dataSrc = project.DataFolder;
+
+			if (Directory.Exists(dataSrc))
+			{
+				var dataDest = Path.Combine(buildDir, "Data");
+				CopyDirectoryRecursive(dataSrc, dataDest);
+
+				var copiedFiles = Directory.GetFiles(dataDest, "*.*", SearchOption.AllDirectories);
+				EditorDebug.Log($"Copied {copiedFiles.Length} data file(s) (scenes, prefabs, etc.).", "GameBuilder");
+			}
+			else
+			{
+				EditorDebug.Log("No Data folder found in project, skipping.", "GameBuilder");
+			}
+
+			// Copy the compiled scripts assembly if it exists.
+			// The scripts are compiled by Roslyn into an in-memory assembly during editor sessions,
+			// but the dotnet publish step compiles the Scripts/*.cs files directly into the game executable
+			// via the .csproj. So the scripts are already included in the published output.
+			// We just need to ensure the script source files are part of the project.
+
+			return true;
+		}
+		catch (Exception ex)
+		{
+			Debug.Error($"Error copying project data: {ex.Message}");
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// Copies the ProjectSettings.json to the build output directory.
+	/// </summary>
+	private static bool CopyProjectSettings(IGameProject project, string buildDir)
+	{
+		try
+		{
+			var settingsSrc = Path.Combine(project.ProjectPath, "ProjectSettings.json");
+
+			if (File.Exists(settingsSrc))
+			{
+				var settingsDest = Path.Combine(buildDir, "ProjectSettings.json");
+				File.Copy(settingsSrc, settingsDest, true);
+				EditorDebug.Log("Copied ProjectSettings.json to build output.", "GameBuilder");
+			}
+			else
+			{
+				EditorDebug.Warn("ProjectSettings.json not found, skipping.", "GameBuilder");
+			}
+
+			return true;
+		}
+		catch (Exception ex)
+		{
+			Debug.Error($"Error copying project settings: {ex.Message}");
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// Recursively copies a directory and all its contents.
+	/// </summary>
+	private static void CopyDirectoryRecursive(string sourceDir, string destDir)
+	{
+		Directory.CreateDirectory(destDir);
+
+		foreach (var file in Directory.GetFiles(sourceDir))
+		{
+			var destFile = Path.Combine(destDir, Path.GetFileName(file));
+			File.Copy(file, destFile, true);
+		}
+
+		foreach (var dir in Directory.GetDirectories(sourceDir))
+		{
+			var dirName = Path.GetFileName(dir);
+			CopyDirectoryRecursive(dir, Path.Combine(destDir, dirName));
+		}
+	}
+
+	/// <summary>
+	/// Finds the Voltage.Editor project directory by walking up from the app base directory.
+	/// </summary>
+	private static string FindEditorProjectDir()
+	{
+		var dir = AppContext.BaseDirectory;
+		var di = new DirectoryInfo(dir);
+		while (di != null)
+		{
+			if (File.Exists(Path.Combine(di.FullName, "Voltage.Editor.csproj")))
+				return di.FullName;
+			di = di.Parent;
+		}
+
+		return AppContext.BaseDirectory;
+	}
+}

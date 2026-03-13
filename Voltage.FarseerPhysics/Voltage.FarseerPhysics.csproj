@@ -26,14 +26,6 @@
 		<OutputPath>bin\Release\</OutputPath>
 	</PropertyGroup>
 
-	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-		<OutputPath>bin\Debug\</OutputPath>
-	</PropertyGroup>
-
-	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-		<OutputPath>bin\Release\</OutputPath>
-	</PropertyGroup>
-
 	<ItemGroup>
 		<PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5-preview.1" />
 	</ItemGroup>
