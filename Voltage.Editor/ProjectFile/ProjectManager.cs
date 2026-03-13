@@ -169,7 +169,7 @@ public class ProjectManager : GlobalManager
 			// Sync engine DLLs into the project's EngineLibs folder so the Roslyn script
 			// compiler and the game project's IDE always reference up-to-date assemblies.
 			EngineLibsSync.SyncToProject(project.ProjectPath);
-
+			ProjectStructureGenerator.EnsureDefaultFontExists(project.ProjectPath);
 			ProjectSettings.Instance = project.Settings;
 
 			EditorDebug.Log($"Successfully loaded project: {project.ProjectName} from {voltageFilePath}");

@@ -100,26 +100,14 @@ namespace Voltage.Editor.ProjectFile
 				// Sync engine DLLs into the new project before generating files that reference them
 				EngineLibsSync.SyncToProject(projectPath);
 
-				// Create .csproj file
 				CreateProjectFile(projectName, projectPath, version);
-				
-				// Create .sln file
 				CreateSolutionFile(projectName, projectPath);
-				
-				// Create Program.cs (entry point)
 				CreateProgramFile(projectName, projectPath);
-				
-				// Create AssemblyInfo.cs
 				CreateAssemblyInfoFile(projectName, propertiesFolder, version);
-				
-				// Create example script
 				CreateExampleScript(scriptsFolder, projectName);
-				
-				// Create .gitignore
 				CreateGitIgnoreFile(projectPath);
-
-				// Copy the editor's Icon.ico to the new project
 				CopyEditorIcon(projectPath);
+				CopyDefaultFont(projectPath);
 
 				EditorDebug.Log($"Successfully created project structure at: {projectPath}", "ProjectStructure");
 				return true;
@@ -140,23 +128,20 @@ namespace Voltage.Editor.ProjectFile
 			var monoGameVersion = GetMonoGameVersion();
 
 			// Build explicit <Reference> items for each managed engine DLL.
-			// We NEVER glob EngineLibs\*.dll because that picks up native binaries
-			// (SDL2, clretwrc, System.IO.Compression.Native, etc.) which breaks MSBuild
-			// reference resolution and causes "System.Void is not defined" errors.
 			var referenceItems = new System.Text.StringBuilder();
 			foreach (var dllName in EngineLibsSync.ManagedReferenceDlls)
 			{
 				var assemblyName = Path.GetFileNameWithoutExtension(dllName);
 				referenceItems.AppendLine($"    <Reference Include=\"{assemblyName}\">");
 				referenceItems.AppendLine($"      <HintPath>$(MSBuildThisFileDirectory)EngineLibs\\{dllName}</HintPath>");
-				referenceItems.AppendLine($"      <Private>false</Private>");
 				referenceItems.AppendLine($"    </Reference>");
 			}
 
 			var csprojContent = $@"<Project Sdk=""Microsoft.NET.Sdk"">
 
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
+  <!-- Change this to 'WinExe' if you don't want a console/terminal window to appear alongside the game window-->
+    <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <LangVersion>12.0</LangVersion>
     <Nullable>disable</Nullable>
@@ -164,6 +149,7 @@ namespace Voltage.Editor.ProjectFile
     <RootNamespace>{projectName}</RootNamespace>
     <Version>{version}</Version>
     <StartupObject>{projectName}.Program</StartupObject>
+    <PublishAot>true</PublishAot>
 
     <!-- Disable auto-generated assembly info to avoid conflicts with Properties/AssemblyInfo.cs -->
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
@@ -176,10 +162,12 @@ namespace Voltage.Editor.ProjectFile
 
   <PropertyGroup Condition=""'$(Configuration)|$(Platform)'=='Debug|AnyCPU'"">
     <DefineConstants>TRACE;DEBUG;OS_WINDOWS</DefineConstants>
+    <OutputType>Exe</OutputType>
   </PropertyGroup>
 
   <PropertyGroup Condition=""'$(Configuration)|$(Platform)'=='Release|AnyCPU'"">
     <DefineConstants>TRACE;OS_WINDOWS</DefineConstants>
+    <OutputType>WinExe</OutputType>
   </PropertyGroup>
 
   <ItemGroup>
@@ -210,6 +198,12 @@ namespace Voltage.Editor.ProjectFile
 
   <ItemGroup>
     <Content Include=""Content\**\*.*"">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include=""Data\**\*.*"">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include=""ProjectSettings.json"">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
@@ -269,7 +263,7 @@ namespace {projectName}
 	{{
 		[STAThread]
 		static void Main()
-		{{
+		{{	
 			using (var game = new {projectName}Game())
 			{{
 				game.Run();
@@ -302,7 +296,9 @@ namespace {projectName}
 		{{
 			base.Initialize();
 
-			// Set window title
+			var font = Content.LoadBitmapFont(""Content/Voltage/Fonts/VoltageDefaultBMFont.fnt"");
+			Graphics.Instance = new Graphics(font);
+			DebugRenderEnabled = true;
 			Window.Title = ""{projectName}"";
 
 			// Load the initial scene configured in ProjectSettings.json
@@ -321,15 +317,13 @@ namespace {projectName}
 					if (loadedScene != null)
 					{{
 						Scene = loadedScene;
-						return;
 					}}
 				}}
-
-				Debug.Warn($""Could not load initial scene '{{settings.InitialScene}}' from: {{scenePath}}"");
 			}}
-
-			// Fallback: empty scene
-			Scene = new Scene();
+			else
+			{{			  
+			    throw new Exception(""Initial scene is not specified in ProjectSettings.json!"");
+			}}
 		}}
 	}}
 }}
@@ -525,21 +519,143 @@ Thumbs.db
 			}
 		}
 
-		private static string GetRelativePath(string fromPath, string toPath)
+		/// <summary>
+		/// Copies the Voltage default bitmap font files (VoltageDefaultBMFont.fnt and
+		/// VoltageDefaultBMFont.png) into the game project's Content/Voltage/Fonts directory.
+		/// At runtime (non-editor builds), Core.Initialize loads the font from
+		/// "Content/Voltage/Fonts/VoltageDefaultBMFont.fnt".
+		/// </summary>
+		private static void CopyDefaultFont(string projectPath)
 		{
-			try
+			var defaultFontFiles = new[]
 			{
-				var fromUri = new Uri(fromPath.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar);
-				var toUri = new Uri(toPath);
-				var relativeUri = fromUri.MakeRelativeUri(toUri);
-				var relativePath = Uri.UnescapeDataString(relativeUri.ToString());
-				return relativePath.Replace('/', Path.DirectorySeparatorChar);
-			}
-			catch
+				"VoltageDefaultBMFont.fnt",
+				"VoltageDefaultBMFont.png"
+			};
+
+			var destDir = Path.Combine(projectPath, "Content", "Voltage", "Fonts");
+			Directory.CreateDirectory(destDir);
+
+			var fontSourceDir = FindDefaultFontsDir();
+			if (fontSourceDir == null)
 			{
-				// If relative path fails, return absolute path
-				return toPath;
+				EditorDebug.Warn("Could not locate DefaultContent/Fonts directory. " +
+				                 "The game project may fail to initialize without the default font.",
+					"ProjectStructure");
+				return;
 			}
+
+			foreach (var fontFile in defaultFontFiles)
+			{
+				var srcPath = Path.Combine(fontSourceDir, fontFile);
+				if (File.Exists(srcPath))
+				{
+					File.Copy(srcPath, Path.Combine(destDir, fontFile), overwrite: true);
+					EditorDebug.Log($"Copied default font: {fontFile}", "ProjectStructure");
+				}
+				else
+				{
+					EditorDebug.Warn($"Default font file not found: {srcPath}", "ProjectStructure");
+				}
+			}
+		}
+
+		/// <summary>
+		/// Ensures the default bitmap font files exist in the given game project's
+		/// Content/Voltage/Fonts directory. Called on every project load so that
+		/// missing or deleted font files are automatically restored.
+		/// </summary>
+		public static void EnsureDefaultFontExists(string projectPath)
+		{
+			if (string.IsNullOrEmpty(projectPath))
+				return;
+
+			var defaultFontFiles = new[]
+			{
+				"VoltageDefaultBMFont.fnt",
+				"VoltageDefaultBMFont.png"
+			};
+
+			var destDir = Path.Combine(projectPath, "Content", "Voltage", "Fonts");
+
+			// Quick check: if every file already exists, skip the search entirely
+			bool allPresent = Directory.Exists(destDir);
+			if (allPresent)
+			{
+				foreach (var f in defaultFontFiles)
+				{
+					if (!File.Exists(Path.Combine(destDir, f)))
+					{
+						allPresent = false;
+						break;
+					}
+				}
+			}
+
+			if (allPresent)
+				return;
+
+			// At least one file is missing — locate the source and copy
+			Directory.CreateDirectory(destDir);
+
+			var fontSourceDir = FindDefaultFontsDir();
+			if (fontSourceDir == null)
+			{
+				EditorDebug.Warn("Could not locate DefaultContent/Fonts directory to restore default font.",
+					"ProjectStructure");
+				return;
+			}
+
+			foreach (var fontFile in defaultFontFiles)
+			{
+				var destPath = Path.Combine(destDir, fontFile);
+				if (File.Exists(destPath))
+					continue;
+
+				var srcPath = Path.Combine(fontSourceDir, fontFile);
+				if (File.Exists(srcPath))
+				{
+					File.Copy(srcPath, destPath, overwrite: false);
+					EditorDebug.Log($"Restored missing default font: {fontFile}", "ProjectStructure");
+				}
+				else
+				{
+					EditorDebug.Warn($"Default font source not found: {srcPath}", "ProjectStructure");
+				}
+			}
+		}
+
+		/// <summary>
+		/// Searches for the DefaultContent/Fonts directory that contains the Voltage
+		/// bitmap font files. Checks next to the editor assembly, then walks up the
+		/// directory tree looking for the Voltage.Editor project folder.
+		/// </summary>
+		private static string FindDefaultFontsDir()
+		{
+			// 1. Next to the running editor assembly (deployed editor)
+			var editorDir = Path.GetDirectoryName(typeof(ProjectStructureGenerator).Assembly.Location);
+			if (!string.IsNullOrEmpty(editorDir))
+			{
+				var candidate = Path.Combine(editorDir, "DefaultContent", "Fonts");
+				if (Directory.Exists(candidate))
+					return candidate;
+			}
+
+			// 2. Walk up from BaseDirectory to find the Voltage.Editor project root
+			var di = new DirectoryInfo(AppContext.BaseDirectory);
+			while (di != null)
+			{
+				if (File.Exists(Path.Combine(di.FullName, "Voltage.Editor.csproj")))
+				{
+					var candidate = Path.Combine(di.FullName, "DefaultContent", "Fonts");
+					if (Directory.Exists(candidate))
+						return candidate;
+				}
+
+				di = di.Parent;
+			}
+
+			return null;
 		}
 	}
 }

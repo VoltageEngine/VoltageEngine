@@ -626,7 +626,8 @@ namespace Voltage.Editor.ProjectFile
 						{ "Environment", 4 }
 					}
 				},
-				ContentDirectory = "Content"
+				ContentDirectory = "Content",
+				InitialScene = "MainScene"
 			};
 		}
 	}

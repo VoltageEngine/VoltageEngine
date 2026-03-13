@@ -199,8 +199,8 @@ public static class GameBuilder
 			                $"-r {platform.RuntimeIdentifier} " +
 			                $"-o \"{buildDir}\" " +
 			                $"--self-contained true " +
-			                $"-p:PublishSingleFile=true " +
-			                $"-p:PublishTrimmed=true " +
+			                $"-p:PublishAot=true " +
+							$"-p:PublishTrimmed=true " +
 			                $"-p:TrimMode=link " +
 			                $"-p:IncludeNativeLibrariesForSelfExtract=true";
 

@@ -34,7 +34,6 @@ public class GameBuildWindow
 	// Progress tracking
 	private CompilationProgressWindow _progressWindow;
 	private CompilationProgress _currentProgress;
-	private int _totalSteps;
 	private int _completedSteps;
 
 	/// <summary>True while a build is in progress.</summary>
@@ -505,7 +504,6 @@ public class GameBuildWindow
 
 	private void OnBuildStarted(int totalSteps)
 	{
-		_totalSteps = totalSteps;
 		_completedSteps = 0;
 
 		_currentProgress = new CompilationProgress

@@ -232,13 +232,6 @@ public class Core : Game
 		{
 			System.Console.WriteLine($"Embedded resource: {name}");
 		}
-
-#if EDITOR
-		var font = Content.LoadBitmapFont("DefaultContent/Fonts/VoltageDefaultBMFont.fnt");
-#else
-		var font = Content.LoadBitmapFont("Content/Voltage/Fonts/VoltageDefaultBMFont.fnt");
-#endif
-		Graphics.Instance = new Graphics(font);
 	}
 
 	protected override void Update(GameTime gameTime)
