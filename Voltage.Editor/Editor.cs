@@ -22,6 +22,10 @@ public class Editor : Core
 	protected override void Initialize()
 	{
 		base.Initialize();
+
+		var font = Content.LoadBitmapFont("DefaultContent/Fonts/VoltageDefaultBMFont.fnt");
+		Graphics.Instance = new Graphics(font);
+
 		LoadRequiredAssemblies();
 
 		Content.RootDirectory = "Content";
@@ -44,7 +48,6 @@ public class Editor : Core
 			DebugConsole.RenderScale = 3f;
 		}
 
-
 		options.IncludeDefaultFont(true);
 		var imGuiManager = new ImGuiManager(options);
 
@@ -53,11 +56,6 @@ public class Editor : Core
 		Scene.OnSceneBegin += TrackSceneChange;
 		Scene.OnSceneBegin += SetSceneClearColor; // Set grey background color when scene changes
 
-#if EDITOR
-		DebugRenderEnabled = true;
-#else
-		DebugRenderEnabled = false;
-#endif
 		Window.AllowUserResizing = true;
 		ExitOnEscapeKeypress = false;
 
