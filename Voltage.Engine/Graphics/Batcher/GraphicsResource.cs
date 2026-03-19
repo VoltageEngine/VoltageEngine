@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Reflection;
 using Microsoft.Xna.Framework.Graphics;
 using Voltage.Utils;
 
@@ -54,6 +56,15 @@ namespace Voltage
 		WeakReference _selfReference;
 #endif
 
+		/// <summary>
+		/// Cached delegates for MonoGame's internal AddResourceReference / RemoveResourceReference.
+		/// Resolved once via reflection and reused for all subsequent calls, avoiding per-call
+		/// GetMethodInfo overhead. If resolution fails (e.g. under NativeAOT trimming), these stay
+		/// null and UpdateResourceReference becomes a safe no-op.
+		/// </summary>
+		private static bool _methodsCached;
+		private static MethodInfo _addMethod;
+		private static MethodInfo _removeMethod;
 
 		internal GraphicsResource()
 		{
@@ -95,9 +106,6 @@ namespace Voltage
 				if (GraphicsDevice != null)
 					UpdateResourceReference(false);
 
-#if FNA_GCHANDLE
-				_selfReference?.Free();
-#endif
 				_selfReference = null;
 				_graphicsDevice = null;
 				IsDisposed = true;
@@ -107,9 +115,43 @@ namespace Voltage
 
 		void UpdateResourceReference(bool shouldAdd)
 		{
-			var method = shouldAdd ? "AddResourceReference" : "RemoveResourceReference";
-			var methodInfo = ReflectionUtils.GetMethodInfo(GraphicsDevice, method);
-			methodInfo.Invoke(GraphicsDevice, new object[] { _selfReference });
+			if (!_methodsCached)
+			{
+				_methodsCached = true;
+				try
+				{
+					var gdType = typeof(GraphicsDevice);
+					const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+					_addMethod = gdType.GetMethod("AddResourceReference", flags);
+					_removeMethod = gdType.GetMethod("RemoveResourceReference", flags);
+				}
+				catch
+				{
+					// Under NativeAOT / aggressive trimming the methods may not exist.
+				}
+			}
+
+			var method = shouldAdd ? _addMethod : _removeMethod;
+
+			// If the method was trimmed away, silently skip. The Batcher (and other
+			// Voltage GraphicsResources) manage their own lifetimes, so missing the
+			// MonoGame resource-tracking list is safe.
+			if (method == null)
+				return;
+
+			try
+			{
+				method.Invoke(GraphicsDevice, new object[] { _selfReference });
+			}
+			catch (Exception ex)
+			{
+				// Log once and degrade gracefully rather than crashing
+				Debug.Warn($"GraphicsResource.UpdateResourceReference failed: {ex.Message}. " +
+				           "Resource tracking with MonoGame's GraphicsDevice is disabled.");
+				// Null out so we don't keep failing
+				_addMethod = null;
+				_removeMethod = null;
+			}
 		}
 	}
 }

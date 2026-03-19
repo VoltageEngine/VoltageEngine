@@ -15,25 +15,14 @@
 		<Configurations>Debug;Release;Editor-Debug;Editor-Release</Configurations>
 	</PropertyGroup>
 
-	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-		<DefineConstants>TRACE</DefineConstants>
-		<OutputPath>bin\Debug\</OutputPath>
-	</PropertyGroup>
-
-	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-		<DefineConstants>TRACE</DefineConstants>
-		<OutputPath>bin\Release\</OutputPath>
-		<Optimize>true</Optimize>
-	</PropertyGroup>
-
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Editor-Debug|AnyCPU' ">
-		<DefineConstants>TRACE;EDITOR;</DefineConstants>
-		<OutputPath>bin\Debug\</OutputPath>
+		<DefineConstants>TRACE;DEBUG; EDITOR;</DefineConstants>
+		<!-- <OutputPath>bin\Debug\</OutputPath> -->
 	</PropertyGroup>
 
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Editor-Release|AnyCPU' ">
 		<DefineConstants>TRACE;EDITOR;</DefineConstants>
-		<OutputPath>bin\Release\</OutputPath>
+		<!-- <OutputPath>bin\Release\</OutputPath> -->
 	</PropertyGroup>
 
 	<ItemGroup>

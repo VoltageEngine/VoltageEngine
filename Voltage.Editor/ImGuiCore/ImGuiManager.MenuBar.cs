@@ -93,7 +93,7 @@ public partial class ImGuiManager
 		{
 			if (ImGui.MenuItem("New Project"))
 			{
-				_projectCreator.OpenCreateProjectPopup();
+				_projectCreatorWindow.OpenCreateProjectPopup();
 			}
 
 			if (ImGui.MenuItem("Load Project..."))
