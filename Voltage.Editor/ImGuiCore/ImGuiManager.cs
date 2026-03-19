@@ -68,7 +68,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private System.Reflection.MethodInfo[] _themes;
 	private CoreWindow _coreWindow = new();
 	private DebugWindow _debugWindow = new();
-	private ProjectCreator _projectCreator = new();
+	private ProjectCreatorWindow _projectCreatorWindow = new();
 	private SceneCreator _sceneCreator = new();
 	private ProjectManager _projectManager;
 	private DataManager _dataManager;
@@ -445,7 +445,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		DrawEntityInspectors();
 		_effectsCompileProgressWindow.Draw();
 		_gameBuildWindow.Draw();
-		_projectCreator.Draw();
+		_projectCreatorWindow.Draw();
 		_sceneCreator.Draw();
 		_projectSettingsWindow.Draw();
 

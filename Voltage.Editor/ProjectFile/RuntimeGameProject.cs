@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text.RegularExpressions;
 using Microsoft.Xna.Framework.Content;
 using Voltage.Editor.DebugUtils;
 using Voltage.Editor.SceneFile;
@@ -13,7 +14,7 @@ namespace Voltage.Editor.ProjectFile
 	/// </summary>
 	public class RuntimeGameProject : IGameProject
 	{
-		private readonly ProjectCreator.ProjectMetadata _metadata;
+		private readonly ProjectCreatorWindow.ProjectMetadata _metadata;
 		private ProjectSettings _settings;
 
 		#region Metadata Access
@@ -21,7 +22,7 @@ namespace Voltage.Editor.ProjectFile
 		/// <summary>
 		/// Gets the underlying project metadata.
 		/// </summary>
-		public ProjectCreator.ProjectMetadata Metadata => _metadata;
+		public ProjectCreatorWindow.ProjectMetadata Metadata => _metadata;
 
 		/// <summary>
 		/// Gets the date when the project was created.
@@ -30,46 +31,67 @@ namespace Voltage.Editor.ProjectFile
 
 		#endregion
 
-		public RuntimeGameProject(ProjectCreator.ProjectMetadata metadata)
+		public RuntimeGameProject(ProjectCreatorWindow.ProjectMetadata metadata)
 		{
 			_metadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
 			LoadSettings();
 		}
-		
+
 		#region IGameProject Implementation
-		
+
 		public string ProjectName => _metadata.ProjectName;
-		
+
 		public string ProjectPath => _metadata.ProjectPath;
-		
+
 		public ProjectSettings Settings => _settings;
-		
+
 		public Version Version
 		{
 			get
 			{
-				if (System.Version.TryParse(_metadata.Version, out var version))
-				{
-					return version;
-				}
-				Debug.Warn($"Failed to parse version '{_metadata.Version}', returning default.");
-
-				return new Version(1, 0, 0);
+				var version = ReadVersionFromCsproj();
+				return version ?? new Version(1, 0, 0);
 			}
 		}
-		
+
+		/// <summary>
+		/// Reads the Version property directly from the game project's .csproj file.
+		/// The .csproj is the single source of truth for version — no caching, no duplication.
+		/// </summary>
+		private Version ReadVersionFromCsproj()
+		{
+			try
+			{
+				var csprojFiles = Directory.GetFiles(ProjectPath, "*.csproj", SearchOption.TopDirectoryOnly);
+				if (csprojFiles.Length == 0)
+					return null;
+
+				var content = File.ReadAllText(csprojFiles[0]);
+				var match = Regex.Match(content, @"<Version>(.*?)</Version>");
+				if (match.Success && System.Version.TryParse(match.Groups[1].Value, out var parsed))
+					return parsed;
+			}
+			catch (Exception ex)
+			{
+				Debug.Warn($"Failed to read version from .csproj: {ex.Message}");
+			}
+
+			return null;
+		}
+
+
 		public string ScriptsFolder => Path.Combine(ProjectPath, _metadata.ScriptsFolder);
-		
+
 		public string EffectsFolder => Path.Combine(ProjectPath, _metadata.EffectsFolder);
-		
+
 		public string ContentsFolder => Path.Combine(ProjectPath, _metadata.ContentsFolder);
-		
+
 		public string DataFolder => Path.Combine(ProjectPath, _metadata.DataFolder);
-		
+
 		public string ScenesFolder => Path.Combine(ProjectPath, _metadata.ScenesFolder);
-		
+
 		public string PrefabsFolder => Path.Combine(ProjectPath, _metadata.PrefabsFolder);
-		
+
 
 		public void Initialize()
 		{
@@ -92,7 +114,7 @@ namespace Voltage.Editor.ProjectFile
 				Debug.Warn("Project has no settings to apply.");
 			}
 		}
-		
+
 		public Scene CreateInitialScene()
 		{
 			EditorDebug.Log($"Creating initial GameScene for project: {ProjectName}", "RuntimeGameProject");
@@ -100,7 +122,7 @@ namespace Voltage.Editor.ProjectFile
 			scene.AddSceneComponent<GameSceneComponent>();
 			return scene;
 		}
-		
+
 		public void LoadContent(ContentManager content)
 		{
 			if (content == null)
@@ -109,9 +131,9 @@ namespace Voltage.Editor.ProjectFile
 
 				return;
 			}
-			
+
 			EditorDebug.Log($"Loading content for project: {ProjectName}", "RuntimeGameProject");
-			
+
 			// Set the content root directory to the project's content folder
 			if (Directory.Exists(ContentsFolder))
 			{
@@ -123,100 +145,117 @@ namespace Voltage.Editor.ProjectFile
 				EditorDebug.Log($"Content folder does not exist: {ContentsFolder}", "RuntimeGameProject");
 			}
 		}
-		
+
 		public void UnloadContent()
 		{
 			EditorDebug.Log($"Unloading content for project: {ProjectName}", "RuntimeGameProject");
 		}
-		
+
 		#endregion
-		
-		#region Helper Methods
-		
+
+		#region Version
+
 		/// <summary>
-		/// Loads settings from settings.json, falling back to metadata if not found.
+		/// Writes the version to the .csproj file. This is the only place version is persisted.
 		/// </summary>
+		public bool SetVersion(string newVersion)
+		{
+			if (string.IsNullOrWhiteSpace(newVersion) || !System.Version.TryParse(newVersion, out _))
+				return false;
+
+			try
+			{
+				var csprojFiles = Directory.GetFiles(ProjectPath, "*.csproj", SearchOption.TopDirectoryOnly);
+				if (csprojFiles.Length == 0)
+				{
+					Debug.Warn($"No .csproj file found in '{ProjectPath}'.");
+					return false;
+				}
+
+				var csprojPath = csprojFiles[0];
+				var content = File.ReadAllText(csprojPath);
+
+				if (Regex.IsMatch(content, @"<Version>.*?</Version>"))
+					content = Regex.Replace(content, @"<Version>.*?</Version>", $"<Version>{newVersion}</Version>");
+				else
+					content = Regex.Replace(content, @"(<PropertyGroup[^>]*>)",
+						$"$1\n\t\t<Version>{newVersion}</Version>");
+
+				File.WriteAllText(csprojPath, content, new System.Text.UTF8Encoding(false));
+				return true;
+			}
+			catch (Exception ex)
+			{
+				Debug.Error($"Failed to save version to .csproj: {ex.Message}");
+				return false;
+			}
+		}
+
+		#endregion
+
+		#region Helper Methods
+
 		private void LoadSettings()
 		{
 			var settingsPath = Path.Combine(ProjectPath, "ProjectSettings.json");
-			
-			// Try to load from settings.json first (the source of truth)
+
 			if (File.Exists(settingsPath))
 			{
 				try
 				{
 					var settingsJson = File.ReadAllText(settingsPath);
-					_settings = Voltage.Persistence.Json.FromJson<ProjectSettings>(settingsJson);
-					
+					_settings = ProjectSettings.LoadFromJson(settingsJson);
 					if (_settings != null)
-					{
-						EditorDebug.Log($"Loaded settings from: {settingsPath}", "RuntimeGameProject");
-						EditorDebug.Log($"  Design Resolution: {_settings.DesignResolution.Width}x{_settings.DesignResolution.Height} ({_settings.DesignResolution.ResolutionPolicy})", "RuntimeGameProject");
 						return;
-					}
 				}
 				catch (Exception ex)
 				{
-					EditorDebug.Error($"Failed to load ProjectSettings.json: {ex.Message}", "RuntimeGameProject");
+					Debug.Error($"Failed to load ProjectSettings.json: {ex.Message}");
 				}
 			}
-			
-			// Fall back to metadata settings
-			if (_metadata.Settings != null)
+
+			// No settings file found — create defaults and persist
+			_settings = new ProjectSettings();
+			try
 			{
-				_settings = _metadata.Settings;
-				EditorDebug.Log("Using settings from project metadata", "RuntimeGameProject");
-				
-				try
-				{
-					var settingsJson = Voltage.Persistence.Json.ToJson(_settings, new Voltage.Persistence.JsonSettings
-					{
-						PrettyPrint = true
-					});
-					File.WriteAllText(settingsPath, settingsJson, new System.Text.UTF8Encoding(false));
-					EditorDebug.Log($"Created ProjectSettings.json at: {settingsPath}", "RuntimeGameProject");
-				}
-				catch (Exception ex)
-				{
-					EditorDebug.Error($"Failed to create ProjectSettings.json: {ex.Message}", "RuntimeGameProject");
-				}
+				var json = Voltage.Persistence.Json.ToJson(_settings, new Voltage.Persistence.JsonSettings { PrettyPrint = true });
+				File.WriteAllText(settingsPath, json, new System.Text.UTF8Encoding(false));
 			}
-			else
+			catch (Exception ex)
 			{
-				_settings = new ProjectCreator().CreateDefaultSettings();
-				EditorDebug.Warn("No settings found, created default settings", "RuntimeGameProject");
+				Debug.Error($"Failed to create ProjectSettings.json: {ex.Message}");
 			}
 		}
-		
-		
+
+
 		private void ApplyGameSettings()
 		{
 			if (Settings == null)
 				return;
-			
+
 			try
 			{
 				// Apply display settings
 				if (Settings.Display != null)
 				{
 					EditorDebug.Log($"Applying display settings: {Settings.Display.ScreenWidth}x{Settings.Display.ScreenHeight}, " +
-					                              $"Fullscreen: {Settings.Display.IsFullscreen}, VSync: {Settings.Display.EnableVSync}", "RuntimeGameProject");
+					                $"Fullscreen: {Settings.Display.IsFullscreen}, VSync: {Settings.Display.EnableVSync}", "RuntimeGameProject");
 				}
-				
+
 				// Apply design resolution settings
 				if (Settings.DesignResolution != null)
 				{
 					EditorDebug.Log($"Design resolution loaded: {Settings.DesignResolution.Width}x{Settings.DesignResolution.Height} " +
-					                              $"({Settings.DesignResolution.ResolutionPolicy})", "RuntimeGameProject");
+					                $"({Settings.DesignResolution.ResolutionPolicy})", "RuntimeGameProject");
 				}
-				
+
 				// Apply audio settings
 				if (Settings.Audio != null)
 				{
 					EditorDebug.Log($"Audio settings loaded: Master={Settings.Audio.MasterVolume}, " +
-					                              $"Music={Settings.Audio.MusicVolume}, SFX={Settings.Audio.SFXVolume}", "RuntimeGameProject");
+					                $"Music={Settings.Audio.MusicVolume}, SFX={Settings.Audio.SFXVolume}", "RuntimeGameProject");
 				}
-				
+
 				// Apply content directory
 				if (!string.IsNullOrWhiteSpace(Settings.ContentDirectory))
 				{
@@ -228,7 +267,7 @@ namespace Voltage.Editor.ProjectFile
 				EditorDebug.Error($"Failed to apply game settings: {ex.Message}", "RuntimeGameProject");
 			}
 		}
-		
+
 		#endregion
 	}
 }

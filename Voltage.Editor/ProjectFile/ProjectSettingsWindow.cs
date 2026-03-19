@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -17,7 +17,7 @@ namespace Voltage.Editor.ProjectFile
 	{
 		private bool _isOpen = false;
 		private ProjectManager _projectManager;
-		
+
 		// Cached settings values
 		private int _screenWidth;
 		private int _screenHeight;
@@ -27,7 +27,7 @@ namespace Voltage.Editor.ProjectFile
 		private float _musicVolume;
 		private float _sfxVolume;
 		private string _contentDirectory;
-		
+
 		// Design resolution
 		private int _designWidth;
 		private int _designHeight;
@@ -46,12 +46,12 @@ namespace Voltage.Editor.ProjectFile
 			"FixedWidthPixelPerfect",
 			"BestFit"
 		};
-		
+
 		// Physics, Rendering, and Entity settings
 		private Dictionary<string, int> _physicsLayers;
 		private Dictionary<string, int> _renderingLayers;
 		private Dictionary<string, int> _entityTags;
-		
+
 		// For adding new entries
 		private string _newPhysicsLayerName = "";
 		private int _newPhysicsLayerValue = 0;
@@ -59,57 +59,67 @@ namespace Voltage.Editor.ProjectFile
 		private int _newRenderingLayerValue = 0;
 		private string _newEntityTagName = "";
 		private int _newEntityTagValue = 0;
-		
+
+		// Project info
+		private string _editableVersion = "";
+		private bool _versionIsValid = true;
+
 		private bool _hasUnsavedChanges = false;
-		
+
 		public bool IsOpen
 		{
 			get => _isOpen;
 			set => _isOpen = value;
 		}
-		
+
 		public ProjectSettingsWindow()
 		{
 			_projectManager = ProjectManager.Instance;
 		}
-		
+
 		public void Draw()
 		{
 			if (!_isOpen)
 				return;
-			
+
 			if (!_projectManager.HasActiveProject)
 			{
 				_isOpen = false;
 				EditorDebug.Log("No active project to configure.");
 				return;
 			}
-			
+
 			// Load settings when first opened
 			if (_isOpen && !ImGui.IsPopupOpen("Project Settings"))
 			{
 				LoadSettings();
 				ImGui.OpenPopup("Project Settings");
 			}
-			
+
 			var center = new Vector2(Screen.Width * 0.5f, Screen.Height * 0.5f);
 			ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Vector2(0.5f, 0.5f));
 			ImGui.SetNextWindowSize(new Vector2(700, 700), ImGuiCond.Appearing);
-			
+
 			bool open = true;
 			if (ImGui.BeginPopupModal("Project Settings", ref open, ImGuiWindowFlags.None))
 			{
 				var project = _projectManager.CurrentProject;
-				
+
 				ImGui.TextColored(new Vector4(0.2f, 0.8f, 1.0f, 1.0f), $"Project: {project.ProjectName}");
 				ImGui.TextColored(new Vector4(0.7f, 0.7f, 0.7f, 1.0f), $"Version: {project.Version}");
 				ImGui.Separator();
-				
+
 				VoltageEditorUtils.SmallVerticalSpace();
-				
+
 				// Begin tabs
 				if (ImGui.BeginTabBar("ProjectSettingsTabs"))
 				{
+					if (ImGui.BeginTabItem("Project Info"))
+					{
+						DrawProjectInfoSettings();
+						ImGui.EndTabItem();
+					}
+
 					if (ImGui.BeginTabItem("Display & Audio"))
 					{
 						DrawDisplaySettings();
@@ -186,11 +196,70 @@ namespace Voltage.Editor.ProjectFile
 			_physicsLayers = new Dictionary<string, int>(settings.Physics.PhysicsLayers);
 			_renderingLayers = new Dictionary<string, int>(settings.Rendering.RenderingLayers);
 			_entityTags = new Dictionary<string, int>(settings.Entities.EntityTags);
-			
+
 			_contentDirectory = settings.ContentDirectory ?? "Content";
+
+			// Load version from the live project
+			_editableVersion = _projectManager.CurrentProject.Version.ToString();
+			_versionIsValid = true;
+
 			_hasUnsavedChanges = false;
 		}
-		
+
+		private void DrawProjectInfoSettings()
+		{
+			ImGui.TextColored(new Vector4(0.7f, 1.0f, 0.7f, 1.0f), "Project Information");
+			ImGui.Separator();
+
+			VoltageEditorUtils.SmallVerticalSpace();
+
+			var project = _projectManager.CurrentProject;
+
+			ImGui.Text("Project Name:");
+			ImGui.SameLine();
+			ImGui.TextDisabled(project.ProjectName);
+
+			ImGui.Text("Project Path:");
+			ImGui.SameLine();
+			ImGui.TextDisabled(project.ProjectPath);
+
+			VoltageEditorUtils.MediumVerticalSpace();
+
+			ImGui.TextColored(new Vector4(0.7f, 1.0f, 0.7f, 1.0f), "Version");
+			ImGui.Separator();
+
+			VoltageEditorUtils.SmallVerticalSpace();
+
+			ImGui.TextWrapped("The project version is written to the game's .csproj file and embedded into the built executable.");
+
+			VoltageEditorUtils.SmallVerticalSpace();
+
+			ImGui.Text("Version:");
+			ImGui.SameLine();
+
+			
+			var frameBgColor = _versionIsValid
+				? ImGui.GetStyle().Colors[(int)ImGuiCol.FrameBg]
+				: new Vector4(0.5f, 0.1f, 0.1f, 1.0f);
+			ImGui.PushStyleColor(ImGuiCol.FrameBg, frameBgColor);
+
+			ImGui.SetNextItemWidth(200);
+			if (ImGui.InputText("##ProjectVersion", ref _editableVersion, 32))
+			{
+				_versionIsValid = Version.TryParse(_editableVersion, out _);
+				if (_versionIsValid)
+					_hasUnsavedChanges = true;
+			}
+
+			ImGui.PopStyleColor();
+
+			ImGui.SameLine();
+			if (!_versionIsValid)
+				ImGui.TextColored(new Vector4(1.0f, 0.4f, 0.4f, 1.0f), "Invalid format (e.g. 1.0.0)");
+			else
+				ImGui.TextDisabled("e.g. 1.0.0");
+		}
+
 		private void DrawDisplaySettings()
 		{
 			if (ImGui.CollapsingHeader("Display Settings", ImGuiTreeNodeFlags.DefaultOpen))
@@ -530,16 +599,23 @@ namespace Voltage.Editor.ProjectFile
 			var totalButtonWidth = (buttonWidth * 3) + (spacing * 2);
 			var windowWidth = ImGui.GetWindowSize().X;
 			var centerStart = (windowWidth - totalButtonWidth) * 0.5f;
-			
+
 			ImGui.SetCursorPosX(centerStart);
-			
+
+			bool canSave = _versionIsValid;
+			if (!canSave)
+				ImGui.BeginDisabled();
+
 			if (ImGui.Button("Save", new Vector2(buttonWidth, 0)))
 			{
 				SaveSettings();
 			}
-			
+
+			if (!canSave)
+				ImGui.EndDisabled();
+
 			ImGui.SameLine();
-			
+
 			if (ImGui.Button("Apply", new Vector2(buttonWidth, 0)))
 			{
 				ApplySettings();
@@ -563,51 +639,42 @@ namespace Voltage.Editor.ProjectFile
 				_isOpen = false;
 			}
 		}
-		
+
 		private void SaveSettings()
 		{
 			try
 			{
 				var project = _projectManager.CurrentProject;
-				var settingsPath = Path.Combine(project.ProjectPath, "ProjectSettings.json");
-				
-				// Update settings object
 				var settings = project.Settings;
-				
 				settings.Display.ScreenWidth = _screenWidth;
 				settings.Display.ScreenHeight = _screenHeight;
 				settings.Display.IsFullscreen = _isFullscreen;
 				settings.Display.EnableVSync = _enableVSync;
-				
 				settings.Audio.MasterVolume = _masterVolume;
 				settings.Audio.MusicVolume = _musicVolume;
 				settings.Audio.SFXVolume = _sfxVolume;
-				
 				settings.DesignResolution.Width = _designWidth;
 				settings.DesignResolution.Height = _designHeight;
 				settings.DesignResolution.ResolutionPolicy = (Scene.SceneResolutionPolicy)_selectedResolutionPolicy;
-				
 				settings.Physics.PhysicsLayers = new Dictionary<string, int>(_physicsLayers);
 				settings.Rendering.RenderingLayers = new Dictionary<string, int>(_renderingLayers);
 				settings.Entities.EntityTags = new Dictionary<string, int>(_entityTags);
-				
 				settings.ContentDirectory = _contentDirectory;
-				
-				// Serialize and save
-				var json = Voltage.Persistence.Json.ToJson(settings, new Voltage.Persistence.JsonSettings
-				{
-					PrettyPrint = true
-				});
-				
+
+				var settingsPath = Path.Combine(project.ProjectPath, "ProjectSettings.json");
+				var json = Voltage.Persistence.Json.ToJson(settings, new Voltage.Persistence.JsonSettings { PrettyPrint = true });
 				File.WriteAllText(settingsPath, json, new System.Text.UTF8Encoding(false));
-				
-				// Apply the settings
+
+				if (project is RuntimeGameProject runtimeProject)
+				{
+					if (!runtimeProject.SetVersion(_editableVersion))
+						Debug.Error($"Failed to save version '{_editableVersion}' to .csproj.");
+				}
+
 				ApplySettings();
-				
 				_hasUnsavedChanges = false;
+
 				EditorDebug.Log($"Project settings saved to {Path.GetFileName(settingsPath)}");
-				
-				Debug.Log($"Project settings saved: {settingsPath}");
 			}
 			catch (Exception ex)
 			{

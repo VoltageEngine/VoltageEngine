@@ -208,6 +208,11 @@ namespace Voltage.Editor.ProjectFile
     </Content>
   </ItemGroup>
 
+  <!-- Icon files embedded into the assembly so the executable carries its own icon -->
+  <ItemGroup>
+    <EmbeddedResource Include=""Icon.ico"" Condition=""Exists('Icon.ico')"" />
+    <EmbeddedResource Include=""Icon.bmp"" Condition=""Exists('Icon.bmp')"" />
+  </ItemGroup>
 </Project>";
 
 			File.WriteAllText(projectFilePath, csprojContent);
@@ -287,8 +292,7 @@ namespace {projectName}
 			if (System.IO.File.Exists(settingsPath))
 			{{
 				var json = System.IO.File.ReadAllText(settingsPath);
-				var settings = Voltage.Persistence.Json.FromJson<ProjectSettings>(json);
-				ProjectSettings.Instance = settings;
+				ProjectSettings.Instance = ProjectSettings.LoadFromJson(json);
 			}}
 		}}
 
@@ -464,59 +468,77 @@ Thumbs.db
 		}
 
 		/// <summary>
-		/// Copies the Voltage Editor's Icon.ico to the game project directory so it can be
-		/// used as the application icon for the built executable.
+		/// Copies Icon.ico and Icon.bmp from the editor's directory to the game project.
+		/// Each file is searched for independently so a missing .bmp never blocks .ico.
 		/// </summary>
 		private static void CopyEditorIcon(string projectPath)
 		{
 			try
 			{
-				// The Icon.ico is an embedded resource but also exists next to the editor executable
-				// or in the editor project directory. Try both locations.
-				var editorDir = Path.GetDirectoryName(typeof(ProjectStructureGenerator).Assembly.Location);
-				var iconSource = editorDir != null ? Path.Combine(editorDir, "Icon.ico") : null;
+				var iconSource = FindEditorFile("Icon.ico");
+				var bmpIconSource = FindEditorFile("Icon.bmp");
 
-				// If not found next to the running assembly, search up from BaseDirectory
-				// for the Voltage.Editor project folder (works during development)
-				if (iconSource == null || !File.Exists(iconSource))
+				if (iconSource != null)
 				{
-					var di = new DirectoryInfo(AppContext.BaseDirectory);
-					while (di != null)
-					{
-						var candidate = Path.Combine(di.FullName, "Voltage.Editor", "Icon.ico");
-						if (File.Exists(candidate))
-						{
-							iconSource = candidate;
-							break;
-						}
-
-						// Also check if we're already inside the Voltage.Editor directory
-						candidate = Path.Combine(di.FullName, "Icon.ico");
-						if (File.Exists(candidate) && File.Exists(Path.Combine(di.FullName, "Voltage.Editor.csproj")))
-						{
-							iconSource = candidate;
-							break;
-						}
-
-						di = di.Parent;
-					}
-				}
-
-				if (iconSource != null && File.Exists(iconSource))
-				{
-					var iconDest = Path.Combine(projectPath, "Icon.ico");
-					File.Copy(iconSource, iconDest, overwrite: true);
+					File.Copy(iconSource, Path.Combine(projectPath, "Icon.ico"), overwrite: true);
 					EditorDebug.Log("Copied Icon.ico to game project.", "ProjectStructure");
 				}
 				else
 				{
-					EditorDebug.Warn("Icon.ico not found in editor directory. Game project will build without an application icon.", "ProjectStructure");
+					EditorDebug.Warn("Icon.ico not found. Game project will build without an application icon.", "ProjectStructure");
+				}
+
+				if (bmpIconSource != null)
+				{
+					File.Copy(bmpIconSource, Path.Combine(projectPath, "Icon.bmp"), overwrite: true);
+					EditorDebug.Log("Copied Icon.bmp to game project.", "ProjectStructure");
+				}
+				else
+				{
+					EditorDebug.Warn("Icon.bmp not found. Game project will build without a bitmap icon.", "ProjectStructure");
 				}
 			}
 			catch (Exception ex)
 			{
-				EditorDebug.Warn($"Could not copy Icon.ico: {ex.Message}", "ProjectStructure");
+				EditorDebug.Warn($"Could not copy icon files: {ex.Message}", "ProjectStructure");
 			}
+		}
+
+		/// <summary>
+		/// Searches for an editor asset file by name.
+		/// Checks next to the running assembly first, then walks up the directory tree
+		/// looking for the Voltage.Editor project root (works during development).
+		/// Returns the full path if found, or null.
+		/// </summary>
+		private static string FindEditorFile(string fileName)
+		{
+			// Running assembly (deployed editor)
+			var editorDir = Path.GetDirectoryName(typeof(ProjectStructureGenerator).Assembly.Location);
+			if (!string.IsNullOrEmpty(editorDir))
+			{
+				var candidate = Path.Combine(editorDir, fileName);
+				if (File.Exists(candidate))
+					return candidate;
+			}
+
+			// Walk up from BaseDirectory looking for the Voltage.Editor project root
+			var di = new DirectoryInfo(AppContext.BaseDirectory);
+			while (di != null)
+			{
+				// Check inside a "Voltage.Editor" subdirectory of the current node
+				var inSubDir = Path.Combine(di.FullName, "Voltage.Editor", fileName);
+				if (File.Exists(inSubDir))
+					return inSubDir;
+
+				// Check if we're already inside the Voltage.Editor directory itself
+				var inCurrentDir = Path.Combine(di.FullName, fileName);
+				if (File.Exists(inCurrentDir) && File.Exists(Path.Combine(di.FullName, "Voltage.Editor.csproj")))
+					return inCurrentDir;
+
+				di = di.Parent;
+			}
+
+			return null;
 		}
 
 		/// <summary>

@@ -11,13 +11,13 @@
 		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
 		<GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-		<Configurations>Editor-Debug;Editor-Release</Configurations>
+		<Configurations>Debug; Release; Editor-Debug;Editor-Release</Configurations>
 		<SelfContained>true</SelfContained>
 		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
 	</PropertyGroup>
 
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Editor-Debug|AnyCPU' ">
-		<DefineConstants>TRACE;EDITOR;EDITOR_DEBUG</DefineConstants>
+		<DefineConstants>TRACE;DEBUG; EDITOR; EDITOR_DEBUG</DefineConstants>
 	</PropertyGroup>
 
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Editor-Release|AnyCPU' ">

@@ -16,7 +16,7 @@ namespace Voltage.Editor.ProjectFile
 	/// <summary>
 	/// Handles the creation of new game projects through an ImGui popup interface
 	/// </summary>
-	public class ProjectCreator
+	public class ProjectCreatorWindow
 	{
 		private string _projectName = "";
 		private string _projectPath = "";
@@ -51,8 +51,6 @@ namespace Voltage.Editor.ProjectFile
 		{
 			public string ProjectName;
 			public string ProjectPath;
-			public ProjectSettings Settings;
-			public string Version;
 			public string ScriptsFolder;
 			public string EffectsFolder;
 			public string ContentsFolder;
@@ -458,8 +456,6 @@ namespace Voltage.Editor.ProjectFile
 				{
 					ProjectName = _projectName,
 					ProjectPath = fullProjectPath,
-					Settings = settings,
-					Version = version.ToString(),
 					ScriptsFolder = ScriptsFolder,
 					EffectsFolder = EffectsFolder,
 					ContentsFolder = ContentsFolder,
@@ -478,18 +474,13 @@ namespace Voltage.Editor.ProjectFile
 				
 				File.WriteAllText(metadataPath, metadataJson, new System.Text.UTF8Encoding(false));
 				
-				// Save settings
+				// Save settings using the AOT-safe serializer so the JSON format
+				// matches exactly what the game project reads at runtime.
 				var settingsPath = Path.Combine(fullProjectPath, "ProjectSettings.json");
-				var settingsJson = Voltage.Persistence.Json.ToJson(settings, new Voltage.Persistence.JsonSettings
-				{
-					PrettyPrint = true
-				});
+				var settingsJson = settings.SaveToJson();
 				File.WriteAllText(settingsPath, settingsJson, new System.Text.UTF8Encoding(false));
 				
-				// Create a default scene file
 				CreateDefaultScene(scenesPath);
-				
-				// Load the newly created project as the current project
 				var projectManager = ProjectManager.Instance;
 				bool projectLoaded = projectManager.LoadProject(metadataPath);
 				

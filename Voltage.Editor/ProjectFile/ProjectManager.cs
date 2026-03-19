@@ -140,7 +140,7 @@ public class ProjectManager : GlobalManager
 		try
 		{
 			var jsonContent = File.ReadAllText(voltageFilePath);
-			var metadata = Voltage.Persistence.Json.FromJson<ProjectCreator.ProjectMetadata>(jsonContent);
+			var metadata = Voltage.Persistence.Json.FromJson<ProjectCreatorWindow.ProjectMetadata>(jsonContent);
 
 			if (metadata == null)
 			{

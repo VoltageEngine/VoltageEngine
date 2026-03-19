@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using ImGuiNET;
 using Voltage.Editor.DebugUtils;
+using Voltage.Editor.Persistence;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.SceneFile;
 using Voltage.Editor.Utils;
@@ -22,9 +23,12 @@ public class GameBuildWindow
 {
 	private bool _showBuildPopup = false;
 	private bool _isBuilding = false;
-	private bool _compileAssets = false;
-	private bool _debugBuild = false;
-	private int _selectedPlatformIndex = 0;
+
+	// Persistent user preferences
+	private readonly PersistentBool _compileAssets = new("GameBuild.CompileAssets", false);
+	private readonly PersistentBool _debugBuild = new("GameBuild.DebugBuild", false);
+	private readonly PersistentInt _selectedPlatformIndex = new("GameBuild.SelectedPlatformIndex", 0);
+
 	private CancellationTokenSource _buildCancellationToken;
 
 	// Initial scene selection
@@ -85,7 +89,7 @@ public class GameBuildWindow
 		}
 
 		var project = projectManager.CurrentProject;
-		var platform = BuildPlatform.All[_selectedPlatformIndex];
+		var platform = BuildPlatform.All[_selectedPlatformIndex.Value];
 
 		if (!platform.IsAvailable)
 		{
@@ -158,7 +162,7 @@ public class GameBuildWindow
 			}
 
 			var project = projectManager.CurrentProject;
-			var selectedPlatform = BuildPlatform.All[_selectedPlatformIndex];
+			var selectedPlatform = BuildPlatform.All[_selectedPlatformIndex.Value];
 
 			ImGui.TextColored(new Num.Vector4(0.2f, 0.8f, 1.0f, 1.0f), "Build Game");
 			ImGui.Separator();
@@ -207,8 +211,11 @@ public class GameBuildWindow
 
 			VoltageEditorUtils.SmallVerticalSpace();
 
-			// Debug / Release toggle
-			ImGui.Checkbox("Debug Build", ref _debugBuild);
+			// Debug / Release toggle — use a local for ImGui ref, write back if changed
+			var debugBuildValue = _debugBuild.Value;
+			if (ImGui.Checkbox("Debug Build", ref debugBuildValue))
+				_debugBuild.Value = debugBuildValue;
+
 			if (ImGui.IsItemHovered())
 			{
 				ImGui.SetTooltip("When enabled, the game is published in Debug configuration.\n" +
@@ -220,10 +227,10 @@ public class GameBuildWindow
 
 			ImGui.SameLine();
 			ImGui.TextColored(
-				_debugBuild
+				_debugBuild.Value
 					? new Num.Vector4(1.0f, 0.8f, 0.2f, 1.0f)
 					: new Num.Vector4(0.5f, 1.0f, 0.5f, 1.0f),
-				_debugBuild ? "(Debug)" : "(Release)");
+				_debugBuild.Value ? "(Debug)" : "(Release)");
 
 			VoltageEditorUtils.SmallVerticalSpace();
 
@@ -232,19 +239,18 @@ public class GameBuildWindow
 			VoltageEditorUtils.SmallVerticalSpace();
 
 			// Compile Assets option
-			if (_compileAssets)
-			{
+			var compileAssetsValue = _compileAssets.Value;
+			if (compileAssetsValue)
 				ImGui.BeginDisabled();
-			}
 
-			ImGui.Checkbox("Compile Assets with MGCB", ref _compileAssets);
-
-			if (_compileAssets)
+			if (ImGui.Checkbox("Compile Assets with MGCB", ref compileAssetsValue))
 			{
-				ImGui.EndDisabled();
 				// Force back to false since it's not implemented
-				_compileAssets = false;
+				_compileAssets.Value = false;
 			}
+
+			if (compileAssetsValue)
+				ImGui.EndDisabled();
 
 			if (ImGui.IsItemHovered())
 			{
@@ -292,9 +298,7 @@ public class GameBuildWindow
 			bool hasScene = _availableScenes.Count > 0;
 			bool canBuild = selectedPlatform.IsAvailable && !_isBuilding && hasScene;
 			if (!canBuild)
-			{
 				ImGui.BeginDisabled();
-			}
 
 			if (ImGui.Button("Build", new Num.Vector2(buttonWidth, 30)))
 			{
@@ -313,9 +317,7 @@ public class GameBuildWindow
 			}
 
 			if (!canBuild)
-			{
 				ImGui.EndDisabled();
-			}
 
 			ImGui.SameLine();
 
@@ -388,10 +390,7 @@ public class GameBuildWindow
 		try
 		{
 			var settingsPath = Path.Combine(project.ProjectPath, "ProjectSettings.json");
-			var json = Voltage.Persistence.Json.ToJson(settings, new Voltage.Persistence.JsonSettings
-			{
-				PrettyPrint = true
-			});
+			var json = settings.SaveToJson();
 			File.WriteAllText(settingsPath, json, new System.Text.UTF8Encoding(false));
 			EditorDebug.Log($"Saved InitialScene '{selectedScene}' to ProjectSettings.json", "GameBuildWindow");
 		}
@@ -412,12 +411,10 @@ public class GameBuildWindow
 			if (!platform.IsAvailable)
 				ImGui.BeginDisabled();
 
-			bool isSelected = _selectedPlatformIndex == i;
+			bool isSelected = _selectedPlatformIndex.Value == i;
 
 			if (ImGui.RadioButton(platform.DisplayName, isSelected))
-			{
-				_selectedPlatformIndex = i;
-			}
+				_selectedPlatformIndex.Value = i;
 
 			if (!platform.IsAvailable)
 			{
@@ -443,13 +440,13 @@ public class GameBuildWindow
 		_buildCancellationToken = new CancellationTokenSource();
 
 		var token = _buildCancellationToken.Token;
-		var debugBuild = _debugBuild;
+		var debugBuild = _debugBuild.Value;
 
 		Task.Run(async () =>
 		{
 			try
 			{
-				bool success = await GameBuilder.BuildGameAsync(project, platform, _compileAssets, debugBuild, token);
+				bool success = await GameBuilder.BuildGameAsync(project, platform, _compileAssets.Value, debugBuild, token);
 
 				if (success && runAfterBuild)
 				{
@@ -472,7 +469,9 @@ public class GameBuildWindow
 	}
 
 	/// <summary>
-	/// Launches the built game executable.
+	/// Launches the built game executable and captures its console output.
+	/// In debug builds, a visible console window is created alongside the game for diagnostics.
+	/// In release builds, output is silently captured and forwarded to the editor log.
 	/// </summary>
 	private void LaunchGameExecutable(IGameProject project, BuildPlatform platform)
 	{
@@ -481,24 +480,69 @@ public class GameBuildWindow
 			var exePath = GameBuilder.FindGameExecutable(project, platform);
 			if (exePath == null)
 			{
-				EditorDebug.Error("Could not find the game executable in the build output.", "GameBuildWindow");
+				Debug.Error("Could not find the game executable in the build output.");
 				return;
 			}
 
 			EditorDebug.Log($"Launching game: {exePath}", "GameBuildWindow");
 
-			var startInfo = new ProcessStartInfo
-			{
-				FileName = exePath,
-				WorkingDirectory = Path.GetDirectoryName(exePath)!,
-				UseShellExecute = true
-			};
+			ProcessStartInfo startInfo;
 
-			Process.Start(startInfo);
+			if (_debugBuild.Value)
+			{
+				// Debug: let the OS open the exe normally so a console window appears
+				// alongside the game. Stream redirection is not possible in this mode.
+				startInfo = new ProcessStartInfo
+				{
+					FileName = exePath,
+					WorkingDirectory = Path.GetDirectoryName(exePath)!,
+					UseShellExecute = true
+				};
+			}
+			else
+			{
+				// Release: redirect stdout/stderr into the editor log so errors
+				// are visible without a separate console window.
+				startInfo = new ProcessStartInfo
+				{
+					FileName = exePath,
+					WorkingDirectory = Path.GetDirectoryName(exePath)!,
+					UseShellExecute = false,
+					RedirectStandardOutput = true,
+					RedirectStandardError = true,
+					CreateNoWindow = false
+				};
+			}
+
+			var process = Process.Start(startInfo);
+			if (process == null)
+			{
+				Debug.Error("Failed to start game process.");
+				return;
+			}
+
+			if (!_debugBuild.Value)
+			{
+				// Read stdout/stderr on background threads so the editor doesn't block
+				process.OutputDataReceived += (sender, e) =>
+				{
+					if (!string.IsNullOrEmpty(e.Data))
+						EditorDebug.Log($"[Game] {e.Data}", "GameOutput");
+				};
+
+				process.ErrorDataReceived += (sender, e) =>
+				{
+					if (!string.IsNullOrEmpty(e.Data))
+						Debug.Error($"[Game] {e.Data}");
+				};
+
+				process.BeginOutputReadLine();
+				process.BeginErrorReadLine();
+			}
 		}
 		catch (Exception ex)
 		{
-			EditorDebug.Error($"Failed to launch game executable: {ex.Message}", "GameBuildWindow");
+			Debug.Error($"Failed to launch game executable: {ex.Message}");
 		}
 	}
 

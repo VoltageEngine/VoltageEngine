@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Text.Json;
 
 namespace Voltage.Project
 {
@@ -33,6 +34,29 @@ namespace Voltage.Project
 		/// When empty, the game creates a default empty scene.
 		/// </summary>
 		public string InitialScene { get; set; } = "";
+
+		#region AOT-safe JSON serialization
+
+		/// <summary>
+		/// Deserializes ProjectSettings from a JSON string using the source-generated
+		/// serializer. Safe for NativeAOT and trimmed deployments.
+		/// </summary>
+		public static ProjectSettings LoadFromJson(string json)
+		{
+			return JsonSerializer.Deserialize(json, ProjectSettingsJsonContext.Default.ProjectSettings)
+			       ?? new ProjectSettings();
+		}
+
+		/// <summary>
+		/// Serializes this ProjectSettings instance to a pretty-printed JSON string
+		/// using the source-generated serializer. Safe for NativeAOT and trimmed deployments.
+		/// </summary>
+		public string SaveToJson()
+		{
+			return JsonSerializer.Serialize(this, ProjectSettingsJsonContext.Default.ProjectSettings);
+		}
+
+		#endregion
 
 		public class DisplaySettings
 		{
