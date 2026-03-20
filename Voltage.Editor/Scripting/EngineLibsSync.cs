@@ -271,7 +271,6 @@ namespace Voltage.Editor.Scripting
 				var arguments = $"build \"{csprojPath}\" " +
 				                $"-c {configuration} " +
 				                $"-o \"{outputDir}\" " +
-				                $"--no-dependencies " +
 				                $"-v quiet";
 
 				var processInfo = new ProcessStartInfo

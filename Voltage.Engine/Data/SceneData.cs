@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Xna.Framework;
 using Voltage.Persistence;
 
@@ -9,14 +10,15 @@ namespace Voltage.Data;
 /// Complete scene data structure that can be serialized to/from JSON.
 /// Contains all information needed to reconstruct a scene.
 /// </summary>
+[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
 public class SceneData
 {
 	#region Scene Metadata
 
-	public string Name { get; set; } = "Untitled Scene";
-	public string FilePath { get; set; } = string.Empty;
-	public DateTime CreatedAt { get; set; } = DateTime.Now;
-	public DateTime ModifiedAt { get; set; } = DateTime.Now;
+	public string Name = "Untitled Scene";
+	public string FilePath = string.Empty;
+	public DateTime CreatedAt = DateTime.Now;
+	public DateTime ModifiedAt = DateTime.Now;
 
 	#endregion
 
@@ -25,42 +27,42 @@ public class SceneData
 	/// <summary>
 	/// Background clear color for the scene
 	/// </summary>
-	public Color ClearColor { get; set; } = new Color(100, 149, 237, 255); // CornflowerBlue
+	public Color ClearColor = new Color(100, 149, 237, 255); // CornflowerBlue
 
 	/// <summary>
 	/// Letterbox color used when rendering
 	/// </summary>
-	public Color LetterboxColor { get; set; } = new Color(0, 0, 0, 255); // Black
+	public Color LetterboxColor = new Color(0, 0, 0, 255); // Black
 
 	/// <summary>
 	/// Resolution policy for the scene
 	/// </summary>
-	public string ResolutionPolicy { get; set; } = "BestFit";
+	public string ResolutionPolicy = "BestFit";
 
 	/// <summary>
 	/// Design resolution width (the width and height the scene is designed for)
 	/// </summary>
-	public int DesignResolutionWidth { get; set; } = 1920;
+	public int DesignResolutionWidth = 1920;
 
 	/// <summary>
 	/// Design resolution height
 	/// </summary>
-	public int DesignResolutionHeight { get; set; } = 1080;
+	public int DesignResolutionHeight = 1080;
 
 	/// <summary>
 	/// Horizontal bleed for BestFit (if selected) resolution policy
 	/// </summary>
-	public int HorizontalBleed { get; set; } = 0;
+	public int HorizontalBleed = 0;
 
 	/// <summary>
 	/// Vertical bleed for BestFit (if selected) resolution policy
 	/// </summary>
-	public int VerticalBleed { get; set; } = 0;
+	public int VerticalBleed = 0;
 
 	/// <summary>
 	/// Whether post-processing is enabled
 	/// </summary>
-	public bool EnablePostProcessing { get; set; } = true;
+	public bool EnablePostProcessing = true;
 
 	#endregion
 
@@ -69,12 +71,14 @@ public class SceneData
 	/// <summary>
 	/// Path to associated Tiled map file (if any)
 	/// </summary>
-	public string TiledMapFileName { get; set; } = string.Empty;
+	public string TiledMapFileName = string.Empty;
 
 	/// <summary>
 	/// List of all serializable entities in the scene
 	/// </summary>
-	public List<SceneEntityData> Entities { get; set; } = new();
+	/// [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(SceneData))]
+	[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(List<SceneEntityData>))]
+	public List<SceneEntityData> Entities = new();
 
 	#endregion
 
@@ -84,7 +88,7 @@ public class SceneData
 	/// Editor-specific data (camera position, selected entities, etc.)
 	/// Not used at runtime
 	/// </summary>
-	public Dictionary<string, string> EditorData { get; set; } = new();
+	public Dictionary<string, string> EditorData = new();
 
 	#endregion
 
@@ -93,34 +97,35 @@ public class SceneData
 	/// <summary>
 	/// Data for a single entity in the scene
 	/// </summary>
+	[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
 	public class SceneEntityData
 	{
-		public Guid Id { get; set; }
-		public Guid? ParentId { get; set; }
+		public Guid Id;
+		public Guid? ParentId;
 
-		public Entity.InstanceType InstanceType { get; set; }
-		public string Name { get; set; }
+		public Entity.InstanceType InstanceType;
+		public string Name;
 
 		// Transform
-		public Vector2 Position { get; set; }
-		public float Rotation { get; set; }
-		public Vector2 Scale { get; set; } = new Vector2(1, 1);
+		public Vector2 Position;
+		public float Rotation;
+		public Vector2 Scale = new Vector2(1, 1);
 
 		// Hierarchy
-		public string ParentEntityName { get; set; }
-
+		public string ParentEntityName;
+		
 		// Properties
-		public bool Enabled { get; set; } = true;
-		public int UpdateOrder { get; set; }
-		public int Tag { get; set; }
-		public bool IsSelectableInEditor { get; set; } = true;
-		public bool DebugRenderEnabled { get; set; }
+		public bool Enabled = true;
+		public int UpdateOrder;
+		public int Tag;
+		public bool IsSelectableInEditor = true;
+		public bool DebugRenderEnabled = false;
 
 		// Prefab reference
-		public string OriginalPrefabName { get; set; }
-
+		public string OriginalPrefabName;
+		
 		// Entity-specific data
-		public EntityData EntityData { get; set; }
+		public EntityData EntityData;
 	}
 
 	#endregion

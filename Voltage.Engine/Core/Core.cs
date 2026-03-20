@@ -152,10 +152,6 @@ public class Core : Game
 	{
 #if EDITOR 
 		_windowTitle = windowTitle;
-
-		System.Console.WriteLine("This is EDITOR");
-#else
-		System.Console.WriteLine("This is a non-editor build. Make sure to only use this for shipping the game, not for development.");
 #endif
 		_instance = this;
 		Emitter = new Emitter<CoreEvents>(new CoreEventsComparer());

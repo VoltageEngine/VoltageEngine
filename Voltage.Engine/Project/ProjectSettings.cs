@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Voltage.Project
 {
+	[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
 	public class ProjectSettings
 	{
 
@@ -55,6 +56,7 @@ namespace Voltage.Project
 			ContentDirectory = "Content";
 		}
 
+		[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
 		public class DisplaySettings
 		{
 			public int ScreenWidth = 1280;
@@ -63,6 +65,7 @@ namespace Voltage.Project
 			public bool EnableVSync = true;
 		}
 
+		[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
 		public class AudioSettings
 		{
 			public float MasterVolume = 1.0f;
@@ -70,6 +73,7 @@ namespace Voltage.Project
 			public float SFXVolume = 1.0f;
 		}
 
+		[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
 		public class DesignResolutionSettings
 		{
 			public int Width = 1280;
@@ -79,6 +83,7 @@ namespace Voltage.Project
 			public int VerticalBleed = 0;
 		}
 
+		[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
 		public class PhysicsSettings
 		{
 			[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(Dictionary<string, int>))]
@@ -89,7 +94,7 @@ namespace Voltage.Project
 			};
 		}
 
-
+		[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
 		public class RenderingSettings
 		{
 			[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(Dictionary<string, int>))]
@@ -106,6 +111,7 @@ namespace Voltage.Project
 			};
 		}
 
+		[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
 		public class EntitySettings
 		{
 			[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(Dictionary<string, int>))]
