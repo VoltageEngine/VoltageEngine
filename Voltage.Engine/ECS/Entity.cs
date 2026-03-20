@@ -4,12 +4,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text.Json.Serialization;
 using Voltage.Data;
 
 namespace Voltage;
 
-[JsonSerializable(typeof(Entity))]
 public sealed class Entity : IComparable<Entity>
 {
 	public enum InstanceType

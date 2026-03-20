@@ -152,6 +152,10 @@ public class Core : Game
 	{
 #if EDITOR 
 		_windowTitle = windowTitle;
+
+		System.Console.WriteLine("This is EDITOR");
+#else
+		System.Console.WriteLine("This is a non-editor build. Make sure to only use this for shipping the game, not for development.");
 #endif
 		_instance = this;
 		Emitter = new Emitter<CoreEvents>(new CoreEventsComparer());
@@ -224,14 +228,6 @@ public class Core : Game
 		base.Initialize();
 
 		GraphicsDevice = base.GraphicsDevice;
-		// Get the correct assembly - the Voltage assembly, not the executing (JoltMono) assembly
-		var voltageAssembly = typeof(Core).Assembly; // This gets Voltage.dll
-		var resourceNames = voltageAssembly.GetManifestResourceNames();
-
-		foreach (var name in resourceNames)
-		{
-			System.Console.WriteLine($"Embedded resource: {name}");
-		}
 	}
 
 	protected override void Update(GameTime gameTime)

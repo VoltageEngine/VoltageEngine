@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-using System.Text.Json;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Voltage.Project
 {
@@ -19,72 +19,70 @@ namespace Voltage.Project
 				_instance = value;
 			}
 		}
-		private static ProjectSettings _instance;
-		public DisplaySettings Display { get; set; } = new();
-		public AudioSettings Audio { get; set; } = new();
-		public DesignResolutionSettings DesignResolution { get; set; } = new();
-		public PhysicsSettings Physics { get; set; } = new();
-		public RenderingSettings Rendering { get; set; } = new();
-		public EntitySettings Entities { get; set; } = new();
 
-		public string ContentDirectory { get; set; } = "Content";
+		private static ProjectSettings _instance;
 
 		/// <summary>
 		/// The .vscene file name (without extension) that the game loads on startup.
-		/// When empty, the game creates a default empty scene.
+		/// When empty, the game creates a default empty scene (called MainScene).
 		/// </summary>
-		public string InitialScene { get; set; } = "";
+		public string InitialScene;
+		public DisplaySettings Display;
+		public AudioSettings Audio;
+		public DesignResolutionSettings DesignResolution;
+		public PhysicsSettings Physics;
+		public RenderingSettings Rendering;
+		public EntitySettings Entities;
+		public string ContentDirectory;
 
-		#region AOT-safe JSON serialization
-
-		/// <summary>
-		/// Deserializes ProjectSettings from a JSON string using the source-generated
-		/// serializer. Safe for NativeAOT and trimmed deployments.
-		/// </summary>
-		public static ProjectSettings LoadFromJson(string json)
+		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(ProjectSettings))]
+		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(DisplaySettings))]
+		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(AudioSettings))]
+		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(DesignResolutionSettings))]
+		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(PhysicsSettings))]
+		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(RenderingSettings))]
+		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(EntitySettings))]
+		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(string))]
+		public ProjectSettings()
 		{
-			return JsonSerializer.Deserialize(json, ProjectSettingsJsonContext.Default.ProjectSettings)
-			       ?? new ProjectSettings();
+			InitialScene = "";
+			Display = new DisplaySettings();
+			Audio = new AudioSettings();
+			DesignResolution = new DesignResolutionSettings();
+			Physics = new PhysicsSettings();
+			Rendering = new RenderingSettings();
+			Entities = new EntitySettings();
+			ContentDirectory = "Content";
 		}
-
-		/// <summary>
-		/// Serializes this ProjectSettings instance to a pretty-printed JSON string
-		/// using the source-generated serializer. Safe for NativeAOT and trimmed deployments.
-		/// </summary>
-		public string SaveToJson()
-		{
-			return JsonSerializer.Serialize(this, ProjectSettingsJsonContext.Default.ProjectSettings);
-		}
-
-		#endregion
 
 		public class DisplaySettings
 		{
-			public int ScreenWidth { get; set; } = 1280;
-			public int ScreenHeight { get; set; } = 720;
-			public bool IsFullscreen { get; set; } = false;
-			public bool EnableVSync { get; set; } = true;
+			public int ScreenWidth = 1280;
+			public int ScreenHeight = 720;
+			public bool IsFullscreen = false;
+			public bool EnableVSync = true;
 		}
 
 		public class AudioSettings
 		{
-			public float MasterVolume { get; set; } = 1.0f;
-			public float MusicVolume { get; set; } = 0.8f;
-			public float SFXVolume { get; set; } = 1.0f;
+			public float MasterVolume = 1.0f;
+			public float MusicVolume = 0.8f;
+			public float SFXVolume = 1.0f;
 		}
 
 		public class DesignResolutionSettings
 		{
-			public int Width { get; set; } = 1280;
-			public int Height { get; set; } = 720;
-			public Scene.SceneResolutionPolicy ResolutionPolicy { get; set; } = Scene.SceneResolutionPolicy.BestFit;
-			public int HorizontalBleed { get; set; } = 0;
-			public int VerticalBleed { get; set; } = 0;
+			public int Width = 1280;
+			public int Height = 720;
+			public Scene.SceneResolutionPolicy ResolutionPolicy = Scene.SceneResolutionPolicy.BestFit;
+			public int HorizontalBleed = 0;
+			public int VerticalBleed = 0;
 		}
 
 		public class PhysicsSettings
 		{
-			public Dictionary<string, int> PhysicsLayers { get; set; } = new()
+			[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(Dictionary<string, int>))]
+			public Dictionary<string, int> PhysicsLayers = new()
 			{
 				{ "Default", 0 },
 				{ "Ground", 1 }
@@ -94,7 +92,8 @@ namespace Voltage.Project
 
 		public class RenderingSettings
 		{
-			public Dictionary<string, int> RenderingLayers { get; set; } = new()
+			[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(Dictionary<string, int>))]
+			public Dictionary<string, int> RenderingLayers = new()
 			{
 				{ "Lighting", 100 },
 				{ "BehindAll", 99 },
@@ -109,7 +108,8 @@ namespace Voltage.Project
 
 		public class EntitySettings
 		{
-			public Dictionary<string, int> EntityTags { get; set; } = new()
+			[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(Dictionary<string, int>))]
+			public Dictionary<string, int> EntityTags = new()
 			{
 				{ "Default", 0 },
 				{ "Player", 1 }

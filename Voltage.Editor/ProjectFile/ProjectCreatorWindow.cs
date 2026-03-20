@@ -473,11 +473,8 @@ namespace Voltage.Editor.ProjectFile
 				});
 				
 				File.WriteAllText(metadataPath, metadataJson, new System.Text.UTF8Encoding(false));
-				
-				// Save settings using the AOT-safe serializer so the JSON format
-				// matches exactly what the game project reads at runtime.
 				var settingsPath = Path.Combine(fullProjectPath, "ProjectSettings.json");
-				var settingsJson = settings.SaveToJson();
+				var settingsJson = Voltage.Persistence.Json.ToJson(settings, new Voltage.Persistence.JsonSettings { PrettyPrint = true });
 				File.WriteAllText(settingsPath, settingsJson, new System.Text.UTF8Encoding(false));
 				
 				CreateDefaultScene(scenesPath);
@@ -491,7 +488,6 @@ namespace Voltage.Editor.ProjectFile
 				else
 				{
 					EditorDebug.Error($"Project created but failed to load from: {metadataPath}", "ProjectCreation");
-					EditorDebug.Log($"Project created but failed to load. Check logs.");
 				}
 
 				if (EditorSettingsWindow.AutoOpenSolutionUponCreation)
@@ -507,7 +503,6 @@ namespace Voltage.Editor.ProjectFile
 					}
 				}
 
-				EditorDebug.Log("=== Project Creation Complete ===", "ProjectCreation");
 				ImGui.CloseCurrentPopup();
 				ResetFields();
 			}
