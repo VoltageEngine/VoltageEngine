@@ -1,7 +1,7 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Voltage.Persistence;
-using Voltage.Serialization;
 
 namespace Voltage;
 
@@ -14,6 +14,7 @@ public abstract class ComponentData
 }
 
 // Helper struct to store component type and its data as JSON
+[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
 public struct ComponentDataEntry
 {
 	public string ComponentTypeName;

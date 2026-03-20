@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Voltage;
@@ -9,10 +10,6 @@ using Voltage.Textures;
 using Voltage.Utils;
 using Voltage.Utils.Collections;
 using Voltage.Utils.Extensions;
-using System.IO;
-using System.Linq;
-using Voltage.Serialization;
-
 
 namespace Voltage;
 
@@ -88,6 +85,7 @@ public partial class Scene
 		BestFit
 	}
 
+	[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(SceneData))]
 	public SceneData SceneData;
 
 	/// <summary>
