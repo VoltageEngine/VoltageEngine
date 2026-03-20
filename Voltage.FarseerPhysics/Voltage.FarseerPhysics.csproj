@@ -15,14 +15,22 @@
 		<Configurations>Debug;Release;Editor-Debug;Editor-Release</Configurations>
 	</PropertyGroup>
 
+	<!-- Game build configurations: no EDITOR symbol -->
+	<PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+		<DefineConstants>TRACE;DEBUG</DefineConstants>
+	</PropertyGroup>
+
+	<PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+		<DefineConstants>TRACE</DefineConstants>
+	</PropertyGroup>
+
+	<!-- Editor configurations: EDITOR symbol defined -->
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Editor-Debug|AnyCPU' ">
-		<DefineConstants>TRACE;DEBUG; EDITOR;</DefineConstants>
-		<!-- <OutputPath>bin\Debug\</OutputPath> -->
+		<DefineConstants>TRACE;DEBUG;EDITOR</DefineConstants>
 	</PropertyGroup>
 
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Editor-Release|AnyCPU' ">
-		<DefineConstants>TRACE;EDITOR;</DefineConstants>
-		<!-- <OutputPath>bin\Release\</OutputPath> -->
+		<DefineConstants>TRACE;EDITOR</DefineConstants>
 	</PropertyGroup>
 
 	<ItemGroup>

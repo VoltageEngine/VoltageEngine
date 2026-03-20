@@ -28,7 +28,12 @@ public class Editor : Core
 
 		LoadRequiredAssemblies();
 
+#if OS_MAC
+        Directory.SetCurrentDirectory(AppContext
+            .BaseDirectory); //For some reason, on Mac directory needs to be set manually, or it won't find the Content folder
+#endif
 		Content.RootDirectory = "Content";
+
 		IsEditMode = true;
 		var options = new ImGuiOptions();
 

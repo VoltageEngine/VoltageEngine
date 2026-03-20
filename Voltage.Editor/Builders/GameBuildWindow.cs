@@ -390,7 +390,7 @@ public class GameBuildWindow
 		try
 		{
 			var settingsPath = Path.Combine(project.ProjectPath, "ProjectSettings.json");
-			var json = settings.SaveToJson();
+			var json = Voltage.Persistence.Json.ToJson(settings, new Voltage.Persistence.JsonSettings { PrettyPrint = true });
 			File.WriteAllText(settingsPath, json, new System.Text.UTF8Encoding(false));
 			EditorDebug.Log($"Saved InitialScene '{selectedScene}' to ProjectSettings.json", "GameBuildWindow");
 		}

@@ -283,16 +283,24 @@ namespace {projectName}
 	{{
 		public {projectName}Game() : base()
 		{{
+#if OS_MAC
+		// Mac directory needs to be set manually, or it won't find the Content folder
+        Directory.SetCurrentDirectory(AppContext
+            .BaseDirectory);
+#endif
+
 			// Load game settings
 			var settingsPath = System.IO.Path.Combine(
-				AppContext.BaseDirectory,
-				""ProjectSettings.json""
+			    AppContext.BaseDirectory,
+			    ""ProjectSettings.json""
 			);
 
 			if (System.IO.File.Exists(settingsPath))
 			{{
-				var json = System.IO.File.ReadAllText(settingsPath);
-				ProjectSettings.Instance = ProjectSettings.LoadFromJson(json);
+			    {{
+			        var json = System.IO.File.ReadAllText(settingsPath);
+			        ProjectSettings.Instance = Voltage.Persistence.Json.FromJson<ProjectSettings>(json);
+			    }}
 			}}
 		}}
 

@@ -204,7 +204,7 @@ namespace Voltage.Editor.ProjectFile
 				try
 				{
 					var settingsJson = File.ReadAllText(settingsPath);
-					_settings = ProjectSettings.LoadFromJson(settingsJson);
+					_settings = Voltage.Persistence.Json.FromJson<ProjectSettings>(settingsJson);
 					if (_settings != null)
 						return;
 				}
@@ -235,21 +235,18 @@ namespace Voltage.Editor.ProjectFile
 
 			try
 			{
-				// Apply display settings
 				if (Settings.Display != null)
 				{
 					EditorDebug.Log($"Applying display settings: {Settings.Display.ScreenWidth}x{Settings.Display.ScreenHeight}, " +
 					                $"Fullscreen: {Settings.Display.IsFullscreen}, VSync: {Settings.Display.EnableVSync}", "RuntimeGameProject");
 				}
 
-				// Apply design resolution settings
 				if (Settings.DesignResolution != null)
 				{
 					EditorDebug.Log($"Design resolution loaded: {Settings.DesignResolution.Width}x{Settings.DesignResolution.Height} " +
 					                $"({Settings.DesignResolution.ResolutionPolicy})", "RuntimeGameProject");
 				}
 
-				// Apply audio settings
 				if (Settings.Audio != null)
 				{
 					EditorDebug.Log($"Audio settings loaded: Master={Settings.Audio.MasterVolume}, " +
