@@ -196,6 +196,15 @@ namespace Voltage.Editor.ProjectFile
     <Analyzer Include=""$(MSBuildThisFileDirectory)EngineLibs\Voltage.SourceGenerators.dll"" />
   </ItemGroup>
 
+  <!--
+    Trimmer roots: preserve types needed by the Voltage JSON serializer's reflection-based
+    deserialization. Without this, NativeAOT strips field metadata from MonoGame structs
+    (Vector2, Color, etc...) and collection constructors, causing runtime crashes.
+  -->
+  <ItemGroup>
+    <TrimmerRootDescriptor Include=""TrimmerRoots.xml"" Condition=""Exists('TrimmerRoots.xml')"" />
+  </ItemGroup>
+
   <ItemGroup>
     <Content Include=""Content\**\*.*"">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -216,8 +225,7 @@ namespace Voltage.Editor.ProjectFile
 </Project>";
 
 			File.WriteAllText(projectFilePath, csprojContent);
-			EditorDebug.Log($"Project file created with MonoGame version: {monoGameVersion}", "ProjectStructure");
-			Debug.Log($"Created project file: {projectFilePath}");
+			Debug.Info($"Project file created with MonoGame version: {monoGameVersion}", "ProjectStructure");
 		}
 
 		private static void CreateSolutionFile(string projectName, string projectPath)
@@ -258,6 +266,7 @@ EndGlobal";
 			var programContent = $@"using System;
 using Voltage;
 using Voltage.Project;
+using Voltage.Utils;
 
 namespace {projectName}
 {{
@@ -268,7 +277,7 @@ namespace {projectName}
 	{{
 		[STAThread]
 		static void Main()
-		{{	
+		{{
 			using (var game = new {projectName}Game())
 			{{
 				game.Run();
@@ -289,55 +298,91 @@ namespace {projectName}
             .BaseDirectory);
 #endif
 
-			// Load game settings
-			var settingsPath = System.IO.Path.Combine(
-			    AppContext.BaseDirectory,
-			    ""ProjectSettings.json""
-			);
+            // Load game settings
+            var settingsPath = System.IO.Path.Combine(
+                AppContext.BaseDirectory,
+                ""ProjectSettings.json""
+            );
 
-			if (System.IO.File.Exists(settingsPath))
-			{{
-			    {{
-			        var json = System.IO.File.ReadAllText(settingsPath);
-			        ProjectSettings.Instance = Voltage.Persistence.Json.FromJson<ProjectSettings>(json);
-			    }}
-			}}
-		}}
+            if (System.IO.File.Exists(settingsPath))
+            {{
+                var json = System.IO.File.ReadAllText(settingsPath);
+                ProjectSettings.Instance = Voltage.Serialization.AotDeserializers.DeserializeProjectSettings(json);
+            }}
+        }}
 
-		protected override void Initialize()
+        protected override void Initialize()
 		{{
 			base.Initialize();
 
 			var font = Content.LoadBitmapFont(""Content/Voltage/Fonts/VoltageDefaultBMFont.fnt"");
 			Graphics.Instance = new Graphics(font);
-			DebugRenderEnabled = true;
-			Window.Title = ""{projectName}"";
+			Window.Title = ""{projectName}"");
 
-			// Load the initial scene configured in ProjectSettings.json
-			var settings = ProjectSettings.Instance;
-			if (settings != null && !string.IsNullOrEmpty(settings.InitialScene))
-			{{
-				var scenePath = System.IO.Path.Combine(
-					AppContext.BaseDirectory,
-					""Data"", ""Scenes"",
-					settings.InitialScene + "".vscene""
-				);
+            // Apply project settings to the runtime
+            var settings = ProjectSettings.Instance;
 
-				if (System.IO.File.Exists(scenePath))
-				{{
-					var loadedScene = Scene.LoadFromFile(scenePath);
-					if (loadedScene != null)
-					{{
-						Scene = loadedScene;
-					}}
-				}}
-			}}
-			else
-			{{			  
-			    throw new Exception(""Initial scene is not specified in ProjectSettings.json!"");
-			}}
-		}}
-	}}
+            // Load the initial scene configured in ProjectSettings.json
+            if (settings != null && !string.IsNullOrEmpty(settings.InitialScene))
+            {{
+                var scenePath = System.IO.Path.Combine(
+                    AppContext.BaseDirectory,
+                    ""Data"", ""Scenes"",
+                    settings.InitialScene + "".vscene""
+                );
+
+                if (System.IO.File.Exists(scenePath))
+                {{
+                    var loadedScene = Scene.LoadFromFile(scenePath);
+                    if (loadedScene != null)
+                    {{
+                        Scene = loadedScene;
+
+                        // Apply display settings (screen size, fullscreen, vsync)
+                        if (settings.Display != null)
+                        {{
+                            Screen.SetSize(settings.Display.ScreenWidth, settings.Display.ScreenHeight);
+                            Screen.IsFullscreen = settings.Display.IsFullscreen;
+                            Screen.SynchronizeWithVerticalRetrace = settings.Display.EnableVSync;
+                            Screen.ApplyChanges();
+                        }}
+
+                        // Apply design resolution as the default for all scenes
+                        if (settings.DesignResolution != null
+                            && settings.DesignResolution.Width > 0
+                            && settings.DesignResolution.Height > 0)
+                        {{
+                            Scene.SetDefaultDesignResolution(
+                                settings.DesignResolution.Width,
+                                settings.DesignResolution.Height,
+                                settings.DesignResolution.ResolutionPolicy,
+                                settings.DesignResolution.HorizontalBleed,
+                                settings.DesignResolution.VerticalBleed);
+
+                            Scene.SetDesignResolution(
+                                settings.DesignResolution.Width,
+                                settings.DesignResolution.Height,
+                                settings.DesignResolution.ResolutionPolicy,
+                                settings.DesignResolution.HorizontalBleed,
+                                settings.DesignResolution.VerticalBleed);
+                        }}
+                    }}
+                    else
+                    {{
+                        throw new Exception($""Failed to load scene from: {{scenePath}}"");
+                    }}
+                }}
+                else
+                {{
+                    throw new Exception($""Scene file not found: {{scenePath}}"");
+                }}
+            }}
+            else
+            {{
+                throw new Exception(""Initial scene is not specified in ProjectSettings.json!"");
+            }}
+        }}
+    }}
 }}
 ";
 
@@ -398,20 +443,19 @@ namespace {projectName}.Scripts
 		{{
 			// Example: Simple movement
 			var velocity = Vector2.Zero;
-
+			
 			if (Input.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.W))
-				velocity.Y -= 1;
+				velocity.Y -= 1 * Speed * Time.DeltaTime;
 			if (Input.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.S))
-				velocity.Y += 1;
+				velocity.Y += 1 * Speed * Time.DeltaTime;
 			if (Input.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.A))
-				velocity.X -= 1;
+				velocity.X -= 1 * Speed * Time.DeltaTime;
 			if (Input.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.D))
-				velocity.X += 1;
+				velocity.X += 1 * Speed * Time.DeltaTime;
 
 			if (velocity != Vector2.Zero)
 			{{
-				velocity.Normalize();
-				Entity.Transform.Position += velocity * Speed * Time.DeltaTime;
+				Entity.Transform.Position += velocity;
 			}}
 		}}
 	}}
@@ -489,26 +533,24 @@ Thumbs.db
 				if (iconSource != null)
 				{
 					File.Copy(iconSource, Path.Combine(projectPath, "Icon.ico"), overwrite: true);
-					EditorDebug.Log("Copied Icon.ico to game project.", "ProjectStructure");
 				}
 				else
 				{
-					EditorDebug.Warn("Icon.ico not found. Game project will build without an application icon.", "ProjectStructure");
+					EditorDebug.Error("Icon.ico not found. Game project will build without an application icon.", "ProjectStructure");
 				}
 
 				if (bmpIconSource != null)
 				{
 					File.Copy(bmpIconSource, Path.Combine(projectPath, "Icon.bmp"), overwrite: true);
-					EditorDebug.Log("Copied Icon.bmp to game project.", "ProjectStructure");
 				}
 				else
 				{
-					EditorDebug.Warn("Icon.bmp not found. Game project will build without a bitmap icon.", "ProjectStructure");
+					EditorDebug.Error("Icon.bmp not found. Game project will build without a bitmap icon.", "ProjectStructure");
 				}
 			}
 			catch (Exception ex)
 			{
-				EditorDebug.Warn($"Could not copy icon files: {ex.Message}", "ProjectStructure");
+				EditorDebug.Error($"Could not copy icon files: {ex.Message}", "ProjectStructure");
 			}
 		}
 

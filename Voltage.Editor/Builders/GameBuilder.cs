@@ -194,14 +194,20 @@ public static class GameBuilder
 
 			EnsureGenerateAssemblyInfoDisabled(csprojPath);
 
+			// Ensure TrimmerRoots.xml is synced to the game project before publishing.
+			// Without it, NativeAOT strips type metadata needed by the JSON serializer.
+			EngineLibsSync.SyncTrimmerRoots(project.ProjectPath);
+			EnsureTrimmerRootsInCsproj(csprojPath);
+
 			var arguments = $"publish \"{csprojPath}\" " +
 			                $"-c {configuration} " +
 			                $"-r {platform.RuntimeIdentifier} " +
 			                $"-o \"{buildDir}\" " +
 			                $"--self-contained true " +
 			                $"-p:PublishAot=true " +
-							$"-p:PublishTrimmed=true " +
+			                $"-p:PublishTrimmed=true " +
 			                $"-p:TrimMode=link " +
+			                $"-p:TrimmerRootAssembly={project.ProjectName} " +
 			                $"-p:IncludeNativeLibrariesForSelfExtract=true";
 
 			EditorDebug.Log($"Running: dotnet {arguments}", "GameBuilder");
@@ -313,6 +319,42 @@ public static class GameBuilder
 		catch (Exception ex)
 		{
 			EditorDebug.Warn($"Could not patch .csproj for GenerateAssemblyInfo: {ex.Message}", "GameBuilder");
+		}
+	}
+
+	/// <summary>
+	/// Ensures the .csproj contains a TrimmerRootDescriptor item for TrimmerRoots.xml.
+	/// Patches older projects created before the trimmer roots fix was added to the template.
+	/// </summary>
+	private static void EnsureTrimmerRootsInCsproj(string csprojPath)
+	{
+		try
+		{
+			var content = File.ReadAllText(csprojPath);
+
+			if (content.Contains("TrimmerRootDescriptor", StringComparison.OrdinalIgnoreCase))
+				return; // Already present
+
+			// Insert before the closing </Project> tag
+			const string marker = "</Project>";
+			var insertIndex = content.LastIndexOf(marker, StringComparison.Ordinal);
+			if (insertIndex < 0)
+				return;
+
+			var insertion =
+				"\n  <!-- Trimmer roots: preserve types needed by Voltage JSON serializer -->\n" +
+				"  <ItemGroup>\n" +
+				"    <TrimmerRootDescriptor Include=\"TrimmerRoots.xml\" Condition=\"Exists('TrimmerRoots.xml')\" />\n" +
+				"  </ItemGroup>\n";
+
+			content = content.Insert(insertIndex, insertion);
+			File.WriteAllText(csprojPath, content);
+
+			EditorDebug.Log("Patched .csproj with TrimmerRootDescriptor for NativeAOT.", "GameBuilder");
+		}
+		catch (Exception ex)
+		{
+			EditorDebug.Warn($"Could not patch .csproj for TrimmerRoots: {ex.Message}", "GameBuilder");
 		}
 	}
 

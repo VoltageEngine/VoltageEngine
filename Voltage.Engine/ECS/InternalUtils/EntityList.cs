@@ -21,6 +21,12 @@ public class EntityList : IEnumerable<Entity>
 	public FastList<Entity> EntityFastList => _entities;
 
 	/// <summary>
+	/// Read-only access to entities pending addition. Used by LoadSceneEntitiesData
+	/// to find SceneRequired entities before UpdateLists has been called.
+	/// </summary>
+	public IReadOnlyCollection<Entity> EntitiesToAdd => _entitiesToAdd;
+
+	/// <summary>
 	/// The list of entities that were added this frame. Used to group the entities so we can process them simultaneously
 	/// </summary>
 	private HashSet<Entity> _entitiesToAdd = new();

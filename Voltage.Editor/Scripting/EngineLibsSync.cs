@@ -132,6 +132,7 @@ namespace Voltage.Editor.Scripting
 			}
 
 			SyncSourceGeneratorDll(engineLibsPath);
+			SyncTrimmerRoots(projectPath);
 
 			if (synced > 0)
 				EditorDebug.Log($"Synced {synced} engine DLL(s) to: {engineLibsPath}", "EngineLibsSync");
@@ -241,6 +242,9 @@ namespace Voltage.Editor.Scripting
 
 				// Source generator is config-agnostic (netstandard2.0, no EDITOR references)
 				SyncSourceGeneratorDll(engineLibsPath);
+
+				// Ensure TrimmerRoots.xml is present in the game project for NativeAOT builds
+				SyncTrimmerRoots(projectPath);
 
 				EditorDebug.Log($"Runtime engine libs built and synced to: {engineLibsPath}", "EngineLibsSync");
 				return true;
@@ -522,5 +526,51 @@ namespace Voltage.Editor.Scripting
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Name of the trimmer roots XML file that must accompany game projects
+		/// for NativeAOT to preserve types used by reflection-based JSON serialization.
+		/// </summary>
+		private const string TrimmerRootsFileName = "TrimmerRoots.xml";
+
+		/// <summary>
+		/// Copies TrimmerRoots.xml from the Voltage.Engine project directory into the
+		/// game project root so that <c>dotnet publish -p:PublishAot=true</c> can find it.
+		/// </summary>
+		public static bool SyncTrimmerRoots(string projectPath)
+		{
+			if (string.IsNullOrEmpty(projectPath))
+				return false;
+
+			var solutionDir = FindSolutionDir();
+			if (solutionDir == null)
+			{
+				EditorDebug.Warn("Cannot sync TrimmerRoots.xml: solution directory not found.", "EngineLibsSync");
+				return false;
+			}
+
+			var srcPath = Path.Combine(solutionDir, "Voltage.Engine", TrimmerRootsFileName);
+			if (!File.Exists(srcPath))
+			{
+				EditorDebug.Warn($"TrimmerRoots.xml not found at: {srcPath}", "EngineLibsSync");
+				return false;
+			}
+
+			var destPath = Path.Combine(projectPath, TrimmerRootsFileName);
+			try
+			{
+				if (ShouldCopyFile(srcPath, destPath))
+				{
+					File.Copy(srcPath, destPath, overwrite: true);
+					EditorDebug.Log("Synced TrimmerRoots.xml to game project.", "EngineLibsSync");
+				}
+				return true;
+			}
+			catch (Exception ex)
+			{
+				EditorDebug.Error($"Failed to copy TrimmerRoots.xml: {ex.Message}", "EngineLibsSync");
+				return false;
+			}
+		}
 	}
 }

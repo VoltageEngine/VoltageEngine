@@ -115,14 +115,6 @@ namespace Voltage.Editor.ProjectFile
 			}
 		}
 
-		public Scene CreateInitialScene()
-		{
-			EditorDebug.Log($"Creating initial GameScene for project: {ProjectName}", "RuntimeGameProject");
-			var scene = new Scene();
-			scene.AddSceneComponent<GameSceneComponent>();
-			return scene;
-		}
-
 		public void LoadContent(ContentManager content)
 		{
 			if (content == null)

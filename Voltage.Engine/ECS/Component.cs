@@ -8,6 +8,7 @@ namespace Voltage;
 /// <summary>
 /// ComponentData class for Components. This is used to serialize Component data to JSON.
 /// </summary>
+[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
 public abstract class ComponentData
 {
 	public bool Enabled = true;

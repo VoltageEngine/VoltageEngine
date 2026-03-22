@@ -178,9 +178,6 @@ public class SceneManager : GlobalManager
 	/// </summary>
 	public Scene LoadScene(string scenePath)
 	{
-		EditorDebug.Log($"=== Loading Scene ===", "SceneManagement");
-		EditorDebug.Log($"Scene file: {scenePath}", "SceneManagement");
-
 		if (string.IsNullOrWhiteSpace(scenePath))
 		{
 			EditorDebug.Error("Scene path cannot be null or empty", "SceneManagement");

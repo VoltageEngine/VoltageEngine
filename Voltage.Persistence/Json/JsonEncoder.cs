@@ -79,6 +79,10 @@ namespace Voltage.Persistence
 				var output = ((DateTime) value).ToString(JsonConstants.iso8601Format[0], CultureInfo.InvariantCulture);
 				EncodeString(output);
 			}
+			else if (value is Guid guid)
+			{
+				EncodeString(guid.ToString("D"));
+			}
 			else if (value is Enum)
 			{
 				EncodeString(value.ToString());
