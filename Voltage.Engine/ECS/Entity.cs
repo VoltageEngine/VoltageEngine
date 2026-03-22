@@ -13,9 +13,9 @@ public sealed class Entity : IComparable<Entity>
 	public enum InstanceType
 	{
 		/// <summary>
-		/// Only created via code (e.g., Player). 
+		/// Only created via code (e.g., Temporary child-entity during run-time through code.). 
 		/// Usually reserved for entities that exist only once in a scene, or those that
-		/// need tight data integration with other entities (e.g. Camera with Player).
+		/// need tight data integration with other entities.
 		/// </summary>
 		NonSerialized,
 
@@ -29,6 +29,18 @@ public sealed class Entity : IComparable<Entity>
 		/// Used to create (e.g. based on the initial Platform entity we can create: 1) Platform_Short.prefab, 2) Platform_Big.prefab).
 		/// </summary>
 		SerializedPrefab,
+
+		/// <summary>
+		/// An entity that is always present in a scene and cannot be deleted.
+		/// Serialized like <see cref="Serialized"/> (transform, components, children are saved/loaded),
+		/// but with additional constraints:
+		///   - Cannot be destroyed or removed from the scene.
+		///   - Only one entity of a given name with this type may exist per scene.
+		///   - When a prefab targets an existing SceneRequired entity, the entity is
+		///     merge-replaced (components/transform/children replaced) rather than duplicated.
+		/// Currently used for the main Camera entity; future candidates include AudioListener, GameManager, etc.
+		/// </summary>
+		SceneRequired,
 	}
 	
 	public InstanceType Type = InstanceType.NonSerialized;
@@ -391,12 +403,19 @@ public sealed class Entity : IComparable<Entity>
 
 
 	/// <summary>
-	/// removes the Entity from the scene and destroys all children
+	/// removes the Entity from the scene and destroys all children.
+	/// SceneRequired entities cannot be destroyed — the call is silently ignored.
 	/// </summary>
 	public void Destroy()
 	{
 		if (Scene == null)
 			return;
+
+		if (Type == InstanceType.SceneRequired)
+		{
+			Debug.Warn($"Cannot destroy SceneRequired entity '{Name}'. SceneRequired entities must always be present in the scene.");
+			return;
+		}
 
 		_isDestroyed = true;
 		Scene.Entities.Remove(this);

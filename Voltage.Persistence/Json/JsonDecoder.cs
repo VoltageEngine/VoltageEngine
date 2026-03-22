@@ -16,7 +16,7 @@ namespace Voltage.Persistence
 	{
 		#region Fields and Props
 
-		static readonly char[] floatingPointCharacters = {'.', 'e'};
+		static readonly char[] floatingPointCharacters = { '.', 'e' };
 		static readonly Type afterDecodeAttrType = typeof(AfterDecodeAttribute);
 
 		const string kWhiteSpace = " \t\n\r";
@@ -75,7 +75,7 @@ namespace Voltage.Persistence
 		/// <typeparam name="T">The 1st type parameter.</typeparam>
 		public static T FromJson<T>(string jsonString, JsonSettings settings = null)
 		{
-			return (T) FromJson(jsonString, typeof(T), settings);
+			return (T)FromJson(jsonString, typeof(T), settings);
 		}
 
 		/// <summary>
@@ -418,11 +418,11 @@ namespace Voltage.Persistence
 									hex.Append(NextChar);
 								}
 
-								_builder.Append((char) Convert.ToInt32(hex.ToString(), 16));
+								_builder.Append((char)Convert.ToInt32(hex.ToString(), 16));
 								break;
 
-							//default:
-							//	throw new DecodeException( @"Illegal character following escape character: " + c );
+								//default:
+								//	throw new DecodeException( @"Illegal character following escape character: " + c );
 						}
 
 						break;
@@ -447,7 +447,9 @@ namespace Voltage.Persistence
 		object DecodeValue(Token token, Type type)
 		{
 			// handle Nullables. If the type is Nullable use the underlying type
-			type = Nullable.GetUnderlyingType(type) ?? type;
+			var underlyingType = Nullable.GetUnderlyingType(type);
+			var isNullable = underlyingType != null;
+			type = underlyingType ?? type;
 
 			switch (token)
 			{
@@ -464,7 +466,7 @@ namespace Voltage.Persistence
 					if (type == typeof(DateTime))
 					{
 						return DateTimeFromEpochTime(
-							(long) Convert.ChangeType(ParseNumber(GetNextWord()), typeof(long)));
+							(long)Convert.ChangeType(ParseNumber(GetNextWord()), typeof(long)));
 					}
 
 					return Convert.ChangeType(ParseNumber(GetNextWord()), type);
@@ -482,8 +484,15 @@ namespace Voltage.Persistence
 				case Token.False:
 					return false;
 				case Token.Null:
+					// JSON null for a non-nullable value type should produce default(T), not null.
+					// Returning null here causes ArgumentNullException when added to List<T> via IList.Add.
+					if (type.IsValueType && !isNullable)
+						return Activator.CreateInstance(type);
 					return null;
 				default:
+					// Unexpected token — same guard for value types to prevent null-into-List<struct> crashes.
+					if (type.IsValueType && !isNullable)
+						return Activator.CreateInstance(type);
 					return null;
 			}
 		}
@@ -710,7 +719,7 @@ namespace Voltage.Persistence
 			var list = obj as IList;
 			if (list == null)
 			{
-				list = (IList) _cacheResolver.CreateInstance(typeof(List<>).MakeGenericType(innerType));
+				list = (IList)_cacheResolver.CreateInstance(typeof(List<>).MakeGenericType(innerType));
 			}
 
 			// Ditch opening bracket.
@@ -751,7 +760,7 @@ namespace Voltage.Persistence
 			var dict = obj as IDictionary;
 			if (dict == null)
 			{
-				dict = (IDictionary) _cacheResolver.CreateInstance(
+				dict = (IDictionary)_cacheResolver.CreateInstance(
 					typeof(Dictionary<,>).MakeGenericType(keyType, valueType));
 			}
 
@@ -769,28 +778,28 @@ namespace Voltage.Persistence
 					case Token.CloseBrace:
 						return dict;
 					default:
-					{
-						// Key
-						var key = DecodeString();
-						if (key == null)
 						{
-							return null;
+							// Key
+							var key = DecodeString();
+							if (key == null)
+							{
+								return null;
+							}
+
+							// :
+							if (GetNextToken() != Token.Colon)
+							{
+								return null;
+							}
+
+							_json.Read();
+
+							var k = keyType.IsEnum ? Enum.Parse(keyType, key) : Convert.ChangeType(key, keyType);
+							dict[k] = valueType == typeof(object)
+								? DecodeValueUntyped(GetNextToken())
+								: dict[k] = DecodeValue(GetNextToken(), valueType);
+							break;
 						}
-
-						// :
-						if (GetNextToken() != Token.Colon)
-						{
-							return null;
-						}
-
-						_json.Read();
-
-						var k = keyType.IsEnum ? Enum.Parse(keyType, key) : Convert.ChangeType(key, keyType);
-						dict[k] = valueType == typeof(object)
-							? DecodeValueUntyped(GetNextToken())
-							: dict[k] = DecodeValue(GetNextToken(), valueType);
-						break;
-					}
 				}
 			}
 		}
@@ -824,98 +833,98 @@ namespace Voltage.Persistence
 
 						return obj;
 					default:
-					{
-						// Key
-						var key = DecodeString();
-						if (key == null)
 						{
-							return null;
-						}
+							// Key
+							var key = DecodeString();
+							if (key == null)
+							{
+								return null;
+							}
 
-						// :
-						if (GetNextToken() != Token.Colon)
-						{
-							return null;
-						}
+							// :
+							if (GetNextToken() != Token.Colon)
+							{
+								return null;
+							}
 
-						_json.Read();
+							_json.Read();
 
-						// check for @id or @ref
-						if (key == JsonConstants.IdPropertyName)
-						{
-							var dump = GetNextToken();
-							id = DecodeString();
+							// check for @id or @ref
+							if (key == JsonConstants.IdPropertyName)
+							{
+								var dump = GetNextToken();
+								id = DecodeString();
+								break;
+							}
+
+							if (key == JsonConstants.RefPropertyName)
+							{
+								var dump = GetNextToken();
+								var refObj = _cacheResolver.ResolveReference(DecodeString());
+
+								// we could break and let the next iteration catch the } but then the AfterDecode method
+								// will be called multiple times so instead we eat the token.
+								dump = GetNextToken();
+								return refObj;
+							}
+
+							if (key == JsonConstants.TypeHintPropertyName)
+							{
+								var dump = GetNextToken();
+								var typeHint = DecodeString();
+								var makeType = FindType(typeHint);
+								if (makeType == null)
+								{
+									throw new TypeLoadException(
+										$"Could not find type '{typeHint}' in any loaded assemblies");
+								}
+
+								// handle the JsonObjectFactory if we have one
+								var converter = _settings?.GetObjectFactoryForType(makeType);
+								if (converter != null)
+								{
+									// fetch the remaining data into a Dictionary and pass it off to the factory
+									var dict = new Dictionary<string, object>();
+									DecodeDictionary(dict.GetType(), dict);
+									obj = converter.CreateObject(type, dict);
+									return obj;
+								}
+
+								obj = _cacheResolver.CreateInstance(makeType);
+								break;
+							}
+
+							// if obj is still null we need to create it
+							if (obj == null)
+							{
+								// handle the JsonObjectFactory if we have one
+								var converter = _settings?.GetObjectFactoryForType(type);
+								if (converter != null)
+								{
+									// we have to do a little bit of hacking the JSON here. We need to popuplate an untyped
+									// Dictionary with the object data but we have already read in the first key. We read the
+									// next value in untyped fashion before passing off the Dictionary to finish decoding.
+									var dict = new Dictionary<string, object>();
+									dict[key] = DecodeValueUntyped(GetNextToken());
+
+									DecodeDictionary(dict.GetType(), dict);
+									obj = converter.CreateObject(type, dict);
+									return obj;
+								}
+
+								obj = _cacheResolver.CreateInstance(type);
+							}
+
+							if (id != null)
+							{
+								_cacheResolver.TrackReference(id, obj);
+								id = null;
+							}
+
+							SetNextValueOnObject(ref obj, key);
+
 							break;
-						}
-
-						if (key == JsonConstants.RefPropertyName)
-						{
-							var dump = GetNextToken();
-							var refObj = _cacheResolver.ResolveReference(DecodeString());
-
-							// we could break and let the next iteration catch the } but then the AfterDecode method
-							// will be called multiple times so instead we eat the token.
-							dump = GetNextToken();
-							return refObj;
-						}
-
-						if (key == JsonConstants.TypeHintPropertyName)
-						{
-							var dump = GetNextToken();
-							var typeHint = DecodeString();
-							var makeType = FindType(typeHint);
-							if (makeType == null)
-							{
-								throw new TypeLoadException(
-									$"Could not find type '{typeHint}' in any loaded assemblies");
-							}
-
-							// handle the JsonObjectFactory if we have one
-							var converter = _settings?.GetObjectFactoryForType(makeType);
-							if (converter != null)
-							{
-								// fetch the remaining data into a Dictionary and pass it off to the factory
-								var dict = new Dictionary<string, object>();
-								DecodeDictionary(dict.GetType(), dict);
-								obj = converter.CreateObject(type, dict);
-								return obj;
-							}
-
-							obj = _cacheResolver.CreateInstance(makeType);
-							break;
-						}
-
-						// if obj is still null we need to create it
-						if (obj == null)
-						{
-							// handle the JsonObjectFactory if we have one
-							var converter = _settings?.GetObjectFactoryForType(type);
-							if (converter != null)
-							{
-								// we have to do a little bit of hacking the JSON here. We need to popuplate an untyped
-								// Dictionary with the object data but we have already read in the first key. We read the
-								// next value in untyped fashion before passing off the Dictionary to finish decoding.
-								var dict = new Dictionary<string, object>();
-								dict[key] = DecodeValueUntyped(GetNextToken());
-
-								DecodeDictionary(dict.GetType(), dict);
-								obj = converter.CreateObject(type, dict);
-								return obj;
-							}
-
-							obj = _cacheResolver.CreateInstance(type);
-						}
-
-						if (id != null)
-						{
-							_cacheResolver.TrackReference(id, obj);
-							id = null;
-						}
-
-						SetNextValueOnObject(ref obj, key);
-
-						break;
-					} // end default
+						} // end default
 				} // end switch
 			}
 		}

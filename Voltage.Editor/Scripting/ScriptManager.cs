@@ -109,13 +109,13 @@ namespace GameScripts
 			var moveDir = Vector2.Zero;
 			
 			if (Input.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.W))
-				moveDir.Y -= 1;
-			if (Input.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.S))
 				moveDir.Y += 1;
+			if (Input.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.S))
+				moveDir.Y -= 1;
 			if (Input.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.A))
-				moveDir.X -= 1;
-			if (Input.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.D))
 				moveDir.X += 1;
+			if (Input.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.D))
+				moveDir.X -= 1;
 			
 			if (moveDir != Vector2.Zero)
 			{
@@ -127,7 +127,6 @@ namespace GameScripts
 }";
 
 			File.WriteAllText(exampleScriptPath, exampleCode);
-			Debug.Log($"Created example script: {exampleScriptPath}");
 		}
 
 		/// <summary>
@@ -157,7 +156,6 @@ namespace GameScripts
 				{
 					Debug.Error($"  {error}");
 				}
-				EditorDebug.Log($"Script compilation failed. Check console for errors.");
 			}
 
 			bool shouldReloadScene = result.Success && 

@@ -1,0 +1,48 @@
+<linker>
+	<!--
+	  Voltage engine assemblies rely heavily on reflection-based JSON serialization.
+	  The trimmer must preserve all public members so the JsonDecoder can discover
+	  fields/properties at runtime via GetFields / GetProperties.
+	-->
+	<assembly fullname="Voltage" preserve="all" />
+	<assembly fullname="Voltage.Persistence" preserve="all" />
+
+	<!--
+	  MonoGame value types whose fields are set by the JSON decoder via reflection.
+	  Both possible assembly names are listed because the NuGet package metadata
+	  can surface either depending on the version / platform.
+	-->
+	<assembly fullname="MonoGame.Framework">
+		<type fullname="Microsoft.Xna.Framework.Vector2" preserve="all" />
+		<type fullname="Microsoft.Xna.Framework.Vector3" preserve="all" />
+		<type fullname="Microsoft.Xna.Framework.Vector4" preserve="all" />
+		<type fullname="Microsoft.Xna.Framework.Color" preserve="all" />
+		<type fullname="Microsoft.Xna.Framework.Point" preserve="all" />
+		<type fullname="Microsoft.Xna.Framework.Rectangle" preserve="all" />
+		<type fullname="Microsoft.Xna.Framework.Matrix" preserve="all" />
+	</assembly>
+
+	<assembly fullname="MonoGame.Framework.DesktopGL">
+		<type fullname="Microsoft.Xna.Framework.Vector2" preserve="all" />
+		<type fullname="Microsoft.Xna.Framework.Vector3" preserve="all" />
+		<type fullname="Microsoft.Xna.Framework.Vector4" preserve="all" />
+		<type fullname="Microsoft.Xna.Framework.Color" preserve="all" />
+		<type fullname="Microsoft.Xna.Framework.Point" preserve="all" />
+		<type fullname="Microsoft.Xna.Framework.Rectangle" preserve="all" />
+		<type fullname="Microsoft.Xna.Framework.Matrix" preserve="all" />
+	</assembly>
+
+	<!-- System collection types used dynamically by the JSON decoder via MakeGenericType -->
+	<assembly fullname="System.Collections">
+		<type fullname="System.Collections.Generic.List`1" preserve="all" />
+		<type fullname="System.Collections.Generic.Dictionary`2" preserve="all" />
+	</assembly>
+
+	<assembly fullname="System.Private.CoreLib">
+		<type fullname="System.Collections.Generic.List`1" preserve="all" />
+		<type fullname="System.Collections.Generic.Dictionary`2" preserve="all" />
+		<type fullname="System.Guid" preserve="all" />
+		<type fullname="System.Nullable`1" preserve="all" />
+		<type fullname="System.DateTime" preserve="all" />
+	</assembly>
+</linker>

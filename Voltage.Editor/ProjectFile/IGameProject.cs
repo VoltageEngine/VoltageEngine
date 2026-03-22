@@ -21,7 +21,6 @@ namespace Voltage.Editor.ProjectFile
 		string PrefabsFolder { get; }
 
 		void Initialize();
-		Scene CreateInitialScene();
 		void LoadContent(ContentManager content);
 		void UnloadContent();
 	}

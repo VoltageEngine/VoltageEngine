@@ -67,5 +67,10 @@
 	  <ProjectReference Include="..\Voltage.Persistence\Voltage.Persistence.csproj" />
 	</ItemGroup>
 
+	<!-- Trimmer roots: preserve types needed by reflection-based JSON serialization -->
+	<ItemGroup>
+		<TrimmerRootDescriptor Include="TrimmerRoots.xml" />
+	</ItemGroup>
+
 	<Import Sdk="Microsoft.NET.Sdk" Project="Sdk.targets" />
 </Project>

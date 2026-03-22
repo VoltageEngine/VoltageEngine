@@ -24,6 +24,7 @@ using Voltage.Utils.Extensions;
 
 namespace Voltage.Editor.SceneFile;
 
+[Obsolete("This scene component is not used in the game output and contains legacy code for Editor asset loading into the scene.")]
 public class GameSceneComponent : SceneComponent
 {
     public TmxMap TiledMap;
@@ -39,6 +40,8 @@ public class GameSceneComponent : SceneComponent
 	// Everything under 100 (light layer) is render layer ( -99 to 99 inclusive)
 	private static readonly int[] AllRenderLayers = Enumerable.Range(-99, 199).ToArray();
 
+
+	//TODO: Get rid of this scene component as it's not used in the game output (and it also contains legacy code for Editor asset loading into the scene)
 
     public GameSceneComponent()
     {
@@ -64,7 +67,7 @@ public class GameSceneComponent : SceneComponent
             Scene.SetDesignResolution(1280, 720, Scene.SceneResolutionPolicy.BestFit);
         }
 
-        LoadSceneData();
+        //LoadSceneData();
 
         // //FMOD 
         // FmodStudio = new FmodStudio(false);
@@ -81,7 +84,7 @@ public class GameSceneComponent : SceneComponent
 	    SceneGraphWindow.OnTmxFileSelected += CreateTiledMap;
 	    SceneGraphWindow.OnAsepriteImageSelected += LoadAsepriteImages;//TODO: Fix the rendering layer assignment
     
-	    Scene.OnFinishedAddingEntities += LoadSceneEntitiesData;
+	   // Scene.OnFinishedAddingEntities += LoadSceneEntitiesData;
     }
 
     public override void Update()
@@ -95,7 +98,7 @@ public class GameSceneComponent : SceneComponent
 	    SceneGraphWindow.OnTmxFileSelected -= CreateTiledMap;
 	    SceneGraphWindow.OnAsepriteImageSelected -= LoadAsepriteImages;
 
-	    Scene.OnFinishedAddingEntities -= LoadSceneEntitiesData;
+	   // Scene.OnFinishedAddingEntities -= LoadSceneEntitiesData;
     }
 
     #region Entity Registration and Creation
@@ -112,87 +115,87 @@ public class GameSceneComponent : SceneComponent
     #endregion
 
     #region Load Data Functions
-    //Creates the SceneData object
-    protected virtual void LoadSceneData()
-    {
-		var sceneJsonPath = $"{ProjectManager.Instance.CurrentProject.ScenesFolder}/{GetType().Name}.vscene";
-
-		// Create default SceneData and save it
-		if (!File.Exists(sceneJsonPath))
-		{
-			Scene.SceneData = new SceneData();
-			var json = Voltage.Persistence.Json.ToJson(Scene.SceneData, true);
-			Directory.CreateDirectory(Path.GetDirectoryName(sceneJsonPath)!);
-			File.WriteAllText(sceneJsonPath, json);
-		}
-		else
-		{
-			Scene.SceneData = DataManager.Instance.LoadSceneData(sceneJsonPath);
-		}
-
-		if (Scene.SceneData == null)
-			throw new NullReferenceException(
-				"SceneData is NULL. You need to create the JSON file for this scene first!");
-
-		var projectManager = Core.GetGlobalManager<ProjectManager>();
-		if (projectManager?.HasActiveProject == true)
-		{
-			var designRes = projectManager.CurrentProject.Settings.DesignResolution;
-			Scene.SceneData.DesignResolutionWidth = designRes.Width;
-			Scene.SceneData.DesignResolutionHeight = designRes.Height;
-			Scene.SceneData.ResolutionPolicy = designRes.ResolutionPolicy.ToString();
-			Scene.SceneData.HorizontalBleed = designRes.HorizontalBleed;
-			Scene.SceneData.VerticalBleed = designRes.VerticalBleed;
-		}
-	}
+ //    //Creates the SceneData object
+ //    protected virtual void LoadSceneData()
+ //    {
+	// 	var sceneJsonPath = $"{ProjectManager.Instance.CurrentProject.ScenesFolder}/{GetType().Name}.vscene";
+ //
+	// 	// Create default SceneData and save it
+	// 	if (!File.Exists(sceneJsonPath))
+	// 	{
+	// 		Scene.SceneData = new SceneData();
+	// 		var json = Voltage.Persistence.Json.ToJson(Scene.SceneData, true);
+	// 		Directory.CreateDirectory(Path.GetDirectoryName(sceneJsonPath)!);
+	// 		File.WriteAllText(sceneJsonPath, json);
+	// 	}
+	// 	else
+	// 	{
+	// 		Scene.SceneData = DataManager.Instance.LoadSceneData(sceneJsonPath);
+	// 	}
+ //
+	// 	if (Scene.SceneData == null)
+	// 		throw new NullReferenceException(
+	// 			"SceneData is NULL. You need to create the JSON file for this scene first!");
+ //
+	// 	var projectManager = Core.GetGlobalManager<ProjectManager>();
+	// 	if (projectManager?.HasActiveProject == true)
+	// 	{
+	// 		var designRes = projectManager.CurrentProject.Settings.DesignResolution;
+	// 		Scene.SceneData.DesignResolutionWidth = designRes.Width;
+	// 		Scene.SceneData.DesignResolutionHeight = designRes.Height;
+	// 		Scene.SceneData.ResolutionPolicy = designRes.ResolutionPolicy.ToString();
+	// 		Scene.SceneData.HorizontalBleed = designRes.HorizontalBleed;
+	// 		Scene.SceneData.VerticalBleed = designRes.VerticalBleed;
+	// 	}
+	// }
 
     //Assigns Transform components to each object in the scene
-    protected virtual void LoadSceneEntitiesData()
-    {
-        sceneEntitiesByName = new(StringComparer.OrdinalIgnoreCase);
-
-        for (var i = 0; i < Scene.SceneData.Entities.Count; i++)
-            sceneEntitiesByName[Scene.SceneData.Entities[i].Name] = Scene.SceneData.Entities[i];
-
-        // Track entities that need parent assignment
-        var entitiesNeedingParents = new List<Entity>();
-
-        // NonSerialized entities (already in the scene)
-        for (var i = 0; i < Scene.Entities.Count; i++)
-        {
-            if (Scene.Entities[i].Type != Entity.InstanceType.NonSerialized)
-                continue;
-
-            if (sceneEntitiesByName.TryGetValue(Scene.Entities[i].Name, out var sceneEntityData))
-            {
-				DataManager.Instance.LoadPredefinedEntityData(Scene.Entities[i], sceneEntityData);
-                
-                // Check if this entity needs parent assignment later
-                if (!string.IsNullOrEmpty(Scene.Entities[i].GetData<string>("_PendingParentName")))
-                    entitiesNeedingParents.Add(Scene.Entities[i]);
-            }
-        }
-
-        // Serialized & SerializedPrefab entities (to be created now)
-        foreach (var sceneEntity in Scene.SceneData.Entities)
-        {
-            if (sceneEntity.InstanceType == Entity.InstanceType.NonSerialized)
-                continue;
-
-            // Create entity directly
-            var entity = new Entity(sceneEntity.Name, Entity.InstanceType.Serialized);
-            entity.Type = sceneEntity.InstanceType;
-            Scene.AddEntity(entity);
-            
-            DataManager.Instance.LoadPredefinedEntityData(entity, sceneEntity);
-
-            // Check if this entity needs parent assignment later
-            if (!string.IsNullOrEmpty(entity.GetData<string>("_PendingParentName")))
-                entitiesNeedingParents.Add(entity);
-        }
-
-        AssignParentRelationships(entitiesNeedingParents);
-    }
+    // protected virtual void LoadSceneEntitiesData()
+    // {
+    //     sceneEntitiesByName = new(StringComparer.OrdinalIgnoreCase);
+    //
+    //     for (var i = 0; i < Scene.SceneData.Entities.Count; i++)
+    //         sceneEntitiesByName[Scene.SceneData.Entities[i].Name] = Scene.SceneData.Entities[i];
+    //
+    //     // Track entities that need parent assignment
+    //     var entitiesNeedingParents = new List<Entity>();
+    //
+    //     // NonSerialized entities (already in the scene)
+    //     for (var i = 0; i < Scene.Entities.Count; i++)
+    //     {
+    //         if (Scene.Entities[i].Type != Entity.InstanceType.NonSerialized)
+    //             continue;
+    //
+    //         if (sceneEntitiesByName.TryGetValue(Scene.Entities[i].Name, out var sceneEntityData))
+    //         {
+				// DataManager.Instance.LoadPredefinedEntityData(Scene.Entities[i], sceneEntityData);
+    //             
+    //             // Check if this entity needs parent assignment later
+    //             if (!string.IsNullOrEmpty(Scene.Entities[i].GetData<string>("_PendingParentName")))
+    //                 entitiesNeedingParents.Add(Scene.Entities[i]);
+    //         }
+    //     }
+    //
+    //     // Serialized & SerializedPrefab entities (to be created now)
+    //     foreach (var sceneEntity in Scene.SceneData.Entities)
+    //     {
+    //         if (sceneEntity.InstanceType == Entity.InstanceType.NonSerialized)
+    //             continue;
+    //
+    //         // Create entity directly
+    //         var entity = new Entity(sceneEntity.Name, Entity.InstanceType.Serialized);
+    //         entity.Type = sceneEntity.InstanceType;
+    //         Scene.AddEntity(entity);
+    //         
+    //         DataManager.Instance.LoadPredefinedEntityData(entity, sceneEntity);
+    //
+    //         // Check if this entity needs parent assignment later
+    //         if (!string.IsNullOrEmpty(entity.GetData<string>("_PendingParentName")))
+    //             entitiesNeedingParents.Add(entity);
+    //     }
+    //
+    //     AssignParentRelationships(entitiesNeedingParents);
+    // }
 
     /// <summary>
     /// Assigns parent relationships to entities after all entities have been loaded

@@ -673,13 +673,10 @@ namespace Voltage.Editor.ProjectFile
 
 				ApplySettings();
 				_hasUnsavedChanges = false;
-
-				EditorDebug.Log($"Project settings saved to {Path.GetFileName(settingsPath)}");
 			}
 			catch (Exception ex)
 			{
 				Debug.Error($"Failed to save project settings: {ex.Message}");
-				EditorDebug.Error($"Failed to save settings: {ex.Message}");
 			}
 		}
 		
@@ -696,14 +693,10 @@ namespace Voltage.Editor.ProjectFile
 
 				//TODO:AUDIO SETTINGS
 				//AudioManager.SetMasterVolume(_masterVolume);
-
-				EditorDebug.Log("Settings applied to current session");
-				Debug.Log("Project settings applied to runtime");
 			}
 			catch (Exception ex)
 			{
 				Debug.Error($"Failed to apply project settings: {ex.Message}");
-				EditorDebug.Log($"Failed to apply settings: {ex.Message}");
 			}
 		}
 		

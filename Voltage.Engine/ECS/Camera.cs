@@ -372,7 +372,7 @@ namespace Voltage
 			var oldOrigin = _origin;
 			Origin = new Vector2(newWidth / 2f, newHeight / 2f);
 
-			// offset our position to match the new center
+			// offset our position to match the new center  
 			Entity.Transform.Position += (_origin - oldOrigin);
 		}
 

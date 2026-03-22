@@ -217,6 +217,8 @@ public partial class Scene
 	internal readonly FastList<Renderer> _renderers = new();
 	internal readonly FastList<Renderer> _afterPostProcessorRenderers = new();
 	internal readonly FastList<PostProcessor> _postProcessors = new();
+
+	public bool DidSceneBegin => _didSceneBegin;
 	private bool _didSceneBegin;
 
 
@@ -255,7 +257,7 @@ public partial class Scene
 		RenderableComponents = new RenderableComponentList();
 		Content = new VoltageContentManager();
 
-		var cameraEntity = SimpleCreateEntity<EntityData>("Camera (Main)", Entity.InstanceType.NonSerialized);
+		var cameraEntity = SimpleCreateEntity<EntityData>("Camera (Main)", Entity.InstanceType.SceneRequired);
 		Camera = cameraEntity.AddComponent(new Camera());
 
 		// setup our resolution policy. we'll commit it in begin
@@ -695,8 +697,9 @@ public partial class Scene
 
 		if (_finalRenderDelegate != null)
 			_finalRenderDelegate.OnSceneBackBufferSizeChanged(renderTargetWidth, renderTargetHeight);
-
-		Camera.OnSceneRenderTargetSizeChanged(renderTargetWidth, renderTargetHeight);
+		
+		//TODO: Fix this working against the camera being assigned a position when we begin the scene
+		//Camera.OnSceneRenderTargetSizeChanged(renderTargetWidth, renderTargetHeight);
 	}
 
 	#endregion

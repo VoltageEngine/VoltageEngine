@@ -131,14 +131,20 @@ public class EntityPane
 
 		// Set special color for entities based on type
 		bool isPrefab = entity.Type == Entity.InstanceType.SerializedPrefab;
-		bool isHardCoded = entity.Type == Entity.InstanceType.NonSerialized;
+		bool isNonSerialized = entity.Type == Entity.InstanceType.NonSerialized;
+		bool isSceneRequired = entity.Type == Entity.InstanceType.SceneRequired;
 
-		if (isPrefab)
+		if (isSceneRequired)
+		{
+			// Light orange color for SceneRequired entities
+			ImGui.PushStyleColor(ImGuiCol.Text, new System.Numerics.Vector4(1.0f, 0.8f, 0.4f, 1.0f));
+		}
+		else if (isPrefab)
 		{
 			// Orange color for prefab entities
 			ImGui.PushStyleColor(ImGuiCol.Text, new System.Numerics.Vector4(1.0f, 0.6f, 0.2f, 1.0f));
 		}
-		else if (isHardCoded)
+		else if (isNonSerialized)
 		{
 			// Green color for hardcoded entities
 			ImGui.PushStyleColor(ImGuiCol.Text, new System.Numerics.Vector4(0.2f, 1.0f, 0.2f, 1.0f));
@@ -152,7 +158,7 @@ public class EntityPane
 			treeNodeOpened = ImGui.TreeNodeEx($"{entity.Name} ({entity.Transform.ChildCount})###{entity.Id}",
 				ImGuiTreeNodeFlags.Leaf | ImGuiTreeNodeFlags.OpenOnArrow | flags);
 
-		if (isPrefab || isHardCoded)
+		if (isSceneRequired || isPrefab || isNonSerialized)
 		{
 			ImGui.PopStyleColor();
 		}
@@ -304,11 +310,15 @@ public class EntityPane
                 if (Core.Scene.Entities.Count > 0 && Core.IsEditMode)
                     _imGuiManager.CursorSelectionManager.SetCameraTargetPosition(entity.Transform.Position);
 
-            // Clone logic
+            
             string reason = null;
             if (entity.Type == Entity.InstanceType.NonSerialized)
             {
                 reason = "Can't duplicate NonSerialized entities!";
+            }
+            else if (entity.Type == Entity.InstanceType.SceneRequired)
+            {
+                reason = "Can't duplicate SceneRequired entities!";
             }
 
             if (reason == null)
@@ -323,15 +333,24 @@ public class EntityPane
                 ImGui.EndDisabled();
             }
 
-            if (ImGui.Selectable("Destroy Entity"))
+            if (entity.Type == Entity.InstanceType.SceneRequired)
             {
-                // Push undo BEFORE destroying, so the entity is still valid
-                EditorChangeTracker.PushUndo(
-                    new EntityCreateDeleteUndoAction(entity.Scene, entity, wasCreated: false, $"Delete Entity {entity.Name}"),
-                    entity,
-                    $"Delete Entity {entity.Name}"
-                );
-                entity.Destroy();
+                ImGui.BeginDisabled(true);
+                ImGui.Selectable("Can't delete SceneRequired entities!");
+                ImGui.EndDisabled();
+            }
+            else
+            {
+                if (ImGui.Selectable("Destroy Entity"))
+                {
+                    // Push undo BEFORE destroying, so the entity is still valid
+                    EditorChangeTracker.PushUndo(
+                        new EntityCreateDeleteUndoAction(entity.Scene, entity, wasCreated: false, $"Delete Entity {entity.Name}"),
+                        entity,
+                        $"Delete Entity {entity.Name}"
+                    );
+                    entity.Destroy();
+                }
             }
 
             if (ImGui.Selectable("Create Child Entity", false, ImGuiSelectableFlags.DontClosePopups))
@@ -359,12 +378,18 @@ public class EntityPane
 
 	    bool ShouldBlockDuplication(Entity entity)
 	    {
-	        if (entity != null && entity.Type == Entity.InstanceType.NonSerialized)
+	        if (entity != null && (entity.Type == Entity.InstanceType.NonSerialized
+	                               || entity.Type == Entity.InstanceType.SceneRequired))
 	        {
-	            EditorDebug.Error("Cannot duplicate NonSerialized entities.");
+	            EditorDebug.Error($"Cannot duplicate {entity.Type} entities.");
 	            return true; 
 	        }
 	        return false;
+	    }
+
+	    bool ShouldBlockDeletion(Entity entity)
+	    {
+	        return entity != null && entity.Type == Entity.InstanceType.SceneRequired;
 	    }
 
 	    // Ctrl+D: Duplicate selected
@@ -433,22 +458,25 @@ public class EntityPane
 	        }
 	    }
 
-	    // Delete: Remove all selected entities with Undo/Redo support
+	    // Delete: Remove all selected entities with Undo/Redo support � skip SceneRequired
 	    if (Core.IsEditMode && _selectedEntities.Count > 0 &&
 	        (Input.IsKeyPressed(Keys.Delete) || ImGui.IsKeyPressed(ImGuiKey.Delete)))
 	    {
-	        var entitiesToDelete = _selectedEntities.ToList();
+	        var entitiesToDelete = _selectedEntities.Where(e => !ShouldBlockDeletion(e)).ToList();
 
-	        // Push a single undo for all entities
-	        EditorChangeTracker.PushUndo(
-	            new MultiEntityDeleteUndoAction(Core.Scene, entitiesToDelete, 
-	                $"Deleted: {string.Join(", ", entitiesToDelete.Select(e => e.Name))}"),
-	            entitiesToDelete.FirstOrDefault(),
-	            $"Deleted: {string.Join(", ", entitiesToDelete.Select(e => e.Name))}"
-	        );
+	        if (entitiesToDelete.Count > 0)
+	        {
+	            // Push a single undo for all entities
+	            EditorChangeTracker.PushUndo(
+	                new MultiEntityDeleteUndoAction(Core.Scene, entitiesToDelete, 
+	                    $"Deleted: {string.Join(", ", entitiesToDelete.Select(e => e.Name))}"),
+	                entitiesToDelete.FirstOrDefault(),
+	                $"Deleted: {string.Join(", ", entitiesToDelete.Select(e => e.Name))}"
+	            );
 
-	        foreach (var entity in entitiesToDelete)
-	            entity.Destroy();
+	            foreach (var entity in entitiesToDelete)
+	                entity.Destroy();
+	        }
 
 	        DeselectAllEntities();
 	    }
@@ -481,7 +509,8 @@ public class EntityPane
 		clone.UpdateInterval = entity.UpdateInterval;
 		clone.UpdateOrder = entity.UpdateOrder;
 
-		if(entity.Type == Entity.InstanceType.NonSerialized || entity.Type == Entity.InstanceType.Serialized)
+		if(entity.Type == Entity.InstanceType.NonSerialized || entity.Type == Entity.InstanceType.Serialized
+		   || entity.Type == Entity.InstanceType.SceneRequired)
 			clone.Type = Entity.InstanceType.Serialized;
 		else
 		{
@@ -613,7 +642,8 @@ public class EntityPane
             clone.UpdateInterval = entity.UpdateInterval;
             clone.UpdateOrder = entity.UpdateOrder;
 
-            if (entity.Type == Entity.InstanceType.NonSerialized || entity.Type == Entity.InstanceType.Serialized)
+            if (entity.Type == Entity.InstanceType.NonSerialized || entity.Type == Entity.InstanceType.Serialized
+                || entity.Type == Entity.InstanceType.SceneRequired)
                 clone.Type = Entity.InstanceType.Serialized;
             else
             {

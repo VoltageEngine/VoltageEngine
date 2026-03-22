@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 
@@ -80,7 +81,9 @@ namespace Voltage.Persistence
 		/// </summary>
 		/// <returns>The instance.</returns>
 		/// <param name="type">Type.</param>
-		internal object CreateInstance(Type type)
+		internal object CreateInstance(
+			[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors)]
+			Type type)
 		{
 			// structs have no constructors present so just let Activator.CreateInstance make them
 			if (type.IsValueType)

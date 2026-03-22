@@ -350,9 +350,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		Core.OnResetScene += RequestResetScene;
 		Core.OnSwitchEditMode += OnEditModeSwitched;
 
-		SceneManager.Instance.OnSceneLoaded += OnSceneLoadedHandler;
-		SceneManager.Instance.OnSceneSaved += OnSceneSavedHandler;
-
 		OpenMainEntityInspector();
 		_entityInspectors.Add(MainEntityInspectorWindow);
 
@@ -363,18 +360,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_projectManager.LoadLastProject();
 
 		InitializeScriptManager();
-	}
-
-	private void OnSceneLoadedHandler(string scenePath)
-	{
-		if (Core.Scene != null)
-		{
-			DataManager.RestoreEditorCameraState(Core.Scene);
-		}
-	}
-
-	private void OnSceneSavedHandler(string scenePath)
-	{
 	}
 
 	/// <summary>
@@ -944,6 +929,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 			// Camera Dragging with Middle Mouse
 			var mousePos = Input.ScaledMousePosition;
+
 			if (Input.MiddleMouseButtonPressed)
 			{
 				_isCameraDragging = true;
@@ -963,8 +949,12 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			if (_cameraTargetPosition == default)
 				_cameraTargetPosition = Core.Scene.Camera.Position;
 
+			var expectedPosition = Vector2.Lerp(Core.Scene.Camera.Position, _cameraTargetPosition, _cameraLerp);
+			if (Vector2.DistanceSquared(Core.Scene.Camera.Position, expectedPosition) > 0.01f)
+				_cameraTargetPosition = Core.Scene.Camera.Position;
+
 			bool isMovingCamera = Input.IsKeyDown(Keys.W) || Input.IsKeyDown(Keys.A) ||
-			                      Input.IsKeyDown(Keys.S) || Input.IsKeyDown(Keys.D);
+								  Input.IsKeyDown(Keys.S) || Input.IsKeyDown(Keys.D);
 
 			if (Input.IsKeyDown(Keys.LeftShift))
 			{
@@ -994,8 +984,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 					_cameraTargetPosition += new Vector2(0, CurrentCameraSpeed) * Time.DeltaTime;
 			}
 
-			Core.Scene.Camera.Position =
-				Vector2.Lerp(Core.Scene.Camera.Position, _cameraTargetPosition, _cameraLerp);
+			Core.Scene.Camera.Position = Vector2.Lerp(Core.Scene.Camera.Position, _cameraTargetPosition, _cameraLerp);
 		}
 	}
 

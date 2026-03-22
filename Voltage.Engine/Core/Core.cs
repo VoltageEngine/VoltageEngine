@@ -150,7 +150,7 @@ public class Core : Game
 	public Core(int width = 1280, int height = 720, bool isFullScreen = false, string windowTitle = "Voltage",
 		string contentDirectory = "Content", bool hardwareModeSwitch = true)
 	{
-#if EDITOR 
+#if EDITOR
 		_windowTitle = windowTitle;
 #endif
 		_instance = this;
@@ -182,6 +182,12 @@ public class Core : Game
 		RegisterGlobalManager(new TweenManager());
 		RegisterGlobalManager(_timerManager);
 		RegisterGlobalManager(new RenderTarget());
+
+#if !EDITOR
+		IsEditMode = false;
+#endif
+
+		System.Console.WriteLine($"IsEditMode:{IsEditMode}");
 	}
 
 	private void OnOrientationChanged(object sender, EventArgs e)
