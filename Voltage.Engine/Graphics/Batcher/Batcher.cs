@@ -1074,17 +1074,23 @@ namespace Voltage
 			// inlined CreateOrthographicOffCenter
 			if (UseFnaHalfPixelMatrix)
 			{
+				// FNA (DirectX) needs a half-pixel offset to align texels with pixels
 				_projectionMatrix.M11 = (float)(2.0 / (double)(viewport.Width / 2 * 2 - 1));
 				_projectionMatrix.M22 = (float)(-2.0 / (double)(viewport.Height / 2 * 2 - 1));
+				_projectionMatrix.M41 = -1 - 0.5f * _projectionMatrix.M11;
+				_projectionMatrix.M42 = 1 - 0.5f * _projectionMatrix.M22;
 			}
 			else
 			{
+				// OpenGL (MonoGame DesktopGL) pixel centers are already texel-aligned — no offset needed.
+				// Applying the DX9 half-pixel offset here shifts the quad by 0.5px, causing the
+				// right/bottom edge pixels to hit UV=1.0 and wrap to texel 0 with Wrap addressing,
+				// which produces a visible diagonal seam in fullscreen blits.
 				_projectionMatrix.M11 = (float)(2.0 / (double)viewport.Width);
 				_projectionMatrix.M22 = (float)(-2.0 / (double)viewport.Height);
+				_projectionMatrix.M41 = -1;
+				_projectionMatrix.M42 = 1;
 			}
-
-			_projectionMatrix.M41 = -1 - 0.5f * _projectionMatrix.M11;
-			_projectionMatrix.M42 = 1 - 0.5f * _projectionMatrix.M22;
 
 			Matrix.Multiply(ref _transformMatrix, ref _projectionMatrix, out _matrixTransformMatrix);
 			_spriteEffect.SetMatrixTransform(ref _matrixTransformMatrix);

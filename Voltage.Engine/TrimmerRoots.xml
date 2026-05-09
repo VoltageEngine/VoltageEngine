@@ -7,6 +7,9 @@
 	<assembly fullname="Voltage" preserve="all" />
 	<assembly fullname="Voltage.Persistence" preserve="all" />
 
+	<assembly fullname="MonoGame.Framework" preserve="all" />
+	<assembly fullname="MonoGame.Framework.DesktopGL" preserve="all" />
+	
 	<!--
 	  MonoGame value types whose fields are set by the JSON decoder via reflection.
 	  Both possible assembly names are listed because the NuGet package metadata
@@ -21,6 +24,7 @@
 		<type fullname="Microsoft.Xna.Framework.Rectangle" preserve="all" />
 		<type fullname="Microsoft.Xna.Framework.Matrix" preserve="all" />
 	</assembly>
+
 
 	<assembly fullname="MonoGame.Framework.DesktopGL">
 		<type fullname="Microsoft.Xna.Framework.Vector2" preserve="all" />
