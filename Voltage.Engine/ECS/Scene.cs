@@ -466,7 +466,13 @@ public partial class Scene
 			Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
 			Core.GraphicsDevice.Clear(LetterboxColor);
 
-			Graphics.Instance.Batcher.Begin(BlendState.Opaque, SamplerState, null, null);
+			// Use PointClamp for the final blit: UV must not wrap at edges.
+			// The scene's SamplerState (which may use Wrap addressing) is for in-scene
+			// sprite rendering only, not for the fullscreen render-target-to-backbuffer blit.
+			var blitSampler = SamplerState.Filter == TextureFilter.Linear
+				? SamplerState.LinearClamp
+				: SamplerState.PointClamp;
+			Graphics.Instance.Batcher.Begin(BlendState.Opaque, blitSampler, null, null);
 			Graphics.Instance.Batcher.Draw(currentRenderTarget, _finalRenderDestinationRect, Color.White);
 			Graphics.Instance.Batcher.End();
 		}

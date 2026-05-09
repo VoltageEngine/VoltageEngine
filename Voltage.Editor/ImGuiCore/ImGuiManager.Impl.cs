@@ -558,7 +558,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				// Just render normally without separate game window
 				Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
 				Core.GraphicsDevice.Clear(letterboxColor);
-				Graphics.Instance.Batcher.Begin(BlendState.Opaque, samplerState, null, null);
+				var blitSampler = samplerState.Filter == TextureFilter.Linear ? SamplerState.LinearClamp : SamplerState.PointClamp;
+				Graphics.Instance.Batcher.Begin(BlendState.Opaque, blitSampler, null, null);
 				Graphics.Instance.Batcher.Draw(source, finalRenderDestinationRect, Color.White);
 				Graphics.Instance.Batcher.End();
 				_renderer.AfterLayout();
@@ -606,7 +607,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			Core.GraphicsDevice.SetRenderTarget(finalRenderTarget);
 			Core.GraphicsDevice.Clear(letterboxColor);
-			Graphics.Instance.Batcher.Begin(BlendState.Opaque, samplerState, null, null);
+			var blitSampler = samplerState.Filter == TextureFilter.Linear ? SamplerState.LinearClamp : SamplerState.PointClamp;
+			Graphics.Instance.Batcher.Begin(BlendState.Opaque, blitSampler, null, null);
 			Graphics.Instance.Batcher.Draw(source, finalRenderDestinationRect, Color.White);
 			Graphics.Instance.Batcher.End();
 		}
