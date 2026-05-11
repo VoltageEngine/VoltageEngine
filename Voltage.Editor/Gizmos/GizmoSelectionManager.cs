@@ -82,8 +82,8 @@ namespace Voltage.Editor.Gizmos
 				_scaleGizmoHandler.Reset();
 				_polygonGizmoHandler.Reset();
 				_rectangleGizmoHandler.Reset();
-				
 				_isBoxSelecting = false;
+
 				ResetCyclingSelection();
 			}
 
@@ -189,7 +189,7 @@ namespace Voltage.Editor.Gizmos
 					_imGuiManager.SceneGraphWindow.EntityPane.DeselectAllEntities();
 					DeselectEntity();
 				}
-			
+
 				_isBoxSelecting = true;
 				_boxSelectStartWorld = worldMouse;
 				_boxSelectEndWorld = worldMouse;
@@ -314,14 +314,33 @@ namespace Voltage.Editor.Gizmos
 
 		public void SetCameraTargetPosition(Vector2 position)
 		{
-			// Validate position before setting camera target
 			if (MathUtils.IsVectorNaNOrInfinite(position))
 			{
 				Debug.Warn($"Attempted to set camera target to invalid position: {position}. Ignoring.");
 				return;
 			}
-			
-			_imGuiManager.CameraTargetPosition = _imGuiManager.SceneGraphWindow.EntityPane.GetSelectedEntitiesCenter();
+
+			var selectedEntities = _imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities;
+
+			if (selectedEntities.Count == 0)
+			{
+				_imGuiManager.CameraTargetPosition = position;
+				return;
+			}
+
+			var gizmoCenter = _transformGizmoHandler.GetArrowGizmoCenter(selectedEntities);
+
+			if (MathUtils.IsVectorNaNOrInfinite(gizmoCenter))
+			{
+				_imGuiManager.CameraTargetPosition = position;
+				return;
+			}
+
+			var renderSize = Core.Scene.SceneRenderTargetSize;
+			var zoom = Core.Scene.Camera.RawZoom;
+			var centeredTarget = gizmoCenter - new Vector2(renderSize.X * 0.5f / zoom, renderSize.Y * 0.5f / zoom);
+
+			_imGuiManager.CameraTargetPosition = centeredTarget;
 		}
 
 		private void TrySelectEntityAtMouse()
