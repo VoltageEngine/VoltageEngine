@@ -159,6 +159,8 @@ public class Core : Game
 	{
 #if EDITOR
 		_windowTitle = windowTitle;
+#else
+		IsEditMode = false;
 #endif
 		_instance = this;
 		Emitter = new Emitter<CoreEvents>(new CoreEventsComparer());
@@ -189,12 +191,6 @@ public class Core : Game
 		RegisterGlobalManager(new TweenManager());
 		RegisterGlobalManager(_timerManager);
 		RegisterGlobalManager(new RenderTarget());
-
-#if !EDITOR
-		IsEditMode = false;
-#endif
-
-		System.Console.WriteLine($"IsEditMode:{IsEditMode}");
 	}
 
 	private void OnOrientationChanged(object sender, EventArgs e)
