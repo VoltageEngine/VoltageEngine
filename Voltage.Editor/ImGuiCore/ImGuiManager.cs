@@ -81,7 +81,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private SpriteAtlasEditorWindow _spriteAtlasEditorWindow;
 	private List<Action> _drawCommands = new();
 	private ImGuiRenderer _renderer;
-	//private ImGuiInput _input = new ImGuiInput();
 	private GizmoSelectionManager _cursorSelectionManager;
 	private ImGuiWindowFlags _gameWindowFlags = 0;
 
@@ -293,6 +292,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	public ImGuiManager(ImGuiOptions options = null)
 	{
 		Core.IsEditorMode = true;
+		Core.DebugRenderEnabled = true;
 
 		if (options == null)
 			options = new ImGuiOptions();
@@ -320,9 +320,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		io.ConfigFlags |= ImGuiConfigFlags.DockingEnable;
 
 		// Pin the layout path bytes so the pointer remains valid for ImGui's entire lifetime.
-		// The previous 'fixed' block only pinned during the constructor scope, causing the GC
-		// to relocate the array afterwards — resulting in a dangling IniFilename pointer and
-		// corrupted .ini artifacts during compilation.
 		_layoutManager.LayoutInitPathUtf8 = System.Text.Encoding.UTF8.GetBytes(_layoutFilePath + "\0");
 		_iniFilenamePinnedHandle = GCHandle.Alloc(_layoutManager.LayoutInitPathUtf8, GCHandleType.Pinned);
 		unsafe
@@ -502,6 +499,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void OnEditModeSwitched(bool isEditMode)
 	{
+		Core.DebugRenderEnabled = isEditMode;
+
 		// Only reset scene if switching to EditMode from PlayMode
 		if (isEditMode && Core.ResetSceneAutomatically)
 		{
@@ -951,13 +950,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			if (_cameraTargetPosition == default)
 				_cameraTargetPosition = Core.Scene.Camera.Position;
 
-			if (!_isCameraDragging)
-			{
-				var expectedPosition = Vector2.Lerp(Core.Scene.Camera.Position, _cameraTargetPosition, _cameraLerp);
-				if (Vector2.DistanceSquared(Core.Scene.Camera.Position, expectedPosition) > 0.01f)
-					_cameraTargetPosition = Core.Scene.Camera.Position;
-			}
-			
 			bool isMovingCamera = Input.IsKeyDown(Keys.W) || Input.IsKeyDown(Keys.A) ||
 								  Input.IsKeyDown(Keys.S) || Input.IsKeyDown(Keys.D);
 
@@ -1070,7 +1062,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	public void UnregisterDrawCommand(Action drawCommand)
 	{
 		_drawCommands.Remove(drawCommand);
-		Scene.OnFinishedAddingEntitiesWithData -= OpenMainEntityInspector;
 	}
 
 	/// <summary>

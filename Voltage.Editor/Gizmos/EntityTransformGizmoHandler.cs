@@ -54,6 +54,7 @@ namespace Voltage.Editor.Gizmos
 			float baseWidth = 4f;
 			float maxWidth = 12f;
 			float scaledWidth = baseWidth;
+
 			// Scale arrow width inversely with zoom so it stays constant on screen
 			scaledWidth = baseWidth / MathF.Max(camera.RawZoom, 0.01f);
 			scaledWidth = Math.Clamp(scaledWidth, 2f, maxWidth);
@@ -205,6 +206,24 @@ namespace Voltage.Editor.Gizmos
 			float t = Math.Clamp(Vector2.Dot(ap, ab) / (abLen * abLen), 0, 1);
 			var closest = a + ab * t;
 			return (mouse - closest).Length() < threshold;
+		}
+
+		/// <summary>
+		/// Returns the world-space center point that the gizmo arrows are anchored to for the given entities.
+		/// Uses the same filtering and averaging logic as Draw() so the camera target matches the arrow origin exactly.
+		/// </summary>
+		public Vector2 GetArrowGizmoCenter(IReadOnlyList<Entity> entities)
+		{
+			var validEntities = GizmoEntityFilter.GetValidEntities(entities);
+
+			if (validEntities.Count == 0)
+				return Vector2.Zero;
+
+			var center = Vector2.Zero;
+			foreach (var e in validEntities)
+				center += e.Transform.Position;
+
+			return center / validEntities.Count;
 		}
 
 		/// <summary>
