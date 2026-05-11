@@ -68,3 +68,5 @@ Voltage.Portable/Voltage.FNA.csproj.nuget.cache
 
 # Editor Specific
 Voltage.Editor/Content/
+/.claude
+.claude/settings.local.json

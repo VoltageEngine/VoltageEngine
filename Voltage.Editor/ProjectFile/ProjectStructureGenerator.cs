@@ -317,7 +317,7 @@ namespace {projectName}
 
 			var font = Content.LoadBitmapFont(""Content/Voltage/Fonts/VoltageDefaultBMFont.fnt"");
 			Graphics.Instance = new Graphics(font);
-			Window.Title = ""{projectName}"");
+			Window.Title = ""{projectName}"";
 
             // Apply project settings to the runtime
             var settings = ProjectSettings.Instance;

@@ -64,9 +64,10 @@ public class Editor : Core
 		Window.AllowUserResizing = true;
 		ExitOnEscapeKeypress = false;
 
-		//TODO: Load these from the Project Settings
-		IsFixedTimeStep = true; //Run Update() every 60 frames
-		Screen.SynchronizeWithVerticalRetrace = false; //Vsync = off
+		IsFixedTimeStep = false; 
+		Screen.SynchronizeWithVerticalRetrace = true;
+		// IsFixedTimeStep = true; //Run Update() every 60 frames
+		// Screen.SynchronizeWithVerticalRetrace = false; //Vsync = off
 
 		ScreenUtils.ApplyScreenChange(ScreenUtils.ScreenMode.WindowedMax);
 		HandleCommandLineArguments(); // when we open a project file through the file explorer
