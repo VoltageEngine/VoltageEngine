@@ -272,7 +272,7 @@ public class ComponentList : IEnumerable<Component>
 		{
 			for (var i = 0; i < _updatableComponents.Length; i++)
 			{
-				bool isColliderVisible = _components.Buffer[i] is Collider collider && collider.IsVisibleEvenDisabled;
+				bool isColliderVisible = _updatableComponents.Buffer[i] is Collider collider && collider.IsVisibleEvenDisabled;
 				if ((_updatableComponents.Buffer[i].Enabled && 
 				    (_updatableComponents.Buffer[i] as Component).Enabled) || isColliderVisible)
 					_updatableComponents.Buffer[i].Update();

@@ -67,6 +67,13 @@ public class Core : Game
 	public new static VoltageContentManager Content;
 
 	/// <summary>
+	/// True when running inside the Voltage Editor. Set by the editor on startup.
+	/// Defaults to false so that EDITOR-compiled DLLs embedded in VS-published game
+	/// builds do not trigger editor-only exit logic.
+	/// </summary>
+	public static bool IsEditorMode = false;
+
+	/// <summary>
 	/// default SamplerState used by Materials. Note that this must be set at launch! Changing it after that time will result in only
 	/// Materials created after it was set having the new SamplerState
 	/// </summary>
@@ -330,8 +337,9 @@ public class Core : Game
 	protected override void OnExiting(object sender, ExitingEventArgs args)
 	{
 #if EDITOR
-		// in editor mode we prevent exiting unless confirmed with "Save Scene" popup
-		if (!_allowExit)
+		// Guard with IsEditorMode so that VS-published games using an EDITOR-compiled DLL
+		// (where the editor never set IsEditorMode = true) still exit normally.
+		if (IsEditorMode && !_allowExit)
 		{
 			args.Cancel = true;
 			EmitterWithPending.Emit(CoreEvents.Exiting, true);
@@ -339,10 +347,11 @@ public class Core : Game
 		else
 		{
 			base.OnExiting(sender, args);
+			Emitter.Emit(CoreEvents.Exiting);
 		}
 #else
-        base.OnExiting(sender, args);
-        Emitter.Emit(CoreEvents.Exiting);
+		base.OnExiting(sender, args);
+		Emitter.Emit(CoreEvents.Exiting);
 #endif
 	}
 

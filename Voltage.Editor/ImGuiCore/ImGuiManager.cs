@@ -92,12 +92,12 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private readonly float _editorToolsBarHeight = 30f;
 
 	// Camera Params
-	public static float EditModeCameraSpeed = 250f;
-	public static float EditModeCameraFastSpeed = 500f;
+	public static float EditModeCameraSpeed = 400f;
+	public static float EditModeCameraFastSpeed = 800f;
 	private const float EditorCameraZoomSpeed = 1f;
-	public static float EditModeCameraMinSpeed = 50f;
+	public static float EditModeCameraMinSpeed = 100f;
 	public static float EditModeCameraMaxSpeed = 3000f;
-	private static float _dynamicCameraSpeed = EditModeCameraSpeed; // Current dynamic speed
+	private static float _dynamicCameraSpeed = EditModeCameraFastSpeed;
 	private const float CameraSpeedAdjustmentStep = 20f; // How much to change per scroll
 	public static float CurrentCameraSpeed { get; private set; }
 
@@ -292,6 +292,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	public ImGuiManager(ImGuiOptions options = null)
 	{
+		Core.IsEditorMode = true;
+
 		if (options == null)
 			options = new ImGuiOptions();
 
@@ -949,10 +951,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			if (_cameraTargetPosition == default)
 				_cameraTargetPosition = Core.Scene.Camera.Position;
 
-			var expectedPosition = Vector2.Lerp(Core.Scene.Camera.Position, _cameraTargetPosition, _cameraLerp);
-			if (Vector2.DistanceSquared(Core.Scene.Camera.Position, expectedPosition) > 0.01f)
-				_cameraTargetPosition = Core.Scene.Camera.Position;
-
+			if (!_isCameraDragging)
+			{
+				var expectedPosition = Vector2.Lerp(Core.Scene.Camera.Position, _cameraTargetPosition, _cameraLerp);
+				if (Vector2.DistanceSquared(Core.Scene.Camera.Position, expectedPosition) > 0.01f)
+					_cameraTargetPosition = Core.Scene.Camera.Position;
+			}
+			
 			bool isMovingCamera = Input.IsKeyDown(Keys.W) || Input.IsKeyDown(Keys.A) ||
 								  Input.IsKeyDown(Keys.S) || Input.IsKeyDown(Keys.D);
 
