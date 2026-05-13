@@ -42,9 +42,9 @@ public sealed class Entity : IComparable<Entity>
 		/// </summary>
 		SceneRequired,
 	}
-	
-	public InstanceType Type = InstanceType.NonSerialized;
-	
+
+	public InstanceType Type;
+
 	private static uint _idGenerator;
 
 	#region properties and fields
@@ -1018,7 +1018,6 @@ public sealed class Entity : IComparable<Entity>
 			_componentAddedCallbacks[t].Remove(d);
 	}
 
-
 	#endregion
 	public int CompareTo(Entity other)
 	{
@@ -1032,5 +1031,76 @@ public sealed class Entity : IComparable<Entity>
 	{
 		return string.Format("[Entity: name: {0}, tag: {1}, enabled: {2}, depth: {3}]", Name, Tag, Enabled,
 			UpdateOrder);
+	}
+
+	/// <summary>
+	/// Gets the first component whose type is assignable to <paramref name="componentType"/>
+	/// and returns it as a <see cref="Component"/>. Returns null if none is found.
+	/// Useful when the target type is only known at runtime (e.g. RequireComponent resolution).
+	/// </summary>
+	public Component GetComponent(Type componentType)
+	{
+		for (var i = 0; i < Components.Count; i++)
+		{
+			var component = Components[i];
+			if (componentType.IsAssignableFrom(component.GetType()))
+				return component;
+		}
+
+		for (var i = 0; i < Components.ComponentsToAdd.Count; i++)
+		{
+			var component = Components.ComponentsToAdd[i];
+			if (componentType.IsAssignableFrom(component.GetType()))
+				return component;
+		}
+
+		return null;
+	}
+
+	/// <summary>
+	/// Searches this entity and all of its children (recursively, depth-first) for the
+	/// first component of type <typeparamref name="T"/>. Returns null if none is found.
+	/// </summary>
+	public T GetComponentInChildren<T>() where T : class
+	{
+	var result = GetComponent<T>();
+	if (result != null)
+		return result;
+
+	for (var i = 0; i < Transform.ChildCount; i++)
+	{
+		result = Transform.GetChild(i).Entity.GetComponentInChildren<T>();
+		if (result != null)
+			return result;
+	}
+
+	return null;
+	}
+
+	/// <summary>
+	/// Searches all children (recursively, depth-first) for all components of type
+	/// <typeparamref name="T"/> and appends them to <paramref name="results"/>.
+	/// Does NOT include components on this entity itself.
+	/// </summary>
+	public void GetComponentsInChildren<T>(List<T> results) where T : class
+	{
+	for (var i = 0; i < Transform.ChildCount; i++)
+	{
+		var child = Transform.GetChild(i).Entity;
+		child.GetComponents<T>(results);
+		child.GetComponentsInChildren<T>(results);
+	}
+	}
+
+	/// <summary>
+	/// Returns all components of type <typeparamref name="T"/> found on this entity
+	/// and all of its children recursively.
+	/// </summary>
+	public List<T> GetComponentsInChildren<T>() where T : class
+	{
+	var results = new List<T>();
+	GetComponents<T>(results);
+	GetComponentsInChildren<T>(results);
+	return results;
 	}
 }

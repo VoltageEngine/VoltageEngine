@@ -165,11 +165,24 @@ public class ComponentList : IEnumerable<Component>
 			for (var i = 0; i < _tempBufferList.Count; i++)
 			{
 				var component = _tempBufferList[i];
-				component.OnStart();
 
-				// component.enabled checks both the Entity and the Component
-				if (component.Enabled)
-					component.OnEnabled();
+				if (component == null)
+				{
+					Debug.Error($"A null component reference was found in _tempBufferList at index {i} on entity '{_entity.Name}'. Skipping.");
+					continue;
+				}
+
+				try
+				{
+					component.OnStart();
+
+					if (component.Enabled)
+						component.OnEnabled();
+				}
+				catch (System.Exception ex)
+				{
+					Debug.Error($"Exception in OnStart/OnEnabled for component '{component.GetType().Name}' on entity '{_entity.Name}': {ex.Message}\n{ex.StackTrace}");
+				}
 			}
 
 			_tempBufferList.Clear();

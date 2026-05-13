@@ -1,7 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Voltage.Persistence;
+using Voltage.Serialization;
 
 namespace Voltage;
 
@@ -204,16 +207,11 @@ public class Component : IComparable<Component>
 	/// <returns>A new component instance</returns>
 	public virtual Component Clone()
 	{
-		// Default implementation - creates new instance but doesn't copy data
 		var componentType = GetType();
 		var clone = (Component)Activator.CreateInstance(componentType);
-
-		// Copy basic component properties
+		
 		clone.Name = Name;
 		clone.Enabled = Enabled;
-		//clone.Data = Data;
-
-		// Entity will be set when the component is added to the target entity
 		clone.Entity = null;
 		
 		return clone;
@@ -244,4 +242,106 @@ public class Component : IComparable<Component>
 		else
 			return displayName;
 	}
+
+	/// <summary>
+	/// Returns all component types that must exist on an entity before
+	/// <paramref name="componentType"/> can be added, resolved recursively
+	/// so dependency chains are fully satisfied. The list is ordered
+	/// deepest-dependency-first so callers can add them in sequence.
+	/// </summary>
+	public static List<Type> ResolveRequiredComponents(Type componentType)
+	{
+		var result = new List<Type>();
+		var visited = new HashSet<Type>();
+		CollectRequirements(componentType, result, visited);
+		return result;
+	}
+
+	private static void CollectRequirements(Type type, List<Type> result, HashSet<Type> visited)
+	{
+		if (type == null || !visited.Add(type))
+			return;
+
+		foreach (var attr in type.GetCustomAttributes(typeof(RequireComponentAttribute), inherit: true)
+		                         .Cast<RequireComponentAttribute>())
+		{
+			CollectRequirements(attr.ComponentType, result, visited); // recurse into dependency's own requirements
+			if (!result.Contains(attr.ComponentType))
+				result.Add(attr.ComponentType);
+		}
+	}
+
+	public static List<RequireComponentInChildrenAttribute> ResolveRequiredComponentsInChildren(Type componentType)
+	{
+		var result = new List<RequireComponentInChildrenAttribute>();
+		var visited = new HashSet<Type>();
+		CollectChildRequirements(componentType, result, visited);
+		return result;
+	}
+
+	private static void CollectChildRequirements(
+		Type type,
+		List<RequireComponentInChildrenAttribute> result,
+		HashSet<Type> visited)
+	{
+		if (type == null || !visited.Add(type))
+			return;
+
+		foreach (var attr in type.GetCustomAttributes(typeof(RequireComponentInChildrenAttribute), inherit: true)
+			         .Cast<RequireComponentInChildrenAttribute>())
+		{
+			// Recurse so chains like A→[RequireInChildren B]→[RequireInChildren C] are resolved
+			CollectChildRequirements(attr.ComponentType, result, visited);
+
+			bool alreadyQueued = result.Any(r => r.ComponentType == attr.ComponentType);
+			if (!alreadyQueued)
+				result.Add(attr);
+		}
+	}
+
+	#region Entity shortcut methods
+
+	public T AddComponent<T>(T component, bool allowSameComponentsOnEntity = false) where T : Component
+		=> Entity.AddComponent(component, allowSameComponentsOnEntity);
+
+	public T AddComponent<T>() where T : Component, new()
+		=> Entity.AddComponent<T>();
+
+	public T GetComponent<T>() where T : class
+		=> Entity.GetComponent<T>();
+
+	public T GetComponent<T>(string name) where T : class
+		=> Entity.GetComponent<T>(name);
+
+	public Component GetComponent(Type type)
+		=> Entity.GetComponent(type);
+
+	public bool TryGetComponent<T>(out T component) where T : class
+		=> Entity.TryGetComponent(out component);
+
+	public bool HasComponent<T>() where T : class
+		=> Entity.HasComponent<T>();
+
+	public T GetOrCreateComponent<T>() where T : Component, new()
+		=> Entity.GetOrCreateComponent<T>();
+
+	public List<T> GetComponents<T>() where T : class
+		=> Entity.GetComponents<T>();
+
+	public void GetComponents<T>(List<T> componentList) where T : class
+		=> Entity.GetComponents<T>(componentList);
+
+	public T GetComponentInChildren<T>() where T : class
+		=> Entity.GetComponentInChildren<T>();
+
+	public List<T> GetComponentsInChildren<T>() where T : class
+		=> Entity.GetComponentsInChildren<T>();
+
+	public void RemoveComponent()
+		=> Entity.RemoveComponent(this);
+
+	public bool RemoveComponent<T>() where T : Component
+		=> Entity.RemoveComponent<T>();
+
+	#endregion
 }

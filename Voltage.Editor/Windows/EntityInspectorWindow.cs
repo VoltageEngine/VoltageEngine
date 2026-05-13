@@ -566,6 +566,27 @@ public class EntityInspectorWindow
 
 		try
 		{
+			// Resolve and add missing required components first (deepest dependency first)
+			var requirements = Component.ResolveRequiredComponents(componentType);
+			foreach (var requiredType in requirements)
+			{
+				bool alreadyPresent = Entity.GetComponent(requiredType) != null;
+				if (alreadyPresent)
+					continue;
+
+				var required = (Component)Activator.CreateInstance(requiredType);
+				required.SetSerialized(true);
+				Entity.AddComponent(required, true);
+
+				EditorChangeTracker.PushUndo(
+					new ComponentAddedUndoAction(Entity, required),
+					Entity,
+					$"Auto-add required {requiredType.Name} to {Entity.Name}"
+				);
+
+				EditorDebug.Log($"[RequireComponent] Auto-added '{requiredType.Name}' required by '{componentType.Name}'.");
+			}
+
 			var component = (Component)Activator.CreateInstance(componentType);
 			component.SetSerialized(true);
 			Entity.AddComponent(component, true);
