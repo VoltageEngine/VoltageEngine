@@ -4,7 +4,7 @@
 namespace Voltage
 {
 	/// <summary>
-	/// interface that when added to a Component lets Voltage know that it wants the update method called each frame as long as the Component
+	/// When added to a Component lets Voltage know that it wants the update method called each frame as long as the Component
 	/// and Entity are enabled.
 	/// </summary>
 	public interface IUpdatable
@@ -12,7 +12,7 @@ namespace Voltage
 		bool Enabled { get; }
 		int UpdateOrder { get; }
 
-		void Update();
+		abstract void Update();
 	}
 
 

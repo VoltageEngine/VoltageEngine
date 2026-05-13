@@ -354,7 +354,20 @@ public class EntityPane
             }
 
             if (ImGui.Selectable("Create Child Entity", false, ImGuiSelectableFlags.DontClosePopups))
-                ImGui.OpenPopup("create-new-entity");
+            {
+				var child = new Entity("Child Entity");
+				child.Transform.SetParent(entity.Transform);
+				child.Type = Entity.InstanceType.Serialized;
+				entity.Scene.AddEntity(child);
+				
+				EditorChangeTracker.PushUndo(
+					new EntityCreateDeleteUndoAction(entity.Scene, child, wasCreated: true, $"Create Child Entity under {entity.Name}"),
+					child,
+					$"Create Child Entity under {entity.Name}"
+				);
+
+				_imGuiManager.MainEntityInspectorWindow.DelayedSetEntity(child);
+			}
 
             ImGui.EndPopup();
         }
