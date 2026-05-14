@@ -219,6 +219,10 @@ namespace Voltage
 		/// <param name="entity">The Entity to add</param>
 		public virtual Entity AddEntity(Entity entity)
 		{
+			// In PlayMode don't serialize new entities 
+			if (!Core.IsEditMode)
+				entity.Type = Entity.InstanceType.NonSerialized;
+
 			if (Entities.FindEntity(entity.Name) != null)
 				entity.Name = GetUniqueEntityName(entity.Name, entity);
 

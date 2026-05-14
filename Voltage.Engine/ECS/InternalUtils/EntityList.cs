@@ -218,20 +218,28 @@ public class EntityList : IEnumerable<Entity>
 		if (_entitiesToAdd.Count > 0)
 		{
 			Utils.Utils.Swap(ref _entitiesToAdd, ref _tempEntityList);
+
+			// Register every entity in the live list so they are all visible to
+			// GetComponent / FindEntity calls before anything initializes.
 			foreach (var entity in _tempEntityList)
 			{
 				_entities.Add(entity);
 				entity.Scene = Scene;
-
-				// handle the tagList
 				AddToTagList(entity);
 			}
 
-			// now that all entities are added to the scene, we loop through again and call onAddedToScene
+			foreach (var entity in _tempEntityList)
+				entity.Components.CommitPendingAdditions();
+
 			foreach (var entity in _tempEntityList)
 				entity.OnAddedToScene();
 
-			if (_isSceneStarted) //Make sure all entities are added properly before executing the event 
+			foreach (var entity in _tempEntityList)
+				entity.Components.FireStartCallbacks();
+
+			Serialization.ComponentReferenceResolver.ResolveAll(Scene);
+
+			if (_isSceneStarted)
 			{
 				Scene.InvokeFinishedAddingEntities();
 				Scene.InvokeFinishedAddingEntitiesWithData(null);

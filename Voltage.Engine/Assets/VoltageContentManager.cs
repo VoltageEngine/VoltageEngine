@@ -89,7 +89,7 @@ public class VoltageContentManager : ContentManager
 			if (asset is Texture2D tex)
 				return tex;
 
-		using (var stream = Path.IsPathRooted(name) ? File.OpenRead(name) : TitleContainer.OpenStream(name))
+		using (var stream = File.OpenRead(ResolveContentPath(name)))
 		{
 			var texture = premultiplyAlpha
 				? TextureUtils.TextureFromStreamPreMultiplied(stream)
@@ -117,7 +117,7 @@ public class VoltageContentManager : ContentManager
 			if (asset is SoundEffect sfx)
 				return sfx;
 
-		using (var stream = Path.IsPathRooted(name) ? File.OpenRead(name) : TitleContainer.OpenStream(name))
+		using (var stream = File.OpenRead(ResolveContentPath(name)))
 		{
 			var sfx = SoundEffect.FromStream(stream);
 			LoadedAssets[name] = sfx;
@@ -216,7 +216,7 @@ public class VoltageContentManager : ContentManager
 			if (asset is AsepriteFile aseFile)
 				return aseFile;
 
-		var asepriteFile = AsepriteFileLoader.Load(name);
+		var asepriteFile = AsepriteFileLoader.Load(ResolveContentPath(name));
 		LoadedAssets.Add(name, asepriteFile);
 		return asepriteFile;
 	}
@@ -232,7 +232,7 @@ public class VoltageContentManager : ContentManager
 			if (asset is string json)
 				return json;
 
-		using (var stream = Path.IsPathRooted(name) ? File.OpenRead(name) : TitleContainer.OpenStream(name))
+		using (var stream = File.OpenRead(ResolveContentPath(name)))
 		{
 			using (var reader = new StreamReader(stream))
 			{
@@ -319,6 +319,28 @@ public class VoltageContentManager : ContentManager
 
 		return effect;
 	}
+
+	#endregion
+
+	#region Content Path Resolution
+
+	/// <summary>
+	/// Root directory used to resolve relative content paths.
+	/// <para>
+	/// Set this to the game project root when a project is loaded so that paths
+	/// such as "Content/Characters/foo.aseprite" resolve against the project
+	/// rather than the application base directory.
+	/// </para>
+	/// Defaults to <see cref="AppContext.BaseDirectory"/> for standalone builds.
+	/// </summary>
+	public static string ContentRoot { get; set; } = AppContext.BaseDirectory;
+
+	/// <summary>
+	/// Resolves a relative content path to absolute using <see cref="ContentRoot"/>.
+	/// Absolute paths are returned unchanged.
+	/// </summary>
+	private static string ResolveContentPath(string name)
+		=> Path.IsPathRooted(name) ? name : Path.GetFullPath(name, ContentRoot);
 
 	#endregion
 

@@ -290,7 +290,7 @@ public class Component : IComparable<Component>
 		foreach (var attr in type.GetCustomAttributes(typeof(RequireComponentInChildrenAttribute), inherit: true)
 			         .Cast<RequireComponentInChildrenAttribute>())
 		{
-			// Recurse so chains like A→[RequireInChildren B]→[RequireInChildren C] are resolved
+			// Recurse so chains like A-> [RequireInChildren B] -> [RequireInChildren C] are resolved
 			CollectChildRequirements(attr.ComponentType, result, visited);
 
 			bool alreadyQueued = result.Any(r => r.ComponentType == attr.ComponentType);

@@ -31,7 +31,6 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 		static readonly Type objectType = typeof(object);
 		static readonly Type serializationAttrType = typeof(SerializableAttribute);
 
-
 		/// <summary>
 		/// fetches all the relevant AbstractTypeInspectors for target including fields, properties and methods.
 		/// </summary>
@@ -179,6 +178,8 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 			}
 
 			// Voltage types
+			if (componentType.IsAssignableFrom(valueType) && valueType != objectType)
+				return new ComponentReferenceTypeInspector();
 			if (valueType == materialType || valueType.IsSubclassOf(materialType))
 				return GetMaterialInspector(target, memberInfo);
 			if (valueType == effectType || valueType.IsSubclassOf(effectType))

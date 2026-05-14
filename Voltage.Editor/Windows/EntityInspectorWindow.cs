@@ -566,12 +566,11 @@ public class EntityInspectorWindow
 
 		try
 		{
-			// Resolve and add missing required components first (deepest dependency first)
+			// Resolve and satisfy [RequireComponent] dependencies on this entity first
 			var requirements = Component.ResolveRequiredComponents(componentType);
 			foreach (var requiredType in requirements)
 			{
-				bool alreadyPresent = Entity.GetComponent(requiredType) != null;
-				if (alreadyPresent)
+				if (Entity.GetComponent(requiredType) != null)
 					continue;
 
 				var required = (Component)Activator.CreateInstance(requiredType);
@@ -587,6 +586,7 @@ public class EntityInspectorWindow
 				EditorDebug.Log($"[RequireComponent] Auto-added '{requiredType.Name}' required by '{componentType.Name}'.");
 			}
 
+			// Add the requested component itself
 			var component = (Component)Activator.CreateInstance(componentType);
 			component.SetSerialized(true);
 			Entity.AddComponent(component, true);
@@ -597,6 +597,42 @@ public class EntityInspectorWindow
 				Entity,
 				$"Add {componentType.Name} to {Entity.Name}"
 			);
+
+			// Resolve and satisfy [RequireComponentInChildren] and create child entities as needed
+			var childRequirements = Component.ResolveRequiredComponentsInChildren(componentType);
+			foreach (var attr in childRequirements)
+			{
+				// Check if any existing child already has this component
+				bool satisfiedByExistingChild = false;
+				for (var i = 0; i < Entity.Transform.ChildCount; i++)
+				{
+					if (Entity.Transform.GetChild(i).Entity.GetComponent(attr.ComponentType) != null)
+					{
+						satisfiedByExistingChild = true;
+						break;
+					}
+				}
+
+				if (satisfiedByExistingChild)
+					continue;
+
+				var childName = !string.IsNullOrWhiteSpace(attr.ChildEntityName)
+					? attr.ChildEntityName
+					: attr.ComponentType.Name;
+
+				var childEntity = Core.Scene.AddEntity(new Entity(childName, Entity.InstanceType.Serialized));
+				childEntity.Parent = Entity.Transform;
+
+				var childComponent = (Component)Activator.CreateInstance(attr.ComponentType);
+				childComponent.SetSerialized(true);
+				childEntity.AddComponent(childComponent, true);
+
+				EditorChangeTracker.PushUndo(
+					new ComponentAddedUndoAction(childEntity, childComponent),
+					childEntity,
+					$"Auto-create child '{childName}' with {attr.ComponentType.Name} required by '{componentType.Name}'"
+				);
+			}
 		}
 		catch (Exception ex)
 		{

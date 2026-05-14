@@ -163,7 +163,12 @@ namespace Voltage
 		public bool ShouldColliderScaleAndRotateWithTransform = true;
 
 		public bool IsVisibleEvenDisabled;
-		public bool DebugRenderEnabled;
+
+#if EDITOR
+		public bool DebugRenderEnabled = true;
+#else
+		public bool DebugRenderEnabled = false;
+#endif
 
 		public virtual RectangleF Bounds
 		{
@@ -274,7 +279,7 @@ namespace Voltage
 			{
 				// we only deal with boxes and circles here
 				Insist.IsTrue(this is BoxCollider || this is CircleCollider,
-					"Only box and circle colliders can be created automatically");
+						"Only box and circle colliders can be created automatically");
 
 				var renderable = Entity.GetComponent<RenderableComponent>();
 				Debug.WarnIf(renderable == null,

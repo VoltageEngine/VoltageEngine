@@ -7,6 +7,7 @@ using Voltage.Editor.Persistence;
 using Voltage.Editor.SceneFile;
 using Voltage.Editor.Scripting;
 using Voltage.Project;
+using Voltage.Systems;
 using Voltage.Utils;
 
 namespace Voltage.Editor.ProjectFile;
@@ -49,6 +50,7 @@ public class ProjectManager : GlobalManager
 	#region Persistent Settings
 
 	private PersistentString _lastProjectPath = new("ProjectManager_LastProjectPath", "");
+	private static readonly string _editorBaseDirectory = AppContext.BaseDirectory;
 
 	#endregion
 
@@ -166,15 +168,14 @@ public class ProjectManager : GlobalManager
 
 			project.Initialize();
 
-			// Sync engine DLLs into the project's EngineLibs folder so the Roslyn script
-			// compiler and the game project's IDE always reference up-to-date assemblies.
 			EngineLibsSync.SyncToProject(project.ProjectPath);
 			ProjectStructureGenerator.EnsureDefaultFontExists(project.ProjectPath);
 			ProjectSettings.Instance = project.Settings;
 
-			EditorDebug.Log($"Successfully loaded project: {project.ProjectName} from {voltageFilePath}");
+			// Point the content resolver at the game project root so that relative
+			// paths like "Content/..." resolve against the project, not the editor binary.
+			VoltageContentManager.ContentRoot = project.ProjectPath;
 
-			// Invoke events
 			OnProjectLoaded?.Invoke(project);
 			if (oldProject != null)
 			{
@@ -213,6 +214,11 @@ public class ProjectManager : GlobalManager
 		EditorDebug.Log($"Unloaded project: {project.ProjectName}");
 
 		CurrentProject = null;
+
+		// Restore the content resolver to the editor's base directory so
+		// editor-relative assets continue to load correctly with no project active.
+		VoltageContentManager.ContentRoot = _editorBaseDirectory;
+
 		OnProjectUnloaded?.Invoke();
 	}
 
