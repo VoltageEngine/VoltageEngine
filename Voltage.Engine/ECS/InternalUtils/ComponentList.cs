@@ -123,13 +123,11 @@ public class ComponentList : IEnumerable<Component>
 		}
 	}
 
-
 	/// <summary>
-	/// handles any Components that need to be removed or added
+	/// Moves all pending additions and removals into the live component lists 
 	/// </summary>
-	private void UpdateLists()
+	internal void CommitPendingAdditions()
 	{
-		// handle removals
 		if (_componentsToRemove.Count > 0)
 		{
 			for (var i = 0; i < _componentsToRemove.Count; i++)
@@ -141,12 +139,12 @@ public class ComponentList : IEnumerable<Component>
 			_componentsToRemove.Clear();
 		}
 
-		// handle additions
 		if (ComponentsToAdd.Count > 0)
 		{
 			for (int i = 0, count = ComponentsToAdd.Count; i < count; i++)
 			{
 				var component = ComponentsToAdd[i];
+
 				if (component is RenderableComponent)
 					_entity.Scene.RenderableComponents.Add(component as RenderableComponent);
 
@@ -157,42 +155,52 @@ public class ComponentList : IEnumerable<Component>
 				_tempBufferList.Add(component);
 			}
 
-			// clear before calling onAddedToEntity in case more Components are added then
 			ComponentsToAdd.Clear();
 			_isComponentListUnsorted = true;
+		}
+	}
 
-			// now that all components are added to the scene, we loop through again and call onAddedToEntity/onEnabled
-			for (var i = 0; i < _tempBufferList.Count; i++)
+	internal void FireStartCallbacks()
+	{
+		for (var i = 0; i < _tempBufferList.Count; i++)
+		{
+			var component = _tempBufferList[i];
+
+			if (component == null)
 			{
-				var component = _tempBufferList[i];
-
-				if (component == null)
-				{
-					Debug.Error($"A null component reference was found in _tempBufferList at index {i} on entity '{_entity.Name}'. Skipping.");
-					continue;
-				}
-
-				try
-				{
-					component.OnStart();
-
-					if (component.Enabled)
-						component.OnEnabled();
-				}
-				catch (System.Exception ex)
-				{
-					Debug.Error($"Exception in OnStart/OnEnabled for component '{component.GetType().Name}' on entity '{_entity.Name}': {ex.Message}\n{ex.StackTrace}");
-				}
+				Debug.Error($"A null component reference was found in _tempBufferList at index {i} on entity '{_entity.Name}'. Skipping.");
+				continue;
 			}
 
-			_tempBufferList.Clear();
+			try
+			{
+				if (component.Enabled)
+					component.OnEnabled();
+				
+				component.OnStart();
+			}
+			catch (System.Exception ex)
+			{
+				Debug.Error($"Exception in OnStart/OnEnabled for component '{component.GetType().Name}' on entity '{_entity.Name}': {ex.Message}\n{ex.StackTrace}");
+			}
 		}
+
+		_tempBufferList.Clear();
 
 		if (_isComponentListUnsorted)
 		{
 			_updatableComponents.Sort(compareUpdatableOrder);
 			_isComponentListUnsorted = false;
 		}
+	}
+
+	/// <summary>
+	/// handles any Components that need to be removed or added
+	/// </summary>
+	private void UpdateLists()
+	{
+		CommitPendingAdditions();
+		FireStartCallbacks();
 	}
 
 	private void HandleRemove(Component component)
@@ -213,7 +221,6 @@ public class ComponentList : IEnumerable<Component>
 	/// Gets the first component of type T and returns it. Optionally skips checking un-initialized Components (Components who have not yet had their
 	/// onAddedToEntity method called). If no components are found returns null.
 	/// </summary>
-	/// <returns>The component.</returns>
 	/// <param name="onlyReturnInitializedComponents">If set to <c>true</c> only return initialized components.</param>
 	/// <typeparam name="T">The 1st type parameter.</typeparam>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -265,7 +272,6 @@ public class ComponentList : IEnumerable<Component>
 	/// <summary>
 	/// Gets all the components of type T. The returned List can be put back in the pool via ListPool.free.
 	/// </summary>
-	/// <returns>The components.</returns>
 	/// <typeparam name="T">The 1st type parameter.</typeparam>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public List<T> GetComponents<T>() where T : class
@@ -286,9 +292,11 @@ public class ComponentList : IEnumerable<Component>
 			for (var i = 0; i < _updatableComponents.Length; i++)
 			{
 				bool isColliderVisible = _updatableComponents.Buffer[i] is Collider collider && collider.IsVisibleEvenDisabled;
-				if ((_updatableComponents.Buffer[i].Enabled && 
-				    (_updatableComponents.Buffer[i] as Component).Enabled) || isColliderVisible)
+				if ((_updatableComponents.Buffer[i].Enabled &&
+				     (_updatableComponents.Buffer[i] as Component).Enabled) || isColliderVisible)
+				{
 					_updatableComponents.Buffer[i].Update();
+				}
 
 			}
 		}
@@ -367,7 +375,6 @@ public class ComponentList : IEnumerable<Component>
 	/// <summary>
 	/// Gets the first component of type T with the specified name and returns it. If no component is found returns null.
 	/// </summary>
-	/// <returns>The component.</returns>
 	/// <param name="name">Name of the component to find.</param>
 	/// <typeparam name="T">The component type.</typeparam>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]

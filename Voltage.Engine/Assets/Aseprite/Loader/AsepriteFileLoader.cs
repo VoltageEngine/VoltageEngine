@@ -85,13 +85,9 @@ namespace Voltage.Aseprite
 		/// </exception>
 		public static AsepriteFile Load(string name, bool premultiplyAlpha = false)
 		{
-			using (var stream = TitleContainer.OpenStream(name))
-			{
-				using (BinaryReader reader = new BinaryReader(stream))
-				{
-					return ReadAsepriteFile(reader, name, premultiplyAlpha);
-				}
-			}
+			using (var stream = File.OpenRead(name))
+			using (var reader = new BinaryReader(stream))
+				return ReadAsepriteFile(reader, name, premultiplyAlpha);
 		}
 
 		/// <summary>
@@ -117,19 +113,15 @@ namespace Voltage.Aseprite
 		{
 			file = null;
 
-			using (var stream = TitleContainer.OpenStream(name))
+			try
 			{
-				try
-				{
-					using (BinaryReader reader = new BinaryReader(stream))
-					{
-						file = ReadAsepriteFile(reader, name, premultiplyAlpha);
-					}
-				}
-				catch (Exception ex)
-				{
-					Debug.Error(ex.Message);
-				}
+				using (var stream = File.OpenRead(name))
+				using (var reader = new BinaryReader(stream))
+					file = ReadAsepriteFile(reader, name, premultiplyAlpha);
+			}
+			catch (Exception ex)
+			{
+				Debug.Error(ex.Message);
 			}
 
 			return file != null;

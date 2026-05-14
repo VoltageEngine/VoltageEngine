@@ -140,7 +140,7 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 			}
 		}
 
-		public override void Draw()
+		public override unsafe void Draw()
 		{
 			if(_imGuiManager == null)
 				_imGuiManager = Core.GetGlobalManager<ImGuiManager>();
@@ -160,6 +160,15 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 
 			if (isRuntimeOnly)
 				ImGui.PopStyleColor(3);
+
+			if (ImGui.BeginDragDropSource(ImGuiDragDropFlags.SourceAllowNullID))
+			{
+				ComponentReferenceTypeInspector.DraggedComponent = _component;
+				byte dummy = 1;
+				ImGui.SetDragDropPayload(ComponentReferenceTypeInspector.DragDropPayloadId, new IntPtr(&dummy), sizeof(byte));
+				ImGui.Text(_component.ToString());
+				ImGui.EndDragDropSource();
+			}
 
 			// Show tooltip for runtime-only components
 			if (isRuntimeOnly && ImGui.IsItemHovered())
