@@ -20,46 +20,77 @@ public static class ComponentReferenceResolver
 		{
 			var entity = scene.Entities[e];
 			for (var c = 0; c < entity.Components.Count; c++)
-			{
-				var component = entity.Components[c];
-				var data = component.Data;
-				if (data == null)
-					continue;
-
-				ResolveOnComponent(component, data, scene);
-			}
+				ResolveOnComponent(entity.Components[c], scene);
 		}
 	}
 
-	private static void ResolveOnComponent(Component target, ComponentData data, Scene scene)
+	private static void ResolveOnComponent(Component target, Scene scene)
 	{
+		var data = target._pendingLoadedData;
+		if (data == null)
+			return;
+
 		var dataType = data.GetType();
 		var componentType = target.GetType();
 
-		var dataFields = dataType.GetFields(BindingFlags.Public | BindingFlags.Instance);
-		foreach (var dataField in dataFields)
+		foreach (var dataField in dataType.GetFields(BindingFlags.Public | BindingFlags.Instance))
 		{
-			if (dataField.FieldType != typeof(ComponentReference))
+			// ComponentReference fields 
+			if (dataField.FieldType == typeof(ComponentReference))
+			{
+				var reference = (ComponentReference)dataField.GetValue(data);
+				if (!reference.IsValid)
+					continue;
+
+				var liveField = componentType.GetField(
+					dataField.Name,
+					BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+
+				if (liveField == null || !typeof(Component).IsAssignableFrom(liveField.FieldType))
+					continue;
+
+				var resolved = FindComponent(scene, reference);
+				if (resolved != null)
+					liveField.SetValue(target, resolved);
+				else
+					Debug.Log($"[ComponentReferenceResolver] Could not resolve component '{reference}' for '{target}'.");
+
 				continue;
+			}
 
-			var reference = (ComponentReference)dataField.GetValue(data);
-			if (!reference.IsValid)
-				continue;
+			// EntityReference fields (Entity or Transform typed on the component)
+			if (dataField.FieldType == typeof(EntityReference))
+			{
+				var reference = (EntityReference)dataField.GetValue(data);
+				if (!reference.IsValid)
+					continue;
 
-			// Find the corresponding field on the live component
-			var liveField = componentType.GetField(
-				dataField.Name,
-				BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+				var liveField = componentType.GetField(
+					dataField.Name,
+					BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
-			if (liveField == null || !typeof(Component).IsAssignableFrom(liveField.FieldType))
-				continue;
+				if (liveField == null)
+					continue;
 
-			var resolved = FindComponent(scene, reference);
-			if (resolved != null)
-				liveField.SetValue(target, resolved);
-			else
-				Debug.Warn($"[ComponentReferenceResolver] Could not resolve '{reference}' for '{target}'.");
+				var resolvedEntity = scene.FindEntity(reference.EntityName);
+				if (resolvedEntity == null)
+				{
+					Debug.Log($"[ComponentReferenceResolver] Could not resolve entity '{reference.EntityName}' for '{target}'.");
+					continue;
+				}
+
+				if (liveField.FieldType == typeof(Entity))
+				{
+					liveField.SetValue(target, resolvedEntity);
+				}
+				else if (liveField.FieldType == typeof(Transform))
+				{
+					liveField.SetValue(target, resolvedEntity.Transform);
+				}
+			}
 		}
+
+		target._pendingLoadedData = null;
 	}
 
 	private static Component FindComponent(Scene scene, ComponentReference reference)
@@ -68,18 +99,7 @@ public static class ComponentReferenceResolver
 		if (entity == null)
 			return null;
 
-		var type = Type.GetType(reference.ComponentTypeName);
-		if (type == null)
-		{
-			// Try scanning loaded assemblies as a fallback
-			foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
-			{
-				type = asm.GetType(reference.ComponentTypeName);
-				if (type != null)
-					break;
-			}
-		}
-
+		var type = ResolveType(reference.ComponentTypeName);
 		if (type == null)
 			return null;
 
@@ -88,7 +108,6 @@ public static class ComponentReferenceResolver
 			var comp = entity.Components[i];
 			if (!type.IsAssignableFrom(comp.GetType()))
 				continue;
-
 			if (string.IsNullOrEmpty(reference.ComponentName) || comp.Name == reference.ComponentName)
 				return comp;
 		}
@@ -99,11 +118,44 @@ public static class ComponentReferenceResolver
 			var comp = pending[i];
 			if (!type.IsAssignableFrom(comp.GetType()))
 				continue;
-
 			if (string.IsNullOrEmpty(reference.ComponentName) || comp.Name == reference.ComponentName)
 				return comp;
 		}
 
-		return entity.GetComponent(type);
+		return null;
+	}
+
+	/// <summary>
+	/// Mirrors Scene.Serialization.cs ResolveType: checks Core.LatestScriptAssembly first,
+	/// then all loaded assemblies, skipping stale DynamicScripts assemblies.
+	/// </summary>
+	private static Type ResolveType(string typeName)
+	{
+		if (string.IsNullOrEmpty(typeName))
+			return null;
+
+		var type = Type.GetType(typeName);
+		if (type != null)
+			return type;
+
+		if (Core.LatestScriptAssembly != null)
+		{
+			type = Core.LatestScriptAssembly.GetType(typeName);
+			if (type != null)
+				return type;
+		}
+
+		foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+		{
+			var assemblyName = asm.GetName().Name;
+			if (assemblyName != null && assemblyName.StartsWith("DynamicScripts"))
+				continue;
+
+			type = asm.GetType(typeName);
+			if (type != null)
+				return type;
+		}
+
+		return null;
 	}
 }

@@ -267,7 +267,6 @@ public class Transform
 	public List<Transform> Children => _children;
 	#endregion
 
-
 	public Transform(Entity entity)
 	{
 		Entity = entity;

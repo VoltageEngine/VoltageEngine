@@ -3,47 +3,9 @@ using Microsoft.Xna.Framework;
 
 namespace Voltage
 {
-	public class CameraShake : Component, IUpdatable
+	public partial class CameraShake : Component, IUpdatable
 	{
-		#region Component Data
-
-		public class CameraShakeComponentData : ComponentData
-		{
-			public float TimePerFrame;
-			public float FinishedThreshold;
-			public float ShakeIntensity;
-			public float ShakeDegradation;
-		}
-
-		private CameraShakeComponentData _data = new CameraShakeComponentData();
-
-		public override ComponentData Data
-		{
-			get
-			{
-				_data.Enabled = Enabled;
-				_data.TimePerFrame = TimePerFrame;
-				_data.FinishedThreshold = FinishedThreshold;
-				_data.ShakeIntensity = ShakeIntensity;
-				_data.ShakeDegradation = ShakeDegradation;
-				return _data;
-			}
-			set
-			{
-				if (value is CameraShakeComponentData shakeData)
-				{
-					Enabled = shakeData.Enabled;
-					TimePerFrame = shakeData.TimePerFrame;
-					FinishedThreshold = shakeData.FinishedThreshold;
-					ShakeIntensity = shakeData.ShakeIntensity;
-					ShakeDegradation = shakeData.ShakeDegradation;
-					_data = shakeData;
-				}
-			}
-		}
-
-		#endregion
-
+		
 		// New properties for duration calculation
 		public float TimePerFrame { get; set; } = 1f / 60f; // Default to 60 FPS
 		public float TotalShakeDuration { get; private set; }

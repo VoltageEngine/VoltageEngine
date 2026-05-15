@@ -15,6 +15,7 @@ namespace Voltage;
 public abstract class ComponentData
 {
 	public bool Enabled = true;
+	public bool CanBeSelected = true;
 }
 
 // Helper struct to store component type and its data as JSON
@@ -28,17 +29,24 @@ public struct ComponentDataEntry
 }
 
 /// <summary>
-/// Execution order:
-/// - OnStart
-/// - OnEnabled
-///
-/// Removal:
-/// - OnRemovedFromEntity
-///
+/// Derive game-logic scripts from <see cref="Component"/>. Components are added to an <see cref="Entity"/> to give it behavior.
+/// They can be enabled/disabled and have an update order relative to other components on the same <see cref="Entity"/>. The base
+/// <see cref="Component"/> class provides lifecycle methods such as <see cref="OnStart"/>, <see cref="OnEnabled"/> and <see cref="OnDisabled"/>
+/// that derived classes can override to implement their behavior.
 /// </summary>
-public class Component : IComparable<Component>
+/// <remarks>
+/// <para> 1) If you want a derived component to be updated every frame, implement <see cref="IUpdatable"/>.</para>
+/// <para> 2) Ensure any derived component class is declared <c>partial</c>. It enabled the generator to emit
+/// optimized serialization code required for saving and loading component data in scenes.</para>
+/// </remarks>
+public abstract class Component : IComparable<Component>
 {
 	public bool IsSerialized { get; protected set; }
+
+	/// <summary>
+	/// Only affects the selection by mouse in Editor
+	/// </summary>
+	public bool CanBeSelected = true;
 
 	/// <summary>
 	/// the Entity this Component is attached to
@@ -104,6 +112,14 @@ public class Component : IComparable<Component>
 	private bool _enabled = true;
 
 	internal int _updateOrder = 0;
+
+	/// <summary>
+	/// Temporary storage for ComponentData assigned to pass ComponentReference and EntityReference data
+	/// to <see cref="Voltage.Serialization.ComponentReferenceResolver"/> after
+	/// all entities are instantiated. Cleared by the resolver once references are wired up.
+	/// </summary>
+	[JsonExclude]
+	internal ComponentData _pendingLoadedData;
 
 	#region Component Lifecycle
 
@@ -230,13 +246,11 @@ public class Component : IComparable<Component>
 			? $"{type.BaseType.Name}<{type.GetGenericArguments()[0].Name}>"
 			: type.Name;
 
-		// If the component's name is null or empty, treat it as the type name
 		var compName = string.IsNullOrEmpty(Name) ? typeName : Name;
 
 		// Show only type if name matches type, otherwise show "Name (Type)"
 		var displayName = compName == typeName ? typeName : $"{compName} ({typeName})";
 
-		// Prepend entity name if available
 		if (Entity != null && !string.IsNullOrEmpty(Entity.Name))
 			return $"{Entity.Name}.{displayName}";
 		else
