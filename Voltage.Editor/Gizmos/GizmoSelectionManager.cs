@@ -228,7 +228,7 @@ namespace Voltage.Editor.Gizmos
 			{
 				var entity = Core.Scene.Entities[i];
 
-				if(!entity.IsSelectableInEditor)
+				if(!entity.CanBeSelected)
 					continue;
 
 				RectangleF entityBounds = GetEntityBounds(entity, true);
@@ -404,11 +404,11 @@ namespace Voltage.Editor.Gizmos
 				if (MathUtils.IsVectorNaNOrInfinite(entity.Transform.Position))
 					continue;
 
-				if (!entity.IsSelectableInEditor)
+				if (!entity.CanBeSelected)
 					continue;
 
 				var collider = entity.GetComponent<Collider>();
-				if (collider != null && collider.Bounds.Contains(mouseWorld))
+				if (collider != null && collider.CanBeSelected && collider.Bounds.Contains(mouseWorld))
 				{
 					var colliderCenter = new Vector2(
 						collider.Bounds.X + collider.Bounds.Width * 0.5f,
@@ -435,14 +435,14 @@ namespace Voltage.Editor.Gizmos
 				if (MathUtils.IsVectorNaNOrInfinite(entity.Transform.Position))
 					continue;
 				
-				if (!entity.IsSelectableInEditor)
+				if (!entity.CanBeSelected)
 					continue;
 				
 				var sprite = entity.GetComponent<SpriteRenderer>();
 				if (sprite != null)
 				{
 					var bounds = sprite.Bounds;
-					if (bounds.Contains(mouseWorld))
+					if (sprite.CanBeSelected && bounds.Contains(mouseWorld))
 					{
 						float distance = Vector2.Distance(entity.Transform.Position, mouseWorld);
 						spritesAtPosition.Add((entity, sprite.RenderLayer, distance));
@@ -473,11 +473,11 @@ namespace Voltage.Editor.Gizmos
 				if (MathUtils.IsVectorNaNOrInfinite(entity.Transform.Position))
 					continue;
 				
-				if (!entity.IsSelectableInEditor)
+				if (!entity.CanBeSelected)
 					continue;
 				
 				var deferredLight = entity.GetComponent<DeferredLight>();
-				if (deferredLight != null)
+				if (deferredLight != null && deferredLight.CanBeSelected)
 				{
 					var bounds = deferredLight.Bounds;
 					if (bounds.Contains(mouseWorld))
@@ -509,7 +509,7 @@ namespace Voltage.Editor.Gizmos
 				if (MathUtils.IsVectorNaNOrInfinite(entity.Transform.Position))
 					continue;
 				
-				if (!entity.IsSelectableInEditor)
+				if (!entity.CanBeSelected)
 					continue;
 				
 				if (entity.GetComponent<SpriteRenderer>() == null && 

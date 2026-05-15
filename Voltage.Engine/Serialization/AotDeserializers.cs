@@ -76,7 +76,7 @@ namespace Voltage.Serialization
 					case "Enabled": data.Enabled = r.ReadBool(); break;
 					case "UpdateOrder": data.UpdateOrder = r.ReadInt(); break;
 					case "Tag": data.Tag = r.ReadInt(); break;
-					case "IsSelectableInEditor": data.IsSelectableInEditor = r.ReadBool(); break;
+					case "CanBeSelected": data.IsSelectableInEditor = r.ReadBool(); break;
 					case "DebugRenderEnabled": data.DebugRenderEnabled = r.ReadBool(); break;
 					case "OriginalPrefabName": data.OriginalPrefabName = r.ReadString(); break;
 					case "EntityData": data.EntityData = r.ReadObject(ReadEntityData); break;

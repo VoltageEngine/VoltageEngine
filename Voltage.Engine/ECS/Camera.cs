@@ -358,6 +358,7 @@ namespace Voltage
 		{
 			SetZoom(0);
 			IsSerialized = true;
+			CanBeSelected = false;
 		}
 
 

@@ -180,6 +180,10 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 			// Voltage types
 			if (componentType.IsAssignableFrom(valueType) && valueType != objectType)
 				return new ComponentReferenceTypeInspector();
+			if (valueType == typeof(Entity))
+				return new EntityReferenceTypeInspector();
+			if (valueType == typeof(Transform))
+				return new EntityReferenceTypeInspector();
 			if (valueType == materialType || valueType.IsSubclassOf(materialType))
 				return GetMaterialInspector(target, memberInfo);
 			if (valueType == effectType || valueType.IsSubclassOf(effectType))

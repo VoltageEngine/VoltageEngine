@@ -338,24 +338,24 @@ public class EntityInspectorWindow
 
 				VoltageEditorUtils.MediumVerticalSpace();
 				
-				// IsSelectableInEditor
+				// CanBeSelected
 				{
-					bool oldSelectable = Entity.IsSelectableInEditor;
+					bool oldSelectable = Entity.CanBeSelected;
 					bool isSelectable = oldSelectable;
 					if (ImGui.Checkbox("Can Be Selected", ref isSelectable) && isSelectable != oldSelectable)
 					{
 						EditorChangeTracker.PushUndo(
 							new GenericValueChangeAction(
 								Entity,
-								typeof(Entity).GetProperty(nameof(Entity.IsSelectableInEditor)),
+								typeof(Entity).GetProperty(nameof(Entity.CanBeSelected)),
 								oldSelectable,
 								isSelectable,
-								$"{Entity.Name}.IsSelectableInEditor"
+								$"{Entity.Name}.CanBeSelected"
 							),
 							Entity,
-							$"{Entity.Name}.IsSelectableInEditor"
+							$"{Entity.Name}.CanBeSelected"
 						);
-						Entity.IsSelectableInEditor = isSelectable;
+						Entity.CanBeSelected = isSelectable;
 					}
 
 					if (ImGui.IsItemHovered())

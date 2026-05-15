@@ -102,7 +102,10 @@ public sealed class Entity : IComparable<Entity>
 	[JsonExclude]
 	public readonly ComponentList Components;
 
-	public bool IsSelectableInEditor = true;
+	/// <summary>
+	/// Only affects the selection by mouse in Editor
+	/// </summary>
+	public bool CanBeSelected = true;
 
 	[JsonExclude] 
 	public List<Component> ComponentsToAdd => Components.ComponentsToAdd;
@@ -316,13 +319,13 @@ public sealed class Entity : IComparable<Entity>
 
 		// Since NonSerialized entities cannot be created in the Editor, we set this to false
 		if (Type == InstanceType.NonSerialized) 
-			IsSelectableInEditor = false;
+			CanBeSelected = false;
 	}
 
 	public Entity() : this(Utils.Utils.RandomString(8))
 	{
 		if (Type == InstanceType.NonSerialized)
-			IsSelectableInEditor = false;
+			CanBeSelected = false;
 	}
 
 	internal void OnTransformChanged(Transform.Component comp)
