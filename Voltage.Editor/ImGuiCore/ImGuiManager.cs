@@ -778,7 +778,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			DrawViewMenu();
 			DrawScriptingMenu();
 			DrawEffectsMenu();
-			DrawBuildMenu();
+		 DrawBuildMenu();
 			DrawHelpMenu();
 
 			// Must be the last one, so that it's centered properly
