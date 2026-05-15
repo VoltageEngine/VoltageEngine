@@ -52,6 +52,7 @@ public abstract class Component : IComparable<Component>
 	/// the Entity this Component is attached to
 	/// </summary>
 	[JsonExclude]
+	[HideAttributeInInspector]
 	public Entity Entity;
 
 	/// <summary>

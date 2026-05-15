@@ -91,7 +91,15 @@ namespace Voltage.Editor.Windows
 			var logEntries = Debug.GetLogEntries();
 
 			ImGui.BeginChild("DebugLogScroll", new Num.Vector2(0, -ImGui.GetFrameHeightWithSpacing()), true,
-				ImGuiWindowFlags.HorizontalScrollbar);
+				ImGuiWindowFlags.HorizontalScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
+
+			// Only scroll with mouse wheel when hovering over this child window
+			if (ImGui.IsWindowHovered())
+			{
+				var wheel = ImGui.GetIO().MouseWheel;
+				if (wheel != 0)
+					ImGui.SetScrollY(ImGui.GetScrollY() - wheel * ImGui.GetTextLineHeightWithSpacing() * 3f);
+			}
 
 			if (groupLogsValue)
 			{
@@ -115,11 +123,10 @@ namespace Voltage.Editor.Windows
 					}
 				}
 
-				// Add to buffer in descending order of latest timestamp
-				foreach (var kvp in groupDict)
+				foreach (var timeStamp in groupDict)
 				{
-					_groupedBuffer.Add((kvp.Key.Item1, kvp.Key.Item2, kvp.Key.Item3, kvp.Key.Item4, kvp.Value.Count,
-						kvp.Value.LatestTimestamp));
+					_groupedBuffer.Add((timeStamp.Key.Item1, timeStamp.Key.Item2, timeStamp.Key.Item3, timeStamp.Key.Item4, timeStamp.Value.Count,
+						timeStamp.Value.LatestTimestamp));
 				}
 
 				_groupedBuffer.Sort((a, b) => b.LatestTimestamp.CompareTo(a.LatestTimestamp));

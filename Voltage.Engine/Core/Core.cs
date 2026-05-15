@@ -243,44 +243,49 @@ public class Core : Game
 			return;
 		}
 
-		// update all our systems and global managers
-		Time.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
-		Input.Update();
-
-		if (ExitOnEscapeKeypress &&
-		    (Input.IsKeyPressed(Keys.Escape) || Input.GamePads[0].IsButtonReleased(Buttons.Back)))
+		try
 		{
-			base.Exit();
-			return;
-		}
+			// update all our systems and global managers
+			Time.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
+			Input.Update();
 
-		if (_scene != null)
-		{
-			for (var i = _globalManagers.Length - 1; i >= 0; i--)
-				if (_globalManagers.Buffer[i].Enabled)
-				{
-					_globalManagers.Buffer[i].Update();
-				}
-
-			// read carefully:
-			// - we do not update the Scene while a SceneTransition is happening
-			// 		- unless it is SceneTransition that doesn't change Scenes (no reason not to update)
-			//		- or it is a SceneTransition that has already switched to the new Scene (the new Scene needs to do its thing)
-			if (_sceneTransition == null ||
-			    _sceneTransition != null &&
-			     (!_sceneTransition._loadsNewScene || _sceneTransition._isNewSceneLoaded))
-				_scene.Update();
-
-			if (_nextScene != null)
+			if (ExitOnEscapeKeypress &&
+			    (Input.IsKeyPressed(Keys.Escape) || Input.GamePads[0].IsButtonReleased(Buttons.Back)))
 			{
-				_scene.End();
-
-				_scene = _nextScene;
-				_nextScene = null;
-				OnSceneChanged();
-
-				_scene.Begin();
+				base.Exit();
+				return;
 			}
+
+			if (_scene != null)
+			{
+				for (var i = _globalManagers.Length - 1; i >= 0; i--)
+					if (_globalManagers.Buffer[i].Enabled)
+						_globalManagers.Buffer[i].Update();
+
+				// read carefully:
+				// - we do not update the Scene while a SceneTransition is happening
+				// 		- unless it is SceneTransition that doesn't change Scenes (no reason not to update)
+				//		- or it is a SceneTransition that has already switched to the new Scene (the new Scene needs to do its thing)
+				if (_sceneTransition == null ||
+				    _sceneTransition != null &&
+				    (!_sceneTransition._loadsNewScene || _sceneTransition._isNewSceneLoaded))
+					_scene.Update();
+
+				if (_nextScene != null)
+				{
+					_scene.End();
+
+					_scene = _nextScene;
+					_nextScene = null;
+					OnSceneChanged();
+
+					_scene.Begin();
+				}
+			}
+		}
+		catch (Exception ex)
+		{
+			Debug.Error($"[Core.Update] Unhandled exception escaped the scene update loop: {ex.Message}\n{ex.StackTrace}");
 		}
 
 		EndDebugUpdate();
@@ -293,36 +298,41 @@ public class Core : Game
 
 		StartDebugDraw(gameTime.ElapsedGameTime);
 
-		if (_sceneTransition != null)
-			_sceneTransition.PreRender(Graphics.Instance.Batcher);
-
-		// special handling of SceneTransition if we have one. We either render the SceneTransition or the Scene
-		if (_sceneTransition != null)
+		try
 		{
-			if (_scene != null && _sceneTransition.WantsPreviousSceneRender &&
-			    !_sceneTransition.HasPreviousSceneRender)
+			if (_sceneTransition != null)
+				_sceneTransition.PreRender(Graphics.Instance.Batcher);
+
+			if (_sceneTransition != null)
 			{
-				_scene.Render();
-				_scene.PostRender(_sceneTransition.PreviousSceneRender);
-				StartCoroutine(_sceneTransition.OnBeginTransition());
+				if (_scene != null && _sceneTransition.WantsPreviousSceneRender &&
+				    !_sceneTransition.HasPreviousSceneRender)
+				{
+					_scene.Render();
+					_scene.PostRender(_sceneTransition.PreviousSceneRender);
+					StartCoroutine(_sceneTransition.OnBeginTransition());
+				}
+				else if (_scene != null && _sceneTransition._isNewSceneLoaded)
+				{
+					_scene.Render();
+					_scene.PostRender();
+				}
+
+				_sceneTransition.Render(Graphics.Instance.Batcher);
 			}
-			else if (_scene != null && _sceneTransition._isNewSceneLoaded)
+			else if (_scene != null)
 			{
 				_scene.Render();
+
+				if (DebugRenderEnabled)
+					Debug.Render();
+
 				_scene.PostRender();
 			}
-
-			_sceneTransition.Render(Graphics.Instance.Batcher);
 		}
-		else if (_scene != null)
+		catch (Exception ex)
 		{
-			_scene.Render();
-
-			if (DebugRenderEnabled)
-				Debug.Render();
-
-			// render as usual if we don't have an active SceneTransition
-			_scene.PostRender();
+			Debug.Error($"[Core.Draw] Unhandled exception escaped the scene render loop: {ex.Message}\n{ex.StackTrace}");
 		}
 
 		EndDebugDraw();

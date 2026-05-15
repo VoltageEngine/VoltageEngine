@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Voltage.Utils.Collections;
@@ -287,27 +288,38 @@ public class ComponentList : IEnumerable<Component>
 	{
 		UpdateLists();
 
-		if (!Core.IsEditMode && !Core.IsTimeFrozen)
-		{
-			for (var i = 0; i < _updatableComponents.Length; i++)
-			{
-				bool isColliderVisible = _updatableComponents.Buffer[i] is Collider collider && collider.IsVisibleEvenDisabled;
-				if ((_updatableComponents.Buffer[i].Enabled &&
-				     (_updatableComponents.Buffer[i] as Component).Enabled) || isColliderVisible)
-				{
-					_updatableComponents.Buffer[i].Update();
-				}
+		if (Core.IsTimeFrozen)
+			return;
 
-			}
-		}
-		else if (Core.IsEditMode && !Core.IsTimeFrozen)
+		for (var i = 0; i < _updatableComponents.Length; i++)
 		{
-			// If in Edit Mode, update only components that are renderable (for correct rendering)
-			for (var i = 0; i < _updatableComponents.Length; i++)
-				if (_updatableComponents.Buffer[i].Enabled &&
-					(_updatableComponents.Buffer[i] as Component).Enabled &&
-					_updatableComponents.Buffer[i] is RenderableComponent)
-					_updatableComponents.Buffer[i].Update();
+			var updatable = _updatableComponents.Buffer[i];
+
+			if (updatable == null)
+			{
+				Debug.Error($"Null IUpdatable found at index {i} on entity '{_entity.Name}'.");
+				continue;
+			}
+
+			var component = updatable as Component;
+
+			bool shouldUpdate = Core.IsEditMode
+				? component is RenderableComponent && updatable.Enabled && component.Enabled
+				: (updatable.Enabled && component.Enabled) || (component is Collider collider && collider.IsVisibleEvenDisabled);
+
+			if (!shouldUpdate)
+				continue;
+
+			try
+			{
+				updatable.Update();
+			}
+			catch (Exception ex)
+			{
+				Debug.Error(
+					$"Exception in Update() on component '{component?.GetType().Name ?? "Unknown"}' " +
+					$"(Name='{component?.Name}') on entity '{_entity.Name}': {ex.Message}\n{ex.StackTrace}");
+			}
 		}
 	}
 

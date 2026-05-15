@@ -24,6 +24,41 @@ public static class ComponentReferenceResolver
 		}
 	}
 
+	/// <summary>
+	/// Re-resolves entity and component references on a single component after its
+	/// ComponentData has been applied via undo/redo or inspector paste.
+	/// <para>
+	/// The caller must set <c>component._pendingLoadedData</c> to the cloned
+	/// <see cref="ComponentData"/> BEFORE calling <c>component.Data = cloned</c>,
+	/// because the generated setter skips reference fields. This method then
+	/// uses that pending data to wire the live Entity/Component fields back up.
+	/// </para>
+	/// If <c>_pendingLoadedData</c> is already set when this method is called it is
+	/// used as-is; otherwise it falls back to reading the current <c>Data</c> getter.
+	/// </summary>
+	public static void ReResolveComponent(Component component, Scene scene)
+	{
+		if (component._pendingLoadedData == null)
+			component._pendingLoadedData = component.Data;
+
+		ResolveOnComponent(component, scene);
+	}
+
+	/// <summary>
+	/// Re-resolves entity and component references on ALL components in a scene.
+	/// Use this after a bulk operation (e.g. paste-all, prefab apply) that calls
+	/// <c>component.Data = ...</c> on more than one component at once.
+	/// </summary>
+	public static void ReResolveAll(Scene scene)
+	{
+		for (var e = 0; e < scene.Entities.Count; e++)
+		{
+			var entity = scene.Entities[e];
+			for (var c = 0; c < entity.Components.Count; c++)
+				ReResolveComponent(entity.Components[c], scene);
+		}
+	}
+
 	private static void ResolveOnComponent(Component target, Scene scene)
 	{
 		var data = target._pendingLoadedData;
