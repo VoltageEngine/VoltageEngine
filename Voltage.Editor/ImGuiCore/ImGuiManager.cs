@@ -924,7 +924,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void UpdateCamera()
 	{
-		if (Core.IsEditMode)
+		if (Core.IsEditMode && IsGameWindowFocused)
 		{
 			ManageCameraZoom();
 
@@ -1090,8 +1090,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	/// <param name="entity"></param>
 	public void OpenSeparateEntityInspector(Entity entity)
 	{
-		// Only add if not already present as a pop-out
-		if (_entityInspectors.Any(i => i.Entity == entity))
+		// Only check pop-out inspectors (skip [0] which is always the main inspector)
+		if (_entityInspectors.Skip(1).Any(i => i.Entity == entity))
 			return;
 
 		entitynspectorInitialSpawnOffset += entitynspectorSpawnOffsetIncremental;
@@ -1405,10 +1405,10 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	public void OpenAnimationEventInspector(SpriteAnimator animator)
 	{
-		if (_animationEventInspector == null)
+		if (_animationEventInspector == null || !ShowAnimationEventInspector)
 		{
 			_animationEventInspector = new AnimationEventInspector(animator);
-			AnimationEventInspectorInstance = _animationEventInspector;
+			SpriteAnimatorFileInspector.AnimationEventInspectorInstance = _animationEventInspector;
 			RegisterDrawCommand(_animationEventInspector.Draw);
 		}
 		else
@@ -1417,6 +1417,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		}
 
 		ShowAnimationEventInspector = true;
+		_animationEventInspector.SetWindowFocus();
 	}
 
 	public void DrawSelectedEntityOutlines()
@@ -1482,5 +1483,14 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private void LoadSceneByName(string sceneName)
 	{
 		SceneManager.Instance.LoadSceneByName(sceneName);
+	}
+
+	public void OnAnimationEventInspectorClosed()
+	{
+		ShowAnimationEventInspector = false;
+		if (_animationEventInspector != null)
+			UnregisterDrawCommand(_animationEventInspector.Draw);
+		_animationEventInspector = null;
+		SpriteAnimatorFileInspector.AnimationEventInspectorInstance = null;
 	}
 }

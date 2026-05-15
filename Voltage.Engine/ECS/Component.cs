@@ -16,6 +16,7 @@ public abstract class ComponentData
 {
 	public bool Enabled = true;
 	public bool CanBeSelected = true;
+	public int UpdateOrder = 0;
 }
 
 // Helper struct to store component type and its data as JSON

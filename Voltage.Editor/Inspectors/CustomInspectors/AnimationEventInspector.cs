@@ -6,7 +6,6 @@ using Voltage.Sprites;
 using Voltage.Utils;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.SerializedData;
-using Voltage.Editor.Undo;
 using Num = System.Numerics;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Undo.PropertyActions;
@@ -40,6 +39,10 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
         public void SetAnimator(SpriteAnimator animator)
         {
 	        _animator = animator;
+	        _selectedAnimationIndex = 0;
+	        _selectedFrame = 0;
+	        _previewTimer = 0f;
+	        _isPlaying = false;
 
 	        // Copy events for editing
 	        _editableEvents = animator?.AnimationEvents != null
@@ -49,6 +52,13 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
 				        : new AnimationEvent(e.StartFrame, e.Name, e.Callback, e.AnimationName)
 		        ).ToList()
 		        : new List<AnimationEvent>();
+
+	        if (animator?.Animations != null && animator.Animations.Count > 0)
+	        {
+		        var firstName = animator.Animations.Keys.First();
+		        animator.Play(firstName);
+		        animator.SetFrame(0);
+	        }
         }
 
         public void SetWindowFocus()
@@ -75,13 +85,10 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                 {
                     ImGui.TextColored(new Num.Vector4(1, 1, 0, 1), "Select an AnimatedSprite to Manage its events");
                     ImGui.End();
-                    // Handle window close when no animator is selected
+
                     if (!open)
                     {
-                        var imGuiManager = Core.GetGlobalManager<ImGuiManager>();
-                        imGuiManager.ShowAnimationEventInspector = false;
-                        imGuiManager.UnregisterDrawCommand(Draw);
-                        SpriteAnimatorFileInspector.AnimationEventInspectorInstance = null;
+                        Core.GetGlobalManager<ImGuiManager>().OnAnimationEventInspectorClosed();
                     }
                     return;
                 }
@@ -112,6 +119,8 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                 if (ImGui.Button(_isPlaying ? "Stop" : "Play"))
                 {
                     _isPlaying = !_isPlaying;
+                    if (_isPlaying)
+                    	_previewTimer = 0f;
                 }
 
                 // Frame slider
@@ -243,14 +252,12 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                     ImGui.EndTable();
                 }
 
-                // Add new event
                 if (ImGui.Button("Add Event"))
                 {
                     _showAddEventPopup = true;
                     _newEventTypeIndex = 0;
                 }
 
-                // Add Event Popup
                 if (_showAddEventPopup)
                 {
                     ImGui.OpenPopup("AddEventPopup");
@@ -364,13 +371,9 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             }
             ImGui.End();
 
-            // Handle window close when animator is selected
             if (!open)
             {
-                var imGuiManager = Core.GetGlobalManager<ImGuiManager>();
-                imGuiManager.ShowAnimationEventInspector = false;
-                imGuiManager.UnregisterDrawCommand(Draw);
-                SpriteAnimatorFileInspector.AnimationEventInspectorInstance = null;
+                Core.GetGlobalManager<ImGuiManager>().OnAnimationEventInspectorClosed();
             }
         }
     }
