@@ -232,8 +232,6 @@ public class EntityPane
             if (_imGuiManager.SceneGraphWindow.CopiedComponent != null && ImGui.Selectable("Paste Component"))
             {
                 var copiedComponent = _imGuiManager.SceneGraphWindow.CopiedComponent;
-                
-                // Find existing component of the same type
                 var existingComponent = entity.Components.FirstOrDefault(c => c.GetType() == copiedComponent.GetType());
                 
                 if (existingComponent != null)
@@ -251,14 +249,10 @@ public class EntityPane
                         var sourceData = copiedComponent.Data;
                         if (sourceData != null)
                         {
-                            // Store old data for undo
-                            var oldData = existingComponent.Data;
-                            
-                            // Clone the source data
+                            var oldData = existingComponent.Data; // for Undo
                             var json = Json.ToJson(sourceData, jsonSettings);
                             var clonedData = (ComponentData)Json.FromJson(json, sourceData.GetType());
                             
-                            // Create undo action
                             EditorChangeTracker.PushUndo(
                                 new ComponentDataChangeAction(
                                     existingComponent,
@@ -270,34 +264,23 @@ public class EntityPane
                             $"Paste {copiedComponent.GetType().Name} to {entity.Name}"
                         );
                         
-                        // Apply the cloned data
                         existingComponent.Data = clonedData;
-                        
-                        System.Console.WriteLine($"Pasted {copiedComponent.GetType().Name} values to {entity.Name}");
 						}
                     }
                     catch (Exception ex)
                     {
-                        System.Console.WriteLine($"Failed to paste component data: {ex.Message}");
-                        
-                        // Fallback: use component replacement
                         var clonedComponent = copiedComponent.Clone();
                         clonedComponent.Name = existingComponent.Name;
                         entity.ReplaceComponent(clonedComponent);
-                        
-                        System.Console.WriteLine($"Used fallback paste method for {copiedComponent.GetType().Name}");
+                        Debug.Error($"Failed to paste component data: {ex.Message}. Used fallback paste method for {copiedComponent.GetType().Name}");
                     }
                     
-                    // Refresh the inspector to show the updated component
                     _imGuiManager.RefreshMainEntityInspector();
                 }
                 else
                 {
-                    // No existing component of this type, add a clone
                     var clonedComponent = copiedComponent.Clone();
                     entity.AddComponent(clonedComponent);
-                    
-                    // Refresh the inspector to show the new component
                     _imGuiManager.RefreshMainEntityInspector();
                 }
             }
@@ -373,7 +356,6 @@ public class EntityPane
         }
     }
 	#endregion
-
 
 	#region Copy and Paste Logic
 	/// <summary>
