@@ -504,7 +504,7 @@ public class GameSceneComponent : SceneComponent
                 collisionEntity.Transform.SetLocalPosition(new Vector2(tmxObject.X, tmxObject.Y));
 
                 var polygonCollider = new PolygonCollider(tmxObject.Points);
-                polygonCollider.PhysicsLayer = layerMask;
+                polygonCollider.Layer = layerMask;
                 collisionEntity.ReplaceComponent(polygonCollider);
 
                 // Add the calculated local offset to get correct final position
@@ -525,7 +525,7 @@ public class GameSceneComponent : SceneComponent
                 // Use the average of width/height as radius for non-circular ellipses
                 var radius = (tmxObject.Width + tmxObject.Height) * 0.25f;
                 var circleCollider = new CircleCollider(radius);
-                circleCollider.PhysicsLayer = layerMask;
+                circleCollider.Layer = layerMask;
                 collisionEntity.ReplaceComponent(circleCollider);
             }
             else if (tmxObject.ObjectType == TmxObjectType.Basic) // Rectangle
@@ -540,7 +540,7 @@ public class GameSceneComponent : SceneComponent
                 collisionEntity.Transform.SetLocalPosition(new Vector2(centerX, centerY));
 
                 var boxCollider = new BoxCollider(tmxObject.Width, tmxObject.Height);
-                boxCollider.PhysicsLayer = layerMask;
+                boxCollider.Layer = layerMask;
                 collisionEntity.ReplaceComponent(boxCollider);
             }
 

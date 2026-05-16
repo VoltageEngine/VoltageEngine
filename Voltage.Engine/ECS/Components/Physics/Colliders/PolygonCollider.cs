@@ -162,7 +162,7 @@ namespace Voltage
 				{
 					Enabled = Enabled,
 					IsTrigger = IsTrigger,
-					PhysicsLayer = PhysicsLayer,
+					PhysicsLayer = Layer,
 					CollidesWithLayers = CollidesWithLayers,
 					ShouldColliderScaleAndRotateWithTransform = ShouldColliderScaleAndRotateWithTransform,
 					IsVisibleEvenDisabled = IsVisibleEvenDisabled,
@@ -185,7 +185,7 @@ namespace Voltage
 
 					Enabled = colliderData.Enabled;
 					IsTrigger = colliderData.IsTrigger;
-					PhysicsLayer = colliderData.PhysicsLayer;
+					Layer = colliderData.PhysicsLayer;
 					CollidesWithLayers = colliderData.CollidesWithLayers;
 					ShouldColliderScaleAndRotateWithTransform = colliderData.ShouldColliderScaleAndRotateWithTransform;
 					IsVisibleEvenDisabled = colliderData.IsVisibleEvenDisabled;

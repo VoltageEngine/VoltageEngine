@@ -206,7 +206,7 @@ namespace Voltage
 			clone.LocalOffset = LocalOffset;
 			clone.ShouldColliderScaleAndRotateWithTransform = ShouldColliderScaleAndRotateWithTransform;
 			clone.IsTrigger = IsTrigger;
-			clone.PhysicsLayer = PhysicsLayer;
+			clone.Layer = Layer;
 			clone.CollidesWithLayers = CollidesWithLayers;
 			clone.Enabled = Enabled;
 			clone.IsVisibleEvenDisabled = IsVisibleEvenDisabled;

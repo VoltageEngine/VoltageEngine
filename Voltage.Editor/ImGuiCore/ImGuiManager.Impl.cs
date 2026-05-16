@@ -88,6 +88,31 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		if (Enabled)
 			OnEnabled();
+
+		var previousEntityId = MainEntityInspectorWindow?.Entity?.PersistentId ?? Guid.Empty;
+		if (previousEntityId != Guid.Empty)
+		{
+			Scene.OnFinishedAddingEntitiesWithData += RestorePreviousEntitySelection;
+		}
+
+		return;
+
+		void RestorePreviousEntitySelection()
+		{
+			Scene.OnFinishedAddingEntitiesWithData -= RestorePreviousEntitySelection;
+
+			var restoredEntity = Core.Scene?.FindEntityByPersistentId(previousEntityId);
+			if (restoredEntity != null)
+			{
+				SceneGraphWindow.EntityPane.SetSelectedEntity(restoredEntity, false);
+				MainEntityInspectorWindow?.DelayedSetEntity(restoredEntity);
+			}
+			else
+			{
+				// Entity no longer exists after reload — clear the inspector
+				OpenMainEntityInspector(null);
+			}
+		}
 	}
 
 	private void Unload()

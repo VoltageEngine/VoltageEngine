@@ -260,7 +260,7 @@ namespace Voltage
 			{
 				var collider = new BoxCollider(collisionRects[i].X + _localOffset.X,
 					collisionRects[i].Y + _localOffset.Y, collisionRects[i].Width, collisionRects[i].Height);
-				collider.PhysicsLayer = PhysicsLayer;
+				collider.Layer = PhysicsLayer;
 				collider.Entity = Entity;
 				_colliders[i] = collider;
 

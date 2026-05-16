@@ -98,4 +98,25 @@ namespace Voltage
 			InspectorType = inspectorType;
 		}
 	}
+
+	/// <summary>
+	/// Marks an int field as a single physics layer selector.
+	/// The stored value is 1 shifted left by the layer index (e.g. 1 << 0).
+	/// </summary>
+	[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+	public class PhysicsLayerAttribute : Attribute { }
+
+	/// <summary>
+	/// Marks an int field as a physics layer bitmask.
+	/// Multiple layers can be selected at once (e.g. CollidesWithLayers).
+	/// </summary>
+	[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+	public class PhysicsLayerMaskAttribute : Attribute { }
+
+	/// <summary>
+	/// Marks an int field as a render layer selector.
+	/// The stored value is the direct int value defined in ProjectSettings.RenderingLayers.
+	/// </summary>
+	[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+	public class RenderLayerAttribute : Attribute { }
 }

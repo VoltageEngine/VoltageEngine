@@ -44,7 +44,7 @@ namespace Voltage
 
 				_data.Enabled = Enabled;
 				_data.IsTrigger = IsTrigger;
-				_data.PhysicsLayer = PhysicsLayer;
+				_data.PhysicsLayer = Layer;
 				_data.CollidesWithLayers = CollidesWithLayers;
 				_data.ShouldColliderScaleAndRotateWithTransform = ShouldColliderScaleAndRotateWithTransform;
 				_data.IsVisibleEvenDisabled = IsVisibleEvenDisabled;
@@ -79,7 +79,7 @@ namespace Voltage
 				{
 					Enabled = colliderData.Enabled;
 					IsTrigger = colliderData.IsTrigger;
-					PhysicsLayer = colliderData.PhysicsLayer;
+					Layer = colliderData.PhysicsLayer;
 					CollidesWithLayers = colliderData.CollidesWithLayers;
 					ShouldColliderScaleAndRotateWithTransform = colliderData.ShouldColliderScaleAndRotateWithTransform;
 					IsVisibleEvenDisabled = colliderData.IsVisibleEvenDisabled;
@@ -148,13 +148,15 @@ namespace Voltage
 		public bool IsTrigger;
 
 		/// <summary>
-		/// physicsLayer can be used as a filter when dealing with collisions. The Flags class has methods to assist with bitmasks.
+		/// Current collision layer. The Flags class has methods to assist with bitmasks.
 		/// </summary>
-		public int PhysicsLayer = 1 << 0;
+		[PhysicsLayer]
+		public int Layer = 1 << 0;
 
 		/// <summary>
-		/// layer mask of all the layers this Collider should collide with when Entity.move methods are used. defaults to all layers.
+		/// Layer mask of all the layers this Collider should collide with. Defaults to all layers.
 		/// </summary>
+		[PhysicsLayerMask]
 		public int CollidesWithLayers = Physics.AllLayers;
 
 		/// <summary>

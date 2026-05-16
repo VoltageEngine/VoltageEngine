@@ -102,7 +102,7 @@ namespace Voltage
 			
 			// Copy all base Collider properties
 			clone.IsTrigger = IsTrigger;
-			clone.PhysicsLayer = PhysicsLayer;
+			clone.Layer = Layer;
 			clone.CollidesWithLayers = CollidesWithLayers;
 			clone.ShouldColliderScaleAndRotateWithTransform = ShouldColliderScaleAndRotateWithTransform;
 			clone.LocalOffset = LocalOffset;

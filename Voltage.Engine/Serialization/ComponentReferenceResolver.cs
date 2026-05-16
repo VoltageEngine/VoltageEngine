@@ -1,62 +1,49 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.Reflection;
 
 namespace Voltage.Serialization;
 
-/// <summary>
-/// Resolves <see cref="ComponentReference"/> fields on all components in a scene
-/// back into live Component references after all entities have been instantiated.
-/// </summary>
 public static class ComponentReferenceResolver
 {
-	/// <summary>
-	/// Scans every component in the scene for <see cref="ComponentReference"/> fields
-	/// in their ComponentData, then wires the resolved live reference back onto
-	/// the matching field of the component itself.
-	/// </summary>
-	public static void ResolveAll(Scene scene)
+	public static void ResolveAll()
 	{
+		var scene = Core.Scene;
+
+		// Live entities
 		for (var e = 0; e < scene.Entities.Count; e++)
 		{
 			var entity = scene.Entities[e];
+
 			for (var c = 0; c < entity.Components.Count; c++)
 				ResolveOnComponent(entity.Components[c], scene);
+
+			var pendingComps = entity.Components.GetComponentsToAddList();
+			for (var c = 0; c < pendingComps.Count; c++)
+				ResolveOnComponent(pendingComps[c], scene);
+		}
+
+		// Entities pending add
+		foreach (var entity in scene.Entities.EntitiesToAdd)
+		{
+			for (var c = 0; c < entity.Components.Count; c++)
+				ResolveOnComponent(entity.Components[c], scene);
+
+			var pendingComps = entity.Components.GetComponentsToAddList();
+			for (var c = 0; c < pendingComps.Count; c++)
+				ResolveOnComponent(pendingComps[c], scene);
 		}
 	}
 
-	/// <summary>
-	/// Re-resolves entity and component references on a single component after its
-	/// ComponentData has been applied via undo/redo or inspector paste.
-	/// <para>
-	/// The caller must set <c>component._pendingLoadedData</c> to the cloned
-	/// <see cref="ComponentData"/> BEFORE calling <c>component.Data = cloned</c>,
-	/// because the generated setter skips reference fields. This method then
-	/// uses that pending data to wire the live Entity/Component fields back up.
-	/// </para>
-	/// If <c>_pendingLoadedData</c> is already set when this method is called it is
-	/// used as-is; otherwise it falls back to reading the current <c>Data</c> getter.
-	/// </summary>
 	public static void ReResolveComponent(Component component, Scene scene)
 	{
 		if (component._pendingLoadedData == null)
 			component._pendingLoadedData = component.Data;
 
-		ResolveOnComponent(component, scene);
-	}
+		if (component._pendingLoadedData == null)
+			return;
 
-	/// <summary>
-	/// Re-resolves entity and component references on ALL components in a scene.
-	/// Use this after a bulk operation (e.g. paste-all, prefab apply) that calls
-	/// <c>component.Data = ...</c> on more than one component at once.
-	/// </summary>
-	public static void ReResolveAll(Scene scene)
-	{
-		for (var e = 0; e < scene.Entities.Count; e++)
-		{
-			var entity = scene.Entities[e];
-			for (var c = 0; c < entity.Components.Count; c++)
-				ReResolveComponent(entity.Components[c], scene);
-		}
+		ResolveOnComponent(component, scene);
 	}
 
 	private static void ResolveOnComponent(Component target, Scene scene)
@@ -70,10 +57,10 @@ public static class ComponentReferenceResolver
 
 		foreach (var dataField in dataType.GetFields(BindingFlags.Public | BindingFlags.Instance))
 		{
-			// ComponentReference fields 
 			if (dataField.FieldType == typeof(ComponentReference))
 			{
 				var reference = (ComponentReference)dataField.GetValue(data);
+
 				if (!reference.IsValid)
 					continue;
 
@@ -82,21 +69,30 @@ public static class ComponentReferenceResolver
 					BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
 				if (liveField == null || !typeof(Component).IsAssignableFrom(liveField.FieldType))
+				{
+					Debug.Warn($"[ComponentReferenceResolver] '{target}' — no matching live field '{dataField.Name}' of Component type found.");
 					continue;
+				}
 
 				var resolved = FindComponent(scene, reference);
 				if (resolved != null)
+				{
 					liveField.SetValue(target, resolved);
+				}
 				else
-					Debug.Log($"[ComponentReferenceResolver] Could not resolve component '{reference}' for '{target}'.");
+				{
+					Debug.Error($"[ComponentReferenceResolver] Could not resolve ComponentReference '{reference}' " +
+					            $"for field '{dataField.Name}' on '{target}'. " +
+					            "Check that the entity and component still exist in the scene.");
+				}
 
 				continue;
 			}
 
-			// EntityReference fields (Entity or Transform typed on the component)
 			if (dataField.FieldType == typeof(EntityReference))
 			{
 				var reference = (EntityReference)dataField.GetValue(data);
+
 				if (!reference.IsValid)
 					continue;
 
@@ -105,23 +101,23 @@ public static class ComponentReferenceResolver
 					BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
 				if (liveField == null)
+				{
 					continue;
+				}
 
-				var resolvedEntity = scene.FindEntity(reference.EntityName);
+				var resolvedEntity = FindEntity(scene, reference);
 				if (resolvedEntity == null)
 				{
-					Debug.Log($"[ComponentReferenceResolver] Could not resolve entity '{reference.EntityName}' for '{target}'.");
+					Debug.Error($"[ComponentReferenceResolver] Could not resolve EntityReference '{reference}' " +
+					            $"for field '{dataField.Name}' on '{target}'. " +
+					            "Check that the entity still exists in the scene.");
 					continue;
 				}
 
 				if (liveField.FieldType == typeof(Entity))
-				{
 					liveField.SetValue(target, resolvedEntity);
-				}
 				else if (liveField.FieldType == typeof(Transform))
-				{
 					liveField.SetValue(target, resolvedEntity.Transform);
-				}
 			}
 		}
 
@@ -130,20 +126,53 @@ public static class ComponentReferenceResolver
 
 	private static Component FindComponent(Scene scene, ComponentReference reference)
 	{
-		var entity = scene.FindEntity(reference.EntityName);
-		if (entity == null)
-			return null;
-
 		var type = ResolveType(reference.ComponentTypeName);
 		if (type == null)
+		{
+			Debug.Warn($"[ComponentReferenceResolver] FindComponent — type '{reference.ComponentTypeName}' could not be resolved.");
 			return null;
+		}
 
+		var persistentId = reference.GetPersistentId();
+		if (persistentId != Guid.Empty)
+		{
+			var entity = FindEntityById(scene, persistentId);
+			if (entity != null)
+			{
+				var comp = FindComponentOnEntity(entity, type, reference.ComponentName);
+				if (comp != null)
+				{
+					return comp;
+				}
+			}
+		}
+
+		if (!string.IsNullOrEmpty(reference.EntityName))
+		{
+			var entity = FindEntityByName(scene, reference.EntityName);
+			if (entity != null)
+			{
+				var comp = FindComponentOnEntity(entity, type, reference.ComponentName);
+				if (comp != null)
+				{
+					return comp;
+				}
+			}
+		}
+
+		Debug.Error($"[ComponentReferenceResolver] Could not resolve ComponentReference '{reference}'. " +
+		            "Check that the entity and component still exist in the scene.");
+		return null;
+	}
+
+	private static Component FindComponentOnEntity(Entity entity, Type type, string componentName)
+	{
 		for (var i = 0; i < entity.Components.Count; i++)
 		{
 			var comp = entity.Components[i];
 			if (!type.IsAssignableFrom(comp.GetType()))
 				continue;
-			if (string.IsNullOrEmpty(reference.ComponentName) || comp.Name == reference.ComponentName)
+			if (string.IsNullOrEmpty(componentName) || comp.Name == componentName)
 				return comp;
 		}
 
@@ -153,17 +182,63 @@ public static class ComponentReferenceResolver
 			var comp = pending[i];
 			if (!type.IsAssignableFrom(comp.GetType()))
 				continue;
-			if (string.IsNullOrEmpty(reference.ComponentName) || comp.Name == reference.ComponentName)
+			if (string.IsNullOrEmpty(componentName) || comp.Name == componentName)
 				return comp;
 		}
 
 		return null;
 	}
 
-	/// <summary>
-	/// Mirrors Scene.Serialization.cs ResolveType: checks Core.LatestScriptAssembly first,
-	/// then all loaded assemblies, skipping stale DynamicScripts assemblies.
-	/// </summary>
+	private static Entity FindEntity(Scene scene, EntityReference reference)
+	{
+		var persistentId = reference.GetPersistentId();
+		if (persistentId != Guid.Empty)
+		{
+			var entity = FindEntityById(scene, persistentId);
+			if (entity != null)
+			{
+				return entity;
+			}
+		}
+
+		if (!string.IsNullOrEmpty(reference.EntityName))
+		{
+			var entity = FindEntityByName(scene, reference.EntityName);
+			if (entity != null)
+			{
+				return entity;
+			}
+		}
+
+		return null;
+	}
+
+	private static Entity FindEntityById(Scene scene, Guid persistentId)
+	{
+		for (var e = 0; e < scene.Entities.Count; e++)
+			if (scene.Entities[e].PersistentId == persistentId)
+				return scene.Entities[e];
+
+		foreach (var entity in scene.Entities.EntitiesToAdd)
+			if (entity.PersistentId == persistentId)
+				return entity;
+
+		return null;
+	}
+
+	private static Entity FindEntityByName(Scene scene, string name)
+	{
+		var entity = scene.FindEntity(name);
+		if (entity != null)
+			return entity;
+
+		foreach (var pending in scene.Entities.EntitiesToAdd)
+			if (string.Equals(pending.Name, name, StringComparison.OrdinalIgnoreCase))
+				return pending;
+
+		return null;
+	}
+
 	private static Type ResolveType(string typeName)
 	{
 		if (string.IsNullOrEmpty(typeName))

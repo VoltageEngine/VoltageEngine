@@ -87,17 +87,23 @@ public sealed class Entity : IComparable<Entity>
 	}
 
 	/// <summary>
-	/// unique identifer for this Entity
+	/// Unique identifer for this Entity
 	/// </summary>
 	public readonly uint Id;
 
 	/// <summary>
-	/// encapsulates the Entity's position/rotation/scale and allows setting up a hieararchy
+	/// Used for reliable ComponentReference resolution across save/load cycles.
+	/// </summary>
+
+	public Guid PersistentId = Guid.NewGuid();
+
+	/// <summary>
+	/// Encapsulates the Entity's position/rotation/scale and allows setting up a hieararchy
 	/// </summary>
 	public readonly Transform Transform;
 
 	/// <summary>
-	/// list of all the components currently attached to this entity
+	/// List of all the components currently attached to this entity
 	/// </summary>
 	[JsonExclude]
 	public readonly ComponentList Components;

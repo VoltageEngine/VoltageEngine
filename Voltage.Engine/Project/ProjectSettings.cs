@@ -122,12 +122,12 @@ namespace Voltage.Project
 			};
 		}
 
-		#region Helper Methods
+		#region Physics Layer API
+
 		/// <summary>
-		/// Gets the physics layer value by its name.
+		/// Returns the raw index stored for a physics layer name (e.g. "Default" → 0, "Ground" → 1).
+		/// Returns -1 if not found.
 		/// </summary>
-		/// <param name="layerName">The name of the physics layer.</param>
-		/// <returns>The physics layer value, or -1 if not found.</returns>
 		public int GetPhysicsLayer(string layerName)
 		{
 			if (Physics.PhysicsLayers.TryGetValue(layerName, out var layerValue))
@@ -137,10 +137,58 @@ namespace Voltage.Project
 		}
 
 		/// <summary>
-		/// Gets the render layer value by its name.
+		/// Returns the bitmask bit for a physics layer by name (e.g. "Ground" → 1 &lt;&lt; 1).
+		/// Use this when setting <c>Collider.PhysicsLayer</c> or building a <c>CollidesWithLayers</c> mask.
+		/// Returns 0 if not found.
 		/// </summary>
-		/// <param name="layerName">The name of the render layer.</param>
-		/// <returns>The render layer value, or 0 if not found.</returns>
+		public int GetPhysicsLayerBit(string layerName)
+		{
+			if (Physics.PhysicsLayers.TryGetValue(layerName, out var index))
+				return 1 << index;
+
+			return 0;
+		}
+
+		/// <summary>
+		/// Returns the bitmask bit for a physics layer by its index (e.g. index 1 → 1 &lt;&lt; 1 = 2).
+		/// Use this when setting <c>Collider.PhysicsLayer</c> or building a <c>CollidesWithLayers</c> mask.
+		/// </summary>
+		public int GetPhysicsLayerBit(int layerIndex) => 1 << layerIndex;
+
+		/// <summary>
+		/// Returns a combined bitmask for multiple physics layer names.
+		/// Useful for setting <c>Collider.CollidesWithLayers</c> in scripts.
+		/// <example>
+		/// <code>
+		/// collider.CollidesWithLayers = ProjectSettings.Instance.GetPhysicsLayerMask("Default", "Ground");
+		/// </code>
+		/// </example>
+		/// </summary>
+		public int GetPhysicsLayerMask(params string[] layerNames)
+		{
+			var mask = 0;
+			foreach (var name in layerNames)
+				mask |= GetPhysicsLayerBit(name);
+
+			return mask;
+		}
+
+		/// <summary>
+		/// Tries to get the physics layer index by its name.
+		/// </summary>
+		public bool TryGetPhysicsLayer(string layerName, out int layerValue)
+		{
+			return Physics.PhysicsLayers.TryGetValue(layerName, out layerValue);
+		}
+
+		#endregion
+
+		#region Render Layer API
+
+		/// <summary>
+		/// Returns the render layer value by its name (e.g. "Background" → 0, "Entities" → 1).
+		/// Returns 0 if not found.
+		/// </summary>
 		public int GetRenderLayer(string layerName)
 		{
 			if (Rendering.RenderingLayers.TryGetValue(layerName, out var layerValue))
@@ -150,10 +198,36 @@ namespace Voltage.Project
 		}
 
 		/// <summary>
-		/// Gets the entity tag value by its name.
+		/// Returns the name of a render layer by its int value. Useful for display and debugging.
+		/// Returns null if no layer with that value exists.
 		/// </summary>
-		/// <param name="tagName">The name of the entity tag.</param>
-		/// <returns>The entity tag value, or 0 if not found.</returns>
+		public string GetRenderLayerName(int layerValue)
+		{
+			foreach (var kvp in Rendering.RenderingLayers)
+			{
+				if (kvp.Value == layerValue)
+					return kvp.Key;
+			}
+
+			return null;
+		}
+
+		/// <summary>
+		/// Tries to get the render layer value by its name.
+		/// </summary>
+		public bool TryGetRenderLayer(string layerName, out int layerValue)
+		{
+			return Rendering.RenderingLayers.TryGetValue(layerName, out layerValue);
+		}
+
+		#endregion
+
+		#region Entity Tag API
+
+		/// <summary>
+		/// Gets the entity tag value by its name.
+		/// Returns 0 if not found.
+		/// </summary>
 		public int GetEntityTag(string tagName)
 		{
 			if (Entities.EntityTags.TryGetValue(tagName, out var tagValue))
@@ -163,37 +237,13 @@ namespace Voltage.Project
 		}
 
 		/// <summary>
-		/// Tries to get the physics layer value by its name.
-		/// </summary>
-		/// <param name="layerName">The name of the physics layer.</param>
-		/// <param name="layerValue">The physics layer value if found.</param>
-		/// <returns>True if the layer was found, false otherwise.</returns>
-		public bool TryGetPhysicsLayer(string layerName, out int layerValue)
-		{
-			return Physics.PhysicsLayers.TryGetValue(layerName, out layerValue);
-		}
-
-		/// <summary>
-		/// Tries to get the render layer value by its name.
-		/// </summary>
-		/// <param name="layerName">The name of the render layer.</param>
-		/// <param name="layerValue">The render layer value if found.</param>
-		/// <returns>True if the layer was found, false otherwise.</returns>
-		public bool TryGetRenderLayer(string layerName, out int layerValue)
-		{
-			return Rendering.RenderingLayers.TryGetValue(layerName, out layerValue);
-		}
-
-		/// <summary>
 		/// Tries to get the entity tag value by its name.
 		/// </summary>
-		/// <param name="tagName">The name of the entity tag.</param>
-		/// <param name="tagValue">The entity tag value if found.</param>
-		/// <returns>True if the tag was found, false otherwise.</returns>
 		public bool TryGetEntityTag(string tagName, out int tagValue)
 		{
 			return Entities.EntityTags.TryGetValue(tagName, out tagValue);
 		}
+
 		#endregion
 	}
 }
