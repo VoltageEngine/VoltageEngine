@@ -133,6 +133,7 @@ namespace Voltage.Project
 			if (Physics.PhysicsLayers.TryGetValue(layerName, out var layerValue))
 				return layerValue;
 
+			Debug.Error($"[ProjectSettings] Physics layer '{layerName}' not found. Did you add it in Project Settings?");
 			return -1;
 		}
 
@@ -146,6 +147,7 @@ namespace Voltage.Project
 			if (Physics.PhysicsLayers.TryGetValue(layerName, out var index))
 				return 1 << index;
 
+			Debug.Error($"[ProjectSettings] Physics layer '{layerName}' not found. Did you add it in Project Settings?");
 			return 0;
 		}
 
@@ -194,6 +196,7 @@ namespace Voltage.Project
 			if (Rendering.RenderingLayers.TryGetValue(layerName, out var layerValue))
 				return layerValue;
 
+			Debug.Error($"[ProjectSettings] Render layer '{layerName}' not found. Did you add it in Project Settings?");
 			return 0;
 		}
 
@@ -209,6 +212,7 @@ namespace Voltage.Project
 					return kvp.Key;
 			}
 
+			Debug.Error($"[ProjectSettings] No render layer with value '{layerValue}' found. Did you add it in Project Settings?");
 			return null;
 		}
 
@@ -233,6 +237,7 @@ namespace Voltage.Project
 			if (Entities.EntityTags.TryGetValue(tagName, out var tagValue))
 				return tagValue;
 
+			Debug.Error($"[ProjectSettings] Entity tag '{tagName}' not found. Did you add it in Project Settings?");
 			return 0;
 		}
 
