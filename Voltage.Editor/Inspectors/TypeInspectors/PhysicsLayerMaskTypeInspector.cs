@@ -1,11 +1,13 @@
 using System.Collections.Generic;
 using ImGuiNET;
+using Voltage.Editor.Utils;
 using Voltage.Project;
 
 namespace Voltage.Editor.Inspectors.TypeInspectors
 {
 	/// <summary>
-	/// Renders a checklist for a physics layer bitmask (e.g. CollidesWithLayers).
+	/// Renders a collapsible checklist for a physics layer bitmask (e.g. Collider.CollidesWithLayers).
+	/// Multiple layers can be selected simultaneously.
 	/// </summary>
 	public class PhysicsLayerMaskTypeInspector : AbstractTypeInspector
 	{
@@ -37,28 +39,53 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 		public override void DrawMutable()
 		{
 			var currentMask = GetValue<int>();
-
-			ImGui.Text(_name);
-			ImGui.Indent();
-
 			var newMask = currentMask;
-			for (var i = 0; i < _layerNames.Length; i++)
+
+			var summary = BuildSummary(currentMask);
+			
+			VoltageEditorUtils.SmallVerticalSpace();
+
+			if (ImGui.TreeNode($"{_name}: {summary}"))
 			{
-				var isChecked = currentMask == Physics.AllLayers || (currentMask & _layerBitValues[i]) != 0;
-				if (ImGui.Checkbox(_layerNames[i], ref isChecked))
+				for (var i = 0; i < _layerNames.Length; i++)
 				{
-					if (isChecked)
-						newMask |= _layerBitValues[i];
-					else
-						newMask &= ~_layerBitValues[i];
+					var isChecked = currentMask == Physics.AllLayers || (currentMask & _layerBitValues[i]) != 0;
+					if (ImGui.Checkbox(_layerNames[i], ref isChecked))
+					{
+						if (isChecked)
+							newMask |= _layerBitValues[i];
+						else
+							newMask &= ~_layerBitValues[i];
+					}
 				}
+
+				ImGui.TreePop();
 			}
+
+			VoltageEditorUtils.SmallVerticalSpace();
 
 			if (newMask != currentMask)
 				SetValueWithUndo(newMask, _name);
 
-			ImGui.Unindent();
 			HandleTooltip();
+		}
+
+		private string BuildSummary(int mask)
+		{
+			if (mask == Physics.AllLayers)
+				return "All";
+
+			if (mask == 0)
+				return "None";
+
+			var selected = new List<string>();
+			for (var i = 0; i < _layerBitValues.Length; i++)
+			{
+				if ((mask & _layerBitValues[i]) != 0)
+					selected.Add(_layerNames[i]);
+			}
+
+			return selected.Count > 0 ? string.Join(", ", selected) : "None";
 		}
 	}
 }

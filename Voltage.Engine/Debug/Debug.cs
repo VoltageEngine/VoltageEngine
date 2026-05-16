@@ -97,8 +97,8 @@ namespace Voltage
 				if (_logEntries.Count > 500)
 					_logEntries.RemoveAt(0);
 
-#if EDITOR_DEBUG
-				// Bonus output in case the editor can't start for some reason
+#if !EDITOR && DEBUG
+				// Show Messages in the Debug build of the game 
 				System.Console.WriteLine($"[{type}] {msg} (at {callerClass}:{callerLine})");
 #endif
 			}

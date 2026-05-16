@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using ImGuiNET;
 using Voltage.Project;
@@ -5,8 +6,8 @@ using Voltage.Project;
 namespace Voltage.Editor.Inspectors.TypeInspectors
 {
 	/// <summary>
-	/// Renders a checklist for a single physics layer field.
-	/// The stored value is a bitmask of all selected layer bits (1 shifted by the layer's index).
+	/// Renders a single-select combo for a physics layer identity field (e.g. Collider.PhysicsLayer).
+	/// The stored value is 1 shifted left by the layer's index (e.g. 1 &lt;&lt; 0).
 	/// </summary>
 	public class PhysicsLayerTypeInspector : AbstractTypeInspector
 	{
@@ -37,28 +38,14 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 
 		public override void DrawMutable()
 		{
-			var currentMask = GetValue<int>();
+			var currentValue = GetValue<int>();
+			var selectedIndex = Array.IndexOf(_layerBitValues, currentValue);
+			if (selectedIndex < 0)
+				selectedIndex = 0;
 
-			ImGui.Text(_name);
-			ImGui.Indent();
+			if (ImGui.Combo(_name, ref selectedIndex, _layerNames, _layerNames.Length))
+				SetValueWithUndo(_layerBitValues[selectedIndex], _name);
 
-			var newMask = currentMask;
-			for (var i = 0; i < _layerNames.Length; i++)
-			{
-				var isChecked = (currentMask & _layerBitValues[i]) != 0;
-				if (ImGui.Checkbox(_layerNames[i], ref isChecked))
-				{
-					if (isChecked)
-						newMask |= _layerBitValues[i];
-					else
-						newMask &= ~_layerBitValues[i];
-				}
-			}
-
-			if (newMask != currentMask)
-				SetValueWithUndo(newMask, _name);
-
-			ImGui.Unindent();
 			HandleTooltip();
 		}
 	}

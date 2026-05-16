@@ -119,4 +119,11 @@ namespace Voltage
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 	public class RenderLayerAttribute : Attribute { }
+
+	/// <summary>
+	/// Marks an int field as an entity tag selector.
+	/// The stored value is the direct int value defined in ProjectSettings.EntityTags.
+	/// </summary>
+	[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+	public class EntityTagAttribute : Attribute { }
 }

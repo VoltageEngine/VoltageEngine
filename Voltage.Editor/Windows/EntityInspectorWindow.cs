@@ -317,22 +317,42 @@ public class EntityInspectorWindow
 
 				// Tag
 				{
-					int oldTag = Entity.Tag;
-					int tag = oldTag;
-					if (ImGui.InputInt("Tag", ref tag) && tag != oldTag)
+					var tags = Project.ProjectSettings.Instance.Entities.EntityTags;
+					var tagNames = new List<string>();
+					var tagValues = new List<int>();
+
+					foreach (var kvp in tags)
 					{
-						EditorChangeTracker.PushUndo(
-							new GenericValueChangeAction(
+						tagNames.Add(kvp.Key);
+						tagValues.Add(kvp.Value);
+					}
+
+					var tagNamesArray = tagNames.ToArray();
+					var tagValuesArray = tagValues.ToArray();
+
+					int oldTag = Entity.Tag;
+					var selectedIndex = System.Array.IndexOf(tagValuesArray, oldTag);
+					if (selectedIndex < 0)
+						selectedIndex = 0;
+
+					if (ImGui.Combo("Tag", ref selectedIndex, tagNamesArray, tagNamesArray.Length))
+					{
+						var newTag = tagValuesArray[selectedIndex];
+						if (newTag != oldTag)
+						{
+							EditorChangeTracker.PushUndo(
+								new GenericValueChangeAction(
+									Entity,
+									typeof(Entity).GetProperty(nameof(Entity.Tag)),
+									oldTag,
+									newTag,
+									$"{Entity.Name}.Tag"
+								),
 								Entity,
-								typeof(Entity).GetProperty(nameof(Entity.Tag)),
-								oldTag,
-								tag,
 								$"{Entity.Name}.Tag"
-							),
-							Entity,
-							$"{Entity.Name}.Tag"
-						);
-						Entity.Tag = tag;
+							);
+							Entity.Tag = newTag;
+						}
 					}
 				}
 

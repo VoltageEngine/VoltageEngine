@@ -119,6 +119,7 @@ public sealed class Entity : IComparable<Entity>
 	/// <summary>
 	/// use this however you want to. It can later be used to query the scene for all Entities with a specific tag
 	/// </summary>
+	[EntityTag]
 	public int Tag
 	{
 		get => _tag;
