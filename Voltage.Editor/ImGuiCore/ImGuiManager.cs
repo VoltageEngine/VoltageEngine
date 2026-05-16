@@ -495,7 +495,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void OnEditModeSwitched(bool isEditMode)
 	{
-		Core.DebugRenderEnabled = isEditMode;
+		if(EditorSettingsWindow.DisableDebugInPlayMode)
+			Core.DebugRenderEnabled = isEditMode;
 
 		// Returning to EditMode always clears PauseMode
 		if (isEditMode)
