@@ -9,7 +9,7 @@ using Voltage.Editor.DebugUtils;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Inspectors.ObjectInspectors;
 using Voltage.Editor.ProjectFile;
-using Voltage.Editor.SerializedData;
+using Voltage.Editor.Serialization;
 using Voltage.Editor.Undo.ComponentActions;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Undo.PrefabActions;
@@ -904,7 +904,7 @@ public class EntityInspectorWindow
 			newPrefab.Name = prefabName;
 			newPrefab.OriginalPrefabName = prefabName;
 
-			bool saveSuccessful = await DataManager.Instance.SavePrefabDataAsync(newPrefab, canOverride);
+			bool saveSuccessful = await SerializationManager.Instance.SavePrefabDataAsync(newPrefab, canOverride);
 
 			if (saveSuccessful)
 			{
@@ -1252,7 +1252,7 @@ public class EntityInspectorWindow
 		if (Entity != null && Entity.Type == Entity.InstanceType.SerializedPrefab && !string.IsNullOrEmpty(Entity.OriginalPrefabName))
 		{
 			// Save the prefab using the async event system
-			bool saveSuccessful = await DataManager.Instance.InvokePrefabCreated(Entity, true);
+			bool saveSuccessful = await SerializationManager.Instance.InvokePrefabCreated(Entity, true);
 
 			if (saveSuccessful)
 			{
