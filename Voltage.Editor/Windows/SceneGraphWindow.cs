@@ -14,7 +14,7 @@ using Voltage.Editor.Utils;
 using Num = System.Numerics;
 using Voltage.Editor.Interfaces;
 using Voltage.Editor.ProjectFile;
-using Voltage.Editor.SerializedData;
+using Voltage.Editor.Serialization;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Undo.EntityActions;
 
@@ -180,7 +180,7 @@ public class SceneGraphWindow
 
 			VoltageEditorUtils.MediumVerticalSpace();
 			if (VoltageEditorUtils.CenteredButton("Save Scene", 0.7f))
-				DataManager.Instance.InvokeSaveSceneChanges();
+				SerializationManager.Instance.InvokeSaveSceneChanges();
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
@@ -467,7 +467,7 @@ public class SceneGraphWindow
 	{
 		try
 		{
-			var prefabData = DataManager.Instance.InvokePrefabLoadRequested(prefabName);
+			var prefabData = SerializationManager.Instance.InvokePrefabLoadRequested(prefabName);
 
 			if (prefabData.EntityData == null)
 			{
@@ -481,7 +481,7 @@ public class SceneGraphWindow
 				entity.Type = Entity.InstanceType.SerializedPrefab;
 				entity.Transform.Position = Core.Scene.Camera.Transform.Position;
 
-				DataManager.Instance.InvokeLoadEntityData(entity, prefabData);
+				SerializationManager.Instance.InvokeLoadEntityData(entity, prefabData);
 				entity.Name = Core.Scene.GetUniqueEntityName(prefabData.Name, entity);
 				entity.OriginalPrefabName = prefabName;
 

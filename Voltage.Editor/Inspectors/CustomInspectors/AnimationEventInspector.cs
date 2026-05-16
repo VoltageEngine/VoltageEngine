@@ -5,7 +5,7 @@ using ImGuiNET;
 using Voltage.Sprites;
 using Voltage.Utils;
 using Voltage.Editor.ImGuiCore;
-using Voltage.Editor.SerializedData;
+using Voltage.Editor.Serialization;
 using Num = System.Numerics;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Undo.PropertyActions;
@@ -346,7 +346,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                         _saveStatusMessageTime = Time.TotalTime; // Start timer
 
                         // Save the entire scene after saving animation events
-                        DataManager.Instance.InvokeSaveSceneChanges();
+                        SerializationManager.Instance.InvokeSaveSceneChanges();
                     }
                     catch (Exception ex)
                     {

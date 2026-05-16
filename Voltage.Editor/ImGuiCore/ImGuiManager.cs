@@ -15,7 +15,7 @@ using Voltage.Editor.Inspectors.CustomInspectors;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.SceneFile;
 using Voltage.Editor.Scripting;
-using Voltage.Editor.SerializedData;
+using Voltage.Editor.Serialization;
 using Voltage.Editor.Tools;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Utils;
@@ -70,7 +70,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private ProjectCreatorWindow _projectCreatorWindow = new();
 	private SceneCreator _sceneCreator = new();
 	private ProjectManager _projectManager;
-	private DataManager _dataManager;
+	private SerializationManager _SerializationManager;
 	
 	private Num.Vector2 normalEntityInspectorStartPos;
 	private int entitynspectorInitialSpawnOffset = 0;
@@ -339,7 +339,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		_effectsCompileProgressWindow = new EffectsCompileProgressWindow();
 		_gameBuildWindow = new GameBuildWindow();
-		_dataManager = DataManager.Instance;
+		_SerializationManager = SerializationManager.Instance;
 
 		Core.EmitterWithPending.AddObserver(CoreEvents.Exiting, OnAppExitSaveChanges);
 		Core.OnResetScene += RequestResetScene;
@@ -722,7 +722,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	}
 
 	/// <summary>
-	/// Invokes scene save through DataManager with proper UI validation.
+	/// Invokes scene save through SerializationManager with proper UI validation.
 	/// </summary>
 	private void InvokeSaveSceneChanges()
 	{
@@ -751,7 +751,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			try
 			{
-				await _dataManager.SaveSceneChangesAsync();
+				await _SerializationManager.SaveSceneChangesAsync();
 			}
 			catch (Exception ex)
 			{
@@ -1408,7 +1408,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private async Task SaveSceneAsyncAndThenAct()
 	{
-		await _dataManager.SaveSceneChangesAsync();
+		await _SerializationManager.SaveSceneChangesAsync();
 	}
 
 	#endregion

@@ -64,9 +64,12 @@ bld/
 Voltage.Portable/project.lock.json
 Voltage.Portable/Voltage.FNA.csproj.nuget.cache
 .idea
+/.idea
 .DS_Store
+.claude
+/.claude
+.claude/settings.local.json
 
 # Editor Specific
 Voltage.Editor/Content/
-/.claude
-.claude/settings.local.json
+

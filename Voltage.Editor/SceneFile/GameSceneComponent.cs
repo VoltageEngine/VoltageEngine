@@ -10,7 +10,7 @@ using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Extensions;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.ProjectFile;
-using Voltage.Editor.SerializedData;
+using Voltage.Editor.Serialization;
 using Voltage.Editor.Undo.AssetActions;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Utils;
@@ -130,7 +130,7 @@ public class GameSceneComponent : SceneComponent
 	// 	}
 	// 	else
 	// 	{
-	// 		Scene.SceneData = DataManager.Instance.LoadSceneData(sceneJsonPath);
+	// 		Scene.SceneData = SerializationManager.Instance.LoadSceneData(sceneJsonPath);
 	// 	}
  //
 	// 	if (Scene.SceneData == null)
@@ -168,7 +168,7 @@ public class GameSceneComponent : SceneComponent
     //
     //         if (sceneEntitiesByName.TryGetValue(Scene.Entities[i].Name, out var sceneEntityData))
     //         {
-				// DataManager.Instance.LoadPredefinedEntityData(Scene.Entities[i], sceneEntityData);
+				// SerializationManager.Instance.LoadPredefinedEntityData(Scene.Entities[i], sceneEntityData);
     //             
     //             // Check if this entity needs parent assignment later
     //             if (!string.IsNullOrEmpty(Scene.Entities[i].GetData<string>("_PendingParentName")))
@@ -187,7 +187,7 @@ public class GameSceneComponent : SceneComponent
     //         entity.Type = sceneEntity.InstanceType;
     //         Scene.AddEntity(entity);
     //         
-    //         DataManager.Instance.LoadPredefinedEntityData(entity, sceneEntity);
+    //         SerializationManager.Instance.LoadPredefinedEntityData(entity, sceneEntity);
     //
     //         // Check if this entity needs parent assignment later
     //         if (!string.IsNullOrEmpty(entity.GetData<string>("_PendingParentName")))
