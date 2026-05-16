@@ -137,7 +137,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (_lastRenderTarget == null)
 			return;
 
-		string gameWindowState = Core.IsEditMode ? "Paused" : "Playing";
+		string gameWindowState = Core.IsEditMode ? "Paused (Editor)" : Core.IsPauseMode ? "Paused" : "Playing";
 
 		ImGuiWindowFlags gameWindowFlags =
 			_gameWindowFlags | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse;

@@ -152,11 +152,10 @@ public class SceneGraphWindow
 			VoltageEditorUtils.SmallVerticalSpace();
 			if (Core.IsEditMode)
 			{
-				ImGui.TextWrapped("Press F1/F2 to switch to Play mode.");
+				ImGui.TextWrapped("Press F1 for Play/Edit mode, or F2 for Pause Mode");
 				VoltageEditorUtils.SmallVerticalSpace();
 
-				if (VoltageEditorUtils.CenteredButton("Edit Mode", 0.8f))
-					Core.InvokeSwitchEditMode(false); 
+				DrawPlayPauseButtons();
 
 				VoltageEditorUtils.SmallVerticalSpace();
 				if (VoltageEditorUtils.CenteredButton("Reset Scene", 0.8f))
@@ -164,11 +163,9 @@ public class SceneGraphWindow
 			}
 			else
 			{
-				ImGui.TextWrapped("Press F1/F2 to switch to Edit mode.");
+				ImGui.TextWrapped("\"Press F1 for Play/Edit mode, or F2 for Pause Mode\"");
 				VoltageEditorUtils.SmallVerticalSpace();
-
-				if (VoltageEditorUtils.CenteredButton("Play Mode", 0.8f))
-					Core.InvokeSwitchEditMode(true);
+				DrawPlayPauseButtons();
 			}
 
 			VoltageEditorUtils.MediumVerticalSpace();
@@ -510,6 +507,57 @@ public class SceneGraphWindow
 		{
 			EditorDebug.Log($"Error creating entity from prefab {prefabName}: {ex.Message}");
 		}
+	}
+
+	/// <summary>
+	/// Draws the Play/Stop and Pause/Unpause buttons side by side.
+	/// Pause is disabled when in EditMode since there is nothing to pause.
+	/// </summary>
+	private void DrawPlayPauseButtons()
+	{
+		var totalPercent = 0.8f;
+		var gap = 8f;
+		var availWidth = ImGui.GetContentRegionAvail().X * totalPercent;
+		var buttonWidth = (availWidth - gap) / 2f;
+		var startX = (ImGui.GetContentRegionAvail().X - availWidth) / 2f;
+		var buttonHeight = VoltageEditorUtils.GetDefaultWidgetHeight();
+
+		ImGui.SetCursorPosX(startX);
+
+		// Play / Stop
+		if (Core.IsEditMode)
+		{
+			if (ImGui.Button("PLAY", new Num.Vector2(buttonWidth, buttonHeight)))
+				Core.InvokeSwitchEditMode(false);
+		}
+		else
+		{
+			if (ImGui.Button("STOP", new Num.Vector2(buttonWidth, buttonHeight)))
+			{
+				Core.IsPauseMode = false;
+				Core.InvokeSwitchEditMode(true);
+			}
+		}
+
+		ImGui.SameLine(0, gap);
+
+		// Pause / Unpause — disabled in EditMode
+		if (Core.IsEditMode)
+			ImGui.BeginDisabled();
+
+		if (Core.IsPauseMode)
+		{
+			if (ImGui.Button("Unpause", new Num.Vector2(buttonWidth, buttonHeight)))
+				Core.InvokeSwitchPauseMode(false);
+		}
+		else
+		{
+			if (ImGui.Button("Pause", new Num.Vector2(buttonWidth, buttonHeight)))
+				Core.InvokeSwitchPauseMode(true);
+		}
+
+		if (Core.IsEditMode)
+			ImGui.EndDisabled();
 	}
 
 	#region Entity Selection Navigation

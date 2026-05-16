@@ -123,20 +123,6 @@ namespace Voltage.Project
 		}
 
 		#region Physics Layer API
-
-		/// <summary>
-		/// Returns the raw index stored for a physics layer name (e.g. "Default" → 0, "Ground" → 1).
-		/// Returns -1 if not found.
-		/// </summary>
-		public int GetPhysicsLayer(string layerName)
-		{
-			if (Physics.PhysicsLayers.TryGetValue(layerName, out var layerValue))
-				return layerValue;
-
-			Debug.Error($"[ProjectSettings] Physics layer '{layerName}' not found. Did you add it in Project Settings?");
-			return -1;
-		}
-
 		/// <summary>
 		/// Returns the bitmask bit for a physics layer by name (e.g. "Ground" → 1 &lt;&lt; 1).
 		/// Use this when setting <c>Collider.PhysicsLayer</c> or building a <c>CollidesWithLayers</c> mask.

@@ -49,7 +49,11 @@ public class Core : Game
 	/// <summary>
 	/// enables/disables debug rendering
 	/// </summary>
+#if EDITOR
+	public static bool DebugRenderEnabled = true;
+#else
 	public static bool DebugRenderEnabled = false;
+#endif
 
 	/// <summary>
 	/// If true, the scene will automatically reset after going from PlayMode back to EditMode (resetting all values that weren't saved beforehand, for consistency) .
@@ -98,6 +102,12 @@ public class Core : Game
 	public new static GameServiceContainer Services => ((Game)_instance).Services;
 
 	/// <summary>
+	/// When set, called during <see cref="OnExiting"/> to determine whether the exit should
+	/// be intercepted (e.g. to show an unsaved-changes prompt).
+	/// </summary>
+	public static Func<bool> ShouldInterceptExit;
+
+	/// <summary>
 	/// provides access to the single Core/Game instance
 	/// </summary>
 	public static Core Instance => _instance;
@@ -107,7 +117,7 @@ public class Core : Game
 	/// </summary>
 	internal static Core _instance;
 
-#if EDITOR 
+#if EDITOR
 	internal static long drawCalls;
 	private TimeSpan _frameCounterElapsedTime = TimeSpan.Zero;
 	private int _frameCounter = 0;
@@ -266,10 +276,14 @@ public class Core : Game
 				// - we do not update the Scene while a SceneTransition is happening
 				// 		- unless it is SceneTransition that doesn't change Scenes (no reason not to update)
 				//		- or it is a SceneTransition that has already switched to the new Scene (the new Scene needs to do its thing)
-				if (_sceneTransition == null ||
-				    _sceneTransition != null &&
-				    (!_sceneTransition._loadsNewScene || _sceneTransition._isNewSceneLoaded))
-					_scene.Update();
+
+				if (!IsPauseMode) 
+				{
+					if (_sceneTransition == null ||
+				     _sceneTransition != null &&
+				     (!_sceneTransition._loadsNewScene || _sceneTransition._isNewSceneLoaded))
+						_scene.Update();
+				}
 
 				if (_nextScene != null)
 				{
@@ -343,9 +357,7 @@ public class Core : Game
 	protected override void OnExiting(object sender, ExitingEventArgs args)
 	{
 #if EDITOR
-		// Guard with IsEditorMode so that VS-published games using an EDITOR-compiled DLL
-		// (where the editor never set IsEditorMode = true) still exit normally.
-		if (IsEditorMode && !_allowExit)
+		if (IsEditorMode && !_allowExit && (ShouldInterceptExit?.Invoke() ?? false))
 		{
 			args.Cancel = true;
 			EmitterWithPending.Emit(CoreEvents.Exiting, true);
@@ -536,9 +548,11 @@ public class Core : Game
 	public static event Action OnChangedToPlayMode;
 	public static event Action OnResetScene;
 	public static event Action<bool> OnSwitchEditMode;
+	public static event Action<bool> OnSwitchPauseMode;
 
 	private static bool _isTimeFrozen;
 	private static bool _isEditMode;
+	private static bool _isPauseMode;
 	private static bool _hasBeenInEditMode;
 
 	/// In EditMode, Entities' components aren't updated, and instead, user can use the ImGui inspector to move the objects in the scene manually.
@@ -560,7 +574,24 @@ public class Core : Game
 				{
 					OnChangedToPlayMode?.Invoke();
 				}
+			}
+		}
+	}
 
+	/// <summary>
+	/// When true, the game is in PlayMode but entity/component updates are suspended.
+	/// The editor camera remains free to move. No data is saved (treated as PlayMode).
+	/// Automatically cleared when switching back to EditMode.
+	/// </summary>
+	public static bool IsPauseMode
+	{
+		get => _isPauseMode;
+		set
+		{
+			if (_isPauseMode != value)
+			{
+				_isPauseMode = value;
+				OnSwitchPauseMode?.Invoke(value);
 			}
 		}
 	}
@@ -577,12 +608,24 @@ public class Core : Game
 			}
 		}
 	}
+
 	public static void InvokeSwitchEditMode(bool isEditMode)
 	{
+		// Always clear pause when toggling edit mode
+		if (isEditMode)
+			IsPauseMode = false;
+
 		IsEditMode = isEditMode;
 		OnSwitchEditMode?.Invoke(isEditMode);
 	}
 
+	/// <summary>
+	/// Toggles PauseMode. Only meaningful while in PlayMode (IsEditMode == false).
+	/// </summary>
+	public static void InvokeSwitchPauseMode(bool isPauseMode)
+	{
+		IsPauseMode = isPauseMode;
+	}
 
 	public static void InvokeResetScene()
 	{
@@ -592,7 +635,6 @@ public class Core : Game
 	/// <summary>
 	/// Freeze the game for a certain amount of time
 	/// </summary>
-	/// <param name="time"></param>
 	public static void FreezeGame(float time)
 	{
 		IsTimeFrozen = true;
@@ -602,7 +644,6 @@ public class Core : Game
 	/// <summary>
 	/// Freeze the game for indefinite amount of time
 	/// </summary>
-	/// <param name="time"></param>
 	public static void FreezeGame(bool freeze)
 	{
 		IsTimeFrozen = freeze;
