@@ -43,6 +43,14 @@ namespace Voltage.Editor.Tools
 			set => _autoCloseEffectsProgress.Value = value;
 		}
 
+		// Debug
+		private static PersistentBool _disableDebugInPlayMode = new("EditorSettings_DisableDebugInPlayMode", true);
+		public static bool DisableDebugInPlayMode
+		{
+			get => _disableDebugInPlayMode.Value;
+			set => _disableDebugInPlayMode.Value = value;
+		}
+
 
 		public bool IsOpen
 		{
@@ -150,7 +158,28 @@ namespace Voltage.Editor.Tools
 					VoltageEditorUtils.SmallVerticalSpace();
 					ImGui.Unindent();
 				}
-				
+
+				// Debug
+				if (ImGui.CollapsingHeader("Debug", ImGuiTreeNodeFlags.DefaultOpen))
+				{
+					ImGui.Indent();
+					VoltageEditorUtils.SmallVerticalSpace();
+
+					bool disableDebugInPlayMode = DisableDebugInPlayMode;
+					if (ImGui.Checkbox("Disable Debug Drawing (Lines, Shapes, etc.) In Play Mode##Debug", ref disableDebugInPlayMode))
+					{
+						DisableDebugInPlayMode = disableDebugInPlayMode;
+					}
+
+					if (ImGui.IsItemHovered())
+					{
+						ImGui.SetTooltip("Disable debug features while the game is in play mode.");
+					}
+
+					VoltageEditorUtils.SmallVerticalSpace();
+					ImGui.Unindent();
+				}
+
 				ImGui.End();
 			}
 			
