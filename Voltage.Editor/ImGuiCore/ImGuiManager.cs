@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -26,6 +27,7 @@ using Num = System.Numerics;
 using Voltage.Editor.Windows;
 using Voltage.Editor.Builders;
 using Voltage.Editor.Effects;
+using Voltage.Utils.Coroutines;
 
 
 namespace Voltage.Editor.ImGuiCore;
@@ -339,16 +341,12 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		_effectsCompileProgressWindow = new EffectsCompileProgressWindow();
 		_gameBuildWindow = new GameBuildWindow();
-
 		_dataManager = DataManager.Instance;
 
-		// Create default Main Entity Inspector window when current scene is finished loading the entities
-		Scene.OnFinishedAddingEntitiesWithData += OpenMainEntityInspector;
 		Core.EmitterWithPending.AddObserver(CoreEvents.Exiting, OnAppExitSaveChanges);
-
 		Core.OnResetScene += RequestResetScene;
 		Core.OnSwitchEditMode += OnEditModeSwitched;
-
+		
 		OpenMainEntityInspector();
 		_entityInspectors.Add(MainEntityInspectorWindow);
 

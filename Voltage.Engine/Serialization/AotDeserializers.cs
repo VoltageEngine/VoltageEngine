@@ -8,7 +8,7 @@ using Voltage.Project;
 namespace Voltage.Serialization
 {
 	/// <summary>
-	/// Hand-written, reflection-free deserializers for all engine types that are
+	/// Reflection-free deserializers for all engine types that are
 	/// stored as JSON (scene data, entity data, prefabs, settings).
 	/// These bypass JsonDecoder entirely and use JsonTokenReader for AOT safety.
 	/// </summary>

@@ -234,15 +234,15 @@ public class EntityList : IEnumerable<Entity>
 			foreach (var entity in _tempEntityList)
 				entity.OnAddedToScene();
 
+			Serialization.ComponentReferenceResolver.ResolveAll();
+
 			foreach (var entity in _tempEntityList)
 				entity.Components.FireStartCallbacks();
-
-			Serialization.ComponentReferenceResolver.ResolveAll(Scene);
 
 			if (_isSceneStarted)
 			{
 				Scene.InvokeFinishedAddingEntities();
-				Scene.InvokeFinishedAddingEntitiesWithData(null);
+				Scene.InvokeFinishedAddingEntitiesWithData();
 				_isSceneStarted = false;
 			}
 
@@ -386,6 +386,23 @@ public class EntityList : IEnumerable<Entity>
 				if (comp != null)
 					return comp;
 			}
+
+		return null;
+	}
+
+	/// <summary>
+	/// returns the first Entity found with a matching PersistentId. If none are found returns null.
+	/// </summary>
+	/// <param name="persistentId">The persistent GUID of the entity.</param>
+	public Entity FindEntityByPersistentId(Guid persistentId)
+	{
+		for (var i = 0; i < _entities.Length; i++)
+			if (_entities.Buffer[i].PersistentId == persistentId)
+				return _entities.Buffer[i];
+
+		foreach (var entity in _entitiesToAdd)
+			if (entity.PersistentId == persistentId)
+				return entity;
 
 		return null;
 	}

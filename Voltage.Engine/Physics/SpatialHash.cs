@@ -248,7 +248,7 @@ namespace Voltage.Spatial
 						var collider = cell[i];
 
 						// skip this collider if it is our excludeCollider or if it doesnt match our layerMask
-						if (collider == excludeCollider || !Flags.IsFlagSet(layerMask, collider.PhysicsLayer))
+						if (collider == excludeCollider || !Flags.IsFlagSet(layerMask, collider.Layer))
 							continue;
 
 						if (bounds.Intersects(collider.Bounds))
@@ -610,7 +610,7 @@ namespace Voltage.Spatial
 					continue;
 
 				// make sure the Collider is on the layerMask
-				if (!Flags.IsFlagSet(_layerMask, potential.PhysicsLayer))
+				if (!Flags.IsFlagSet(_layerMask, potential.Layer))
 					continue;
 
 				// TODO: is rayIntersects performant enough? profile it. Collisions.rectToLine might be faster

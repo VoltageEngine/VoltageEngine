@@ -61,6 +61,7 @@ namespace Voltage
 		/// higher renderLayers are sent to the Batcher first. An important fact when using the stencil buffer.
 		/// </summary>
 		/// <value>The render layer.</value>
+		[RenderLayer]
 		public int RenderLayer
 		{
 			get => _renderLayer;

@@ -177,10 +177,10 @@ public class ComponentList : IEnumerable<Component>
 			{
 				if (component.Enabled)
 					component.OnEnabled();
-				
+
 				component.OnStart();
 			}
-			catch (System.Exception ex)
+			catch (Exception ex)
 			{
 				Debug.Error($"Exception in OnStart/OnEnabled for component '{component.GetType().Name}' on entity '{_entity.Name}': {ex.Message}\n{ex.StackTrace}");
 			}
@@ -201,7 +201,7 @@ public class ComponentList : IEnumerable<Component>
 	private void UpdateLists()
 	{
 		CommitPendingAdditions();
-		FireStartCallbacks();
+		//FireStartCallbacks();
 	}
 
 	private void HandleRemove(Component component)
@@ -355,7 +355,6 @@ public class ComponentList : IEnumerable<Component>
 			// If the component is enabled or if it is a Collider that should be debug rendered even when disabled, render it
 			if (_components.Buffer[i].Enabled || (_components.Buffer[i] is Collider collider && collider.IsVisibleEvenDisabled))
 				_components.Buffer[i].DebugRender(batcher);
-
 		}
 	}
 

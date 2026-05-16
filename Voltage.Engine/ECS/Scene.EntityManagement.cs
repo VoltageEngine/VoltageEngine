@@ -36,6 +36,15 @@ namespace Voltage
 			return AddEntity(entity);
 		}
 
+		/// <summary>
+		/// searches for and returns the first Entity with a matching PersistentId. If none are found returns null.
+		/// </summary>
+		/// <param name="persistentId">The persistent GUID of the entity.</param>
+		public Entity FindEntityByPersistentId(Guid persistentId)
+		{
+			return Entities.FindEntityByPersistentId(persistentId);
+		}
+
 		public Entity SimpleCreateEntity(string name, Entity.InstanceType type)
 		{
 			var entity = new Entity(name, type);

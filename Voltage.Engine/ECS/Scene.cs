@@ -931,21 +931,21 @@ public partial class Scene
 	#region Events
 
 	public static event Action OnFinishedAddingEntities;
-	public static event Action<Entity> OnFinishedAddingEntitiesWithData;
+	public static event Action OnFinishedAddingEntitiesWithData;
 
 	public static void InvokeFinishedAddingEntities()
 	{
 		OnFinishedAddingEntities?.Invoke();
 	}
 
-	public static void InvokeFinishedAddingEntitiesWithData(Entity entity)
+	public static void InvokeFinishedAddingEntitiesWithData()
 	{
-		OnFinishedAddingEntitiesWithData?.Invoke(entity);
+		OnFinishedAddingEntitiesWithData?.Invoke();
 	}
 
 	#endregion
 
-	
 
-	
+
+
 }

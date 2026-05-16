@@ -1,25 +1,35 @@
+using System;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Voltage.Serialization;
 
-/// <summary>
-/// Serializable reference to an Entity (or its Transform) in a scene.
-/// Stored in ComponentData in place of direct Entity/Transform-typed fields.
-/// Passed to a live Entity/Transform after all entities are instantiated by
-/// <see cref="ComponentReferenceResolver"/>.
-/// </summary>
 [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
 public struct EntityReference
 {
+	public string EntityPersistentId;
 	public string EntityName;
-	public readonly bool IsValid => !string.IsNullOrEmpty(EntityName);
+
+	public readonly bool IsValid =>
+		!string.IsNullOrEmpty(EntityPersistentId) || !string.IsNullOrEmpty(EntityName);
+
+	// Parses EntityPersistentId to a Guid for resolver use. Returns Guid.Empty if unparseable.
+	public readonly Guid GetPersistentId() =>
+		Guid.TryParse(EntityPersistentId, out var id) ? id : Guid.Empty;
 
 	public static EntityReference From(Entity entity)
 	{
 		if (entity == null)
 			return default;
 
-		return new EntityReference { EntityName = entity.Name };
+		// Non-serialized entities are runtime-only and must not be persisted.
+		if (entity.Type == Entity.InstanceType.NonSerialized)
+			return default;
+
+		return new EntityReference
+		{
+			EntityPersistentId = entity.PersistentId.ToString(),
+			EntityName = entity.Name
+		};
 	}
 
 	public static EntityReference From(Transform transform)
@@ -27,9 +37,16 @@ public struct EntityReference
 		if (transform?.Entity == null)
 			return default;
 
-		return new EntityReference { EntityName = transform.Entity.Name };
+		if (transform.Entity.Type == Entity.InstanceType.NonSerialized)
+			return default;
+
+		return new EntityReference
+		{
+			EntityPersistentId = transform.Entity.PersistentId.ToString(),
+			EntityName = transform.Entity.Name
+		};
 	}
 
 	public override readonly string ToString() =>
-		IsValid ? EntityName : "(None)";
+		IsValid ? $"{EntityName}({EntityPersistentId})" : "(None)";
 }

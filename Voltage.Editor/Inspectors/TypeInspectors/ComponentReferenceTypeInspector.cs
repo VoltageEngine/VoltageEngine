@@ -1,10 +1,6 @@
 using System;
-using System.Reflection;
-using System.Runtime.InteropServices;
 using ImGuiNET;
-using Voltage;
 using Voltage.Editor.Utils;
-using Voltage.Serialization;
 using Voltage.Utils;
 using Num = System.Numerics;
 
@@ -21,11 +17,6 @@ public class ComponentReferenceTypeInspector : AbstractTypeInspector
 	public static Component DraggedComponent;
 
 	private bool _showPicker;
-
-	public override void Initialize()
-	{
-		base.Initialize();
-	}
 
 	public override void DrawMutable()
 	{
@@ -72,7 +63,7 @@ public class ComponentReferenceTypeInspector : AbstractTypeInspector
 			ImGui.EndDragDropTarget();
 		}
 
-		// right-click: clear
+		// Clear with right-click
 		if (current != null && ImGui.BeginPopupContextItem($"compref_ctx_{_scopeId}"))
 		{
 			if (ImGui.Selectable("Clear"))
@@ -81,7 +72,6 @@ public class ComponentReferenceTypeInspector : AbstractTypeInspector
 			ImGui.EndPopup();
 		}
 
-		// ---- inline picker popup ----
 		if (_showPicker)
 		{
 			ImGui.OpenPopup($"compref_picker_{_scopeId}");
