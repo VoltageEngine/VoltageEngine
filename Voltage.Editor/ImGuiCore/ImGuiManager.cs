@@ -3,7 +3,6 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -27,8 +26,6 @@ using Num = System.Numerics;
 using Voltage.Editor.Windows;
 using Voltage.Editor.Builders;
 using Voltage.Editor.Effects;
-using Voltage.Utils.Coroutines;
-
 
 namespace Voltage.Editor.ImGuiCore;
 
@@ -307,6 +304,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		Directory.CreateDirectory(layoutDirectory);
 		_layoutFilePath = Path.Combine(layoutDirectory, "imgui_layout.ini");
 		_layoutManager = new LayoutManager(_layoutFilePath);
+		Core.ShouldInterceptExit = () => EditorChangeTracker.IsDirty;
 
 		LoadSettings();
 
@@ -499,6 +497,10 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	{
 		Core.DebugRenderEnabled = isEditMode;
 
+		// Returning to EditMode always clears PauseMode
+		if (isEditMode)
+			Core.IsPauseMode = false;
+
 		// Only reset scene if switching to EditMode from PlayMode
 		if (isEditMode && Core.ResetSceneAutomatically)
 		{
@@ -509,7 +511,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			}
 			else
 			{
-				// Fallback for old system
 				Core.InvokeResetScene();
 			}
 		}
@@ -694,8 +695,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (ImGui.IsKeyPressed(ImGuiKey.F5, false))
 			Core.InvokeResetScene();
 
-		if (ImGui.IsKeyPressed(ImGuiKey.F1, false) || ImGui.IsKeyPressed(ImGuiKey.F2, false))
+		// Edit / Play mode
+		if (ImGui.IsKeyPressed(ImGuiKey.F1, false))
 			Core.InvokeSwitchEditMode(!Core.IsEditMode);
+
+		// Pause mode (only in PlayMode)
+		if (ImGui.IsKeyPressed(ImGuiKey.F2, false) && !Core.IsEditMode)
+			Core.InvokeSwitchPauseMode(!Core.IsPauseMode);
 
 		if (ImGui.GetIO().KeyCtrl && ImGui.IsKeyPressed(ImGuiKey.S, false))
 		{
@@ -731,6 +737,12 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			_newSceneNameForSave = "NewScene";
 			_showCreateSceneForSavePrompt = true;
+			return;
+		}
+
+		if (!Core.IsEditMode)
+		{
+			NotificationSystem.ShowTimedNotification("Scene Data can't be saved in Play/Pause Mode");
 			return;
 		}
 
@@ -922,7 +934,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void UpdateCamera()
 	{
-		if (Core.IsEditMode && IsGameWindowFocused)
+		if ((Core.IsEditMode || Core.IsPauseMode) && IsGameWindowFocused)
 		{
 			ManageCameraZoom();
 
@@ -949,7 +961,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				_cameraTargetPosition = Core.Scene.Camera.Position;
 
 			bool isMovingCamera = Input.IsKeyDown(Keys.W) || Input.IsKeyDown(Keys.A) ||
-								  Input.IsKeyDown(Keys.S) || Input.IsKeyDown(Keys.D);
+			                      Input.IsKeyDown(Keys.S) || Input.IsKeyDown(Keys.D);
 
 			if (Input.IsKeyDown(Keys.LeftShift))
 			{

@@ -41,7 +41,7 @@ namespace Voltage.Editor.Scripting
 			if (!Directory.Exists(_scriptsDirectory))
 			{
 				Directory.CreateDirectory(_scriptsDirectory);
-				Debug.Log($"Created scripts directory: {_scriptsDirectory}");
+				EditorDebug.Log($"Created scripts directory: {_scriptsDirectory}");
 			}
 
 			_fileWatcher = new FileSystemWatcher(_scriptsDirectory)
@@ -73,7 +73,7 @@ namespace Voltage.Editor.Scripting
 				_debounceTimer.Stop();
 				_debounceTimer.Start();
 
-				Debug.Log($"Script file changed: {Path.GetFileName(e.FullPath)}");
+				EditorDebug.Log($"Script file changed: {Path.GetFileName(e.FullPath)}");
 			}
 		}
 
@@ -88,7 +88,7 @@ namespace Voltage.Editor.Scripting
 				_debounceTimer.Stop();
 				_debounceTimer.Start();
 
-				Debug.Log($"Script file renamed: {Path.GetFileName(e.OldFullPath)} -> {Path.GetFileName(e.FullPath)}");
+				EditorDebug.Log($"Script file renamed: {Path.GetFileName(e.OldFullPath)} -> {Path.GetFileName(e.FullPath)}");
 			}
 		}
 
@@ -101,7 +101,7 @@ namespace Voltage.Editor.Scripting
 
 				if (!AutoCompileOnFileChange)
 				{
-					Debug.Log($"Script files changed but auto-compile is disabled. Use 'Compile Scripts' to apply changes.");
+					EditorDebug.Log($"Script files changed but auto-compile is disabled. Use 'Compile Scripts' to apply changes.");
 					_changedFiles.Clear();
 					return;
 				}
@@ -130,7 +130,7 @@ namespace Voltage.Editor.Scripting
 
 				if (allScriptFiles.Count == 0)
 				{
-					EditorDebug.Warn("No script files found to compile");
+					Debug.Warn("No script files found to compile");
 					return;
 				}
 
@@ -145,7 +145,6 @@ namespace Voltage.Editor.Scripting
 					EditorDebug.Success($"Successfully compiled {allScriptFiles.Count} script file(s)");
 				}
 
-				// Always fire the event so ScriptManager can handle logging and scene reload
 				OnCompilationComplete?.Invoke(result);
 			}
 			catch (Exception ex)
