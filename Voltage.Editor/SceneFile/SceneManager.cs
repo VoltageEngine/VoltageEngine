@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Voltage.Data;
-using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.ProjectFile;
 using Voltage.Utils;
@@ -180,7 +179,7 @@ public class SceneManager : GlobalManager
 	{
 		if (string.IsNullOrWhiteSpace(scenePath))
 		{
-			EditorDebug.Error("Scene path cannot be null or empty", "SceneManagement");
+			Debug.Error("Scene path cannot be null or empty", "SceneManagement");
 			return null;
 		}
 
@@ -299,9 +298,6 @@ public class SceneManager : GlobalManager
 			return false;
 		}
 
-		EditorDebug.Log($"=== Saving Scene ===", "SceneManagement");
-		EditorDebug.Log($"Scene file: {CurrentScenePath}", "SceneManagement");
-
 		try
 		{
 			bool success = Core.Scene.SaveToFile(CurrentScenePath);
@@ -318,7 +314,6 @@ public class SceneManager : GlobalManager
 		catch (Exception ex)
 		{
 			Debug.Error($"Failed to save scene: {ex.Message}");
-			EditorDebug.Log($"Failed to save scene: {ex.Message}");
 			return false;
 		}
 	}
@@ -350,16 +345,11 @@ public class SceneManager : GlobalManager
 		if (sceneFilePath == null)
 			return false;
 
-		// Check if file already exists
 		if (File.Exists(sceneFilePath))
 		{
 			Debug.Error($"Scene file already exists: {sceneFilePath}");
 			return false;
 		}
-
-		EditorDebug.Log($"=== Creating Scene File ===", "SceneManagement");
-		EditorDebug.Log($"Scene name: {sceneName}", "SceneManagement");
-		EditorDebug.Log($"Scene path: {sceneFilePath}", "SceneManagement");
 
 		try
 		{
@@ -386,10 +376,7 @@ public class SceneManager : GlobalManager
 				}
 			}
 
-			// Set current path
 			SetCurrentScenePath(sceneFilePath, sceneName);
-
-			// Save the scene
 			bool success = SaveCurrentScene();
 
 			if (success)
@@ -421,7 +408,6 @@ public class SceneManager : GlobalManager
 			return false;
 		}
 
-		Debug.Log($"Reloading scene: {CurrentSceneName}");
 		var scene = LoadScene(CurrentScenePath);
 		return scene != null;
 	}
@@ -433,8 +419,6 @@ public class SceneManager : GlobalManager
 	{
 		CurrentScenePath = null;
 		CurrentSceneName = null;
-
-		Debug.Log("Cleared current scene reference");
 	}
 
 	#endregion

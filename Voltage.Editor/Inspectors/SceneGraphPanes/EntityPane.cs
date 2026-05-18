@@ -388,20 +388,7 @@ public class EntityPane
 	    }
 
 	    // Ctrl+D: Duplicate selected
-	    if (Core.IsEditMode && gameCtrlDown && Input.IsKeyPressed(Keys.D) && _selectedEntities.Count > 0)
-	    {
-	        var entitiesToDuplicate = _selectedEntities.Where(e => !ShouldBlockDuplication(e)).ToList();
-	        if (entitiesToDuplicate.Count > 1)
-	        {
-	            DuplicateEntities(entitiesToDuplicate);
-	        }
-	        else
-	        {
-	            foreach (var entity in entitiesToDuplicate)
-	                DuplicateEntity(entity);
-	        }
-	    }
-	    else if (imguiCtrlDown && ImGui.IsKeyPressed(ImGuiKey.D) && _selectedEntities.Count > 0)
+	    if (Core.IsEditMode && imguiCtrlDown && ImGui.IsKeyPressed(ImGuiKey.D) && _selectedEntities.Count > 0)
 	    {
 	        var entitiesToDuplicate = _selectedEntities.Where(e => !ShouldBlockDuplication(e)).ToList();
 	        if (entitiesToDuplicate.Count > 1)
@@ -526,16 +513,15 @@ public class EntityPane
 			}
 			catch (Exception ex)
 			{
-				System.Console.WriteLine($"Failed to create component {componentType.Name}: {ex.Message}");
+				Debug.Error($"Failed to create component {componentType.Name}: {ex.Message}");
 				continue;
 			}
 
 			// Copy basic component properties
 			clonedComponent.Name = sourceComponent.Name;
 			clonedComponent.Enabled = sourceComponent.Enabled;
-
-			// Add the component first so it gets properly initialized
 			clone.AddComponent(clonedComponent);
+			clonedComponent.SetSerialized(true);
 
 			// Copy component data using JSON serialization
 			if (sourceComponent.Data != null)
@@ -549,18 +535,13 @@ public class EntityPane
 						PreserveReferencesHandling = false
 					};
 				
-					// Serialize the source component data to JSON
 					var json = Json.ToJson(sourceComponent.Data, componentJsonSettings);
-				
-					// Deserialize back to a new instance (deep clone)
 					var clonedData = (ComponentData)Json.FromJson(json, sourceComponent.Data.GetType());
-					
-					// Apply the cloned data to the new component
 					clonedComponent.Data = clonedData;
 				}
 				catch (Exception ex)
 				{
-					System.Console.WriteLine($"Failed to copy data for component {sourceComponent.GetType().Name}: {ex.Message}");
+					Debug.Warn($"Failed to copy data for component {sourceComponent.GetType().Name}: {ex.Message}");
 					
 					// Fallback: try the Clone method if JSON fails
 					try
@@ -573,7 +554,7 @@ public class EntityPane
 					}
 					catch (Exception cloneEx)
 					{
-						System.Console.WriteLine($"Clone() fallback also failed for {sourceComponent.GetType().Name}: {cloneEx.Message}");
+						Debug.Error($"Clone() fallback also failed for {sourceComponent.GetType().Name}: {cloneEx.Message}");
 					}
 				}
 			}
@@ -625,8 +606,7 @@ public class EntityPane
         foreach (var entity in entitiesToDuplicate)
         {
 			// Create a new entity directly
-			var clone = new Entity("Entity");
-			
+			var clone = new Entity();
             clone.Name = Core.Scene.GetUniqueEntityName(entity.Name, clone, clones);
             clone.Transform.Position = entity.Transform.Position;
             clone.Transform.Rotation = entity.Rotation;
@@ -654,18 +634,17 @@ public class EntityPane
                 try
                 {
                     clonedComponent = (Component)Activator.CreateInstance(componentType);
-                }
-                catch (Exception ex)
+				}
+				catch (Exception ex)
                 {
-                    System.Console.WriteLine($"Failed to create component {componentType.Name}: {ex.Message}");
+                    Debug.Error($"Failed to create component {componentType.Name}: {ex.Message}");
                     continue;
                 }
 
                 clonedComponent.Name = sourceComponent.Name;
                 clonedComponent.Enabled = sourceComponent.Enabled;
-                clone.AddComponent(clonedComponent);
 
-                if (sourceComponent.Data != null)
+				if (sourceComponent.Data != null)
                 {
                     try
                     {
@@ -680,9 +659,9 @@ public class EntityPane
                         var clonedData = (ComponentData)Json.FromJson(json, sourceComponent.Data.GetType());
                         clonedComponent.Data = clonedData;
                     }
-                    catch (Exception ex)
+					catch (Exception ex)
                     {
-                        System.Console.WriteLine($"Failed to copy data for component {sourceComponent.GetType().Name}: {ex.Message}");
+                        Debug.Warn($"Failed to copy data for component {sourceComponent.GetType().Name}: {ex.Message}");
                         try
                         {
                             var fallbackClone = sourceComponent.Clone();
@@ -693,14 +672,16 @@ public class EntityPane
                         }
                         catch (Exception cloneEx)
                         {
-                            System.Console.WriteLine($"Clone() fallback also failed for {sourceComponent.GetType().Name}: {cloneEx.Message}");
+                            Debug.Error($"Clone() fallback also failed for {sourceComponent.GetType().Name}: {cloneEx.Message}");
                         }
                     }
                 }
-            }
 
-            // Copy children if any exist, but SKIP NonSerialized entities
-            for (var i = 0; i < entity.Transform.ChildCount; i++)
+                clone.AddComponent(clonedComponent);
+			}
+
+			// Copy children if any exist, but SKIP NonSerialized entities
+			for (var i = 0; i < entity.Transform.ChildCount; i++)
             {
                 var childEntity = entity.Transform.GetChild(i).Entity;
                 if (childEntity.Type == Entity.InstanceType.NonSerialized)
