@@ -710,14 +710,12 @@ public sealed class Entity : IComparable<Entity>
 
 		foreach (var comp in existingComponents)
 		{
-			// If not allowing multiple, return the first existing component of this type
 			if (!allowSameComponentsOnEntity && comp.GetType() == type)
 			{
 				Debug.Error($"Can't add the same Component more than once on Entity: {this.Name}");
 				return comp;
 			}
 
-			// Prevent adding if a component of the same type and name already exists
 			if (comp.GetType() == type && comp.Name == component.Name)
 			{
 				Debug.Error($"Can't add two components with the same name: {comp.Name}, on Entity: {this.Name}");

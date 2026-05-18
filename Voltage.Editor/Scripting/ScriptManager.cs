@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -78,8 +78,6 @@ namespace Voltage.Editor.Scripting
 			_scriptWatcher.OnCompilationComplete += HandleCompilationComplete;
 
 			CompileScripts(EditorSettingsWindow.AutoReloadSceneAfterScriptCompile);
-
-			EditorDebug.Info($"ScriptManager initialized. Scripts directory: {_scriptsDirectory}");
 		}
 
 		private void CreateExampleScript()
@@ -137,12 +135,13 @@ namespace GameScripts
 			if (result.Success)
 			{
 				_currentScriptAssembly = result.Assembly;
-
-				// Update the engine's reference so Scene.ResolveType uses the latest assembly
-				// instead of stale types from old assemblies still loaded in the AppDomain.
 				Core.LatestScriptAssembly = result.Assembly;
 
-				EditorDebug.Log($"Scripts compiled successfully!");
+				// Force all [ModuleInitializer] methods in the new assembly to run now
+				// by touching a type from it. This ensures ComponentDataAotDeserializer
+				// has the new deserializers registered before ReloadScene fires.
+				System.Runtime.CompilerServices.RuntimeHelpers.RunModuleConstructor(
+					result.Assembly.GetModules()[0].ModuleHandle);
 
 				// Invalidate the component type cache so newly compiled script components
 				// appear in the editor's "Add Component" dropdown
@@ -150,25 +149,20 @@ namespace GameScripts
 			}
 			else
 			{
-				// Show each compilation error as a Debug.Error so it appears in the editor console
 				Debug.Error("Script compilation failed with errors:");
 				foreach (var error in result.Errors)
-				{
 					Debug.Error($"  {error}");
-				}
 			}
 
-			bool shouldReloadScene = result.Success && 
-			                         EnableHotReload && 
-			                         AutoReloadSceneOnChange && 
+			bool shouldReloadScene = result.Success &&
+			                         EnableHotReload &&
+			                         AutoReloadSceneOnChange &&
 			                         Core.IsEditMode;
 
 			OnCompilationComplete?.Invoke(result, shouldReloadScene);
-			
+
 			if (shouldReloadScene)
-			{
 				ReloadScene();
-			}
 		}
 
 		/// <summary>
@@ -176,7 +170,7 @@ namespace GameScripts
 		/// </summary>
 		private void HandleScriptsChanged(List<string> changedFiles)
 		{
-			Debug.Log($"Scripts changed: {string.Join(", ", changedFiles.Select(Path.GetFileName))}");
+			EditorDebug.Log($"Scripts changed: {string.Join(", ", changedFiles.Select(Path.GetFileName))}");
 		}
 
 		/// <summary>
@@ -198,24 +192,20 @@ namespace GameScripts
 				var sceneManager = SceneManager.Instance;
 				if (sceneManager.HasLoadedScene)
 				{
-					Debug.Log($"Reloading scene from file: {Path.GetFileName(sceneManager.CurrentScenePath)}");
 					sceneManager.ReloadCurrentScene();
 				}
 				else
 				{
 					var currentSceneType = Core.Scene.GetType();
-					Debug.Log($"Reloading scene (type fallback): {currentSceneType.Name}");
 					var newScene = (Scene)Activator.CreateInstance(currentSceneType);
 					Core.Scene = newScene;
 				}
 
 				OnAfterSceneReload?.Invoke();
-				EditorDebug.Log($"Scene reloaded");
 			}
 			catch (Exception ex)
 			{
 				Debug.Error($"Failed to reload scene: {ex.Message}\n{ex.StackTrace}");
-				EditorDebug.Log($"Failed to reload scene: {ex.Message}");
 			}
 		}
 

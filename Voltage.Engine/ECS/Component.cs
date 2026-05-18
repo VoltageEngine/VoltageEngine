@@ -131,10 +131,12 @@ public abstract class Component : IComparable<Component>
 		IsSerialized = isSerialized;
 	}
 
+#if EDITOR
 	public void SetSerialized(bool isOn)
 	{
 		IsSerialized = isOn;
 	}
+#endif
 
 	/// <summary>
 	/// called when this Component has had its Entity assigned but it is NOT yet added to the live Components list of the Entity yet. Useful
