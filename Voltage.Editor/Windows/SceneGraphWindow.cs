@@ -541,7 +541,7 @@ public class SceneGraphWindow
 
 		ImGui.SameLine(0, gap);
 
-		// Pause / Unpause — disabled in EditMode
+		// Pause / Unpause  disabled in EditMode
 		if (Core.IsEditMode)
 			ImGui.BeginDisabled();
 

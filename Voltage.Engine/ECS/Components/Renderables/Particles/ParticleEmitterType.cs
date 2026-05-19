@@ -1,4 +1,4 @@
-﻿namespace Voltage.Particles
+namespace Voltage.Particles
 {
 	public enum ParticleEmitterType
 	{

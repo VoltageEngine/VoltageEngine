@@ -1,4 +1,4 @@
-﻿namespace Voltage.Project
+namespace Voltage.Project
 {
 	public class RenderLayer
 	{

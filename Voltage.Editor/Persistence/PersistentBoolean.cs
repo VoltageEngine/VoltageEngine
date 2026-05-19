@@ -1,4 +1,4 @@
-﻿namespace Voltage.Editor.Persistence
+namespace Voltage.Editor.Persistence
 {
 	/// <summary>
 	/// A boolean setting that persists its value across sessions using EditorSettingsLoader.

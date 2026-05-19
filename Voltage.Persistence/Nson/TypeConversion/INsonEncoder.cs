@@ -1,4 +1,4 @@
-﻿namespace Voltage.Persistence
+namespace Voltage.Persistence
 {
 	public interface INsonEncoder
 	{

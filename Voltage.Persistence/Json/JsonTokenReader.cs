@@ -156,7 +156,7 @@ namespace Voltage.Persistence
 				return Guid.Empty;
 			}
 
-			// Unknown token — skip it
+			// Unknown token  skip it
 			ReadWord();
 			return Guid.Empty;
 		}
@@ -179,7 +179,7 @@ namespace Voltage.Persistence
 				return str != null && Guid.TryParse(str, out var g) ? g : null;
 			}
 
-			// Object representation — Guid serialized as struct fields
+			// Object representation  Guid serialized as struct fields
 			if (c == '{')
 			{
 				SkipObject();
@@ -226,7 +226,7 @@ namespace Voltage.Persistence
 				return default;
 			}
 
-			// Object: { "Ticks": ..., ... } — JsonEncoder serializes DateTime as struct
+			// Object: { "Ticks": ..., ... }  JsonEncoder serializes DateTime as struct
 			if (c == '{')
 			{
 				long ticks = 0;

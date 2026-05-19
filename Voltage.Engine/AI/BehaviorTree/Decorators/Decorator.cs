@@ -1,4 +1,4 @@
-﻿namespace Voltage.AI.BehaviorTrees
+namespace Voltage.AI.BehaviorTrees
 {
 	public abstract class Decorator<T> : Behavior<T>
 	{

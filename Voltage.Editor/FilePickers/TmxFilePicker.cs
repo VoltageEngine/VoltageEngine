@@ -122,9 +122,9 @@ namespace Voltage.Editor.FilePickers
                     {
 	                    ImGui.SetTooltip(
 		                    "Choose how image layers from the TMX file should be loaded:\n\n" +
-		                    "• None: No image layers will be loaded\n" +
-		                    "• Separate Layers: Each image layer becomes its own SpriteEntity\n" +
-		                    "• Baked Layers: All image layers are merged into a single texture"
+		                    " None: No image layers will be loaded\n" +
+		                    " Separate Layers: Each image layer becomes its own SpriteEntity\n" +
+		                    " Baked Layers: All image layers are merged into a single texture"
 	                    );
                     }
 

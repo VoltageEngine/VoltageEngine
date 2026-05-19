@@ -109,7 +109,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			}
 			else
 			{
-				// Entity no longer exists after reload — clear the inspector
+				// Entity no longer exists after reload  clear the inspector
 				OpenMainEntityInspector(null);
 			}
 		}

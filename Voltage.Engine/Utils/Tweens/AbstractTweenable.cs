@@ -1,4 +1,4 @@
-﻿using Voltage.Utils.Tweens.Interfaces;
+using Voltage.Utils.Tweens.Interfaces;
 
 namespace Voltage.Utils.Tweens
 {

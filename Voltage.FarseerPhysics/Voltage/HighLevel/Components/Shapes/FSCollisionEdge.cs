@@ -1,4 +1,4 @@
-﻿using FarseerPhysics.Collision.Shapes;
+using FarseerPhysics.Collision.Shapes;
 using Microsoft.Xna.Framework;
 
 

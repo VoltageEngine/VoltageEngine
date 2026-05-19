@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using ImGuiNET;
 
 namespace Voltage.Editor.Inspectors.TypeInspectors

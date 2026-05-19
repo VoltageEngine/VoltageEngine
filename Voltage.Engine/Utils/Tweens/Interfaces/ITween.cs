@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Voltage.Utils.Tweens.Easing;
 
 namespace Voltage.Utils.Tweens.Interfaces

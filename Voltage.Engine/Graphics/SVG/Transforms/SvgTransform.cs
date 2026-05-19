@@ -1,4 +1,4 @@
-﻿namespace Voltage.Svg
+namespace Voltage.Svg
 {
 	public abstract class SvgTransform
 	{

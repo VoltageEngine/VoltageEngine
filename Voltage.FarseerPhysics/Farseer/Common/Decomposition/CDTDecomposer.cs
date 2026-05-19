@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Diagnostics;
 using FarseerPhysics.Common.Decomposition.CDT;
 using FarseerPhysics.Common.Decomposition.CDT.Delaunay;

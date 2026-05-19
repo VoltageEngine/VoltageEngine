@@ -1,4 +1,4 @@
-﻿using FarseerPhysics.Common;
+using FarseerPhysics.Common;
 using Microsoft.Xna.Framework.Graphics;
 using Voltage.Textures;
 
