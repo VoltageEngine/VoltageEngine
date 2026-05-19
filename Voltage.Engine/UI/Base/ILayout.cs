@@ -1,4 +1,4 @@
-﻿namespace Voltage.UI
+namespace Voltage.UI
 {
 	/// <summary>
 	/// Provides methods for an element to participate in layout and to provide a minimum, preferred, and maximum size.

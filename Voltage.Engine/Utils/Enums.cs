@@ -1,4 +1,4 @@
-﻿// common storage location for generic enums
+// common storage location for generic enums
 
 namespace Voltage.Utils
 {

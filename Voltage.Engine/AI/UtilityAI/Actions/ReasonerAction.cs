@@ -1,4 +1,4 @@
-﻿namespace Voltage.AI.UtilityAI
+namespace Voltage.AI.UtilityAI
 {
 	/// <summary>
 	/// Action that calls through to another Reasoner

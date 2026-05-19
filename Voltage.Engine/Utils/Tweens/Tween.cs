@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using Voltage.Utils.Tweens.Easing;
 using Voltage.Utils.Tweens.Interfaces;

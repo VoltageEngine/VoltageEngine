@@ -1,4 +1,4 @@
-﻿using Voltage.Textures;
+using Voltage.Textures;
 using Microsoft.Xna.Framework.Graphics;
 
 

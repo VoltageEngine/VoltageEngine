@@ -1,4 +1,4 @@
-﻿namespace Voltage.BitmapFonts
+namespace Voltage.BitmapFonts
 {
     /// <summary>
     /// Represents padding or margin information associated with an element.

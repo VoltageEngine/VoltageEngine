@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Voltage;
 using Voltage.PhysicsShapes;
 using System;

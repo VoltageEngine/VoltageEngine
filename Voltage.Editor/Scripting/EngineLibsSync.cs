@@ -14,9 +14,9 @@ namespace Voltage.Editor.Scripting
 	///
 	/// Two modes:
 	/// <list type="bullet">
-	///   <item><see cref="SyncToProject"/> — fast file-copy of the running editor's assemblies
+	///   <item><see cref="SyncToProject"/>  fast file-copy of the running editor's assemblies
 	///     (with EDITOR defined). Used by the Roslyn script compiler and IDE references.</item>
-	///   <item><see cref="BuildRuntimeLibs"/> — invokes <c>dotnet build -c Release</c> on the engine
+	///   <item><see cref="BuildRuntimeLibs"/>  invokes <c>dotnet build -c Release</c> on the engine
 	///     projects to produce DLLs <b>without</b> EDITOR. Used before <c>dotnet publish</c> in the
 	///     game build pipeline so the shipped executable has clean runtime behaviour.</item>
 	/// </list>
@@ -30,9 +30,9 @@ namespace Voltage.Editor.Scripting
 		/// The managed DLL file names that belong in EngineLibs and are safe to load as
 		/// Roslyn metadata references. This is the single source of truth used by:
 		/// <list type="bullet">
-		///   <item><see cref="BuildRuntimeLibs"/> — to cherry-pick from build staging</item>
-		///   <item><see cref="ScriptCompiler"/> — to reference only managed DLLs, not native ones</item>
-		///   <item>The game project .csproj template — via the Reference glob</item>
+		///   <item><see cref="BuildRuntimeLibs"/>  to cherry-pick from build staging</item>
+		///   <item><see cref="ScriptCompiler"/>  to reference only managed DLLs, not native ones</item>
+		///   <item>The game project .csproj template  via the Reference glob</item>
 		/// </list>
 		/// Native DLLs (SDL2, OpenAL, clretwrc, etc.) must NEVER appear in this list.
 		/// </summary>
@@ -472,7 +472,7 @@ namespace Voltage.Editor.Scripting
 
 		/// <summary>
 		/// Collects all assemblies that should be synced for editor use: Voltage.* and MonoGame/FNA.
-		/// Only returns managed assemblies that are part of the engine — never native DLLs.
+		/// Only returns managed assemblies that are part of the engine  never native DLLs.
 		/// </summary>
 		private static List<Assembly> GetAssembliesToSync()
 		{

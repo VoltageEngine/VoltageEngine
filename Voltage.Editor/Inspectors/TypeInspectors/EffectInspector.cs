@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using ImGuiNET;
 using Microsoft.Xna.Framework.Graphics;
 using Voltage.Editor.Utils;

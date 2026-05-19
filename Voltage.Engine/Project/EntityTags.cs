@@ -1,4 +1,4 @@
-﻿
+
 namespace Voltage.Project
 {
 	public class EntityTags

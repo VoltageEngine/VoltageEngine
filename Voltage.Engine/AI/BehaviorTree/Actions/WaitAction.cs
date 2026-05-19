@@ -1,4 +1,4 @@
-﻿using Voltage.Utils;
+using Voltage.Utils;
 
 namespace Voltage.AI.BehaviorTrees
 {

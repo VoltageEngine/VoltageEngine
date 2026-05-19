@@ -148,7 +148,7 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 		/// <param name="memberInfo">Member info.</param>
 		public static AbstractTypeInspector GetInspectorForType(Type valueType, object target, MemberInfo memberInfo)
 		{
-			// Layer-aware int inspectors — must be checked before SimpleTypeInspector
+			// Layer-aware int inspectors  must be checked before SimpleTypeInspector
 			if (valueType == typeof(int) && memberInfo.IsDefined(typeof(PhysicsLayerAttribute)))
 				return new PhysicsLayerTypeInspector();
 			if (valueType == typeof(int) && memberInfo.IsDefined(typeof(PhysicsLayerMaskAttribute)))

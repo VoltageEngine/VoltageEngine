@@ -1,4 +1,4 @@
-﻿namespace Voltage.Utils.Tweens.Interfaces
+namespace Voltage.Utils.Tweens.Interfaces
 {
 	public interface ITweenable
 	{

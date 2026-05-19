@@ -1,4 +1,4 @@
-﻿using FarseerPhysics.Common;
+using FarseerPhysics.Common;
 
 
 namespace Voltage.Farseer

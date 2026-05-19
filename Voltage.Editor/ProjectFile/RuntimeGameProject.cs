@@ -56,7 +56,7 @@ namespace Voltage.Editor.ProjectFile
 
 		/// <summary>
 		/// Reads the Version property directly from the game project's .csproj file.
-		/// The .csproj is the single source of truth for version — no caching, no duplication.
+		/// The .csproj is the single source of truth for version  no caching, no duplication.
 		/// </summary>
 		private Version ReadVersionFromCsproj()
 		{
@@ -206,7 +206,7 @@ namespace Voltage.Editor.ProjectFile
 				}
 			}
 
-			// No settings file found — create defaults and persist
+			// No settings file found  create defaults and persist
 			_settings = new ProjectSettings();
 			try
 			{

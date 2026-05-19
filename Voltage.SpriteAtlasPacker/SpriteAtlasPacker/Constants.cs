@@ -1,4 +1,4 @@
-﻿namespace Nez.Tools.Atlases
+namespace Nez.Tools.Atlases
 {
 	public static class Constants
 	{

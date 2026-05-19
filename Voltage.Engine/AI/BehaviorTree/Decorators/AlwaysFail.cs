@@ -1,4 +1,4 @@
-﻿namespace Voltage.AI.BehaviorTrees
+namespace Voltage.AI.BehaviorTrees
 {
 	/// <summary>
 	/// will always return failure except when the child task is running

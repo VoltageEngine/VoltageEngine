@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Voltage.Utils.Collections;
 using Voltage.Utils.Tweens.Easing;
 using Voltage.Utils.Tweens.Interfaces;

@@ -1,4 +1,4 @@
-﻿namespace Voltage.Shadows
+namespace Voltage.Shadows
 {
 	/// <summary>
 	/// Represents an occluding line segment in the visibility mesh

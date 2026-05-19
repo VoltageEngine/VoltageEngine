@@ -1,4 +1,4 @@
-﻿namespace Voltage.Utils.Extensions
+namespace Voltage.Utils.Extensions
 {
 	public static class FloatExt
 	{

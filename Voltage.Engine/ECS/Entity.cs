@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Voltage.Persistence;
 using System;
 using System.Collections.Generic;

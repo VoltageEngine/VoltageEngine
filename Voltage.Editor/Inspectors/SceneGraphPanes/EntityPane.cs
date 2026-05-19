@@ -440,7 +440,7 @@ public class EntityPane
 	        }
 	    }
 
-	    // Delete: Remove all selected entities with Undo/Redo support � skip SceneRequired
+	    // Delete: Remove all selected entities with Undo/Redo support  skip SceneRequired
 	    if (Core.IsEditMode && _selectedEntities.Count > 0 &&
 	        (Input.IsKeyPressed(Keys.Delete) || ImGui.IsKeyPressed(ImGuiKey.Delete)))
 	    {

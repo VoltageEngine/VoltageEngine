@@ -211,7 +211,7 @@ public class GameBuildWindow
 
 			VoltageEditorUtils.SmallVerticalSpace();
 
-			// Debug / Release toggle — use a local for ImGui ref, write back if changed
+			// Debug / Release toggle  use a local for ImGui ref, write back if changed
 			var debugBuildValue = _debugBuild.Value;
 			if (ImGui.Checkbox("Debug Build", ref debugBuildValue))
 				_debugBuild.Value = debugBuildValue;

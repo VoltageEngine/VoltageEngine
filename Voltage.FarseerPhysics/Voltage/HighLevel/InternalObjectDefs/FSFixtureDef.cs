@@ -1,4 +1,4 @@
-﻿using FarseerPhysics;
+using FarseerPhysics;
 using FarseerPhysics.Collision.Shapes;
 using FarseerPhysics.Dynamics;
 

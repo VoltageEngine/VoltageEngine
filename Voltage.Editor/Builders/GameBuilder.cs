@@ -58,13 +58,6 @@ public static class GameBuilder
 
 		// Each platform gets its own subfolder: Build/win-x64, Build/linux-x64, etc.
 		var buildDir = Path.Combine(project.ProjectPath, "Build", platform.FolderSuffix);
-		var projectName = project.ProjectName;
-
-		EditorDebug.Log($"=== Starting Game Build for '{projectName}' ({platform.DisplayName}, {configuration}) ===", "GameBuilder");
-		EditorDebug.Log($"Build output: {buildDir}", "GameBuilder");
-
-		// Total steps: 1) Build runtime engine libs, 2) dotnet publish, 3) Voltage content,
-		//              4) Project assets, 5) Data folder, 6) Project settings
 		OnBuildStarted?.Invoke(6);
 
 		try
@@ -78,7 +71,7 @@ public static class GameBuilder
 
 			cancellationToken.ThrowIfCancellationRequested();
 
-			// Step 1: Build engine DLLs in Release (no EDITOR) and sync to EngineLibs
+			// 1) Build engine DLLs in Release (no EDITOR) and sync to EngineLibs
 			OnBuildStepStarted?.Invoke("Building runtime engine libraries (without EDITOR)...");
 			bool runtimeLibsSuccess = await Task.Run(
 				() => EngineLibsSync.BuildRuntimeLibs(project.ProjectPath, debugBuild),
@@ -96,7 +89,7 @@ public static class GameBuilder
 
 			cancellationToken.ThrowIfCancellationRequested();
 
-			// Step 2: Publish the game project (self-contained + trimmed)
+			// 2)  Publish the game project (self-contained + trimmed)
 			OnBuildStepStarted?.Invoke($"Publishing game executable ({platform.DisplayName}, {configuration}, AOT + Trimmed)...");
 			bool publishSuccess = await Task.Run(() => PublishProject(project, platform, configuration, buildDir, cancellationToken), cancellationToken);
 			OnBuildStepCompleted?.Invoke("Publish game executable", publishSuccess);
@@ -113,28 +106,28 @@ public static class GameBuilder
 
 			cancellationToken.ThrowIfCancellationRequested();
 
-			// Step 3: Copy Voltage engine content files (compiled effects, fonts, etc.)
+			// 3) Copy Voltage engine content files (compiled effects, fonts, etc.)
 			OnBuildStepStarted?.Invoke("Copying Voltage engine content...");
 			bool voltageContentSuccess = CopyVoltageContent(buildDir);
 			OnBuildStepCompleted?.Invoke("Copy Voltage engine content", voltageContentSuccess);
 
 			cancellationToken.ThrowIfCancellationRequested();
 
-			// Step 4: Copy project assets (Content folder)
+			// 4) Copy project assets (Content folder)
 			OnBuildStepStarted?.Invoke("Copying project assets...");
 			bool assetsSuccess = CopyProjectAssets(project, buildDir, compileAssets);
 			OnBuildStepCompleted?.Invoke("Copy project assets", assetsSuccess);
 
 			cancellationToken.ThrowIfCancellationRequested();
 
-			// Step 5: Copy project Data folder (scenes, prefabs, serialized data)
+			// 5) Copy project Data folder (scenes, prefabs, serialized data)
 			OnBuildStepStarted?.Invoke("Copying project data...");
 			bool dataSuccess = CopyProjectData(project, buildDir);
 			OnBuildStepCompleted?.Invoke("Copy project data", dataSuccess);
 
 			cancellationToken.ThrowIfCancellationRequested();
 
-			// Step 6: Copy project settings
+			// 6) Copy project settings
 			OnBuildStepStarted?.Invoke("Copying project settings...");
 			bool settingsSuccess = CopyProjectSettings(project, buildDir);
 			OnBuildStepCompleted?.Invoke("Copy project settings", settingsSuccess);
@@ -143,12 +136,10 @@ public static class GameBuilder
 
 			if (allSuccess)
 			{
-				EditorDebug.Log($"=== Game Build Complete ({platform.DisplayName}, {configuration}): {buildDir} ===", "GameBuilder");
 				OnBuildFinished?.Invoke(true, $"Build succeeded! Output: {buildDir}");
 			}
 			else
 			{
-				EditorDebug.Warn("Game build completed with some warnings. Check console.", "GameBuilder");
 				OnBuildFinished?.Invoke(true, "Build completed with warnings. Check console for details.");
 			}
 
@@ -156,7 +147,6 @@ public static class GameBuilder
 		}
 		catch (OperationCanceledException)
 		{
-			EditorDebug.Log("Game build cancelled.", "GameBuilder");
 			OnBuildFinished?.Invoke(false, "Build cancelled.");
 
 			// Restore editor DLLs on cancellation too
@@ -165,8 +155,6 @@ public static class GameBuilder
 		}
 		catch (Exception ex)
 		{
-			EditorDebug.Error($"Game build failed: {ex.Message}", "GameBuilder");
-			EditorDebug.Error($"Stack trace: {ex.StackTrace}", "GameBuilder");
 			OnBuildFinished?.Invoke(false, $"Build failed: {ex.Message}");
 
 			// Restore editor DLLs on failure
@@ -188,7 +176,6 @@ public static class GameBuilder
 			if (!File.Exists(csprojPath))
 			{
 				Debug.Error($"Project file not found: {csprojPath}");
-				EditorDebug.Error($"Project file not found: {csprojPath}", "GameBuilder");
 				return false;
 			}
 
@@ -209,8 +196,6 @@ public static class GameBuilder
 			                $"-p:TrimMode=link " +
 			                $"-p:TrimmerRootAssembly={project.ProjectName} " +
 			                $"-p:IncludeNativeLibrariesForSelfExtract=true";
-
-			EditorDebug.Log($"Running: dotnet {arguments}", "GameBuilder");
 
 			var processInfo = new ProcessStartInfo
 			{
@@ -296,7 +281,7 @@ public static class GameBuilder
 			if (content.Contains("GenerateAssemblyInfo", StringComparison.OrdinalIgnoreCase))
 				return; // Already present, nothing to do
 
-			// Check if Properties/AssemblyInfo.cs exists — only patch if it does
+			// Check if Properties/AssemblyInfo.cs exists only patch if it does
 			var projectDir = Path.GetDirectoryName(csprojPath);
 			var assemblyInfoPath = Path.Combine(projectDir!, "Properties", "AssemblyInfo.cs");
 			if (!File.Exists(assemblyInfoPath))
