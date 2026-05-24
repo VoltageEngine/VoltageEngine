@@ -101,11 +101,9 @@ public class ComponentList : IEnumerable<Component>
 		{
 			var component = _components.Buffer[i];
 
-			// deal with renderLayer list if necessary
 			if (component is RenderableComponent)
 				_entity.Scene.RenderableComponents.Remove(component as RenderableComponent);
 
-			// deal with IUpdatable
 			if (component is IUpdatable)
 				_updatableComponents.Remove(component as IUpdatable);
 		}
@@ -161,12 +159,14 @@ public class ComponentList : IEnumerable<Component>
 		}
 	}
 
-	internal void FireStartCallbacks()
+	// First calls all OnEnabled, and only after doing those calls OnStart to make sure that any OnStart is ALWAYS after OnEnabled
+	internal void CallOnEnableAndOnStart()
 	{
-		for (var i = 0; i < _tempBufferList.Count; i++)
+		var count = _tempBufferList.Count;
+
+		for (var i = 0; i < count; i++)
 		{
 			var component = _tempBufferList[i];
-
 			if (component == null)
 			{
 				Debug.Error($"A null component reference was found in _tempBufferList at index {i} on entity '{_entity.Name}'. Skipping.");
@@ -177,12 +177,27 @@ public class ComponentList : IEnumerable<Component>
 			{
 				if (component.Enabled)
 					component.OnEnabled();
-
-				component.OnStart();
 			}
 			catch (Exception ex)
 			{
-				Debug.Error($"Exception in OnStart/OnEnabled for component '{component.GetType().Name}' on entity '{_entity.Name}': {ex.Message}\n{ex.StackTrace}");
+				Debug.Error($"Exception in OnEnabled for component '{component.GetType().Name}' on entity '{_entity.Name}': {ex.Message}\n{ex.StackTrace}");
+			}
+		}
+
+		for (var i = 0; i < count; i++)
+		{
+			var component = _tempBufferList[i];
+			if (component == null)
+				continue;
+
+			try
+			{
+				if (component.Enabled)
+					component.OnStart();
+			}
+			catch (Exception ex)
+			{
+				Debug.Error($"Exception in OnStart for component '{component.GetType().Name}' on entity '{_entity.Name}': {ex.Message}\n{ex.StackTrace}");
 			}
 		}
 
@@ -201,7 +216,6 @@ public class ComponentList : IEnumerable<Component>
 	private void UpdateLists()
 	{
 		CommitPendingAdditions();
-		//FireStartCallbacks();
 	}
 
 	private void HandleRemove(Component component)

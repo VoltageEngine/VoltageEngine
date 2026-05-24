@@ -20,8 +20,8 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 	public static class TypeInspectorUtils
 	{
 		// Type cache seeing as how typeof isnt free and this will be hit a lot
-		static readonly Type notInspectableAttrType = typeof(HideAttributeInInspector);
-		static readonly Type inspectableAttrType = typeof(InspectableAttribute);
+		static readonly Type notInspectableAttrType = typeof(HideInInspectorAttribute);
+		static readonly Type inspectableAttrType = typeof(SerializeAttribute);
 		static readonly Type componentType = typeof(Component);
 		static readonly Type transformType = typeof(Transform);
 		static readonly Type materialType = typeof(Material);

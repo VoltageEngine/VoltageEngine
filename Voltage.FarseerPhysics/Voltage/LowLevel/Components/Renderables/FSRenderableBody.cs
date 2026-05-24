@@ -37,7 +37,7 @@ namespace Voltage.Farseer
 
 		#region Component overrides
 
-		public override void Initialize()
+		public override void OnAddedToEntity()
 		{
 			var world = Entity.Scene.GetOrCreateSceneComponent<FSWorld>();
 			Body = new Body(world, Transform.Position * FSConvert.DisplayToSim, Transform.Rotation);

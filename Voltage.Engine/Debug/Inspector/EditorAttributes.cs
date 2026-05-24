@@ -4,35 +4,34 @@ using System;
 namespace Voltage
 {
 	/// <summary>
-	/// Attribute that is used to indicate that the field/property should be present in the inspector
+	/// Attribute that is used to indicate that the field/property should be serialized and shown in the Inspector
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-	public class InspectableAttribute : Attribute
+	public class SerializeAttribute : Attribute
 	{
 	}
 
 	/// <summary>
-	/// Attribute that is used to indicate that the field/property should not be present in the inspector
+	/// Attribute that is used to indicate that the field/property should not be present in the Inspector
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-	public class HideAttributeInInspector : Attribute
+	public class HideInInspectorAttribute : Attribute
 	{
 	}
 
 	/// <summary>
-	/// adding this to a method will expose it to the inspector if it has 0 params or 1 param of a supported type: int, float, string
-	/// and bool are currently supported.
+	/// Adding this to a method will expose it to the Inspector if it has 0 params or 1 param of a supported type: int, float, string, bool
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Method)]
-	public class InspectorCallableAttribute : InspectableAttribute
+	public class InspectorCallableAttribute : SerializeAttribute
 	{
 	}
 
 	/// <summary>
-	/// displays a tooltip when hovering over the label of any inspectable elements
+	/// Displays a tooltip when hovering over the label of any inspectable elements
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Property | AttributeTargets.Field | AttributeTargets.Method)]
-	public class TooltipAttribute : InspectableAttribute
+	public class TooltipAttribute : SerializeAttribute
 	{
 		public string Tooltip;
 
@@ -43,10 +42,10 @@ namespace Voltage
 	}
 
 	/// <summary>
-	/// Range attribute. Tells the inspector you want a slider to be displayed for a float/int
+	/// Range attribute. Tells the Inspector you want a slider to be displayed for a float/int
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-	public class RangeAttribute : InspectableAttribute
+	public class RangeAttribute : SerializeAttribute
 	{
 		public float MinValue;
 		public float MaxValue;
@@ -84,18 +83,18 @@ namespace Voltage
 	}
 
 	/// <summary>
-	/// putting this attribute on a class and specifying a subclass of Inspector lets you create custom inspectors for any type. When
-	/// the Inspector finds a field/property of the type with the attribute on it the inspectorType will be instantiated and used.
-	/// Inspectors are only active in DEBUG builds so make sure to wrap your custom inspector subclass in #if EDITOR /#endif.
+	/// Putting this attribute on a class and specifying a subclass of Inspector lets you create custom Inspectors for any type. When
+	/// the Inspector finds a field/property of the type with the attribute on it the InspectorType will be instantiated and used.
+	/// Inspectors are only active in DEBUG builds so make sure to wrap your custom Inspector subclass in #if EDITOR /#endif.
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
 	public class CustomInspectorAttribute : Attribute
 	{
 		public Type InspectorType;
 
-		public CustomInspectorAttribute(Type inspectorType)
+		public CustomInspectorAttribute(Type InspectorType)
 		{
-			InspectorType = inspectorType;
+			InspectorType = InspectorType;
 		}
 	}
 

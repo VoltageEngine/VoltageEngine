@@ -53,7 +53,7 @@ public abstract class Component : IComparable<Component>
 	/// the Entity this Component is attached to
 	/// </summary>
 	[JsonExclude]
-	[HideAttributeInInspector]
+	[HideInInspector]
 	public Entity Entity;
 
 	/// <summary>
@@ -137,16 +137,25 @@ public abstract class Component : IComparable<Component>
 	}
 
 	/// <summary>
-	/// called when this Component has had its Entity assigned but it is NOT yet added to the live Components list of the Entity yet. Useful
-	/// for things like physics Components that need to access the Transform to modify collision body properties.
+	/// Called once when the component's <see cref="Entity"/> is added to an Entity, BEFORE it is added to the live component list.
+	/// Runs regardless of the component's Enabled state, always before <see cref="OnEnabled"/> and <see cref="OnStart"/>.
+	/// <para>Useful for setup that requires the <see cref="Transform"/> but must not depend on other components being ready.</para>
 	/// </summary>
-	public virtual void Initialize()
+	public virtual void OnAddedToEntity()
 	{
 	}
 
 	/// <summary>
-	/// Called when this component is added to a scene after all pending component changes are committed. At this point, the Entity field
-	/// is set and the Entity.Scene is also set.
+	/// Called when this component is added to a scene after all pending component changes
+	/// are committed, of Enabled == true. Otherwise, won't be called.
+	/// </summary>
+	public virtual void OnEnabled()
+	{
+	}
+
+	/// <summary>
+	/// Called after OnEnabled. If Component is NOT Enabled, will not run.
+	/// At this point, the Entity field is set and the Entity.Scene is also set.
 	/// </summary>
 	public virtual void OnStart()
 	{
@@ -160,21 +169,14 @@ public abstract class Component : IComparable<Component>
 	}
 
 	/// <summary>
-	/// called when the parent Entity or this Component is enabled
-	/// </summary>
-	public virtual void OnEnabled()
-	{
-	}
-
-	/// <summary>
-	/// called when the parent Entity or this Component is disabled
+	/// Called when the parent Entity or this Component is disabled
 	/// </summary>
 	public virtual void OnDisabled()
 	{
 	}
 
 	/// <summary>
-	/// called when the entity's position changes. This allows components to be aware that they have moved due to the parent
+	/// Called when the entity's position changes. This allows components to be aware that they have moved due to the parent
 	/// entity moving.
 	/// </summary>
 	public virtual void OnEntityTransformChanged(Transform.Component comp)

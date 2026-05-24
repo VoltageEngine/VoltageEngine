@@ -29,10 +29,10 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
             var fields = ReflectionUtils.GetFields(_valueType);
             foreach (var field in fields)
             {
-                if (field.IsDefined(typeof(HideAttributeInInspector)))
+                if (field.IsDefined(typeof(HideInInspectorAttribute)))
                     continue;
 
-                if (!field.IsPublic && !field.IsDefined(typeof(InspectableAttribute)))
+                if (!field.IsPublic && !field.IsDefined(typeof(SerializeAttribute)))
                     continue;
 
                 var inspector = TypeInspectorUtils.GetInspectorForType(field.FieldType, _target, field);
@@ -47,7 +47,7 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
             var properties = ReflectionUtils.GetProperties(_valueType);
             foreach (var prop in properties)
             {
-                if (prop.IsDefined(typeof(HideAttributeInInspector)))
+                if (prop.IsDefined(typeof(HideInInspectorAttribute)))
                     continue;
 
                 if (!prop.CanRead)
@@ -59,7 +59,7 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
                     continue;
 
                 bool hasPublicGetter = prop.GetMethod?.IsPublic ?? false;
-                bool hasInspectableAttribute = prop.IsDefined(typeof(InspectableAttribute));
+                bool hasInspectableAttribute = prop.IsDefined(typeof(SerializeAttribute));
                 
                 // Rules for showing properties in structs:
                 // 1. If property has [Inspectable] attribute, always show it

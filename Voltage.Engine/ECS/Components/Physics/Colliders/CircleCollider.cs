@@ -6,7 +6,7 @@ namespace Voltage
 {
 	public class CircleCollider : Collider
 	{
-		[Inspectable]
+		[Serialize]
 		public float Radius
 		{
 			get => ((Circle) Shape).Radius;

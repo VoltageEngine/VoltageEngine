@@ -13,6 +13,8 @@ using Voltage.Editor.Utils;
 using Voltage.Persistence;
 using Num = System.Numerics;
 using Voltage.Editor.Undo.Core;
+using Voltage.Editor.Undo.PropertyActions;
+using Voltage.Editor.Windows;
 
 namespace Voltage.Editor.Inspectors.ObjectInspectors
 {
@@ -65,7 +67,9 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 				_inspectors = TypeInspectorUtils.GetInspectableProperties(component);
 			}
 
-			// Separate read-only structs from regular inspectors
+			// Remove the auto-generated "Enabled" inspector — we draw it manually with entity-disabled guard
+			_inspectors.RemoveAll(i => i.Name == nameof(Component.Enabled));
+
 			SeparateReadOnlyStructs();
 
 			var typeName = _component.GetType().IsGenericType
@@ -263,6 +267,10 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 
 			if (isHeaderOpen)
 			{
+				DrawEnabledCheckbox();
+
+				VoltageEditorUtils.SmallVerticalSpace();
+
 				// Draw regular inspectors
 				for (var i = _regularInspectors.Count - 1; i >= 0; i--)
 				{
@@ -318,6 +326,42 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 			}
 
 			ImGui.PopID();
+		}
+
+		/// <summary>
+		/// Draws the component Enabled checkbox. If the user tries to enable a component
+		/// on a disabled Entity, shows a notification and blocks the change.
+		/// </summary>
+		private void DrawEnabledCheckbox()
+		{
+			bool oldEnabled = _component.Enabled;
+			bool enabled = oldEnabled;
+
+			if (ImGui.Checkbox("Enabled", ref enabled) && enabled != oldEnabled)
+			{
+				// Block enabling a component on a disabled entity
+				if (enabled && _component.Entity != null && !_component.Entity.Enabled)
+				{
+					NotificationSystem.ShowTimedNotification(
+						$"Can't enable '{_component.Name}' — the Entity '{_component.Entity.Name}' is disabled!"
+					);
+					return;
+				}
+
+				EditorChangeTracker.PushUndo(
+					new GenericValueChangeAction(
+						_component.Entity,
+						(obj, val) => _component.SetEnabled((bool)val),
+						oldEnabled,
+						enabled,
+						$"{_component}.Enabled"
+					),
+					_component.Entity,
+					$"{_component}.Enabled"
+				);
+
+				_component.SetEnabled(enabled);
+			}
 		}
 
 		/// <summary>

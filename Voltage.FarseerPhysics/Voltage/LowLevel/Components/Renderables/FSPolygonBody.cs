@@ -21,9 +21,9 @@ namespace Voltage.Farseer
 			_verts = new Vertices(verts);
 		}
 
-		public override void Initialize()
+		public override void OnAddedToEntity()
 		{
-			base.Initialize();
+			base.OnAddedToEntity();
 			Body.AttachPolygon(_verts, 1);
 		}
 

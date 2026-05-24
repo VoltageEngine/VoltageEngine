@@ -155,7 +155,7 @@ namespace Voltage.Farseer
 
 		#region Component lifecycle
 
-		public override void Initialize()
+		public override void OnAddedToEntity()
 		{
 			CreateBody();
 		}

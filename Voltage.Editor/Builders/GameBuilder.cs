@@ -298,8 +298,6 @@ public static class GameBuilder
 
 			content = content.Insert(insertIndex, insertion);
 			File.WriteAllText(csprojPath, content);
-
-			EditorDebug.Log("Patched .csproj with GenerateAssemblyInfo=false", "GameBuilder");
 		}
 		catch (Exception ex)
 		{

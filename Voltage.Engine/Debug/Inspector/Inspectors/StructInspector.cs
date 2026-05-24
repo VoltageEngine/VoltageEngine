@@ -25,7 +25,7 @@ namespace Voltage
 			var fields = ReflectionUtils.GetFields(_valueType);
 			foreach (var field in fields)
 			{
-				if (!field.IsPublic && IEnumerableExt.Count(field.GetCustomAttributes<InspectableAttribute>()) == 0)
+				if (!field.IsPublic && IEnumerableExt.Count(field.GetCustomAttributes<SerializeAttribute>()) == 0)
 					continue;
 
 				var inspector = GetInspectorForType(field.FieldType, _target, field);
@@ -45,7 +45,7 @@ namespace Voltage
 					continue;
 
 				if ((!prop.GetMethod.IsPublic || !prop.SetMethod.IsPublic) &&
-				    IEnumerableExt.Count(prop.GetCustomAttributes<InspectableAttribute>()) == 0)
+				    IEnumerableExt.Count(prop.GetCustomAttributes<SerializeAttribute>()) == 0)
 					continue;
 
 				var inspector = GetInspectorForType(prop.PropertyType, _target, prop);

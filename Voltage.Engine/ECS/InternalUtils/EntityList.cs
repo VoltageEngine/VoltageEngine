@@ -237,7 +237,7 @@ public class EntityList : IEnumerable<Entity>
 			Serialization.ComponentReferenceResolver.ResolveAll();
 
 			foreach (var entity in _tempEntityList)
-				entity.Components.FireStartCallbacks();
+				entity.Components.CallOnEnableAndOnStart();
 
 			if (_isSceneStarted)
 			{

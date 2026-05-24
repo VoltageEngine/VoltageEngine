@@ -185,16 +185,18 @@ namespace Voltage.Tiled
 				var pval = string.Empty;
 				if (isClass)
 				{
-					// Loop through sub elements and pull name/value for dict
-					foreach (var subP in p.Elements("properties").DescendantNodes())
+					// Loop through all descendant properties
+					foreach (var descendantProperty in p.Descendants())
 					{
-						if (subP is XElement element)
+						// If the property has no attributes or is a class skip it
+						if (!descendantProperty.HasAttributes || descendantProperty.Attribute("type")?.Value == "class")
 						{
-							pname = element.Attribute("name")?.Value;
-							pval = element.Attribute("value")?.Value ?? element.Value;
-
-							dict.Add(pname, pval);
+							continue;
 						}
+
+						pname = descendantProperty.Attribute("name")?.Value;
+						pval = descendantProperty.Attribute("value")?.Value;
+						dict.Add(pname, pval);
 					}
 				}
 				else
@@ -658,6 +660,9 @@ namespace Voltage.Tiled
 			layer.OffsetY = (float?)xImageLayer.Attribute("offsety") ?? 0.0f;
 			layer.ParallaxFactorX = (float?)xImageLayer.Attribute("parallaxx") ?? 1.0f;
 			layer.ParallaxFactorY = (float?)xImageLayer.Attribute("parallaxy") ?? 1.0f;
+
+			layer.RepeatX = (bool?)xImageLayer.Attribute("repeatx") ?? false;
+			layer.RepeatY = (bool?)xImageLayer.Attribute("repeaty") ?? false;
 
 			var xImage = xImageLayer.Element("image");
 			if (xImage != null)
