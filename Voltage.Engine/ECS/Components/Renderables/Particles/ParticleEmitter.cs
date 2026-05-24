@@ -18,6 +18,7 @@ namespace Voltage.Particles
 		public bool IsEmitting => _emitting;
 		public float ElapsedTime => _elapsedTime;
 
+		private Vector2 _spriteRenderOrigin;
 
 		/// <summary>
 		/// convenience method for setting ParticleEmitterConfig.simulateInWorldSpace. If true, particles will simulate in world space. ie when the
@@ -26,6 +27,23 @@ namespace Voltage.Particles
 		public bool SimulateInWorldSpace
 		{
 			set => _emitterConfig.SimulateInWorldSpace = value;
+		}
+
+		/// <summary>
+		/// If true, the particle Sprite will render from its own origin rather than default Sprite.Center
+		/// </summary>
+		public bool ShouldRenderUsingSpriteOrigin
+		{
+			set
+			{
+				if (_emitterConfig.Sprite != null)
+				{
+					if (value)
+						_spriteRenderOrigin = _emitterConfig.Sprite.Origin;
+					else
+						_spriteRenderOrigin = _emitterConfig.Sprite.Center;
+				}
+			}
 		}
 
 		/// <summary>
@@ -65,11 +83,12 @@ namespace Voltage.Particles
 
 		List<Particle> _particles;
 		bool _playOnAwake;
-		[Inspectable] ParticleEmitterConfig _emitterConfig;
+		[Serialize] ParticleEmitterConfig _emitterConfig;
 
 
 		public ParticleEmitter() : this(new ParticleEmitterConfig())
 		{
+			ShouldRenderUsingSpriteOrigin = false;
 		}
 
 		public ParticleEmitter(ParticleEmitterConfig emitterConfig, bool playOnAwake = true)
@@ -88,6 +107,9 @@ namespace Voltage.Particles
 			CollisionConfig.MinKillSpeedSquared = float.MinValue;
 			CollisionConfig.RadiusScale = 0.8f;
 
+			// performs _spriteRenderOrigin = _emitterConfig.Sprite.Center;
+			ShouldRenderUsingSpriteOrigin = false;
+			
 			Init();
 		}
 
@@ -225,7 +247,7 @@ namespace Voltage.Particles
 						LayerDepth);
 				else
 					batcher.Draw(_emitterConfig.Sprite, pos + currentParticle.Position,
-						currentParticle.Color, currentParticle.Rotation, _emitterConfig.Sprite.Center,
+						currentParticle.Color, currentParticle.Rotation, _spriteRenderOrigin,
 						currentParticle.ParticleSize / _emitterConfig.Sprite.SourceRect.Width, SpriteEffects.None,
 						LayerDepth);
 			}

@@ -766,7 +766,15 @@ public sealed class Entity : IComparable<Entity>
 
 		component.Entity = this;
 		Components.Add(component);
-		component.Initialize();
+		try
+		{
+			// called before it's added to live list
+			component.OnAddedToEntity();
+		}
+		catch (Exception ex)
+		{
+			Debug.Error($"Exception in OnAddedToEntity for component '{component.GetType().Name}' on entity '{component.Entity.Name}': {ex.Message}\n{ex.StackTrace}");
+		}
 
 		TriggerComponentAddedCallbacks(component);
 

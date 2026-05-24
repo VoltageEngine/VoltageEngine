@@ -1,16 +1,12 @@
 using System;
 using Microsoft.Xna.Framework;
-using Voltage.Systems;
-using Voltage.Utils.Extensions;
 using System.Collections.Generic;
-using System.IO;
 using Voltage.Tiled;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 
 namespace Voltage
 {
-	public class TiledMapRenderer : RenderableComponent, IUpdatable
+	public partial class TiledMapRenderer : RenderableComponent, IUpdatable
 	{
 		public TmxMap TiledMap;
 
@@ -19,7 +15,7 @@ namespace Voltage
 		/// <summary>
 		/// if null, all layers will be rendered
 		/// </summary>
-		public int[] LayerIndicesToRender;
+		public ITmxLayer[] LayersToRender;
 
 		public bool AutoUpdateTilesets = true;
 
@@ -31,35 +27,13 @@ namespace Voltage
 		bool _shouldCreateColliders;
 		Collider[] _colliders;
 
-
-		public TiledMapRenderer(TmxMap tiledMap, string collisionLayerName = null, bool shouldCreateColliders = true)
-		{
-			TiledMap = tiledMap;
-			_shouldCreateColliders = shouldCreateColliders;
-
-			if (collisionLayerName != null && tiledMap != null)
-				CollisionLayer = tiledMap.TileLayers[collisionLayerName];
-		}
-
-		public TiledMapRenderer() : base()
-		{
-		}
-
-		public TiledMapRenderer(string tiledMapPath) : base()
-		{
-			if (_data == null)
-				_data = new TiledMapRendererComponentData();
-				
-			_data.TiledMapPath = tiledMapPath;
-		}
-
 		private TiledMapRendererComponentData _data = new TiledMapRendererComponentData();
 
 		public class TiledMapRendererComponentData : ComponentData
 		{
 			public string TiledMapPath;
 			public int PhysicsLayer = 1 << 0;
-			public int[] LayerIndicesToRender;
+			public ITmxLayer[] LayersToRender;
 			public bool AutoUpdateTilesets = true;
 			public string CollisionLayerName;
 			public bool ShouldCreateColliders = true;
@@ -78,7 +52,7 @@ namespace Voltage
 
 				_data.Enabled = Enabled;
 				_data.PhysicsLayer = PhysicsLayer;
-				_data.LayerIndicesToRender = LayerIndicesToRender;
+				_data.LayersToRender = LayersToRender;
 				_data.AutoUpdateTilesets = AutoUpdateTilesets;
 				_data.CollisionLayerName = CollisionLayer?.Name;
 				_data.ShouldCreateColliders = _shouldCreateColliders;
@@ -86,13 +60,13 @@ namespace Voltage
 				_data.RenderLayer = RenderLayer;
 				_data.LocalOffset = LocalOffset;
 				_data.Color = Color;
-				
+
 				// Preserve TiledMapPath if it exists
 				if (string.IsNullOrEmpty(_data.TiledMapPath) && TiledMap != null)
 				{
 					_data.TiledMapPath = TiledMap.TmxDirectory;
 				}
-				
+
 				return _data;
 			}
 			set
@@ -100,10 +74,10 @@ namespace Voltage
 				if (value is TiledMapRendererComponentData data)
 				{
 					_data = data;
-					
+
 					Enabled = data.Enabled;
 					PhysicsLayer = data.PhysicsLayer;
-					LayerIndicesToRender = data.LayerIndicesToRender;
+					LayersToRender = data.LayersToRender;
 					AutoUpdateTilesets = data.AutoUpdateTilesets;
 					_shouldCreateColliders = data.ShouldCreateColliders;
 					LayerDepth = data.LayerDepth;
@@ -114,22 +88,71 @@ namespace Voltage
 			}
 		}
 
-		public void SetLayerToRender(string layerName)
+
+		public TiledMapRenderer(TmxMap tiledMap, string collisionLayerName = null, bool shouldCreateColliders = true)
 		{
-			LayerIndicesToRender = new int[1];
-			LayerIndicesToRender[0] = TiledMap.Layers.IndexOf(TiledMap.GetLayer(layerName));
+			TiledMap = tiledMap;
+
+			_shouldCreateColliders = shouldCreateColliders;
+
+			if (collisionLayerName != null && tiledMap != null)
+				CollisionLayer = tiledMap.GetLayer(collisionLayerName) as TmxLayer;
+		}
+
+		public TiledMapRenderer(string tiledMapPath) : base()
+		{
+			if (_data == null)
+				_data = new TiledMapRendererComponentData();
+
+			_data.TiledMapPath = tiledMapPath;
 		}
 
 		/// <summary>
-		/// sets which layers should be rendered by this component by name. If you know the indices you can set layerIndicesToRender directly.
+		/// sets this component to only render a single layer
 		/// </summary>
-		/// <param name="layerNames">Layer names.</param>
-		public void SetLayersToRender(params string[] layerNames)
+		/// <param name="layerName">Layer name.</param>
+		/// <param name="separator">An optional separator character to use to get layers nested in group layers.</param>
+		public void SetLayerToRender(string layerName, char separator = '/')
 		{
-			LayerIndicesToRender = new int[layerNames.Length];
+			LayersToRender = new ITmxLayer[1];
+			LayersToRender[0] = TiledMap.GetLayer(layerName, separator);
+		}
+
+		/// <summary>
+		/// sets which layers should be rendered by this component by name. If you know the indices you can use
+		/// <see cref="SetLayerIndicesToRender"/> instead.
+		/// </summary>
+		/// <param name="separator">A separator character to use to get layers nested in group layers.</param>
+		/// <param name="layerNames">Layer names.</param>
+		public void SetLayersToRender(char separator, params string[] layerNames)
+		{
+			LayersToRender = new ITmxLayer[layerNames.Length];
 
 			for (var i = 0; i < layerNames.Length; i++)
-				LayerIndicesToRender[i] = TiledMap.Layers.IndexOf(TiledMap.GetLayer(layerNames[i]));
+				LayersToRender[i] = TiledMap.GetLayer(layerNames[i], separator);
+		}
+
+		/// <summary>
+		/// sets which layers should be rendered by this component by name. If you know the indices you can use
+		/// <see cref="SetLayerIndicesToRender"/> instead.
+		/// </summary>
+		/// <param name="layerNames">Layer names.</param>
+		public void SetLayersToRender(params string[] layerNames) => SetLayersToRender('/', layerNames);
+
+		/// <summary>
+		/// sets which layers should be rendered by this component by index. Because the index is used on <see cref="TmxMap.Layers"/>,
+		/// using this function restricts you to top-level layers in the map.
+		/// </summary>
+		/// <param name="layerIndices">Layer indices.</param>
+		public void SetLayerIndicesToRender(params int[] layerIndices)
+		{
+			LayersToRender = new ITmxLayer[layerIndices.Length];
+
+			for (var i = 0; i < layerIndices.Length; i++)
+			{
+				var index = layerIndices[i];
+				LayersToRender[i] = index > 0 && index < TiledMap.Layers.Count ? TiledMap.Layers[index] : null;
+			}
 		}
 
 
@@ -190,24 +213,13 @@ namespace Voltage
 			}
 		}
 
-		public override void OnStart()
-		{
-			base.OnStart();
-			
-			// Auto-load TiledMap if we have a path but no map loaded
-			if (!string.IsNullOrEmpty(_data?.TiledMapPath) && TiledMap == null)
-			{
-				LoadTiledMapFromData();
-			}
-			
-			AddColliders();
-		}
+		public override void OnEnabled() => AddColliders();
 
 		public override void OnRemovedFromEntity() => RemoveColliders();
 
 		public virtual void Update()
 		{
-			if(TiledMap == null)
+			if (TiledMap == null)
 				return;
 
 			if (AutoUpdateTilesets)
@@ -216,16 +228,16 @@ namespace Voltage
 
 		public override void Render(Batcher batcher, Camera camera)
 		{
-			if (LayerIndicesToRender == null)
+			if (LayersToRender == null)
 			{
 				TiledRendering.RenderMap(TiledMap, batcher, Entity.Transform.Position + _localOffset, Transform.Scale, LayerDepth, camera.Bounds);
 			}
 			else
 			{
-				for (var i = 0; i < TiledMap.Layers.Count; i++)
+				foreach (var layer in LayersToRender)
 				{
-					if (TiledMap.Layers[i].Visible && LayerIndicesToRender.Contains(i))
-						TiledRendering.RenderLayer(TiledMap.Layers[i], batcher, Entity.Transform.Position + _localOffset, Transform.Scale, LayerDepth, camera.Bounds);
+					if (layer != null && layer.Visible)
+						TiledRendering.RenderLayer(layer, batcher, Entity.Transform.Position + _localOffset, Transform.Scale, LayerDepth, camera.Bounds);
 				}
 			}
 		}
@@ -252,6 +264,7 @@ namespace Voltage
 			if (CollisionLayer == null || !_shouldCreateColliders)
 				return;
 
+			// fetch the collision layer and its rects for collision
 			var collisionRects = CollisionLayer.GetCollisionRectangles();
 
 			// create colliders for the rects we received
@@ -278,8 +291,6 @@ namespace Voltage
 			_colliders = null;
 		}
 
-		#endregion
-
 		/// <summary>
 		/// Loads the TiledMap based on the stored ComponentData settings
 		/// </summary>
@@ -287,7 +298,7 @@ namespace Voltage
 		{
 			if (string.IsNullOrEmpty(_data?.TiledMapPath))
 			{
-				Debug.Warn( "TiledMapRenderer has no TiledMapPath to load from.");
+				Debug.Warn("TiledMapRenderer has no TiledMapPath to load from.");
 				return;
 			}
 
@@ -303,7 +314,7 @@ namespace Voltage
 				TiledMap = contentManager.LoadTiledMap(_data.TiledMapPath);
 
 				// Set collision layer if specified
-				if (!string.IsNullOrEmpty(_data.CollisionLayerName) && 
+				if (!string.IsNullOrEmpty(_data.CollisionLayerName) &&
 				    TiledMap.TileLayers.Contains(_data.CollisionLayerName))
 				{
 					CollisionLayer = TiledMap.TileLayers[_data.CollisionLayerName];
@@ -316,5 +327,7 @@ namespace Voltage
 				Debug.Error($"Failed to load TiledMap from {_data.TiledMapPath}: {ex.Message}");
 			}
 		}
+
+		#endregion
 	}
 }

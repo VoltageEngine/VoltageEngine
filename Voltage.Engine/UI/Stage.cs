@@ -32,13 +32,12 @@ namespace Voltage.UI
 		/// <summary>
 		/// the key that activates the focused control
 		/// </summary>
-		/// 
 		public Keys KeyboardActionKey = Keys.Enter;
+
 		/// <summary>
 		/// the key(s) that activates the focused control
 		/// </summary>
 		public Keys[] KeyboardActionKeys = new Keys[0];
-
 		/// <summary>
 		/// the key(s) that triggers "direction down" on the element with focus
 		/// </summary>
@@ -128,7 +127,7 @@ namespace Voltage.UI
 		{
 			if (debugUnderMouse || debugParentUnderMouse || debugTableUnderMouse != Table.TableDebug.None)
 			{
-				var mousePos = ScreenToStageCoordinates(Input.RawMousePosition.ToVector2());
+				var mousePos = ScreenToStageCoordinates(GetMousePosition());
 				var element = Hit(mousePos);
 				if (element == null)
 				{
@@ -796,6 +795,15 @@ namespace Voltage.UI
 		}
 
 		/// <summary>
+		/// Gets the element that the gamepad has focused.
+		/// </summary>
+		/// <returns>The keyboard focus.</returns>
+		public IGamepadFocusable GetGamepadFocusElement()
+		{
+			return _gamepadFocusElement;
+		}
+
+		/// <summary>
 		/// Gets the element that will receive key events.
 		/// </summary>
 		/// <returns>The keyboard focus.</returns>
@@ -857,6 +865,28 @@ namespace Voltage.UI
 						return relativeToFocusable.GamepadLeftElement;
 					case Direction.Right:
 						return relativeToFocusable.GamepadRightElement;
+				}
+			}
+			else
+			{
+				switch (direction)
+				{
+					case Direction.Up:
+						if (relativeToFocusable.GamepadUpElement is IGamepadFocusable upElement)
+							return upElement;
+						break;
+					case Direction.Down:
+						if (relativeToFocusable.GamepadDownElement is IGamepadFocusable downElement)
+							return downElement;
+						break;
+					case Direction.Left:
+						if (relativeToFocusable.GamepadLeftElement is IGamepadFocusable leftElement)
+							return leftElement;
+						break;
+					case Direction.Right:
+						if (relativeToFocusable.GamepadRightElement is IGamepadFocusable rightElement)
+							return rightElement;
+						break;
 				}
 			}
 

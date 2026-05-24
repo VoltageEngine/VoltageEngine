@@ -17,9 +17,9 @@ namespace Voltage.Farseer
 		}
 
 
-		public override void Initialize()
+		public override void OnAddedToEntity()
 		{
-			base.Initialize();
+			base.OnAddedToEntity();
 			Body.AttachCircle(Sprite.SourceRect.Width / 2, 1);
 		}
 

@@ -17,7 +17,7 @@ namespace Voltage.Sprites
 	/// <summary>
 	/// the most basic and common Renderable. Renders a Sprite/Texture.
 	/// </summary>
-	public class SpriteRenderer : RenderableComponent
+	public partial class SpriteRenderer : RenderableComponent
 	{
 		/// <summary>
 		/// Serializable data for SpriteRenderer component.
@@ -337,7 +337,7 @@ namespace Voltage.Sprites
 				return;
 			}
 
-			FlipX = isFlippedY;
+			FlipY = isFlippedY;
 			LocalOffset *= new Vector2(1, -1);
 		}
 

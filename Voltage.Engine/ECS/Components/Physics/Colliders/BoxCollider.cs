@@ -7,7 +7,7 @@ namespace Voltage
 {
 	public class BoxCollider : Collider
 	{
-		[Inspectable]
+		[Serialize]
 		[Range(1, float.MaxValue, true)]
 		public float Width
 		{
@@ -20,7 +20,7 @@ namespace Voltage
 			set => SetWidth(value);
 		}
 
-		[Inspectable]
+		[Serialize]
 		[Range(1, float.MaxValue, true)]
 		public float Height
 		{

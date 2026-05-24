@@ -37,7 +37,7 @@ namespace Voltage
 					continue;
 
 				if ((!prop.GetMethod.IsPublic || !prop.SetMethod.IsPublic) &&
-				    IEnumerableExt.Count(prop.GetCustomAttributes<InspectableAttribute>()) == 0)
+				    IEnumerableExt.Count(prop.GetCustomAttributes<SerializeAttribute>()) == 0)
 					continue;
 
 				var inspector = GetInspectorForType(prop.PropertyType, effect, prop);

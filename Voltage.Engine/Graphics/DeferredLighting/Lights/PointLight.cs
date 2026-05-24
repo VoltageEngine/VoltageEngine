@@ -90,7 +90,7 @@ namespace Voltage.DeferredLighting
 		/// <summary>
 		/// how far does this light reach
 		/// </summary>
-		public float Radius => _radius;
+		public float Radius { get => _radius; set => SetRadius(value); }
 
 		/// <summary>
 		/// brightness of the light

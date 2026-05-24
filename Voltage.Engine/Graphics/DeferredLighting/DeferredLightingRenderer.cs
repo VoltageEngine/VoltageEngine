@@ -188,25 +188,25 @@ namespace Voltage.DeferredLighting
 
 		protected override void DebugRender(Scene scene, Camera cam)
 		{
-			// for (var i = 0; i < RenderLayers.Length; i++)
-			// {
-			// 	var renderables = scene.RenderableComponents.ComponentsWithRenderLayer(RenderLayers[i]);
-			// 	for (var j = 0; j < renderables.Length; j++)
-			// 	{
-			// 		var renderable = renderables.Buffer[j];
-			// 		if (renderable.Enabled && renderable.IsVisibleFromCamera(cam))
-			// 			renderable.DebugRender(Graphics.Instance.Batcher);
-			// 	}
-			// }
+			for (var i = 0; i < RenderLayers.Length; i++)
+			{
+				var renderables = scene.RenderableComponents.ComponentsWithRenderLayer(RenderLayers[i]);
+				for (var j = 0; j < renderables.Length; j++)
+				{
+					var renderable = renderables.Buffer[j];
+					if (renderable.Enabled && renderable.IsVisibleFromCamera(cam))
+						renderable.DebugRender(Graphics.Instance.Batcher);
+				}
+			}
 
 			var lightRenderables = scene.RenderableComponents.ComponentsWithRenderLayer(_lightLayer);
 			for (var j = 0; j < lightRenderables.Length; j++)
 			{
 				var renderable = lightRenderables.Buffer[j];
-				if (renderable.Enabled && renderable.IsVisibleFromCamera(cam) && renderable.DebugRenderEnabled)
+				if (renderable.Enabled && renderable.IsVisibleFromCamera(cam))
 					renderable.DebugRender(Graphics.Instance.Batcher);
 			}
-			
+
 			base.DebugRender(scene, cam);
 		}
 

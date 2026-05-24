@@ -325,6 +325,7 @@ public partial class Scene
 
 		Camera = null;
 		Content.Dispose();
+		Core.GraphicsDevice.SetRenderTarget(null);
 		_sceneRenderTarget.Dispose();
 		Physics.Clear();
 

@@ -545,48 +545,20 @@ namespace Voltage
 			if (ComponentAotFactory.IsRegistered(componentTypeName))
 				return (Component)ComponentAotFactory.Create(componentTypeName);
 
-#if EDITOR
-			// Editor: resolve via reflection (allows hot-reloaded script types)
-			var componentType = ResolveType(componentTypeName);
-			if (componentType == null)
-			{
-				Debug.Error($"[Scene] Could not find component type: '{componentTypeName}'. " +
-					"The component will be missing from the entity.");
-				return null;
-			}
-			return (Component)Activator.CreateInstance(componentType);
-#else
-			// Published build: AOT factory lookup failed.
-			// For regular .NET 8 builds, fall back to reflection.
-			// For NativeAOT: the source generator should have emitted a factory registration.
-			// If we reach here in NativeAOT, the type was NOT registered — this is a generator bug.
-			var type = Type.GetType(componentTypeName);
+			// Fall back to reflection for both editor and published .NET 8 builds.
+			// NativeAOT requires explicit registration — the source generator handles that.
+			// If this warn fires in a published build, the component's class is not 'partial'
+			// or Voltage.SourceGenerators.dll is not referenced by the game project.
+			var type = ResolveType(componentTypeName);
 			if (type == null)
 			{
-				foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
-				{
-					type = asm.GetType(componentTypeName);
-					if (type != null)
-						break;
-				}
-			}
-
-			if (type == null)
-			{
-				// Hard error — do NOT silently continue. A missing component will cause
-				// wrong game state that is extremely hard to debug downstream.
-				Debug.Error($"[Scene] CRITICAL: Could not instantiate component '{componentTypeName}'. " +
-					"No AOT factory is registered for this type and reflection lookup also failed. " +
-					"This means the source generator did not emit a factory registration. " +
-					"Ensure the class is marked 'partial' and Voltage.SourceGenerators.dll is referenced.");
+				Debug.Error($"[Scene] Could not instantiate component '{componentTypeName}': type not found in any loaded assembly.");
 				return null;
 			}
 
-			Debug.Warn($"[Scene] Component '{componentTypeName}' is missing an AOT factory registration. " +
-				"Fell back to reflection — this will break in NativeAOT. " +
-				"Ensure the class is 'partial' so the source generator emits a registration.");
+			Debug.Warn($"[Scene] Component '{componentTypeName}' has no AOT factory registration — using reflection. " +
+				"Ensure the class is 'partial' and Voltage.SourceGenerators is referenced.");
 			return (Component)Activator.CreateInstance(type);
-#endif
 		}
 
 		/// <summary>
