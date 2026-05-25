@@ -31,7 +31,6 @@ public class EffectsCompiler
 		if (project == null)
 		{
 			Debug.Error("Project cannot be null");
-			EditorDebug.Log("No project provided for effect building!");
 			return false;
 		}
 
@@ -42,7 +41,6 @@ public class EffectsCompiler
 			if (string.IsNullOrEmpty(effectsFolder) || !Directory.Exists(effectsFolder))
 			{
 				Debug.Warn($"Effects folder not found for project '{project.ProjectName}': {effectsFolder}");
-				EditorDebug.Log($"No effects folder found for '{project.ProjectName}'");
 				return false;
 			}
 
@@ -61,7 +59,6 @@ public class EffectsCompiler
 		catch (Exception ex)
 		{
 			Debug.Error($"Error building project effects: {ex.Message}");
-			EditorDebug.Log("Failed to build project effects!");
 			return false;
 		}
 	}
@@ -74,9 +71,12 @@ public class EffectsCompiler
 	{
 		try
 		{
-			// Engine effects are in Voltage.Engine project
-			string editorDir = AppDomain.CurrentDomain.BaseDirectory;
-			string solutionDir = Directory.GetParent(editorDir)?.Parent?.Parent?.Parent?.FullName;
+			// Walk up from the running assembly until we find the solution root.
+			// Using a fixed Parent-chain count is fragile: Windows builds include
+			// a RID sub-folder (.../bin/Editor-Debug/net8.0/win-x64/) while macOS
+			// does not (.../bin/Editor-Debug/net8.0/), so the depth differs by one
+			// and the old code landed inside Voltage.Editor/ instead of above it.
+			string solutionDir = FindSolutionDirectory();
 
 			if (string.IsNullOrEmpty(solutionDir))
 			{
@@ -241,13 +241,22 @@ public class EffectsCompiler
 		{
 			var processInfo = new ProcessStartInfo
 			{
-				FileName = "mgfxc",
-				Arguments = $"\"{shaderFile}\" \"{outputFile}\"",
+				FileName = FindMgfxcExecutable(),
+				Arguments = BuildMgfxcArguments(shaderFile, outputFile),
 				UseShellExecute = false,
 				RedirectStandardOutput = true,
 				RedirectStandardError = true,
 				CreateNoWindow = true
 			};
+
+			// On macOS/Linux mgfxc uses Wine internally to call the DirectX shader
+			// compiler (WineHelper.cs in MonoGame). WineHelper.SetupWine() reads the
+			// MGFXC_WINE_PATH environment variable to locate the Wine prefix. This
+			// variable is written to ~/.zprofile by the wine setup script, but
+			// GUI-launched apps do NOT source shell profiles, so the variable is
+			// missing when the editor is not started from a terminal that sourced it.
+			// We therefore inject it explicitly so mgfxc always finds the prefix.
+			InjectMacOsWineEnvironment(processInfo);
 
 			using (var process = Process.Start(processInfo))
 			{
@@ -290,6 +299,33 @@ public class EffectsCompiler
 								Debug.Error($"Standard Output:\n{output}");
 							if (!string.IsNullOrEmpty(error))
 								Debug.Error($"Standard Error:\n{error}");
+
+							// Provide specific guidance for common macOS/Wine failures
+							string combined = output + error;
+							if (!System.Runtime.InteropServices.RuntimeInformation
+									.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
+							{
+								if (combined.Contains("MGFXC_WINE_PATH") ||
+									combined.Contains("MGFXC0001") ||
+									combined.Contains("Wine installation"))
+								{
+									Debug.Error(
+										"Wine setup is missing or incomplete. " +
+										"Run the MonoGame Wine setup script:\n" +
+										"  curl -fsSL https://raw.githubusercontent.com/MonoGame/MonoGame/develop/Tools/MonoGame.Effect.Compiler/mgfxc_wine_setup.sh | bash\n" +
+										"Requires: wine64, 7z (p7zip). See https://docs.monogame.net/errors/mgfx0001?tab=macos");
+								}
+								else if (combined.Contains("Failed to resolve full path") ||
+										 combined.Contains("dotnet.exe"))
+								{
+									Debug.Error(
+										"The Wine prefix appears to have an incorrect .NET installation (likely installed with the 'master' branch script). " +
+										"Fix: delete ~/.winemonogame and re-run the setup script from the 'develop' branch:\n" +
+										"  rm -rf ~/.winemonogame\n" +
+										"  curl -fsSL https://raw.githubusercontent.com/MonoGame/MonoGame/develop/Tools/MonoGame.Effect.Compiler/mgfxc_wine_setup.sh | bash");
+								}
+							}
+
 							CurrentProgress.IncrementFailure(relativePath);
 						}
 					}
@@ -353,13 +389,16 @@ public class EffectsCompiler
 		{
 			var processInfo = new ProcessStartInfo
 			{
-				FileName = "mgfxc",
+				FileName = FindMgfxcExecutable(),
 				Arguments = "--help",
 				UseShellExecute = false,
 				RedirectStandardOutput = true,
 				RedirectStandardError = true,
 				CreateNoWindow = true
 			};
+
+			// Inject Wine env vars so the --help call also validates the Wine setup
+			InjectMacOsWineEnvironment(processInfo);
 
 			using (var process = Process.Start(processInfo))
 			{
@@ -412,6 +451,168 @@ public class EffectsCompiler
 		CurrentProgress = null;
 	}
 
+	/// <summary>
+	/// Builds the argument string for mgfxc.
+	/// On macOS/Linux the /Profile:OpenGL flag is appended so shader output targets
+	/// the OpenGL/DesktopGL backend used by FNA/MonoGame on those platforms.
+	/// </summary>
+	private static string BuildMgfxcArguments(string shaderFile, string outputFile)
+	{
+		bool isWindows = System.Runtime.InteropServices.RuntimeInformation
+			.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows);
+
+		if (isWindows)
+			return $"\"{shaderFile}\" \"{outputFile}\"";
+
+		// macOS / Linux: compile for the OpenGL profile
+		return $"\"{shaderFile}\" \"{outputFile}\" /Profile:OpenGL";
+	}
+
+	/// <summary>
+	/// Injects the Wine-related environment variables required by mgfxc on macOS/Linux.
+	///
+	/// Why this is needed (from the MonoGame community thread
+	/// https://community.monogame.net/t/using-fx-files-on-mac-m1/18428):
+	///
+	/// mgfxc uses a WineHelper class that reads MGFXC_WINE_PATH to locate the Wine
+	/// prefix (~/.winemonogame).  The setup script appends this variable to
+	/// ~/.zprofile, but macOS GUI apps (launched from the Dock or Finder) never
+	/// source shell profiles, so the variable is absent from the editor's process
+	/// environment.  We therefore set it explicitly so the child mgfxc process
+	/// always finds the prefix, regardless of how the editor was launched.
+	///
+	/// Prerequisites (one-time setup):
+	///   1. Install Wine (brew install --cask wine-stable) and p7zip.
+	///   2. Run the MonoGame setup script (use the develop branch, NOT master —
+	///      the master script installed x86 .NET which fails on Apple Silicon M1/M2/M3):
+	///        curl -fsSL https://raw.githubusercontent.com/MonoGame/MonoGame/develop/Tools/MonoGame.Effect.Compiler/mgfxc_wine_setup.sh | bash
+	/// </summary>
+	private static void InjectMacOsWineEnvironment(ProcessStartInfo processInfo)
+	{
+		bool isWindows = System.Runtime.InteropServices.RuntimeInformation
+			.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows);
+
+		if (isWindows)
+			return;
+
+		var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+		var winePrefix = Path.Combine(homeDir, ".winemonogame");
+
+		// Only inject when the prefix directory actually exists; if it's missing the
+		// user will get the standard MGFXC0001 error from mgfxc with a docs URL.
+		if (!Directory.Exists(winePrefix))
+		{
+			Debug.Warn(
+				$"Wine prefix not found at {winePrefix}. " +
+				"Run the MonoGame Wine setup script to enable shader compilation on macOS:\n" +
+				"  brew install --cask wine-stable p7zip\n" +
+				"  curl -fsSL https://raw.githubusercontent.com/MonoGame/MonoGame/develop/Tools/MonoGame.Effect.Compiler/mgfxc_wine_setup.sh | bash");
+			return;
+		}
+
+		// Set MGFXC_WINE_PATH only if it isn't already present (respect user overrides)
+		if (!processInfo.EnvironmentVariables.ContainsKey("MGFXC_WINE_PATH"))
+			processInfo.EnvironmentVariables["MGFXC_WINE_PATH"] = winePrefix;
+
+		// Also ensure WINEPREFIX is set so Wine itself uses the right prefix
+		if (!processInfo.EnvironmentVariables.ContainsKey("WINEPREFIX"))
+			processInfo.EnvironmentVariables["WINEPREFIX"] = winePrefix;
+
+		// Ensure the wine binaries in /usr/local/bin are in PATH so mgfxc's
+		// WineHelper can locate wine/wine64 via `which`.
+		string existingPath;
+		if (processInfo.EnvironmentVariables.ContainsKey("PATH"))
+			existingPath = processInfo.EnvironmentVariables["PATH"] ?? string.Empty;
+		else
+			existingPath = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+
+		if (!existingPath.Contains("/usr/local/bin"))
+		{
+			processInfo.EnvironmentVariables["PATH"] =
+				"/usr/local/bin:" + existingPath;
+		}
+	}
+
+	/// <summary>
+	/// Returns true when the Wine prefix required by mgfxc looks complete on macOS.
+	/// Checks for the presence of dotnet.exe and d3dcompiler_47.dll that the
+	/// mgfxc_wine_setup.sh script installs.
+	/// </summary>
+	public static bool IsWineSetupComplete()
+	{
+		bool isWindows = System.Runtime.InteropServices.RuntimeInformation
+			.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows);
+
+		if (isWindows)
+			return true; // Wine not needed on Windows
+
+		var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+		var system32 = Path.Combine(homeDir, ".winemonogame", "drive_c", "windows", "system32");
+
+		bool hasDotnet = File.Exists(Path.Combine(system32, "dotnet.exe"));
+		bool hasD3d = File.Exists(Path.Combine(system32, "d3dcompiler_47.dll"));
+
+		if (!hasDotnet || !hasD3d)
+		{
+			Debug.Warn(
+				"Wine prefix is incomplete (missing dotnet.exe or d3dcompiler_47.dll). " +
+				"Delete ~/.winemonogame and re-run the setup script using the 'develop' branch " +
+				"(the 'master' branch script installed x86 .NET which fails on Apple Silicon M1/M2/M3):\n" +
+				"  rm -rf ~/.winemonogame\n" +
+				"  curl -fsSL https://raw.githubusercontent.com/MonoGame/MonoGame/develop/Tools/MonoGame.Effect.Compiler/mgfxc_wine_setup.sh | bash");
+		}
+
+		return hasDotnet && hasD3d;
+	}
+
+	/// <summary>
+	/// Walks up the directory tree from AppDomain.CurrentDomain.BaseDirectory until it
+	/// finds a directory that contains a "Voltage.Editor" sub-folder (the solution root).
+	/// Cross-platform safe: does not assume a fixed number of parent hops.
+	/// Windows RID builds add an extra sub-folder vs macOS/Linux, so a fixed count fails.
+	/// </summary>
+	private static string FindSolutionDirectory()
+	{
+		var dir = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
+		while (dir != null)
+		{
+			if (Directory.Exists(Path.Combine(dir.FullName, "Voltage.Editor")))
+				return dir.FullName;
+			dir = dir.Parent;
+		}
+		return null;
+	}
+
+	/// <summary>
+	/// Resolves the absolute path to the mgfxc executable.
+	///
+	/// Why this is needed:
+	/// When UseShellExecute = false, Windows processes do not inherit the user-level
+	/// PATH (which contains %USERPROFILE%\.dotnet\tools). The mgfxc wrapper exe then
+	/// finds C:\windows\system32\dotnet.exe (the system stub) instead of the real
+	/// .NET SDK dotnet, and immediately fails with:
+	///   "Failed to resolve full path of the current executable"
+	/// Passing the full path lets the OS launch the exe directly, bypassing PATH.
+	/// </summary>
+	private static string FindMgfxcExecutable()
+	{
+		var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+		var toolsDir = Path.Combine(userProfile, ".dotnet", "tools");
+
+		// Try the standard .NET global-tools location (works on Windows, macOS, Linux)
+		var exeName = System.Runtime.InteropServices.RuntimeInformation
+			.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)
+			? "mgfxc.exe"
+			: "mgfxc";
+
+		var candidate = Path.Combine(toolsDir, exeName);
+		if (File.Exists(candidate))
+			return candidate;
+
+		// Fall back to PATH resolution (will still work when the shell inherits it)
+		return "mgfxc";
+	}
+
 	#region Editor Effect Builder Methods
 
 	/// <summary>
@@ -429,6 +630,16 @@ public class EffectsCompiler
 		if (!IsMgfxcAvailable())
 		{
 			Debug.Error("mgfxc compiler not found in PATH. Install MonoGame SDK: https://www.monogame.net/downloads/");
+			return;
+		}
+
+		if (!IsWineSetupComplete())
+		{
+			Debug.Error(
+				"Wine setup is incomplete on macOS. " +
+				"Run the MonoGame Wine setup script from the 'develop' branch (NOT 'master' — that one installs x86 .NET which fails on Apple Silicon):\n" +
+				"  rm -rf ~/.winemonogame\n" +
+				"  curl -fsSL https://raw.githubusercontent.com/MonoGame/MonoGame/develop/Tools/MonoGame.Effect.Compiler/mgfxc_wine_setup.sh | bash");
 			return;
 		}
 
@@ -483,6 +694,16 @@ public class EffectsCompiler
 			return;
 		}
 
+		if (!IsWineSetupComplete())
+		{
+			Debug.Error(
+				"Wine setup is incomplete on macOS. " +
+				"Run the MonoGame Wine setup script from the 'develop' branch (NOT 'master' — that one installs x86 .NET which fails on Apple Silicon):\n" +
+				"  rm -rf ~/.winemonogame\n" +
+				"  curl -fsSL https://raw.githubusercontent.com/MonoGame/MonoGame/develop/Tools/MonoGame.Effect.Compiler/mgfxc_wine_setup.sh | bash");
+			return;
+		}
+
 	// Cancel any existing build
 	buildCancellationToken?.Cancel();
 	buildCancellationToken?.Dispose();
@@ -534,6 +755,16 @@ public class EffectsCompiler
 		if (!IsMgfxcAvailable())
 		{
 			Debug.Error("mgfxc compiler not found in PATH. Install MonoGame SDK: https://www.monogame.net/downloads/");
+			return;
+		}
+
+		if (!IsWineSetupComplete())
+		{
+			Debug.Error(
+				"Wine setup is incomplete on macOS. " +
+				"Run the MonoGame Wine setup script from the 'develop' branch (NOT 'master' — that one installs x86 .NET which fails on Apple Silicon):\n" +
+				"  rm -rf ~/.winemonogame\n" +
+				"  curl -fsSL https://raw.githubusercontent.com/MonoGame/MonoGame/develop/Tools/MonoGame.Effect.Compiler/mgfxc_wine_setup.sh | bash");
 			return;
 		}
 
