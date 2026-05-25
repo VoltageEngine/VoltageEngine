@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Persistence;
+using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Utils;
 using Num = System.Numerics;
 using Voltage.Project;
@@ -156,10 +157,10 @@ namespace Voltage.Editor.FilePickers
 
                 if (shouldLoad)
                 {
-                    string contentRoot = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "Content"));
-                    if (picker.SelectedFile.StartsWith(contentRoot, StringComparison.OrdinalIgnoreCase))
+                    string contentRoot = ProjectManager.Instance.CurrentProject.ContentsFolder;
+                    if (CrossPlatformPath.IsPathUnder(contentRoot, picker.SelectedFile))
                     {
-                        string relativePath = "Content" + picker.SelectedFile.Substring(contentRoot.Length).Replace('\\', '/');
+                        string relativePath = CrossPlatformPath.GetRelativePathForStorage(ProjectManager.Instance.CurrentProject.ProjectPath, picker.SelectedFile);
 
                         result = new TmxSelection
                         {
@@ -176,7 +177,7 @@ namespace Voltage.Editor.FilePickers
                     }
                     else
                     {
-                        EditorDebug.Error("Selected TMX file is not inside Content folder!");
+                        Debug.Error("Selected TMX file is not inside Content folder!");
                     }
                 }
 
