@@ -340,12 +340,11 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                 if (DrawCustomButtons(picker, loadAction, "Open"))
                 {
                     string contentRoot = ProjectManager.Instance.CurrentProject.ContentsFolder;
-                    if (picker.SelectedFile.StartsWith(contentRoot, StringComparison.OrdinalIgnoreCase))
+                    if (CrossPlatformPath.IsPathUnder(contentRoot, picker.SelectedFile))
                     {
-                        // Use the FULL PATH from the picker - this is absolute and will work from the editor
-                        string fullPath = picker.SelectedFile;
-						
-                        loadAction(GetSpriteRenderer(), fullPath);
+                        // Convert absolute picker path to project-relative for cross-machine portability
+                        string relativePath = ToProjectRelativePath(picker.SelectedFile);
+                        loadAction(GetSpriteRenderer(), relativePath);
                         ImGui.CloseCurrentPopup();
                         FilePicker.RemoveFilePicker(picker);
                     }
@@ -409,12 +408,11 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
 				if (ImGui.Button("Load", new Num.Vector2(buttonWidth, 0)) && canConfirm)
 				{
 					string contentRoot = ProjectManager.Instance.CurrentProject.ContentsFolder;
-					if (picker.SelectedFile.StartsWith(contentRoot, StringComparison.OrdinalIgnoreCase))
+				if (CrossPlatformPath.IsPathUnder(contentRoot, picker.SelectedFile))
 					{
-						// Use the FULL PATH from the picker
-						string fullPath = picker.SelectedFile;
-						
-						LoadAsepriteFileFromPicker(spriteRenderer, fullPath, _frameNumber, string.IsNullOrEmpty(_layerName) ? null : _layerName, mode);
+						// Convert to project-relative for portability
+						string relativePath = ToProjectRelativePath(picker.SelectedFile);
+						LoadAsepriteFileFromPicker(spriteRenderer, relativePath, _frameNumber, string.IsNullOrEmpty(_layerName) ? null : _layerName, mode);
 						ImGui.CloseCurrentPopup();
 						FilePicker.RemoveFilePicker(picker);
 					}
@@ -564,12 +562,11 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                 if (ImGui.Button("Load TMX", new Num.Vector2(buttonWidth, 0)) && fileSelected)
                 {
                     string contentRoot = ProjectManager.Instance.CurrentProject.ContentsFolder;
-                    if (picker.SelectedFile.StartsWith(contentRoot, StringComparison.OrdinalIgnoreCase))
+                    if (CrossPlatformPath.IsPathUnder(contentRoot, picker.SelectedFile))
                     {
-                        // Use the FULL PATH from the picker
-                        string fullPath = picker.SelectedFile;
-						
-                        LoadTmxFileFromPicker(spriteRenderer, fullPath, string.IsNullOrEmpty(_imageLayerName) ? null : _imageLayerName, mode);
+                        // Convert to project-relative for portability
+                        string relativePath = ToProjectRelativePath(picker.SelectedFile);
+                        LoadTmxFileFromPicker(spriteRenderer, relativePath, string.IsNullOrEmpty(_imageLayerName) ? null : _imageLayerName, mode);
                         ImGui.CloseCurrentPopup();
                         FilePicker.RemoveFilePicker(picker);
 
@@ -641,7 +638,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
 
             try
             {
-                string relativePath = Path.GetRelativePath(Environment.CurrentDirectory, filePath).Replace('\\', '/');
+                string relativePath = CrossPlatformPath.GetRelativePathForStorage(Environment.CurrentDirectory, filePath);
                 var tiledMap = Core.Content.LoadTiledMap(relativePath);
 
                 var imageLayerNames = tiledMap.ImageLayers
@@ -686,6 +683,34 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
         private SpriteRenderer GetSpriteRenderer()
         {
             return _target as SpriteRenderer;
+        }
+
+        /// <summary>
+        /// Converts an absolute file path to a path relative to the current project root.
+        /// This ensures asset paths stored in scene/prefab files are portable across machines and OSes.
+        /// Example: /Users/mac/Projects/Jolt/Content/hero.png → Content/hero.png
+        /// </summary>
+        private static string ToProjectRelativePath(string absolutePath)
+        {
+            if (string.IsNullOrEmpty(absolutePath))
+                return absolutePath;
+
+            // Already relative — nothing to do
+            if (!Path.IsPathRooted(absolutePath))
+                return CrossPlatformPath.GetRelativePathForStorage(Environment.CurrentDirectory, absolutePath);
+
+            try
+            {
+                var project = ProjectManager.Instance.CurrentProject;
+                if (project == null)
+                    return CrossPlatformPath.Normalize(absolutePath).Replace(CrossPlatformPath.Sep, '/');
+
+                return CrossPlatformPath.GetRelativePathForStorage(project.ProjectPath, absolutePath);
+            }
+            catch
+            {
+                return CrossPlatformPath.Normalize(absolutePath).Replace(CrossPlatformPath.Sep, '/');
+            }
         }
 
         private void LoadFileFromPicker(SpriteRenderer spriteRenderer, string relativePath, ImageLoadMode mode, SpriteRenderer.SpriteRendererComponentData.ImageFileType fileType)

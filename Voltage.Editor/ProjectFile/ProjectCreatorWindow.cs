@@ -463,8 +463,9 @@ namespace Voltage.Editor.ProjectFile
 					EffectsFolder = EffectsFolder,
 					ContentsFolder = ContentsFolder,
 					DataFolder = DataFolder,
-					ScenesFolder = Path.Combine(DataFolder, ScenesFolder),
-					PrefabsFolder = Path.Combine(DataFolder, PrefabsFolder),
+					// Always use forward slashes for cross-platform portability in the stored .voltage file
+					ScenesFolder = DataFolder + "/" + ScenesFolder,
+					PrefabsFolder = DataFolder + "/" + PrefabsFolder,
 					CreatedDate = DateTime.Now
 				};
 				

@@ -5,6 +5,7 @@ using System.Linq;
 using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.SceneFile;
+using Voltage.Editor.Utils;
 using Voltage.Editor.Scripting;
 using Voltage.Project;
 using Voltage.Systems;
@@ -239,17 +240,7 @@ public class ProjectManager : GlobalManager
 		if (!HasActiveProject || string.IsNullOrWhiteSpace(filePath))
 			return false;
 
-		try
-		{
-			var normalizedFilePath = Path.GetFullPath(filePath);
-			var normalizedProjectPath = Path.GetFullPath(CurrentProject.ProjectPath);
-
-			return normalizedFilePath.StartsWith(normalizedProjectPath, StringComparison.OrdinalIgnoreCase);
-		}
-		catch
-		{
-			return false;
-		}
+		return CrossPlatformPath.IsPathUnder(CurrentProject.ProjectPath, filePath);
 	}
 
 	/// <summary>

@@ -556,6 +556,12 @@ namespace Voltage.Sprites
 				return;
 			}
 
+			// Normalize the stored path so it is relative and OS-agnostic.
+			// This migrates old scenes that had absolute paths baked in.
+			_data.TextureFilePath = NormalizeStoredPath(_data.TextureFilePath);
+			if (!string.IsNullOrEmpty(_data.NormalMapFilePath))
+				_data.NormalMapFilePath = NormalizeStoredPath(_data.NormalMapFilePath);
+
 			// Try to get content manager, but handle case where entity isn't in scene yet
 			var contentManager = Entity?.Scene?.Content ?? Core.Content;
 			if (contentManager == null)
@@ -666,6 +672,66 @@ namespace Voltage.Sprites
 						break;
 				}
 			}
+		}
+
+		/// <summary>
+		/// Converts a stored asset path to a project-relative form.
+		/// Handles old scenes that saved absolute (possibly Windows) paths:
+		///   - Already-relative paths pass through unchanged.
+		///   - Absolute paths that exist verbatim are kept (same machine, same OS).
+		///   - Absolute paths that don't exist have their known prefix stripped: the
+		///     portion starting at the first Content/ (or other recognised folder) is
+		///     returned as a relative path so VoltageContentManager can re-resolve it
+		///     against the current ContentRoot.
+		/// </summary>
+		private static string NormalizeStoredPath(string path)
+		{
+			if (string.IsNullOrEmpty(path))
+				return path;
+
+			// Normalize directory separators first
+			path = path.Replace('\\', '/');
+
+			// If already relative, nothing to do
+			if (!Path.IsPathRooted(path))
+				return path;
+
+			// Same machine: absolute path still valid → keep it but note it's old-style
+			if (File.Exists(path) || Directory.Exists(path))
+			{
+				// Optionally make relative to ContentRoot if we can
+				var root = VoltageContentManager.ContentRoot;
+				if (!string.IsNullOrEmpty(root))
+				{
+					try
+					{
+						var rel = Path.GetRelativePath(root, path).Replace('\\', '/');
+						if (!rel.StartsWith("../"))
+							return rel;
+					}
+					catch { }
+				}
+				return path;
+			}
+
+			// Path is absolute but the file does not exist on this machine.
+			// Try to recover the portable portion by scanning for well-known folder names.
+			// e.g. "C:/Users/dev/Projects/Jolt/Content/sprites/hero.png"
+			//       → "Content/sprites/hero.png"
+			var candidates = new[] { "/Content/", "/Scripts/", "/Effects/", "/Data/", "/Scenes/", "/Prefabs/" };
+			foreach (var marker in candidates)
+			{
+				var idx = path.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+				if (idx >= 0)
+				{
+					// Return relative path starting at the marker folder (without leading slash)
+					return path.Substring(idx + 1);
+				}
+			}
+
+			// Cannot migrate — return as-is and let the content manager handle the failure gracefully
+			Debug.Warn($"[SpriteRenderer] Cannot migrate absolute asset path to relative: {path}");
+			return path;
 		}
 
 		/// <summary>
@@ -993,3 +1059,4 @@ namespace Voltage.Sprites
 		}
 	}
 }
+

@@ -7,6 +7,8 @@ using System.IO;
 using System.Linq;
 using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Persistence;
+using Voltage.Editor.ProjectFile;
+using Voltage.Editor.Utils;
 using Voltage.Editor.Utils;
 using Num = System.Numerics;
 using Voltage.Project;
@@ -167,10 +169,10 @@ namespace Voltage.Editor.FilePickers
 
                 if (shouldLoad)
                 {
-                    string contentRoot = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "Content"));
-                    if (picker.SelectedFile.StartsWith(contentRoot, StringComparison.OrdinalIgnoreCase))
+                    string contentRoot = ProjectManager.Instance.CurrentProject.ContentsFolder;
+                    if (CrossPlatformPath.IsPathUnder(contentRoot, picker.SelectedFile))
                     {
-                        string relativePath = Path.GetRelativePath(Environment.CurrentDirectory, picker.SelectedFile).Replace('\\', '/');
+                        string relativePath = CrossPlatformPath.GetRelativePathForStorage(ProjectManager.Instance.CurrentProject.ProjectPath, picker.SelectedFile);
                         
                         result = new AsepriteSelection
                         {
@@ -191,7 +193,7 @@ namespace Voltage.Editor.FilePickers
                     }
                     else
                     {
-                        EditorDebug.Log("File must be in Content folder!");
+                        Debug.Error("File must be in Content folder!");
                     }
                 }
 
@@ -212,7 +214,7 @@ namespace Voltage.Editor.FilePickers
         {
             try
             {
-                string relativePath = Path.GetRelativePath(Environment.CurrentDirectory, filePath).Replace('\\', '/');
+                string relativePath = CrossPlatformPath.GetRelativePathForStorage(Environment.CurrentDirectory, filePath);
                 var aseFile = Core.Content.LoadAsepriteFile(relativePath);
                 
                 _availableLayers.Clear();

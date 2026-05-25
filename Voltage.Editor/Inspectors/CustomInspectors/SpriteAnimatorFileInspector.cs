@@ -12,6 +12,7 @@ using Voltage.Editor.Inspectors.TypeInspectors;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Undo;
 using Voltage.Editor.Undo.ComponentActions;
+using Voltage.Editor.Utils;
 using Num = System.Numerics;
 using Voltage.Editor.Undo.Core;
 
@@ -185,10 +186,11 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
 
                     if (ImGui.Button("Load", new Num.Vector2(buttonWidth, 0)) && canConfirm)
                     {
-                        string contentRoot = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "Content"));
-                        if (picker.SelectedFile.StartsWith(contentRoot, StringComparison.OrdinalIgnoreCase))
+                        string contentRoot = ProjectManager.Instance.CurrentProject.ContentsFolder;
+                        if (CrossPlatformPath.IsPathUnder(contentRoot, picker.SelectedFile))
                         {
-                            string relativePath = Path.GetRelativePath(Environment.CurrentDirectory, picker.SelectedFile).Replace('\\', '/');
+                            // Use project root so path is portable across machines and OSes
+                            string relativePath = CrossPlatformPath.GetRelativePathForStorage(ProjectManager.Instance.CurrentProject.ProjectPath, picker.SelectedFile);
                             string selectedTagName = _availableTags[_selectedTagIndex];
                             LoadAsepriteAnimationFromPicker(animator, relativePath, selectedTagName, _frameNumber);
                             ImGui.CloseCurrentPopup();
@@ -220,7 +222,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
 
                 try
                 {
-                    string relativePath = Path.GetRelativePath(Environment.CurrentDirectory, picker.SelectedFile).Replace('\\', '/');
+                    string relativePath = CrossPlatformPath.GetRelativePathForStorage(ProjectManager.Instance.CurrentProject.ProjectPath, picker.SelectedFile);
                     var asepriteFile = Core.Content.LoadAsepriteFile(relativePath);
                     if (asepriteFile != null && asepriteFile.Layers != null)
                     {
@@ -289,7 +291,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                 {
                     try
                     {
-                        string relativePath = Path.GetRelativePath(Environment.CurrentDirectory, picker.SelectedFile).Replace('\\', '/');
+                        string relativePath = CrossPlatformPath.GetRelativePathForStorage(Environment.CurrentDirectory, picker.SelectedFile);
                         var asepriteFile = Core.Content.LoadAsepriteFile(relativePath);
                         if (asepriteFile != null && asepriteFile.Tags != null)
                         {

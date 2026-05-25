@@ -187,6 +187,7 @@ public class Core : Game
 		graphicsManager.DeviceReset += OnGraphicsDeviceReset;
 		graphicsManager.PreferredDepthStencilFormat = DepthFormat.Depth24Stencil8;
 
+		OnChangedToEditMode += () => { Instance.IsMouseVisible = true; };
 		Screen.Initialize(graphicsManager);
 		Window.ClientSizeChanged += OnGraphicsDeviceReset;
 		Window.OrientationChanged += OnOrientationChanged;

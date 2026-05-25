@@ -9,6 +9,7 @@ using Voltage.Data;
 using Voltage.Editor.Interfaces;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.SceneFile;
+using Voltage.Editor.Utils;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Utils;
 using Voltage.Persistence;
@@ -524,11 +525,8 @@ public partial class SerializationManager : GlobalManager
 			{
 				throw new Exception($"Failed to deserialize scene data from: {sceneFilePath}");
 			}
-
-			if (string.IsNullOrEmpty(sceneData.FilePath))
-			{
-				sceneData.FilePath = sceneFilePath;
-			}
+			
+			sceneData.FilePath = sceneFilePath;
 
 			Debug.Log($"Successfully loaded scene data: {sceneData.Name} from {sceneFilePath}");
 			return sceneData;
@@ -907,7 +905,7 @@ public partial class SerializationManager : GlobalManager
 				? prefabEntity.OriginalPrefabName
 				: prefabEntity.Name;
 
-			var sourceFilePath = $"{prefabsDirectory}/{prefabFileName}.vprefab";
+			var sourceFilePath = CrossPlatformPath.Combine(prefabsDirectory, $"{prefabFileName}.vprefab");
 
 			if (File.Exists(sourceFilePath) && !overrideExistingPrefab)
 			{
