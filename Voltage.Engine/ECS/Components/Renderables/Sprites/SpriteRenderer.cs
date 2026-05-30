@@ -456,7 +456,7 @@ namespace Voltage.Sprites
 		{
 			if (normalMapTexture == null)
 			{
-				System.Console.WriteLine($"{normalMapTexture} texture is null.");
+				Debug.Error($"{normalMapTexture} texture is null.");
 				return;
 			}
 
