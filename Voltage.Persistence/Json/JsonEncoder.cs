@@ -232,7 +232,7 @@ namespace Voltage.Persistence
 					{
 						// encode failed. stick a default value in there
 						EncodeValue(type.IsValueType ? Activator.CreateInstance(type) : null);
-						System.Console.WriteLine($"Failed to write property {property.Name} for type {type.Name}. {e}");
+						Console.WriteLine($"Failed to write property {property.Name} for type {type.Name}. {e}");
 					}
 				}
 			}

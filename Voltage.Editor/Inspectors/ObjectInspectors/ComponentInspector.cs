@@ -193,7 +193,6 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 					{
 						var clonedComponent = _component.Clone();
 						_imGuiManager.SceneGraphWindow.CopiedComponent = clonedComponent;
-						System.Console.WriteLine($"Copied component: {_component.GetType().Name}");
 					}
 					catch (Exception ex)
 					{
@@ -375,7 +374,7 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 
 			if (sourceComponent.GetType() != targetComponent.GetType())
 			{
-				System.Console.WriteLine($"Cannot paste {sourceComponent.GetType().Name} into {targetComponent.GetType().Name} - types must match");
+				Debug.Error($"Cannot paste {sourceComponent.GetType().Name} into {targetComponent.GetType().Name} - types must match");
 				return;
 			}
 
@@ -386,7 +385,7 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 
 				if (sourceData == null)
 				{
-					System.Console.WriteLine("Source component has no data to copy");
+					Debug.Error("Source component has no data to copy");
 					return;
 				}
 
@@ -405,8 +404,8 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 				}
 				catch (Exception ex)
 				{
-					System.Console.WriteLine($"Failed to clone component data via JSON: {ex.Message}");
-					return;
+					Debug.Error($"Failed to clone component data via JSON: {ex.Message}");
+					return;	
 				}
 
 				// Create undo action BEFORE making changes
@@ -421,14 +420,11 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 					$"Paste {targetComponent.GetType().Name} values"
 				);
 
-				// Apply the cloned data to the target component
 				targetComponent.Data = clonedData;
-
-				System.Console.WriteLine($"Successfully pasted {sourceComponent.GetType().Name} values");
 			}
 			catch (Exception ex)
 			{
-				System.Console.WriteLine($"Failed to paste component values: {ex.Message}");
+				Debug.Error($"Failed to paste component values: {ex.Message}");
 			}
 		}
 	}

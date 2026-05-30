@@ -45,7 +45,7 @@ namespace Voltage.Editor.Undo.PrefabActions
 					}
 					catch (Exception ex)
 					{
-						System.Console.WriteLine($"Failed to capture new component data for undo: {component.Name} - {ex.Message}");
+						Debug.Error($"Failed to capture new component data for undo: {component.Name} - {ex.Message}");
 					}
 				}
 			}

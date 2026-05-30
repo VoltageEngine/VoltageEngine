@@ -429,8 +429,7 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 			bool tagExists = asepriteFile.Tags.Any(t => t.Name == LoadedTag);
 			if (!tagExists)
 			{
-				// Optionally log a warning here
-				//System.Console.WriteLine($"SpriteAnimator: Tag '{LoadedTag}' not found in '{TextureFilePath}'. Skipping animation load.");
+				Debug.Error($"SpriteAnimator: Tag '{LoadedTag}' not found in '{TextureFilePath}'. Skipping animation load.");
 				return false;
 			}
 
@@ -697,7 +696,7 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 	{
 		if (CurrentLoopMode == LoopMode.PingPong || CurrentLoopMode == LoopMode.PingPongOnce)
 		{
-			System.Console.WriteLine($"Can't calculate NormalizedTime for PingPong type of Loop! Animation: {CurrentAnimationName}");
+			Debug.Error($"Can't calculate NormalizedTime for PingPong type of Loop! Animation: {CurrentAnimationName}");
 			return null;
 		}
 

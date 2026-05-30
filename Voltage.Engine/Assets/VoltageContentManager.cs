@@ -146,7 +146,7 @@ public class VoltageContentManager : ContentManager
 		}
 		catch (Exception e)
 		{
-			System.Console.WriteLine(e);
+			Debug.Error(e.ToString());
 			throw;
 		}
 	}

@@ -499,7 +499,7 @@ public sealed class Entity : IComparable<Entity>
 			}
 			catch (Exception ex)
 			{
-				System.Console.WriteLine($"Failed to create component {componentType.Name}: {ex.Message}");
+				Debug.Error($"Failed to create component {componentType.Name}: {ex.Message}");
 				continue;
 			}
 
@@ -558,22 +558,17 @@ public sealed class Entity : IComparable<Entity>
 							TypeNameHandling = TypeNameHandling.Auto,
 							PreserveReferencesHandling = false
 						};
-						
-						// Serialize the source component data to JSON
+
 						var json = Json.ToJson(sourceComponent.Data, componentJsonSettings);
-						
-						// Deserialize back to a new instance (deep clone)
 						var clonedData = (ComponentData)Json.FromJson(json, sourceComponent.Data.GetType());
-						
-						// Apply the cloned data to the target component
 						targetComponent.Data = clonedData;
-						
-						System.Console.WriteLine($"Successfully copied data for component: {sourceComponent.GetType().Name}");
+
 					}
 					catch (Exception ex)
 					{
-						System.Console.WriteLine($"Failed to copy component data via JSON for {sourceComponent.GetType().Name}: {ex.Message}");
-						
+						Debug.Error(
+							$"Failed to copy component data via JSON for {sourceComponent.GetType().Name}: {ex.Message}");
+
 						// Fallback to Clone method
 						try
 						{
@@ -581,12 +576,14 @@ public sealed class Entity : IComparable<Entity>
 							if (fallbackClone?.Data != null)
 							{
 								targetComponent.Data = fallbackClone.Data;
-								System.Console.WriteLine($"Used Clone() fallback for component: {sourceComponent.GetType().Name}");
+								Debug.Info(
+									$"Used Clone() fallback for component: {sourceComponent.GetType().Name}");
 							}
 						}
 						catch (Exception cloneEx)
 						{
-							System.Console.WriteLine($"Clone fallback also failed for {sourceComponent.GetType().Name}: {cloneEx.Message}");
+							Debug.Error(
+								$"Clone fallback also failed for {sourceComponent.GetType().Name}: {cloneEx.Message}");
 						}
 					}
 				}
@@ -603,7 +600,7 @@ public sealed class Entity : IComparable<Entity>
 				}
 				catch (Exception ex)
 				{
-					System.Console.WriteLine($"Failed to create component {componentType.Name}: {ex.Message}");
+					Debug.Error($"Failed to create component {componentType.Name}: {ex.Message}");
 					continue;
 				}
 
@@ -632,7 +629,7 @@ public sealed class Entity : IComparable<Entity>
 					}
 					catch (Exception ex)
 					{
-						System.Console.WriteLine($"Failed to copy component data via JSON for {sourceComponent.GetType().Name}: {ex.Message}");
+						Debug.Error($"Failed to copy component data via JSON for {sourceComponent.GetType().Name}: {ex.Message}");
 						
 						// Fallback to Clone method
 						try
@@ -645,7 +642,7 @@ public sealed class Entity : IComparable<Entity>
 						}
 						catch (Exception cloneEx)
 						{
-							System.Console.WriteLine($"Clone fallback also failed for {sourceComponent.GetType().Name}: {cloneEx.Message}");
+							Debug.Error($"Clone fallback also failed for {sourceComponent.GetType().Name}: {cloneEx.Message}");
 						}
 					}
 				}
