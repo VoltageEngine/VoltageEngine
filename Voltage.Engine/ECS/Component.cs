@@ -17,6 +17,15 @@ public abstract class ComponentData
 	public bool Enabled = true;
 	public bool CanBeSelected = true;
 	public int UpdateOrder = 0;
+
+	/// <summary>
+	/// called by ComponentReferenceResolver instead of reflection.
+	/// Override (generated) should iterate every ComponentReference/EntityReference
+	/// field and invoke the provided callbacks to resolve them.
+	/// </summary>
+	// public virtual void ResolveReferences(
+	// 	Action<string, ComponentReference> resolveComponent,
+	// 	Action<string, EntityReference> resolveEntity) { }
 }
 
 // Helper struct to store component type and its data as JSON
@@ -242,6 +251,11 @@ public abstract class Component : IComparable<Component>
 		return _updateOrder.CompareTo(other._updateOrder);
 	}
 
+	/// <summary>
+	/// called by ComponentReferenceResolver after references are resolved.
+	/// The source generator overrides this with direct field assignments — zero reflection.
+	/// </summary>
+	public virtual void ApplyResolvedReferences(ComponentData data, Scene scene) { }
 
 	public override string ToString()
 	{
@@ -354,6 +368,12 @@ public abstract class Component : IComparable<Component>
 
 	public List<T> GetComponentsInChildren<T>() where T : class
 		=> Entity.GetComponentsInChildren<T>();
+
+	public T GetComponentInParent<T>() where T : class
+		=> Entity.GetComponentInParent<T>();
+
+	public List<T> GetComponentsInParents<T>() where T : class
+		=> Entity.GetComponentsInParents<T>();
 
 	public void RemoveComponent()
 		=> Entity.RemoveComponent(this);

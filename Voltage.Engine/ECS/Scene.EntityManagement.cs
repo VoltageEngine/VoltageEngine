@@ -1,7 +1,10 @@
+using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
-using Microsoft.Xna.Framework;
+using System.Linq;
 using Voltage.Data;
+using Voltage.Project;
+using Voltage.UI;
 
 namespace Voltage
 {
@@ -268,14 +271,24 @@ namespace Voltage
 			return Entities.FindEntity(name);
 		}
 
-		/// <summary>
-		/// returns all entities with the given tag
-		/// </summary>
-		/// <returns>The entities by tag.</returns>
-		/// <param name="tag">Tag.</param>
+		public Entity FindEntityWithTag(int tag)
+		{
+			return Entities.EntitiesWithTag(tag).First();
+		}
+
 		public List<Entity> FindEntitiesWithTag(int tag)
 		{
 			return Entities.EntitiesWithTag(tag);
+		}
+
+		public List<Entity> FindEntitiesWithTag(string tagName)
+		{
+			return Entities.EntitiesWithTag(tagName);
+		}
+
+		public Entity FindEntityWithTag(string tagName)
+		{
+			return Entities.EntitiesWithTag(tagName).First();
 		}
 
 		/// <summary>

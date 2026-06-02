@@ -240,13 +240,16 @@ public partial class SerializationManager : GlobalManager
 			};
 
 			var json = Json.ToJson(data, componentJsonSettings);
-			return new ComponentDataEntry
+
+			var entry = new ComponentDataEntry
 			{
 				ComponentTypeName = component.GetType().FullName,
 				ComponentName = component.Name,
 				DataTypeName = data.GetType().FullName,
 				Json = json
 			};
+
+			return entry;
 		}
 
 		// Data is null — check if this is unexpected (script component that should
@@ -860,6 +863,7 @@ public partial class SerializationManager : GlobalManager
 					}
 
 					component.Data = data;
+
 					entityData.ComponentDataList.RemoveAt(i);
 					entity.SetEntityData(entityData);
 					return true;

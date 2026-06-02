@@ -185,8 +185,7 @@ public class EntityPane
 			bool ctrlDown = Input.IsKeyDown(Keys.LeftControl) || Input.IsKeyDown(Keys.RightControl) || ImGui.GetIO().KeyCtrl || ImGui.GetIO().KeySuper;
 			bool shiftDown = Input.IsKeyDown(Keys.LeftShift) || Input.IsKeyDown(Keys.RightShift) || ImGui.GetIO().KeyShift;
 			SetSelectedEntity(entity, ctrlDown, shiftDown);
-			//if (!ctrlDown)// && !shiftDown)
-				_imGuiManager.OpenMainEntityInspector(entity);
+			_imGuiManager.OpenMainEntityInspector(entity);
 
 			ImGui.SetWindowFocus();
 		}
@@ -376,7 +375,7 @@ public class EntityPane
 	        if (entity != null && (entity.Type == Entity.InstanceType.NonSerialized
 	                               || entity.Type == Entity.InstanceType.SceneRequired))
 	        {
-	            EditorDebug.Error($"Cannot duplicate {entity.Type} entities.");
+	            Debug.Error($"Cannot duplicate {entity.Type} entities.");
 	            return true; 
 	        }
 	        return false;
@@ -543,7 +542,7 @@ public class EntityPane
 				{
 					Debug.Warn($"Failed to copy data for component {sourceComponent.GetType().Name}: {ex.Message}");
 					
-					// Fallback: try the Clone method if JSON fails
+					// fallback
 					try
 					{
 						var fallbackClone = sourceComponent.Clone();
@@ -560,7 +559,6 @@ public class EntityPane
 			}
 		}
 
-		// Add the clone to the scene
 		Core.Scene.AddEntity(clone);
 
 		// Copy children if any exist, but SKIP NonSerialized entities
