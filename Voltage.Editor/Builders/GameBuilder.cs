@@ -42,14 +42,14 @@ public static class GameBuilder
 	{
 		if (project == null)
 		{
-			EditorDebug.Error("No project provided for game build!", "GameBuilder");
+			Debug.Error("No project provided for game build!", "GameBuilder");
 			OnBuildFinished?.Invoke(false, "No project provided.");
 			return false;
 		}
 
 		if (platform == null)
 		{
-			EditorDebug.Error("No target platform specified for game build!", "GameBuilder");
+			Debug.Error("No target platform specified for game build!", "GameBuilder");
 			OnBuildFinished?.Invoke(false, "No target platform specified.");
 			return false;
 		}
@@ -57,7 +57,7 @@ public static class GameBuilder
 		var configuration = debugBuild ? "Debug" : "Release";
 
 		// Each platform gets its own subfolder: Build/win-x64, Build/linux-x64, etc.
-		var buildDir = Path.Combine(project.ProjectPath, "Build", platform.FolderSuffix);
+		var buildDir = Path.Combine(project.ProjectPath, "Build", configuration, platform.FolderSuffix); 
 		OnBuildStarted?.Invoke(6);
 
 		try
@@ -226,9 +226,6 @@ public static class GameBuilder
 			if (cancellationToken.IsCancellationRequested)
 				return false;
 
-			if (!string.IsNullOrWhiteSpace(output))
-				EditorDebug.Log($"dotnet publish output:\n{output}", "GameBuilder");
-
 			if (process.ExitCode != 0)
 			{
 				Debug.Error($"dotnet publish failed (exit code {process.ExitCode})");
@@ -239,7 +236,6 @@ public static class GameBuilder
 				return false;
 			}
 
-			EditorDebug.Log("dotnet publish succeeded.", "GameBuilder");
 			return true;
 		}
 		catch (Exception ex)
