@@ -239,10 +239,10 @@ public class EntityList : IEnumerable<Entity>
 			foreach (var entity in _tempEntityList)
 				entity.Components.CallOnEnableAndOnStart();
 
+			// Only the first time the scene is loaded
 			if (_isSceneStarted)
 			{
 				Scene.InvokeFinishedAddingEntities();
-				Scene.InvokeFinishedAddingEntitiesWithData();
 				_isSceneStarted = false;
 			}
 
@@ -263,6 +263,8 @@ public class EntityList : IEnumerable<Entity>
 				_entityDict[tag].Sort();
 			_unsortedTags.Clear();
 		}
+
+
 	}
 
 
@@ -300,6 +302,23 @@ public class EntityList : IEnumerable<Entity>
 		for (var i = 0; i < list.Length; i++) returnList.Add(list[i]);
 
 		return returnList;
+	}
+
+	/// <summary>
+	/// returns a list of all entities with the given tag name. Looks up the tag int value from ProjectSettings.
+	/// If the tag name is not found or no entities have the tag, an empty list is returned.
+	/// The returned List can be put back in the pool via ListPool.free.
+	/// </summary>
+	/// <returns>The entities with tag name.</returns>
+	/// <param name="tagName">Tag name.</param>
+	public List<Entity> EntitiesWithTag(string tagName)
+	{
+		var entityTags = Project.ProjectSettings.Instance.Entities.EntityTags;
+
+		if (!entityTags.TryGetValue(tagName, out var tag))
+			return ListPool<Entity>.Obtain();
+
+		return EntitiesWithTag(tag);
 	}
 
 	/// <summary>

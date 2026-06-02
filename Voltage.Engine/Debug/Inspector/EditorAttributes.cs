@@ -97,6 +97,22 @@ namespace Voltage
 			InspectorType = InspectorType;
 		}
 	}
+	/// <summary>
+	/// Optional attribute for controlling the display label and default expanded state
+	/// of a component group in the inspector.
+	/// </summary>
+	[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+	public sealed class ComponentGroupAttribute : Attribute
+	{
+		public string Label { get; }
+		public bool DefaultExpanded { get; }
+
+		public ComponentGroupAttribute(string label = null, bool defaultExpanded = true)
+		{
+			Label = label;
+			DefaultExpanded = defaultExpanded;
+		}
+	}
 
 	/// <summary>
 	/// Marks an int field as a single physics layer selector.

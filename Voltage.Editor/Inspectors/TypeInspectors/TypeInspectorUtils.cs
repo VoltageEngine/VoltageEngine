@@ -165,6 +165,10 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 				return new TypeInspectors_BlendStateInspector();
 			if (valueType.GetTypeInfo().IsEnum)
 				return new TypeInspectors_EnumInspector();
+
+			// must be checked before IsValueType
+			if (typeof(IComponentGroup).IsAssignableFrom(valueType) && !valueType.IsValueType)
+				return new TypeInspectors_ComponentGroupInspector();
 			if (valueType.GetTypeInfo().IsValueType)
 				return new TypeInspectors_StructInspector();
 			if (target is IList && ListInspector.KSupportedTypes.Contains(valueType.GetElementType()))

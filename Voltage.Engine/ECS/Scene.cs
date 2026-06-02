@@ -166,7 +166,6 @@ public partial class Scene
 
 	private IFinalRenderDelegate _finalRenderDelegate;
 
-
 	#region SceneResolutionPolicy private fields
 
 	/// <summary>
@@ -220,29 +219,20 @@ public partial class Scene
 
 	public bool DidSceneBegin => _didSceneBegin;
 	private bool _didSceneBegin;
+	public bool DidAllEntitiesLoad => _didAllEntitiesLoad;
+	private bool _didAllEntitiesLoad;
 
-
-	/// <summary>
-	/// sets the default design size and resolution policy that new scenes will use. horizontal/verticalBleed are only relevant for BestFit.
-	/// </summary>
-	/// <param name="width">Width.</param>
-	/// <param name="height">Height.</param>
-	/// <param name="sceneResolutionPolicy">Scene resolution policy.</param>
-	/// <param name="horizontalBleed">Horizontal bleed size. Used only if resolution policy is set to <see cref="SceneResolutionPolicy.BestFit"/>.</param>
-	/// <param name="verticalBleed">Vertical bleed size. Used only if resolution policy is set to <see cref="SceneResolutionPolicy.BestFit"/>.</param>
-	public static void SetDefaultDesignResolution(int width, int height,
-		SceneResolutionPolicy sceneResolutionPolicy,
-		int horizontalBleed = 0, int verticalBleed = 0)
-	{
-		_defaultDesignResolutionSize = new Point(width, height);
-		_defaultSceneResolutionPolicy = sceneResolutionPolicy;
-		if (_defaultSceneResolutionPolicy == SceneResolutionPolicy.BestFit)
-			_defaultDesignBleedSize = new Point(horizontalBleed, verticalBleed);
-	}
 
 	#region Events
 
 	public static event Action OnSceneBegin;
+	public static event Action OnFinishedAddingEntities;
+
+	public void InvokeFinishedAddingEntities()
+	{
+		_didAllEntitiesLoad = true;
+		OnFinishedAddingEntities?.Invoke();
+	}
 
 	public void InvokeSceneBegin()
 	{
@@ -253,10 +243,10 @@ public partial class Scene
 
 	public Scene()
 	{
+		_didAllEntitiesLoad = false;
 		Entities = new EntityList(this);
 		RenderableComponents = new RenderableComponentList();
 		Content = new VoltageContentManager();
-
 		var cameraEntity = SimpleCreateEntity<EntityData>("Camera (Main)", Entity.InstanceType.SceneRequired);
 		Camera = cameraEntity.AddComponent(new Camera());
 
@@ -509,6 +499,25 @@ public partial class Scene
 		if (_resolutionPolicy == SceneResolutionPolicy.BestFit)
 			_designBleedSize = new Point(horizontalBleed, verticalBleed);
 		UpdateResolutionScaler();
+	}
+
+
+	/// <summary>
+	/// sets the default design size and resolution policy that new scenes will use. horizontal/verticalBleed are only relevant for BestFit.
+	/// </summary>
+	/// <param name="width">Width.</param>
+	/// <param name="height">Height.</param>
+	/// <param name="sceneResolutionPolicy">Scene resolution policy.</param>
+	/// <param name="horizontalBleed">Horizontal bleed size. Used only if resolution policy is set to <see cref="SceneResolutionPolicy.BestFit"/>.</param>
+	/// <param name="verticalBleed">Vertical bleed size. Used only if resolution policy is set to <see cref="SceneResolutionPolicy.BestFit"/>.</param>
+	public static void SetDefaultDesignResolution(int width, int height,
+		SceneResolutionPolicy sceneResolutionPolicy,
+		int horizontalBleed = 0, int verticalBleed = 0)
+	{
+		_defaultDesignResolutionSize = new Point(width, height);
+		_defaultSceneResolutionPolicy = sceneResolutionPolicy;
+		if (_defaultSceneResolutionPolicy == SceneResolutionPolicy.BestFit)
+			_defaultDesignBleedSize = new Point(horizontalBleed, verticalBleed);
 	}
 
 	private void UpdateResolutionScaler()
@@ -928,25 +937,4 @@ public partial class Scene
 	}
 
 	#endregion
-
-	#region Events
-
-	public static event Action OnFinishedAddingEntities;
-	public static event Action OnFinishedAddingEntitiesWithData;
-
-	public static void InvokeFinishedAddingEntities()
-	{
-		OnFinishedAddingEntities?.Invoke();
-	}
-
-	public static void InvokeFinishedAddingEntitiesWithData()
-	{
-		OnFinishedAddingEntitiesWithData?.Invoke();
-	}
-
-	#endregion
-
-
-
-
 }

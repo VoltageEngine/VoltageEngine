@@ -14,7 +14,11 @@ namespace Voltage.SourceGenerators;
 /// Roslyn incremental source generator that:
 ///
 /// 1. For each partial Component subclass WITHOUT a manual Data override:
-///    emits a nested ComponentData class and Data property override.
+///    emits a nested ComponentData class, a Data property override, and a fully
+///    explicit JsonTokenReader-based Read method for the ComponentData class and for
+///    every user-defined struct/IComponentGroup field type it contains (recursively).
+///    The registered AOT deserializer calls that reader — zero reflection at runtime,
+///    safe under NativeAOT trimming.
 ///
 /// 2. For ALL concrete Component subclasses (including those with manual Data overrides):
 ///    emits a [ModuleInitializer] bootstrap that registers every Component type in
@@ -34,6 +38,30 @@ public class ComponentDataGenerator : IIncrementalGenerator
 	private const string TransformFullName = "Voltage.Transform";
 	private const string ComponentReferenceFullName = "Voltage.Serialization.ComponentReference";
 	private const string EntityReferenceFullName = "Voltage.Serialization.EntityReference";
+	private const string ComponentGroupInterface = "Voltage.IComponentGroup";
+
+	// Engine struct types whose readers are already hand-written in AotDeserializers.
+	// The generator calls those instead of emitting its own reader for these types.
+	private static readonly HashSet<string> KnownEngineStructReaders = new HashSet<string>
+	{
+		"Microsoft.Xna.Framework.Vector2",
+		"Microsoft.Xna.Framework.Color",
+		"Voltage.RectangleF",
+		"Voltage.Serialization.ComponentReference",
+		"Voltage.Serialization.EntityReference",
+	};
+
+	// Maps a known engine struct full name to the static read call expression the
+	// generator should emit (the JsonTokenReader parameter is always named _r).
+	private static readonly Dictionary<string, string> KnownEngineStructReadCall =
+		new Dictionary<string, string>
+		{
+			["Microsoft.Xna.Framework.Vector2"]       = "global::Voltage.Serialization.AotDeserializers.ReadVector2(_r)",
+			["Microsoft.Xna.Framework.Color"]         = "global::Voltage.Serialization.AotDeserializers.ReadColor(_r)",
+			["Voltage.RectangleF"]                    = "global::Voltage.Serialization.AotDeserializers.ReadRectangleF(_r)",
+			["Voltage.Serialization.ComponentReference"] = "global::Voltage.Serialization.AotDeserializers.ReadComponentReference(_r)",
+			["Voltage.Serialization.EntityReference"]    = "global::Voltage.Serialization.AotDeserializers.ReadEntityReference(_r)",
+		};
 
 	public void Initialize(IncrementalGeneratorInitializationContext context)
 	{
@@ -82,7 +110,8 @@ public class ComponentDataGenerator : IIncrementalGenerator
 		if (HasDataOverride(symbol))
 			return null;
 
-		var members = CollectSerializableMembers(symbol, ctx.SemanticModel.Compilation);
+		var members = CollectSerializableMembers(symbol, ctx.SemanticModel.Compilation,
+			out var skipped, out var structsWithExplicitCtor);
 
 		return new ComponentModel
 		{
@@ -92,6 +121,8 @@ public class ComponentDataGenerator : IIncrementalGenerator
 				? null
 				: symbol.ContainingNamespace.ToDisplayString(),
 			Members = members,
+			SkippedFieldNames = skipped,
+			StructsWithExplicitCtorFields = structsWithExplicitCtor,
 			HasManualDataOverride = false,
 			DiagnosticLocation = classDecl.Identifier.GetLocation()
 		};
@@ -124,7 +155,7 @@ public class ComponentDataGenerator : IIncrementalGenerator
 		string manualDataTypeName = null;
 		var dataProp = GetDataPropertyOverride(symbol);
 		if (dataProp != null && dataProp.Type is INamedTypeSymbol dataType
-		    && !SymbolEqualityComparer.Default.Equals(dataType, ctx.SemanticModel.Compilation.GetTypeByMetadataName("Voltage.ComponentData")))
+			&& !SymbolEqualityComparer.Default.Equals(dataType, ctx.SemanticModel.Compilation.GetTypeByMetadataName("Voltage.ComponentData")))
 		{
 			manualDataTypeName = dataType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 		}
@@ -162,17 +193,54 @@ public class ComponentDataGenerator : IIncrementalGenerator
 	{
 		if (model.Members.Count == 0)
 		{
+			// Determine whether there are public fields that were silently skipped —
+			// that indicates a type-recognition failure (e.g. IComponentGroup not found).
+			bool hasSkippedFields = model.SkippedFieldNames.Count > 0;
+
+			var diagId = hasSkippedFields ? "VLT002" : "VLT001";
+			var diagTitle = hasSkippedFields
+				? "Component fields skipped — IComponentGroup not recognized"
+				: "Component has no serializable members";
+			var diagMsg = hasSkippedFields
+				? $"Component '{{0}}' has public fields that were skipped because their types were not recognized. " +
+				  $"Skipped fields: {string.Join(", ", model.SkippedFieldNames)}. " +
+				  $"Ensure Voltage.IComponentGroup is defined and the Voltage.Engine project compiles without errors."
+				: "Component '{0}' has no serializable members. " +
+				  "If you expect scene data to be loaded, add public fields or mark private ones with [Serialize].";
+
+			// VLT003 — struct fields whose type has an explicit parameterless constructor.
+			// In a NativeAOT build the AOT deserializer cannot call the constructor and the
+			// reflection-based JSON path is trimmed away, so the struct fields are never
+			// populated from JSON. This data assignment only works in the Editor (reflection is available)
+			if (model.StructsWithExplicitCtorFields.Count > 0)
+			{
+				spc.ReportDiagnostic(Diagnostic.Create(
+					new DiagnosticDescriptor(
+						"VLT003",
+						"Struct with explicit constructor will not deserialize in NativeAOT builds",
+						"Component '{0}' has struct field(s) with an explicit parameterless constructor: {1}. " +
+						"In a NativeAOT/published build these fields are never populated from JSON — they silently " +
+						"keep their type defaults even when the save file contains different values. " +
+						"This works in the Editor (reflection available) but breaks in the build, making it a silent data loss trap. " +
+						"Convert the struct to a class implementing IComponentGroup to fix this.",
+						"Voltage.Serialization",
+						DiagnosticSeverity.Error,
+						isEnabledByDefault: true),
+					model.DiagnosticLocation ?? Location.None,
+					model.ClassName,
+					string.Join(", ", model.StructsWithExplicitCtorFields)));
+			}
+
 			spc.ReportDiagnostic(Diagnostic.Create(
 				new DiagnosticDescriptor(
-					"VLT001",
-					"Component has no serializable members",
-					"Component '{0}' has no serializable members. If you expect scene data to be loaded, add [Inspectable] to the fields you want to persist.",
+					diagId, diagTitle, diagMsg,
 					"Voltage.Serialization",
-					DiagnosticSeverity.Warning,
+					hasSkippedFields ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning,
 					isEnabledByDefault: true),
 				model.DiagnosticLocation ?? Location.None,
 				model.ClassName));
-			return; // skip code generation — no data class needed
+
+			return;
 		}
 
 		var sb = new StringBuilder();
@@ -200,7 +268,7 @@ public class ComponentDataGenerator : IIncrementalGenerator
 		sb.AppendLine($"{indent}partial class {model.ClassName}");
 		sb.AppendLine($"{indent}{{");
 
-		// Inner ComponentData class
+		// ── Inner ComponentData class ────────────────────────────────────────
 		sb.AppendLine($"{indent}\tpublic sealed class {dataClassName} : global::Voltage.ComponentData");
 		sb.AppendLine($"{indent}\t{{");
 		foreach (var m in model.Members)
@@ -216,7 +284,7 @@ public class ComponentDataGenerator : IIncrementalGenerator
 		sb.AppendLine($"{indent}\t}}");
 		sb.AppendLine();
 
-		// Data property override
+		// ── Data property override ───────────────────────────────────────────
 		sb.AppendLine($"{indent}\tpublic override global::Voltage.ComponentData Data");
 		sb.AppendLine($"{indent}\t{{");
 
@@ -236,6 +304,14 @@ public class ComponentDataGenerator : IIncrementalGenerator
 				sb.AppendLine($"{indent}\t\t\t_data.{dataFieldName} = global::{EntityReferenceFullName}.From(this.{m.Name});");
 			else if (m.IsTransformReference)
 				sb.AppendLine($"{indent}\t\t\t_data.{dataFieldName} = global::{EntityReferenceFullName}.From(this.{m.Name});");
+			else if (m.IsComponentGroup && m.UserClassTypeSymbol != null)
+			{
+				var fqn = m.UserClassTypeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+				var cloneName = GetCloneMethodName(m.UserClassTypeSymbol.ToDisplayString());
+				// Guard: field-level = new() is the intended pattern; warn if someone forgot it.
+				sb.AppendLine($"{indent}\t\t\tif (this.{m.Name} == null) global::Voltage.Debug.Error($\"[{{GetType().Name}}] IComponentGroup field '{m.Name}' is null. Initialize it with '= new {fqn.Split(':').Last().Trim()}()' at declaration.\");");
+				sb.AppendLine($"{indent}\t\t\t_data.{dataFieldName} = {cloneName}(this.{m.Name});");
+			}
 			else
 				sb.AppendLine($"{indent}\t\t\t_data.{dataFieldName} = this.{m.Name};");
 		}
@@ -257,6 +333,11 @@ public class ComponentDataGenerator : IIncrementalGenerator
 				sb.AppendLine($"{indent}\t\t\t\t// {m.Name} is a Component reference — resolved post-load by ComponentReferenceResolver.");
 			else if (m.IsEntityReference || m.IsTransformReference)
 				sb.AppendLine($"{indent}\t\t\t\t// {m.Name} is an Entity/Transform reference — resolved post-load by ComponentReferenceResolver.");
+			else if (m.IsComponentGroup && m.UserClassTypeSymbol != null)
+			{
+				var cloneName = GetCloneMethodName(m.UserClassTypeSymbol.ToDisplayString());
+				sb.AppendLine($"{indent}\t\t\t\tthis.{m.Name} = {cloneName}(_d.{dataFieldName});");
+			}
 			else
 				sb.AppendLine($"{indent}\t\t\t\tthis.{m.Name} = _d.{dataFieldName};");
 		}
@@ -265,15 +346,125 @@ public class ComponentDataGenerator : IIncrementalGenerator
 		sb.AppendLine($"{indent}\t}}");
 		sb.AppendLine();
 
+		// ── JsonTokenReader-based readers (AOT-safe deserialization) ─────────
+		//
+		// For every user-defined struct/IComponentGroup field type (nested included),
+		// emit the required static helper methods. These are the ONLY deserializers
+		// used at runtime — no reflection, no JsonDecoder.
+		//
+		// Known engine types (Vector2, Color, RectangleF) already have readers
+		// in AotDeserializers, so we just call those.
+		var emittedReaders = new HashSet<string>(); // shared guard for both struct and group helpers
+		foreach (var m in model.Members)
+		{
+			if (m.UserStructTypeSymbol != null)
+				EmitStructReaders(sb, indent + "\t", m.UserStructTypeSymbol, emittedReaders);
+
+			if (m.IsComponentGroup && m.UserClassTypeSymbol != null)
+				EmitGroupReaders(sb, indent + "\t", m.UserClassTypeSymbol, emittedReaders);
+		}
+
+		// Top-level ComponentData reader
+		EmitComponentDataReader(sb, indent + "\t", dataClassName, model.Members);
+		//
+		// // ── ResolveReferences override (AOT-safe reference resolution) ───────
+		// //
+		// // Called by ComponentReferenceResolver instead of reflection so that
+		// // ComponentReference / EntityReference fields are restored in NativeAOT builds.
+		// bool hasAnyReferences = model.Members.Any(m =>
+		// 	m.IsComponentReference || m.IsEntityReference || m.IsTransformReference);
+		//
+		// if (hasAnyReferences)
+		// {
+		// 	sb.AppendLine($"{indent}\tpublic override void ResolveReferences(");
+		// 	sb.AppendLine($"{indent}\t\tglobal::System.Action<string, global::Voltage.Serialization.ComponentReference> resolveComponent,");
+		// 	sb.AppendLine($"{indent}\t\tglobal::System.Action<string, global::Voltage.Serialization.EntityReference> resolveEntity)");
+		// 	sb.AppendLine($"{indent}\t{{");
+		//
+		// 	foreach (var m in model.Members)
+		// 	{
+		// 		var dataFieldName = GetDataFieldName(m.Name);
+		// 		if (m.IsComponentReference)
+		// 			sb.AppendLine($"{indent}\t\tresolveComponent(\"{m.Name}\", this.{dataFieldName});");
+		// 		else if (m.IsEntityReference || m.IsTransformReference)
+		// 			sb.AppendLine($"{indent}\t\tresolveEntity(\"{m.Name}\", this.{dataFieldName});");
+		// 	}
+		//
+		// 	sb.AppendLine($"{indent}\t}}");
+		// 	sb.AppendLine();
+		// }
+
+		// ── ApplyResolvedReferences override (AOT-safe reference resolution) ─
+		//
+		// Direct field assignment — no reflection. Called by ComponentReferenceResolver
+		// after scene load so Component/Entity/Transform references are restored
+		// correctly in both Editor and NativeAOT published builds.
+		bool hasAnyReferences = model.Members.Any(m =>
+			m.IsComponentReference || m.IsEntityReference || m.IsTransformReference);
+
+		if (hasAnyReferences)
+		{
+			sb.AppendLine($"{indent}\tpublic override void ApplyResolvedReferences(global::Voltage.ComponentData _data, global::Voltage.Scene _scene)");
+			sb.AppendLine($"{indent}\t{{");
+			sb.AppendLine($"{indent}\t\tif (_data is not {dataClassName} _d) return;");
+			sb.AppendLine();
+
+			foreach (var m in model.Members)
+			{
+				var dataFieldName = GetDataFieldName(m.Name);
+				if (m.IsComponentReference)
+				{
+					sb.AppendLine($"{indent}\t\tif (_d.{dataFieldName}.IsValid)");
+					sb.AppendLine($"{indent}\t\t{{");
+					sb.AppendLine($"{indent}\t\t\tvar _resolved_{m.Name} = global::Voltage.Serialization.ComponentReferenceResolver.FindComponentAot(_scene, _d.{dataFieldName});");
+					sb.AppendLine($"{indent}\t\t\tif (_resolved_{m.Name} is {m.TypeFullName} _typed_{m.Name})");
+					sb.AppendLine($"{indent}\t\t\t\tthis.{m.Name} = _typed_{m.Name};");
+					sb.AppendLine($"{indent}\t\t\telse");
+					sb.AppendLine($"{indent}\t\t\t\tglobal::Voltage.Debug.Error($\"[{{GetType().Name}}] Could not resolve ComponentReference for field '{m.Name}' — component not found in scene.\");");
+					sb.AppendLine($"{indent}\t\t}}");
+				}
+				else if (m.IsEntityReference)
+				{
+					sb.AppendLine($"{indent}\t\tif (_d.{dataFieldName}.IsValid)");
+					sb.AppendLine($"{indent}\t\t{{");
+					sb.AppendLine($"{indent}\t\t\tvar _resolvedEntity_{m.Name} = global::Voltage.Serialization.ComponentReferenceResolver.FindEntityAot(_scene, _d.{dataFieldName});");
+					sb.AppendLine($"{indent}\t\t\tif (_resolvedEntity_{m.Name} != null)");
+					sb.AppendLine($"{indent}\t\t\t\tthis.{m.Name} = _resolvedEntity_{m.Name};");
+					sb.AppendLine($"{indent}\t\t\telse");
+					sb.AppendLine($"{indent}\t\t\t\tglobal::Voltage.Debug.Error($\"[{{GetType().Name}}] Could not resolve EntityReference for field '{m.Name}' — entity not found in scene.\");");
+					sb.AppendLine($"{indent}\t\t}}");
+				}
+				else if (m.IsTransformReference)
+				{
+					sb.AppendLine($"{indent}\t\tif (_d.{dataFieldName}.IsValid)");
+					sb.AppendLine($"{indent}\t\t{{");
+					sb.AppendLine($"{indent}\t\t\tvar _resolvedTransform_{m.Name} = global::Voltage.Serialization.ComponentReferenceResolver.FindEntityAot(_scene, _d.{dataFieldName});");
+					sb.AppendLine($"{indent}\t\t\tif (_resolvedTransform_{m.Name} != null)");
+					sb.AppendLine($"{indent}\t\t\t\tthis.{m.Name} = _resolvedTransform_{m.Name}.Transform;");
+					sb.AppendLine($"{indent}\t\t\telse");
+					sb.AppendLine($"{indent}\t\t\t\tglobal::Voltage.Debug.Error($\"[{{GetType().Name}}] Could not resolve TransformReference for field '{m.Name}' — entity not found in scene.\");");
+					sb.AppendLine($"{indent}\t\t}}");
+				}
+			}
+
+			sb.AppendLine($"{indent}\t}}");
+			sb.AppendLine();
+		}
+
+		// ── [ModuleInitializer] registration ────────────────────────────────
+		//
 		// Registers the AOT deserializer so TryDeserialize can find this type at runtime.
-		// Without this, TryDeserialize always returns null for script components
-		// because EmitAotBootstrap only registers ComponentAotFactory entries.
+		// Uses the JsonTokenReader-based reader above — zero reflection, NativeAOT-safe.
 		sb.AppendLine($"{indent}\t[System.Runtime.CompilerServices.ModuleInitializer]");
 		sb.AppendLine($"{indent}\tinternal static void __RegisterDeserializer_{model.ClassName}()");
 		sb.AppendLine($"{indent}\t{{");
 		sb.AppendLine($"{indent}\t\tglobal::Voltage.Serialization.ComponentDataAotDeserializer.Register(");
 		sb.AppendLine($"{indent}\t\t\ttypeof({dataClassName}).FullName,");
-		sb.AppendLine($"{indent}\t\t\tstatic _json => (global::Voltage.ComponentData)global::Voltage.Persistence.Json.FromJson<{dataClassName}>(_json));");
+		sb.AppendLine($"{indent}\t\t\tstatic _json =>");
+		sb.AppendLine($"{indent}\t\t\t{{");
+		sb.AppendLine($"{indent}\t\t\t\tusing var _r = new global::Voltage.Persistence.JsonTokenReader(_json);");
+		sb.AppendLine($"{indent}\t\t\t\treturn Read_{dataClassName}(_r);");
+		sb.AppendLine($"{indent}\t\t\t}});");
 		sb.AppendLine($"{indent}\t}}");
 
 		sb.AppendLine($"{indent}}}");
@@ -282,6 +473,364 @@ public class ComponentDataGenerator : IIncrementalGenerator
 			sb.AppendLine("}");
 
 		spc.AddSource($"{model.ClassName}.ComponentData.g.cs", SourceText.From(sb.ToString(), Encoding.UTF8));
+	}
+
+	/// <summary>
+	/// Emits a private static Read_TypeName(JsonTokenReader) method for a user-defined
+	/// struct type and all user-defined struct types it contains (depth-first).
+	/// Skips known engine types that already have readers in AotDeserializers.
+	/// </summary>
+	private static void EmitStructReaders(StringBuilder sb, string indent,
+		INamedTypeSymbol structType, HashSet<string> emitted)
+	{
+		var fullName = structType.ToDisplayString();
+		if (emitted.Contains(fullName))
+			return;
+		emitted.Add(fullName);
+
+		// Recurse into nested struct fields first (depth-first)
+		foreach (var member in structType.GetMembers())
+		{
+			if (member is IFieldSymbol f && !f.IsStatic && !f.IsConst && !f.IsImplicitlyDeclared
+				&& f.Type is INamedTypeSymbol ft
+				&& ft.IsValueType && !ft.IsPrimitive() && ft.EnumUnderlyingType == null
+				&& !KnownEngineStructReaders.Contains(ft.ToDisplayString()))
+			{
+				EmitStructReaders(sb, indent, ft, emitted);
+			}
+		}
+
+		var readerName = GetStructReaderMethodName(fullName);
+
+		sb.AppendLine($"{indent}private static {structType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)} {readerName}(global::Voltage.Persistence.JsonTokenReader _r)");
+		sb.AppendLine($"{indent}{{");
+		sb.AppendLine($"{indent}\tvar _v = new {structType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}();");
+		sb.AppendLine($"{indent}\tif (!_r.BeginObject()) return _v;");
+		sb.AppendLine($"{indent}\twhile (_r.ReadNextKey(out var _k))");
+		sb.AppendLine($"{indent}\t{{");
+		sb.AppendLine($"{indent}\t\tswitch (_k)");
+		sb.AppendLine($"{indent}\t\t{{");
+
+		foreach (var member in structType.GetMembers())
+		{
+			if (member is not IFieldSymbol field)
+				continue;
+			if (field.IsStatic || field.IsConst || field.IsImplicitlyDeclared)
+				continue;
+			if (field.DeclaredAccessibility != Accessibility.Public)
+				continue;
+
+			var readExpr = GetReadExpression(field.Type, "_r");
+			sb.AppendLine($"{indent}\t\t\tcase \"{field.Name}\": _v.{field.Name} = {readExpr}; break;");
+		}
+
+		sb.AppendLine($"{indent}\t\t\tdefault: _r.SkipValue(); break;");
+		sb.AppendLine($"{indent}\t\t}}");
+		sb.AppendLine($"{indent}\t}}");
+		sb.AppendLine($"{indent}\treturn _v;");
+		sb.AppendLine($"{indent}}}");
+		sb.AppendLine();
+	}
+
+	/// <summary>
+	/// Returns true when a user-defined struct has an explicit (non-compiler-generated)
+	/// parameterless constructor — i.e. the user set default field values inside it.
+	/// The AOT reader uses <c>new T()</c> which ignores those defaults entirely.
+	/// </summary>
+	private static bool HasExplicitParameterlessConstructor(INamedTypeSymbol structType)
+	{
+		foreach (var ctor in structType.InstanceConstructors)
+		{
+			if (!ctor.IsImplicitlyDeclared && ctor.Parameters.Length == 0)
+				return true;
+		}
+		return false;
+	}
+
+	/// <summary>
+	/// Emits two static helpers for each <see cref="IComponentGroup"/> class type encountered
+	/// (depth-first, recursing into nested groups and user structs):
+	/// <list type="bullet">
+	///   <item><c>Clone_X(X src) → X</c> — deep-copies the group for snapshot storage in ComponentData.</item>
+	///   <item><c>Read_X(JsonTokenReader) → X</c> — AOT-safe deserializer called by the ComponentData reader.</item>
+	/// </list>
+	/// </summary>
+	private static void EmitGroupReaders(StringBuilder sb, string indent,
+		INamedTypeSymbol groupType, HashSet<string> emitted)
+	{
+		var fullName = groupType.ToDisplayString();
+		if (emitted.Contains(fullName))
+			return;
+		emitted.Add(fullName);
+
+		// Recurse into nested IComponentGroup fields first (depth-first)
+		foreach (var member in groupType.GetMembers())
+		{
+			if (member is IFieldSymbol f && !f.IsStatic && !f.IsConst && !f.IsImplicitlyDeclared
+				&& f.Type is INamedTypeSymbol ft && IsComponentGroupType(ft))
+			{
+				EmitGroupReaders(sb, indent, ft, emitted);
+			}
+		}
+
+		// Also emit readers for any user-defined struct fields within the group
+		foreach (var member in groupType.GetMembers())
+		{
+			if (member is IFieldSymbol f && !f.IsStatic && !f.IsConst && !f.IsImplicitlyDeclared
+				&& f.Type is INamedTypeSymbol ft
+				&& ft.IsValueType && !ft.IsPrimitive() && ft.EnumUnderlyingType == null
+				&& !KnownEngineStructReaders.Contains(ft.ToDisplayString()))
+			{
+				EmitStructReaders(sb, indent, ft, emitted);
+			}
+		}
+
+		var fqn = groupType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+		var readerName = GetStructReaderMethodName(fullName);
+		var cloneName = GetCloneMethodName(fullName);
+
+		// ── Clone_ method ────────────────────────────────────────────────────
+		sb.AppendLine($"{indent}private static {fqn} {cloneName}({fqn} _src)");
+		sb.AppendLine($"{indent}{{");
+		sb.AppendLine($"{indent}\tif (_src == null) return null;");
+		sb.AppendLine($"{indent}\tvar _v = new {fqn}();");
+
+		foreach (var member in groupType.GetMembers())
+		{
+			if (member is not IFieldSymbol field) continue;
+			if (field.IsStatic || field.IsConst || field.IsImplicitlyDeclared) continue;
+			if (field.DeclaredAccessibility != Accessibility.Public) continue;
+
+			if (IsComponentGroupType(field.Type))
+			{
+				var nestedClone = GetCloneMethodName(field.Type.ToDisplayString());
+				sb.AppendLine($"{indent}\t_v.{field.Name} = {nestedClone}(_src.{field.Name});");
+			}
+			else
+			{
+				// Value types (structs, primitives) and strings are copied directly
+				sb.AppendLine($"{indent}\t_v.{field.Name} = _src.{field.Name};");
+			}
+		}
+
+		sb.AppendLine($"{indent}\treturn _v;");
+		sb.AppendLine($"{indent}}}");
+		sb.AppendLine();
+
+		// ── Read_ method ─────────────────────────────────────────────────────
+		sb.AppendLine($"{indent}private static {fqn} {readerName}(global::Voltage.Persistence.JsonTokenReader _r)");
+		sb.AppendLine($"{indent}{{");
+		sb.AppendLine($"{indent}\tvar _v = new {fqn}();");
+		sb.AppendLine($"{indent}\tif (!_r.BeginObject()) return _v;");
+		sb.AppendLine($"{indent}\twhile (_r.ReadNextKey(out var _k))");
+		sb.AppendLine($"{indent}\t{{");
+		sb.AppendLine($"{indent}\t\tswitch (_k)");
+		sb.AppendLine($"{indent}\t\t{{");
+
+		foreach (var member in groupType.GetMembers())
+		{
+			if (member is not IFieldSymbol field) continue;
+			if (field.IsStatic || field.IsConst || field.IsImplicitlyDeclared) continue;
+			if (field.DeclaredAccessibility != Accessibility.Public) continue;
+
+			var readExpr = GetReadExpression(field.Type, "_r");
+			sb.AppendLine($"{indent}\t\t\tcase \"{field.Name}\": _v.{field.Name} = {readExpr}; break;");
+		}
+
+		sb.AppendLine($"{indent}\t\t\tdefault: _r.SkipValue(); break;");
+		sb.AppendLine($"{indent}\t\t}}");
+		sb.AppendLine($"{indent}\t}}");
+		sb.AppendLine($"{indent}\treturn _v;");
+		sb.AppendLine($"{indent}}}");
+		sb.AppendLine();
+	}
+
+	/// <summary>
+	/// Emits the top-level Read_XxxGeneratedData(JsonTokenReader) for the ComponentData class.
+	/// </summary>
+	private static void EmitComponentDataReader(StringBuilder sb, string indent,
+		string dataClassName, List<MemberModel> members)
+	{
+		sb.AppendLine($"{indent}private static {dataClassName} Read_{dataClassName}(global::Voltage.Persistence.JsonTokenReader _r)");
+		sb.AppendLine($"{indent}{{");
+		sb.AppendLine($"{indent}\tvar _d = new {dataClassName}();");
+		sb.AppendLine($"{indent}\tif (!_r.BeginObject()) return _d;");
+		sb.AppendLine($"{indent}\twhile (_r.ReadNextKey(out var _k))");
+		sb.AppendLine($"{indent}\t{{");
+		sb.AppendLine($"{indent}\t\tswitch (_k)");
+		sb.AppendLine($"{indent}\t\t{{");
+		sb.AppendLine($"{indent}\t\t\tcase \"Enabled\": _d.Enabled = _r.ReadBool(); break;");
+		sb.AppendLine($"{indent}\t\t\tcase \"CanBeSelected\": _d.CanBeSelected = _r.ReadBool(); break;");
+		sb.AppendLine($"{indent}\t\t\tcase \"UpdateOrder\": _d.UpdateOrder = _r.ReadInt(); break;");
+
+		foreach (var m in members)
+		{
+			var dataFieldName = GetDataFieldName(m.Name);
+			string readExpr;
+			if (m.IsComponentReference || m.IsEntityReference || m.IsTransformReference)
+			{
+				// ComponentReference and EntityReference are structs with string fields —
+				// they are handled by dedicated readers in AotDeserializers.
+				var knownCall = m.IsComponentReference
+					? "global::Voltage.Serialization.AotDeserializers.ReadComponentReference(_r)"
+					: "global::Voltage.Serialization.AotDeserializers.ReadEntityReference(_r)";
+				readExpr = knownCall;
+			}
+			else if (m.IsComponentGroup && m.UserClassTypeSymbol != null)
+			{
+				var readerMethod = GetStructReaderMethodName(m.UserClassTypeSymbol.ToDisplayString());
+				readExpr = $"{readerMethod}(_r)";
+			}
+			else
+			{
+				readExpr = GetReadExpressionForMember(m, "_r");
+			}
+			sb.AppendLine($"{indent}\t\t\tcase \"{dataFieldName}\": _d.{dataFieldName} = {readExpr}; break;");
+		}
+
+		sb.AppendLine($"{indent}\t\t\tdefault: _r.SkipValue(); break;");
+		sb.AppendLine($"{indent}\t\t}}");
+		sb.AppendLine($"{indent}\t}}");
+		sb.AppendLine($"{indent}\treturn _d;");
+		sb.AppendLine($"{indent}}}");
+		sb.AppendLine();
+	}
+
+	/// <summary>
+	/// Returns the read expression for a field/property based on its type symbol.
+	/// </summary>
+	private static string GetReadExpression(ITypeSymbol type, string readerParam)
+	{
+		// Primitives and string
+		switch (type.SpecialType)
+		{
+			case SpecialType.System_Boolean: return $"{readerParam}.ReadBool()";
+			case SpecialType.System_Byte:
+			case SpecialType.System_SByte:
+			case SpecialType.System_Int16:
+			case SpecialType.System_UInt16:
+			case SpecialType.System_Int32:
+			case SpecialType.System_UInt32: return $"{readerParam}.ReadInt()";
+			case SpecialType.System_Int64:
+			case SpecialType.System_UInt64: return $"{readerParam}.ReadLong()";
+			case SpecialType.System_Single: return $"{readerParam}.ReadFloat()";
+			case SpecialType.System_Double: return $"{readerParam}.ReadDouble()";
+			case SpecialType.System_String: return $"{readerParam}.ReadString()";
+		}
+
+		var fullName = type.ToDisplayString();
+
+		// Enum
+		if (type is INamedTypeSymbol { EnumUnderlyingType: not null } enumType)
+			return $"{readerParam}.ReadEnum<{enumType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}>()";
+
+		// Known engine struct types with pre-existing readers in AotDeserializers
+		if (KnownEngineStructReadCall.TryGetValue(fullName, out var knownCall))
+			return knownCall.Replace("_r", readerParam);
+
+		// User-defined value type (struct) — call the generated reader
+		if (type.IsValueType)
+		{
+			var readerMethod = GetStructReaderMethodName(fullName);
+			return $"{readerMethod}({readerParam})";
+		}
+
+		// IComponentGroup class type — call the generated class reader
+		if (IsComponentGroupType(type))
+		{
+			var readerMethod = GetStructReaderMethodName(fullName);
+			return $"{readerMethod}({readerParam})";
+		}
+
+		// Fallback: skip unrecognised types
+		return $"default /* unsupported type: {fullName} */";
+	}
+
+	/// <summary>
+	/// Overload that works from a <see cref="MemberModel"/> (already has pre-computed type info).
+	/// </summary>
+	private static string GetReadExpressionForMember(MemberModel m, string readerParam)
+	{
+		if (m.IsComponentGroup && m.UserClassTypeSymbol != null)
+		{
+			var readerMethod = GetStructReaderMethodName(m.UserClassTypeSymbol.ToDisplayString());
+			return $"{readerMethod}({readerParam})";
+		}
+
+		if (m.UserStructTypeSymbol != null)
+		{
+			// User-defined struct — call the generated reader
+			var readerMethod = GetStructReaderMethodName(m.UserStructTypeSymbol.ToDisplayString());
+			return $"{readerMethod}({readerParam})";
+		}
+
+		// Delegate to the type-symbol based overload using a lightweight probe
+		// We encode the type kind in TypeFullName via the existing field
+		return GetReadExpressionFromTypeName(m.TypeFullName, readerParam);
+	}
+
+	/// <summary>
+	/// Fallback read-expression resolver based on the stored fully-qualified type name.
+	/// Used when a <see cref="MemberModel"/> has no <see cref="MemberModel.UserStructTypeSymbol"/>.
+	/// </summary>
+	private static string GetReadExpressionFromTypeName(string typeFullName, string readerParam)
+	{
+		switch (typeFullName)
+		{
+			case "bool":
+			case "global::System.Boolean": return $"{readerParam}.ReadBool()";
+			case "int":
+			case "global::System.Int32": return $"{readerParam}.ReadInt()";
+			case "uint":
+			case "global::System.UInt32": return $"(uint){readerParam}.ReadInt()";
+			case "long":
+			case "global::System.Int64": return $"{readerParam}.ReadLong()";
+			case "float":
+			case "global::System.Single": return $"{readerParam}.ReadFloat()";
+			case "double":
+			case "global::System.Double": return $"{readerParam}.ReadDouble()";
+			case "string":
+			case "global::System.String": return $"{readerParam}.ReadString()";
+			case "global::Microsoft.Xna.Framework.Vector2": return $"global::Voltage.Serialization.AotDeserializers.ReadVector2({readerParam})";
+			case "global::Microsoft.Xna.Framework.Color": return $"global::Voltage.Serialization.AotDeserializers.ReadColor({readerParam})";
+			case "global::Voltage.RectangleF": return $"global::Voltage.Serialization.AotDeserializers.ReadRectangleF({readerParam})";
+		}
+
+		// Generic enum detection is not possible from name alone; leave as skip
+		return $"default /* unsupported type: {typeFullName} */";
+	}
+
+	/// <summary>
+	/// Derives a valid C# method name from a type's full name.
+	/// e.g. "Jolt.Scripts.PlayerData+Movement" → "Read_PlayerData_Movement"
+	/// </summary>
+	private static string GetStructReaderMethodName(string typeFullName)
+	{
+		// Replace namespace dots and nested-type "+" separator with "_"
+		var name = typeFullName
+			.Replace('.', '_')
+			.Replace('+', '_')
+			.Replace('<', '_')
+			.Replace('>', '_')
+			.Replace(',', '_')
+			.Replace(' ', '_');
+		return "Read_" + name;
+	}
+
+	/// <summary>
+	/// Derives the Clone_ method name from a type's full name.
+	/// e.g. "Jolt.Scripts.PlayerData+Movement" → "Clone_PlayerData_Movement"
+	/// </summary>
+	private static string GetCloneMethodName(string typeFullName)
+	{
+		var name = typeFullName
+			.Replace('.', '_')
+			.Replace('+', '_')
+			.Replace('<', '_')
+			.Replace('>', '_')
+			.Replace(',', '_')
+			.Replace(' ', '_');
+		return "Clone_" + name;
 	}
 
 	#endregion
@@ -340,7 +889,8 @@ public class ComponentDataGenerator : IIncrementalGenerator
 
 			// Only emit deserializer for components with a MANUAL Data override.
 			// Auto-generated components register their own deserializer via
-			// __RegisterDeserializer_ emitted by EmitDataClass.
+			// __RegisterDeserializer_ emitted by EmitDataClass — which now uses
+			// the JsonTokenReader-based reader, so it is fully NativeAOT-safe.
 			if (entry.ManualDataTypeFullName != null)
 			{
 				sb.AppendLine();
@@ -391,9 +941,31 @@ public class ComponentDataGenerator : IIncrementalGenerator
 	}
 
 	/// <summary>
-	/// Returns true if the type or any of its base types is Voltage.Component.
-	/// Used to detect Component-typed fields that must be stored as ComponentReference.
+	/// Returns true when the type implements <c>Voltage.IComponentGroup</c>.
+	/// Checks by fully-qualified name first, then falls back to name + namespace
+	/// to handle cases where the interface symbol is unresolved at generator time.
 	/// </summary>
+	private static bool IsComponentGroupType(ITypeSymbol type)
+	{
+		if (type == null || type.IsValueType) return false;
+		if (type is not INamedTypeSymbol named) return false;
+
+		foreach (var iface in named.AllInterfaces)
+		{
+			// Primary: fully-qualified match
+			if (iface.ToDisplayString() == ComponentGroupInterface)
+				return true;
+
+			// Fallback: match by name + containing namespace in case the symbol
+			// is unresolved or its display string differs (e.g. error type).
+			if (iface.Name == "IComponentGroup" &&
+				iface.ContainingNamespace?.ToDisplayString() == "Voltage")
+				return true;
+		}
+
+		return false;
+	}
+
 	private static bool IsComponentType(ITypeSymbol type, Compilation compilation)
 	{
 		if (type == null || type.IsValueType || type.SpecialType == SpecialType.System_String)
@@ -431,9 +1003,31 @@ public class ComponentDataGenerator : IIncrementalGenerator
 		return transformSymbol != null && SymbolEqualityComparer.Default.Equals(type, transformSymbol);
 	}
 
-	private static List<MemberModel> CollectSerializableMembers(INamedTypeSymbol componentType, Compilation compilation)
+	/// <summary>
+	/// Returns true when the type is a user-defined struct that needs a generated reader.
+	/// Excludes primitives, enums, strings, and known engine struct types.
+	/// </summary>
+	private static bool IsUserDefinedStruct(ITypeSymbol type)
+	{
+		if (type == null || !type.IsValueType)
+			return false;
+		if (type.SpecialType != SpecialType.None)
+			return false; // primitive or System.* special type
+		if (type is INamedTypeSymbol { EnumUnderlyingType: not null } enumType)
+			return false; // enum
+		if (KnownEngineStructReaders.Contains(type.ToDisplayString()))
+			return false;
+		return true;
+	}
+
+	private static List<MemberModel> CollectSerializableMembers(
+		INamedTypeSymbol componentType, Compilation compilation,
+		out List<string> skippedFieldNames,
+		out List<string> structsWithExplicitCtorFields)
 	{
 		var members = new List<MemberModel>();
+		skippedFieldNames = new List<string>();
+		structsWithExplicitCtorFields = new List<string>();
 		var currentType = componentType;
 
 		while (currentType is not null && currentType.ToDisplayString() != ComponentBaseFullName)
@@ -454,13 +1048,36 @@ public class ComponentDataGenerator : IIncrementalGenerator
 					bool isComponentRef = IsComponentType(field.Type, compilation);
 					bool isEntityRef = IsEntityType(field.Type, compilation);
 					bool isTransformRef = IsTransformType(field.Type, compilation);
+					bool isComponentGroup = IsComponentGroupType(field.Type);
 
-					// Skip plain class references that are not Component/Entity/Transform —
-					// they cannot be serialized and must not appear in ComponentData.
+					// Skip class references that are not Component/Entity/Transform/IComponentGroup —
+					// they cannot be reliably serialized and must not appear in ComponentData.
 					if (!field.Type.IsValueType &&
 						field.Type.SpecialType != SpecialType.System_String &&
-						!isComponentRef && !isEntityRef && !isTransformRef)
+						!isComponentRef && !isEntityRef && !isTransformRef && !isComponentGroup)
+					{
+						if (field.DeclaredAccessibility == Accessibility.Public)
+							skippedFieldNames.Add($"{field.Name} ({field.Type.ToDisplayString()})");
 						continue;
+					}
+
+					INamedTypeSymbol userStructSymbol = IsUserDefinedStruct(field.Type)
+						? field.Type as INamedTypeSymbol
+						: null;
+
+					// VLT003: user-defined struct with an explicit parameterless constructor.
+					// The AOT reader calls new T() and then reads JSON fields into it — any
+					// defaults set inside the constructor body are silently discarded.
+					// The correct pattern is to use IComponentGroup (a class) instead.
+					if (userStructSymbol != null && HasExplicitParameterlessConstructor(userStructSymbol))
+					{
+						structsWithExplicitCtorFields.Add(
+							$"{field.Name} ({userStructSymbol.ToDisplayString()})");
+					}
+
+					INamedTypeSymbol userClassSymbol = isComponentGroup
+						? field.Type as INamedTypeSymbol
+						: null;
 
 					if (field.DeclaredAccessibility == Accessibility.Public)
 					{
@@ -472,7 +1089,10 @@ public class ComponentDataGenerator : IIncrementalGenerator
 							IsPublic = true,
 							IsComponentReference = isComponentRef,
 							IsEntityReference = isEntityRef,
-							IsTransformReference = isTransformRef
+							IsTransformReference = isTransformRef,
+							IsComponentGroup = isComponentGroup,
+							UserStructTypeSymbol = userStructSymbol,
+							UserClassTypeSymbol = userClassSymbol
 						});
 					}
 					else if (hasSerializedField || hasInspectable)
@@ -485,7 +1105,10 @@ public class ComponentDataGenerator : IIncrementalGenerator
 							IsPublic = false,
 							IsComponentReference = isComponentRef,
 							IsEntityReference = isEntityRef,
-							IsTransformReference = isTransformRef
+							IsTransformReference = isTransformRef,
+							IsComponentGroup = isComponentGroup,
+							UserStructTypeSymbol = userStructSymbol,
+							UserClassTypeSymbol = userClassSymbol
 						});
 					}
 				}
@@ -494,7 +1117,7 @@ public class ComponentDataGenerator : IIncrementalGenerator
 					if (prop.IsStatic || prop.IsImplicitlyDeclared || prop.IsIndexer)
 						continue;
 					if (prop.Name is "Data" or "Enabled" or "UpdateOrder" or "Name" or "IsSerialized"
-					             or "Transform" or "Entity" or "CanBeSelected")
+								 or "Transform" or "Entity" or "CanBeSelected")
 						continue;
 					if (HasAttribute(prop, HideAttribute) || HasAttribute(prop, JsonExcludeAttribute))
 						continue;
@@ -508,11 +1131,26 @@ public class ComponentDataGenerator : IIncrementalGenerator
 					bool isComponentRef = IsComponentType(prop.Type, compilation);
 					bool isEntityRef = IsEntityType(prop.Type, compilation);
 					bool isTransformRef = IsTransformType(prop.Type, compilation);
+					bool isComponentGroup = IsComponentGroupType(prop.Type);
 
 					if (!prop.Type.IsValueType &&
 						prop.Type.SpecialType != SpecialType.System_String &&
-						!isComponentRef && !isEntityRef && !isTransformRef)
+						!isComponentRef && !isEntityRef && !isTransformRef && !isComponentGroup)
 						continue;
+
+					INamedTypeSymbol userStructSymbol = IsUserDefinedStruct(prop.Type)
+						? prop.Type as INamedTypeSymbol
+						: null;
+
+					if (userStructSymbol != null && HasExplicitParameterlessConstructor(userStructSymbol))
+					{
+						structsWithExplicitCtorFields.Add(
+							$"{prop.Name} ({userStructSymbol.ToDisplayString()})");
+					}
+
+					INamedTypeSymbol userClassSymbol = isComponentGroup
+						? prop.Type as INamedTypeSymbol
+						: null;
 
 					if (hasPublicGetter && hasPublicSetter)
 					{
@@ -524,7 +1162,10 @@ public class ComponentDataGenerator : IIncrementalGenerator
 							IsPublic = true,
 							IsComponentReference = isComponentRef,
 							IsEntityReference = isEntityRef,
-							IsTransformReference = isTransformRef
+							IsTransformReference = isTransformRef,
+							IsComponentGroup = isComponentGroup,
+							UserStructTypeSymbol = userStructSymbol,
+							UserClassTypeSymbol = userClassSymbol
 						});
 					}
 					else if ((hasSerializedField || hasInspectable) && prop.SetMethod is not null)
@@ -537,7 +1178,10 @@ public class ComponentDataGenerator : IIncrementalGenerator
 							IsPublic = false,
 							IsComponentReference = isComponentRef,
 							IsEntityReference = isEntityRef,
-							IsTransformReference = isTransformRef
+							IsTransformReference = isTransformRef,
+							IsComponentGroup = isComponentGroup,
+							UserStructTypeSymbol = userStructSymbol,
+							UserClassTypeSymbol = userClassSymbol
 						});
 					}
 				}
@@ -584,8 +1228,17 @@ public class ComponentDataGenerator : IIncrementalGenerator
 		public string FullyQualifiedName;
 		public string FullNamespace;
 		public List<MemberModel> Members;
+		/// <summary>
+		/// Public fields that were encountered but skipped because their type was
+		/// not recognized as serializable. Populated for diagnostic VLT002.
+		/// </summary>
+		public List<string> SkippedFieldNames;
+		/// <summary>
+		/// User-defined struct fields that have an explicit parameterless constructor.
+		/// Those constructor defaults are lost during AOT deserialization — VLT003.
+		/// </summary>
+		public List<string> StructsWithExplicitCtorFields;
 		public bool HasManualDataOverride;
-		/// <summary>Location used for diagnostics. May be null.</summary>
 		public Location DiagnosticLocation;
 	}
 
@@ -598,6 +1251,22 @@ public class ComponentDataGenerator : IIncrementalGenerator
 		public bool IsComponentReference;
 		public bool IsEntityReference;
 		public bool IsTransformReference;
+		/// <summary>
+		/// True when this member's type implements <c>Voltage.IComponentGroup</c>.
+		/// Mutually exclusive with <see cref="UserStructTypeSymbol"/>.
+		/// </summary>
+		public bool IsComponentGroup;
+		/// <summary>
+		/// Set when this member's type is a user-defined struct that needs a generated
+		/// JsonTokenReader reader. Null for primitives, enums, strings, known engine types,
+		/// and IComponentGroup types.
+		/// </summary>
+		public INamedTypeSymbol UserStructTypeSymbol;
+		/// <summary>
+		/// Set when <see cref="IsComponentGroup"/> is true. Holds the class symbol so
+		/// <c>EmitGroupReaders</c> can iterate the group's fields.
+		/// </summary>
+		public INamedTypeSymbol UserClassTypeSymbol;
 	}
 
 	private struct BootstrapEntry
@@ -608,4 +1277,35 @@ public class ComponentDataGenerator : IIncrementalGenerator
 	}
 
 	#endregion
+}
+
+/// <summary>
+/// Extension helpers for <see cref="INamedTypeSymbol"/> that are not available in
+/// netstandard2.0 but are trivial to implement.
+/// </summary>
+internal static class TypeSymbolExtensions
+{
+	/// <summary>Returns true when the type is a CLR primitive (bool, int, float, etc.).</summary>
+	internal static bool IsPrimitive(this INamedTypeSymbol type)
+	{
+		switch (type.SpecialType)
+		{
+			case SpecialType.System_Boolean:
+			case SpecialType.System_Byte:
+			case SpecialType.System_SByte:
+			case SpecialType.System_Char:
+			case SpecialType.System_Int16:
+			case SpecialType.System_UInt16:
+			case SpecialType.System_Int32:
+			case SpecialType.System_UInt32:
+			case SpecialType.System_Int64:
+			case SpecialType.System_UInt64:
+			case SpecialType.System_Single:
+			case SpecialType.System_Double:
+			case SpecialType.System_Decimal:
+				return true;
+			default:
+				return false;
+		}
+	}
 }

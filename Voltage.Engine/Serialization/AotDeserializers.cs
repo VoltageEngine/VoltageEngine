@@ -308,9 +308,9 @@ namespace Voltage.Serialization
 
 		#endregion
 
-		#region MonoGame primitive readers
+		#region Primitive readers — public so source-generated deserializers can call them
 
-		private static Vector2 ReadVector2(JsonTokenReader r)
+		public static Vector2 ReadVector2(JsonTokenReader r)
 		{
 			var v = new Vector2();
 			if (!r.BeginObject()) return v;
@@ -326,7 +326,7 @@ namespace Voltage.Serialization
 			return v;
 		}
 
-		private static Color ReadColor(JsonTokenReader r)
+		public static Color ReadColor(JsonTokenReader r)
 		{
 			int red = 0, green = 0, blue = 0, alpha = 255;
 			if (!r.BeginObject()) return new Color(red, green, blue, alpha);
@@ -342,6 +342,67 @@ namespace Voltage.Serialization
 				}
 			}
 			return new Color(red, green, blue, alpha);
+		}
+
+		/// <summary>
+		/// AOT-safe reader for RectangleF. Used by source-generated ComponentData deserializers.
+		/// </summary>
+		public static RectangleF ReadRectangleF(JsonTokenReader r)
+		{
+			float x = 0, y = 0, width = 0, height = 0;
+			if (!r.BeginObject()) return new RectangleF(x, y, width, height);
+			while (r.ReadNextKey(out var key))
+			{
+				switch (key)
+				{
+					case "X": x = r.ReadFloat(); break;
+					case "Y": y = r.ReadFloat(); break;
+					case "Width": width = r.ReadFloat(); break;
+					case "Height": height = r.ReadFloat(); break;
+					default: r.SkipValue(); break;
+				}
+			}
+			return new RectangleF(x, y, width, height);
+		}
+
+		/// <summary>
+		/// AOT-safe reader for ComponentReference. Used by source-generated ComponentData deserializers.
+		/// </summary>
+		public static ComponentReference ReadComponentReference(JsonTokenReader r)
+		{
+			var v = new ComponentReference();
+			if (!r.BeginObject()) return v;
+			while (r.ReadNextKey(out var key))
+			{
+				switch (key)
+				{
+					case "EntityPersistentId": v.EntityPersistentId = r.ReadString(); break;
+					case "EntityName":         v.EntityName = r.ReadString(); break;
+					case "ComponentTypeName":  v.ComponentTypeName = r.ReadString(); break;
+					case "ComponentName":      v.ComponentName = r.ReadString(); break;
+					default: r.SkipValue(); break;
+				}
+			}
+			return v;
+		}
+
+		/// <summary>
+		/// AOT-safe reader for EntityReference. Used by source-generated ComponentData deserializers.
+		/// </summary>
+		public static EntityReference ReadEntityReference(JsonTokenReader r)
+		{
+			var v = new EntityReference();
+			if (!r.BeginObject()) return v;
+			while (r.ReadNextKey(out var key))
+			{
+				switch (key)
+				{
+					case "EntityPersistentId": v.EntityPersistentId = r.ReadString(); break;
+					case "EntityName":         v.EntityName = r.ReadString(); break;
+					default: r.SkipValue(); break;
+				}
+			}
+			return v;
 		}
 
 		#endregion

@@ -92,14 +92,26 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		var previousEntityId = MainEntityInspectorWindow?.Entity?.PersistentId ?? Guid.Empty;
 		if (previousEntityId != Guid.Empty)
 		{
-			Scene.OnFinishedAddingEntitiesWithData += RestorePreviousEntitySelection;
+			Scene.OnFinishedAddingEntities += RestorePreviousEntitySelection;
 		}
+
+		// Sync the camera target to the newly loaded scene's camera position so the lerp
+		// doesn't drag it away from the deserialized position.
+		Scene.OnFinishedAddingEntities += SyncCameraTargetToLoadedScene;
 
 		return;
 
+		void SyncCameraTargetToLoadedScene()
+		{
+			Scene.OnFinishedAddingEntities -= SyncCameraTargetToLoadedScene;
+
+			if (Core.Scene?.Camera != null)
+				_cameraTargetPosition = Core.Scene.Camera.Position;
+		}
+
 		void RestorePreviousEntitySelection()
 		{
-			Scene.OnFinishedAddingEntitiesWithData -= RestorePreviousEntitySelection;
+			Scene.OnFinishedAddingEntities -= RestorePreviousEntitySelection;
 
 			var restoredEntity = Core.Scene?.FindEntityByPersistentId(previousEntityId);
 			if (restoredEntity != null)

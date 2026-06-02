@@ -1111,9 +1111,46 @@ public sealed class Entity : IComparable<Entity>
 	/// </summary>
 	public List<T> GetComponentsInChildren<T>() where T : class
 	{
-	var results = new List<T>();
-	GetComponents<T>(results);
-	GetComponentsInChildren<T>(results);
-	return results;
+		var results = new List<T>();
+		GetComponents<T>(results);
+		GetComponentsInChildren<T>(results);
+		return results;
+	}
+
+	/// <summary>
+	/// Searches the parent chain of this entity for the first component of type
+	/// <typeparamref name="T"/>. Does NOT include components on this entity itself.
+	/// Returns null if none is found.
+	/// </summary>
+	public T GetComponentInParent<T>() where T : class
+	{
+		var parent = Transform.Parent;
+		while (parent != null)
+		{
+			var result = parent.Entity.GetComponent<T>();
+			if (result != null)
+				return result;
+
+			parent = parent.Parent;
+		}
+
+		return null;
+	}
+
+	/// <summary>
+	/// Searches the entire parent chain of this entity and collects all components
+	/// of type <typeparamref name="T"/>. Does NOT include components on this entity itself.
+	/// </summary>
+	public List<T> GetComponentsInParents<T>() where T : class
+	{
+		var results = new List<T>();
+		var parent = Transform.Parent;
+		while (parent != null)
+		{
+			parent.Entity.GetComponents<T>(results);
+			parent = parent.Parent;
+		}
+
+		return results;
 	}
 }
