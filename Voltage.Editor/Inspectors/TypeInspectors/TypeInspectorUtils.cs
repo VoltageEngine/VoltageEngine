@@ -156,6 +156,10 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 			if (valueType == typeof(int) && memberInfo.IsDefined(typeof(RenderLayerAttribute)))
 				return new RenderLayerTypeInspector();
 
+			// String field for file path
+			if (valueType == typeof(string) && memberInfo.IsDefined(typeof(FilePathAttribute)))
+				return new FilePathTypeInspector();
+
 			// built-in types
 			if (SimpleTypeInspector.KSupportedTypes.Contains(valueType))
 				return new TypeInspectors_SimpleTypeInspector();

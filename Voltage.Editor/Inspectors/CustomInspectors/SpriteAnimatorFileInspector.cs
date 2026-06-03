@@ -30,10 +30,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
         private static List<string> _availableTags = new();
         private static int _selectedTagIndex = -1;
         private ImGuiManager imGuiManager;
-        public SpriteAnimatorFileInspector()
-        {
-        }
-
+       
         public override void Initialize()
         {
             base.Initialize();
@@ -119,8 +116,6 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
 
                     ImGui.Separator();
                     float buttonWidth = 100f;
-                    float totalWidth = ImGui.GetContentRegionAvail().X;
-                    float rightButtonStart = totalWidth - buttonWidth;
 
                     if (ImGui.Button("Cancel", new Num.Vector2(buttonWidth, 0)))
                     {
@@ -390,10 +385,10 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                             oldData,
                             newFilePath,
                             newData,
-                            $"Load Aseprite Animation: {Path.GetFileName(relativePath)} (tag: {animationTagName}, layers: {(selectedLayers.Count > 0 ? string.Join(", ", selectedLayers) : "all")}, frame: {frameNumber})"
+                            $"Load Aseprite Animation: {Path.GetRelativePath(Environment.CurrentDirectory, relativePath)} (tag: {animationTagName}, layers: {(selectedLayers.Count > 0 ? string.Join(", ", selectedLayers) : "all")}, frame: {frameNumber})"
                         ),
                         animator.Entity,
-                        $"Load Aseprite Animation: {Path.GetFileName(relativePath)}"
+                        $"Load Aseprite Animation: {Path.GetRelativePath(Environment.CurrentDirectory, relativePath)}"
                     );
 
                     _errorMessage = ""; // Clear error on success

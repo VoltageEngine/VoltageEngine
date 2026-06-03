@@ -59,7 +59,7 @@ public partial class ImGuiManager
 		set => _showSeparateGameWindow.Value = value;
 	}
 
-	private PersistentBool _showAnimationEventInspector = new("ImGui_ShowAnimationEventInspector", true);
+	private PersistentBool _showAnimationEventInspector = new("ImGui_ShowAnimationEventInspector", false);
 
 	public bool ShowAnimationEventInspector
 	{
