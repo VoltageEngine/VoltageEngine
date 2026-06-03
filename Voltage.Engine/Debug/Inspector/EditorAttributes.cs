@@ -1,6 +1,5 @@
 using System;
 
-
 namespace Voltage
 {
 	/// <summary>
@@ -76,7 +75,6 @@ namespace Voltage
 			UseDragVersion = useDragFloat;
 		}
 
-
 		public RangeAttribute(float minValue, float maxValue) : this(minValue, maxValue, 0.1f)
 		{
 		}
@@ -141,4 +139,25 @@ namespace Voltage
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 	public class EntityTagAttribute : Attribute { }
+
+	/// <summary>
+	/// Apply to a public string field or property to display a file-browser button in the Inspector.
+	/// Clicking "Browse" opens a popup rooted at the project's Content folder (or an optional
+	/// sub-path). The selected absolute path is converted to a relative path before being stored.
+	/// Optionally restrict the picker to specific file extensions, e.g. [FilePath(".png|.jpg")].
+	/// </summary>
+	[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+	public class FilePathAttribute : Attribute
+	{
+		/// <summary>
+		/// Pipe-separated list of allowed file extensions, e.g. ".png|.jpg|.aseprite".
+		/// Null or empty means all files are shown.
+		/// </summary>
+		public string Filter { get; }
+
+		public FilePathAttribute(string filter = null)
+		{
+			Filter = filter;
+		}
+	}
 }

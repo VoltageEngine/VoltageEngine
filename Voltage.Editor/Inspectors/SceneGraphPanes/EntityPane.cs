@@ -136,17 +136,17 @@ public class EntityPane
 
 		if (isSceneRequired)
 		{
-			// Light orange color for SceneRequired entities
+			// Light orange
 			ImGui.PushStyleColor(ImGuiCol.Text, new System.Numerics.Vector4(1.0f, 0.8f, 0.4f, 1.0f));
 		}
 		else if (isPrefab)
 		{
-			// Orange color for prefab entities
+			// Orange 
 			ImGui.PushStyleColor(ImGuiCol.Text, new System.Numerics.Vector4(1.0f, 0.6f, 0.2f, 1.0f));
 		}
 		else if (isNonSerialized)
 		{
-			// Green color for hardcoded entities
+			// Green
 			ImGui.PushStyleColor(ImGuiCol.Text, new System.Numerics.Vector4(0.2f, 1.0f, 0.2f, 1.0f));
 		}
 
@@ -439,7 +439,7 @@ public class EntityPane
 	        }
 	    }
 
-	    // Delete: Remove all selected entities with Undo/Redo support  skip SceneRequired
+	    // Delete: Remove all selected entities with Undo/Redo support 
 	    if (Core.IsEditMode && _selectedEntities.Count > 0 &&
 	        (Input.IsKeyPressed(Keys.Delete) || ImGui.IsKeyPressed(ImGuiKey.Delete)))
 	    {
@@ -473,10 +473,7 @@ public class EntityPane
 		if (entity == null || entity.Scene == null)
 			return null;
 
-		// Create a new entity directly
 		var clone = new Entity("Entity");
-
-		// Use unique name for each clone
 		string baseName = customName ?? entity.Name;
 		clone.Name = Core.Scene.GetUniqueEntityName(baseName, clone);
 
