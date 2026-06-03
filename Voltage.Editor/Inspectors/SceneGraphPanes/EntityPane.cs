@@ -26,6 +26,16 @@ public class EntityPane
 	private List<Entity> _selectedEntities = new();
 	private Entity _lastRangeSelectEntity;
 
+	// Drag-drop state
+	private const string DragDropPayloadType = "ENTITY_DRAG";
+	private bool _isDragging;
+	private Entity _dragDropTarget;
+	private bool _dragDropTargetIsRoot; // dropping onto root = unparent
+
+	// When clicking an already-selected entity with no modifier, we
+	// wait for mouse release without drag before collapsing the selection.
+	private Entity _pendingSelectEntity;
+
 	public void SetSelectedEntity(Entity entity, bool ctrlDown, bool shiftDown = false)
 	{
 		if (entity == null && !ctrlDown && !shiftDown)
@@ -106,8 +116,94 @@ public class EntityPane
 				DrawEntity(Core.Scene.Entities[i]);
 		}
 
+
+		// Unparent
+		ImGui.InvisibleButton("##drop_root", new System.Numerics.Vector2(-1, 1));
+		if (ImGui.IsItemHovered())
+			ImGui.SetTooltip("Drop here to unparent");
+
+		if (ImGui.BeginDragDropTarget())
+		{
+			unsafe
+			{
+				var payload = ImGui.AcceptDragDropPayload(DragDropPayloadType);
+				if (payload.NativePtr != null)
+					ReparentSelectedEntities(null, -1);
+			}
+			ImGui.EndDragDropTarget();
+		}
+
 		VoltageEditorUtils.MediumVerticalSpace();
 		EntityDuplicationAndDeletion();
+	}
+
+	/// <summary>
+	/// Reparents all currently selected entities to <paramref name="newParent"/> at <paramref name="insertIndex"/>.
+	/// Passing null for newParent unparents them (makes them scene roots).
+	/// Passing -1 for insertIndex appends at the end.
+	/// Skips entities that would create a cycle (i.e., dropping onto a descendant).
+	/// </summary>
+	private void ReparentSelectedEntities(Transform newParent, int insertIndex = -1)
+	{
+		var entries = new List<(Entity entity, Transform oldParent, int oldIndex, Transform newParent, int newIndex)>();
+
+		foreach (var entity in _selectedEntities)
+		{
+			// Skip if newParent is the entity itself or a descendant of it (cycle guard)
+			if (newParent != null && IsDescendantOf(newParent, entity.Transform))
+				continue;
+
+			// Skip SceneRequired entities — they must stay at root level as designed
+			if (entity.Type == Entity.InstanceType.SceneRequired)
+				continue;
+
+			// Capture old position
+			int oldIndex = entity.Transform.Parent != null
+				? entity.Transform.Parent.Children.IndexOf(entity.Transform)
+				: Core.Scene.Entities.EntityFastList.IndexOf(entity);
+
+			int actualInsert = insertIndex;
+			if (actualInsert >= 0 && newParent == entity.Transform.Parent)
+			{
+				// Moving within the same parent: if old slot is before insert point the
+				// removal shifts everything down by one.
+				if (oldIndex >= 0 && oldIndex < actualInsert)
+					actualInsert--;
+			}
+
+			entries.Add((entity, entity.Transform.Parent, oldIndex, newParent, actualInsert));
+		}
+
+		if (entries.Count == 0)
+			return;
+
+		foreach (var entry in entries)
+		{
+			entry.entity.Transform.SetParentAt(entry.newParent, entry.newIndex);
+			if (entry.newParent == null)
+				Core.Scene.Entities.MoveEntityToIndex(entry.entity, entry.newIndex);
+		}
+
+		EditorChangeTracker.PushUndo(
+			new EntityReparentUndoAction(entries, $"Reparent {string.Join(", ", entries.Select(e => e.entity.Name))}"),
+			entries[0].entity,
+			$"Reparent {string.Join(", ", entries.Select(e => e.entity.Name))}"
+		);
+	}
+
+	/// <summary>
+	/// Returns true if <paramref name="potentialDescendant"/> is equal to or a descendant of <paramref name="ancestor"/>.
+	/// </summary>
+	private static bool IsDescendantOf(Transform potentialDescendant, Transform ancestor)
+	{
+		var t = potentialDescendant;
+		while (t != null)
+		{
+			if (t == ancestor)
+				return true;
+			t = t.Parent;
+		}
+		return false;
 	}
 	#endregion
 
@@ -184,23 +280,121 @@ public class EntityPane
 		{
 			bool ctrlDown = Input.IsKeyDown(Keys.LeftControl) || Input.IsKeyDown(Keys.RightControl) || ImGui.GetIO().KeyCtrl || ImGui.GetIO().KeySuper;
 			bool shiftDown = Input.IsKeyDown(Keys.LeftShift) || Input.IsKeyDown(Keys.RightShift) || ImGui.GetIO().KeyShift;
-			SetSelectedEntity(entity, ctrlDown, shiftDown);
-			_imGuiManager.OpenMainEntityInspector(entity);
 
-			ImGui.SetWindowFocus();
+			if (!_selectedEntities.Contains(entity) || ctrlDown || shiftDown)
+			{
+				// Normal selection change — entity not yet selected, or modifier held
+				SetSelectedEntity(entity, ctrlDown, shiftDown);
+				_imGuiManager.OpenMainEntityInspector(entity);
+				ImGui.SetWindowFocus();
+				_pendingSelectEntity = null;
+			}
+			else
+			{
+				// Entity already selected, no modifier — might be starting a drag.
+				// Defer collapsing the selection until mouse release (only if no drag occurred).
+				_pendingSelectEntity = entity;
+				_imGuiManager.OpenMainEntityInspector(entity);
+				ImGui.SetWindowFocus();
+			}
+		}
+
+		// Resolve deferred single-select on mouse release if no drag happened
+		if (_pendingSelectEntity == entity &&
+			ImGui.IsMouseReleased(ImGuiMouseButton.Left) &&
+			!ImGui.IsMouseDragging(ImGuiMouseButton.Left))
+		{
+			SetSelectedEntity(entity, false, false);
+			_pendingSelectEntity = null;
 		}
 
 		if (ImGui.IsMouseClicked(0) && ImGui.IsItemClicked() &&
-		    ImGui.GetMousePos().X - ImGui.GetItemRectMin().X > ImGui.GetTreeNodeToLabelSpacing())
-            if (Core.Scene.Entities.Count > 0 && Core.IsEditMode)
-            {
-                if (_previousEntity == null || !_previousEntity.Equals(entity))
-                {
-                    _previousEntity = entity;
-                }
+			ImGui.GetMousePos().X - ImGui.GetItemRectMin().X > ImGui.GetTreeNodeToLabelSpacing())
+			if (Core.Scene.Entities.Count > 0 && Core.IsEditMode)
+			{
+				if (_previousEntity == null || !_previousEntity.Equals(entity))
+				{
+					_previousEntity = entity;
+				}
 
-                _imGuiManager.CursorSelectionManager.SetCameraTargetPosition(entity.Transform.Position);
-            }
+				_imGuiManager.CursorSelectionManager.SetCameraTargetPosition(entity.Transform.Position);
+			}
+
+		// Drag source
+		if (ImGui.BeginDragDropSource(ImGuiDragDropFlags.SourceNoDisableHover | ImGuiDragDropFlags.SourceNoHoldToOpenOthers))
+		{
+			// Clear any pending deferred single-select so the full multi-selection is intact when dropped
+			_pendingSelectEntity = null;
+
+			if (!_selectedEntities.Contains(entity))
+			{
+				_selectedEntities.Clear();
+				_selectedEntities.Add(entity);
+			}
+			unsafe
+			{
+				uint id = entity.Id;
+				ImGui.SetDragDropPayload(DragDropPayloadType, (nint)(&id), sizeof(uint));
+			}
+			var names = _selectedEntities.Count == 1
+				? $"Move: {_selectedEntities[0].Name}"
+				: $"Move {_selectedEntities.Count} entities";
+			ImGui.Text(names);
+			ImGui.EndDragDropSource();
+		}
+
+		// Drop target selection
+		if (ImGui.BeginDragDropTarget())
+		{
+			var itemMin = ImGui.GetItemRectMin();
+			var itemMax = ImGui.GetItemRectMax();
+			float mouseY = ImGui.GetMousePos().Y;
+			float relY = (itemMax.Y > itemMin.Y) ? (mouseY - itemMin.Y) / (itemMax.Y - itemMin.Y) : 0.5f; 
+			bool insertAbove = relY <= 0.425f; // Top 42.5% of the row -> insert as sibling above
+			bool insertBelow = relY >= 0.425f; // Bottom 42.5% of the row -> insert as sibling below
+			bool insertAsSibling = insertAbove || insertBelow;  // Middle 15% -> make child of this entity
+
+			int siblingIndex = -1;
+			if (insertAsSibling)
+			{
+				Transform siblingParent = entity.Transform.Parent;
+				if (siblingParent != null)
+				{
+					int myIdx = siblingParent.Children.IndexOf(entity.Transform);
+					siblingIndex = insertAbove ? myIdx : myIdx + 1;
+				}
+				else
+				{
+					int myIdx = Core.Scene.Entities.EntityFastList.IndexOf(entity);
+					siblingIndex = insertAbove ? myIdx : myIdx + 1;
+				}
+			}
+
+			// Draw indicator line for sibling inserts
+			var drawList = ImGui.GetWindowDrawList();
+			if (insertAsSibling)
+			{
+				float lineY = insertAbove ? itemMin.Y : itemMax.Y;
+				uint lineColor = ImGui.GetColorU32(ImGuiCol.DragDropTarget);
+				drawList.AddLine(
+					new System.Numerics.Vector2(itemMin.X, lineY),
+					new System.Numerics.Vector2(itemMax.X, lineY),
+					lineColor, 2f);
+			}
+
+			unsafe
+			{
+				var payload = ImGui.AcceptDragDropPayload(DragDropPayloadType);
+				if (payload.NativePtr != null)
+				{
+					if (insertAsSibling)
+						ReparentSelectedEntities(entity.Transform.Parent, siblingIndex);
+					else
+						ReparentSelectedEntities(entity.Transform);
+				}
+			}
+			ImGui.EndDragDropTarget();
+		}
 
 		// Recursively draw children
 		if (treeNodeOpened)
@@ -335,13 +529,13 @@ public class EntityPane
                 }
             }
 
-            if (ImGui.Selectable("Create Child Entity", false, ImGuiSelectableFlags.DontClosePopups))
-            {
+			if (ImGui.Selectable("Create Child Entity", false, ImGuiSelectableFlags.DontClosePopups))
+			{
 				var child = new Entity("Child Entity");
 				child.Transform.SetParent(entity.Transform);
 				child.Type = Entity.InstanceType.Serialized;
 				entity.Scene.AddEntity(child);
-				
+
 				EditorChangeTracker.PushUndo(
 					new EntityCreateDeleteUndoAction(entity.Scene, child, wasCreated: true, $"Create Child Entity under {entity.Name}"),
 					child,
@@ -351,7 +545,58 @@ public class EntityPane
 				_imGuiManager.MainEntityInspectorWindow.DelayedSetEntity(child);
 			}
 
-            ImGui.EndPopup();
+			// Add an empty Parent (multi-selection only)
+			if (_selectedEntities.Count > 1 && ImGui.Selectable("Add an empty Parent"))
+			{
+				var entitiesToGroup = _selectedEntities
+					.Where(e => e.Type != Entity.InstanceType.SceneRequired)
+					.ToList();
+
+				if (entitiesToGroup.Count > 0)
+				{
+					// Compute center position of all selected entities
+					var center = Vector2.Zero;
+					foreach (var e in entitiesToGroup)
+						center += e.Transform.Position;
+					center /= entitiesToGroup.Count;
+
+					var parentEntity = new Entity("Parent");
+					parentEntity.Type = Entity.InstanceType.Serialized;
+					parentEntity.Transform.Position = center;
+					entity.Scene.AddEntity(parentEntity);
+
+					var reparentEntries = new List<(Entity entity, Transform oldParent, int oldIndex, Transform newParent, int newIndex)>();
+					for (int i = 0; i < entitiesToGroup.Count; i++)
+					{
+						var e = entitiesToGroup[i];
+						int oldIdx = e.Transform.Parent != null
+							? e.Transform.Parent.Children.IndexOf(e.Transform)
+							: Core.Scene.Entities.EntityFastList.IndexOf(e);
+						reparentEntries.Add((e, e.Transform.Parent, oldIdx, parentEntity.Transform, i));
+					}
+
+					foreach (var e in entitiesToGroup)
+						e.Transform.SetParent(parentEntity.Transform);
+
+					// Push a composite undo: parent creation + reparenting
+					EditorChangeTracker.PushUndo(
+						new EntityCreateDeleteUndoAction(entity.Scene, parentEntity, wasCreated: true, $"Add empty Parent for selection"),
+						parentEntity,
+						$"Add empty Parent"
+					);
+					EditorChangeTracker.PushUndo(
+						new EntityReparentUndoAction(reparentEntries, $"Group under {parentEntity.Name}"),
+						parentEntity,
+						$"Group under {parentEntity.Name}"
+					);
+
+					_imGuiManager.MainEntityInspectorWindow.DelayedSetEntity(parentEntity);
+					_selectedEntities.Clear();
+					_selectedEntities.Add(parentEntity);
+				}
+			}
+
+			ImGui.EndPopup();
         }
     }
 	#endregion
