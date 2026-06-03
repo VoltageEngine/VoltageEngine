@@ -97,6 +97,26 @@ public class EntityList : IEnumerable<Entity>
 	}
 
 	/// <summary>
+	/// Immediately moves an already-live entity to a specific index within the live entity buffer.
+	/// Used for visual reordering of root entities in the scene graph.
+	/// </summary>
+	public void MoveEntityToIndex(Entity entity, int targetIndex)
+	{
+		int currentIndex = _entities.IndexOf(entity);
+		if (currentIndex < 0 || currentIndex == targetIndex)
+			return;
+
+		_entities.RemoveAt(currentIndex);
+
+		// After removal the target index may need adjusting
+		if (targetIndex > currentIndex)
+			targetIndex--;
+
+		targetIndex = Math.Clamp(targetIndex, 0, _entities.Length);
+		_entities.Insert(targetIndex, entity);
+	}
+
+	/// <summary>
 	/// removes an Entity from the list. All lifecycle methods will be called in the next frame.
 	/// </summary>
 	/// <param name="entity">Entity.</param>

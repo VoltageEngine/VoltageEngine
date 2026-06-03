@@ -318,6 +318,32 @@ public class Transform
 		return this;
 	}
 
+	/// <summary>
+	/// Sets the parent and inserts this transform at a specific index within the parent's children list.
+	/// Passing -1 for childIndex appends at the end (same as SetParent).
+	/// </summary>
+	public Transform SetParentAt(Transform parent, int childIndex)
+	{
+		if (_parent != null)
+			_parent._children.Remove(this);
+
+		if (parent != null)
+		{
+			if (childIndex < 0 || childIndex >= parent._children.Count)
+				parent._children.Add(this);
+			else
+				parent._children.Insert(childIndex, this);
+
+			if (_parent != parent)
+				parent.Entity.TriggerChildAddedCallbacks(Entity);
+		}
+
+		_parent = parent;
+		SetDirty(DirtyType.PositionDirty);
+
+		return this;
+	}
+
 
 	/// <summary>
 	/// sets the position of the transform in world space
