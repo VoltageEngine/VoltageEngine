@@ -179,9 +179,17 @@ public class EntityPane
 
 		foreach (var entry in entries)
 		{
+			// Capture world transform before the parent changes so we can reapply it as local
+			var worldPos = entry.entity.Transform.Position;
+			var worldRot = entry.entity.Transform.Rotation;
+			var worldScale = entry.entity.Transform.Scale;
+
 			entry.entity.Transform.SetParentAt(entry.newParent, entry.newIndex);
 			if (entry.newParent == null)
 				Core.Scene.Entities.MoveEntityToIndex(entry.entity, entry.newIndex);
+
+			// Force-recalculate locals from world values, bypassing equality guards
+			entry.entity.Transform.RecomputeLocalsFromWorld(worldPos, worldRot, worldScale);
 		}
 
 		EditorChangeTracker.PushUndo(
@@ -351,7 +359,7 @@ public class EntityPane
 			float mouseY = ImGui.GetMousePos().Y;
 			float relY = (itemMax.Y > itemMin.Y) ? (mouseY - itemMin.Y) / (itemMax.Y - itemMin.Y) : 0.5f; 
 			bool insertAbove = relY <= 0.425f; // Top 42.5% of the row -> insert as sibling above
-			bool insertBelow = relY >= 0.425f; // Bottom 42.5% of the row -> insert as sibling below
+			bool insertBelow = relY >= 0.545f; // Bottom 54.5% of the row -> insert as sibling below
 			bool insertAsSibling = insertAbove || insertBelow;  // Middle 15% -> make child of this entity
 
 			int siblingIndex = -1;
@@ -576,7 +584,14 @@ public class EntityPane
 					}
 
 					foreach (var e in entitiesToGroup)
+					{
+						var worldPos = e.Transform.Position;
+						var worldRot = e.Transform.Rotation;
+						var worldScale = e.Transform.Scale;
+
 						e.Transform.SetParent(parentEntity.Transform);
+						e.Transform.RecomputeLocalsFromWorld(worldPos, worldRot, worldScale);
+					}
 
 					// Push a composite undo: parent creation + reparenting
 					EditorChangeTracker.PushUndo(
