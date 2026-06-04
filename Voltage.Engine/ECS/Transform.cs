@@ -313,6 +313,7 @@ public class Transform
 		}
 
 		_parent = parent;
+		_worldToLocalDirty = true;
 		SetDirty(DirtyType.PositionDirty);
 
 		return this;
@@ -339,6 +340,7 @@ public class Transform
 		}
 
 		_parent = parent;
+		_worldToLocalDirty = true;
 		SetDirty(DirtyType.PositionDirty);
 
 		return this;
@@ -523,6 +525,43 @@ public class Transform
 	}
 
 	#endregion
+
+
+	/// <summary>
+	/// Force-recalculates local position, rotation and scale from the given world-space values.
+	/// Bypasses all equality guards so this is safe to call immediately after a parent change
+	/// when the world values haven't actually moved but the parent has changed.
+	/// </summary>
+	public void RecomputeLocalsFromWorld(Vector2 worldPosition, float worldRotation, Vector2 worldScale)
+	{
+		if (Parent != null)
+		{
+			Parent.UpdateTransform();
+			_localPosition = Vector2.Transform(worldPosition, WorldToLocalTransform);
+			_localRotation = worldRotation - Parent._rotation;
+			_localScale = Parent._scale.X != 0 && Parent._scale.Y != 0
+				? new Vector2(worldScale.X / Parent._scale.X, worldScale.Y / Parent._scale.Y)
+				: worldScale;
+		}
+		else
+		{
+			_localPosition = worldPosition;
+			_localRotation = worldRotation;
+			_localScale = worldScale;
+		}
+
+		_position = worldPosition;
+		_rotation = worldRotation;
+		_scale = worldScale;
+
+		_localDirty = _localPositionDirty = _localRotationDirty = _localScaleDirty = true;
+		_positionDirty = false;
+		_worldToLocalDirty = true;
+		_worldInverseDirty = true;
+		SetDirty(DirtyType.PositionDirty);
+		SetDirty(DirtyType.RotationDirty);
+		SetDirty(DirtyType.ScaleDirty);
+	}
 
 
 	/// <summary>

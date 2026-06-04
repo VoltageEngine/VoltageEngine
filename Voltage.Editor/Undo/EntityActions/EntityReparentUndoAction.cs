@@ -25,9 +25,15 @@ public class EntityReparentUndoAction : EditorChangeTracker.IEditorAction
     {
         foreach (var entry in _entries)
         {
+            var worldPos = entry.entity.Transform.Position;
+            var worldRot = entry.entity.Transform.Rotation;
+            var worldScale = entry.entity.Transform.Scale;
+
             entry.entity.Transform.SetParentAt(entry.oldParent, entry.oldIndex);
             if (entry.oldParent == null)
                 entry.entity.Scene?.Entities.MoveEntityToIndex(entry.entity, entry.oldIndex);
+
+            entry.entity.Transform.RecomputeLocalsFromWorld(worldPos, worldRot, worldScale);
         }
     }
 
@@ -35,9 +41,15 @@ public class EntityReparentUndoAction : EditorChangeTracker.IEditorAction
     {
         foreach (var entry in _entries)
         {
+            var worldPos = entry.entity.Transform.Position;
+            var worldRot = entry.entity.Transform.Rotation;
+            var worldScale = entry.entity.Transform.Scale;
+
             entry.entity.Transform.SetParentAt(entry.newParent, entry.newIndex);
             if (entry.newParent == null)
                 entry.entity.Scene?.Entities.MoveEntityToIndex(entry.entity, entry.newIndex);
+
+            entry.entity.Transform.RecomputeLocalsFromWorld(worldPos, worldRot, worldScale);
         }
     }
 }

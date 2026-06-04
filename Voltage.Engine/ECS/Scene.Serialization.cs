@@ -321,7 +321,8 @@ namespace Voltage
 
 			ComponentDataSerializationBootstrap.EnsureInitialized();
 
-			var sceneEntitiesByName = new Dictionary<string, SceneData.SceneEntityData>(StringComparer.OrdinalIgnoreCase);
+			var sceneEntitiesByName =
+				new Dictionary<string, SceneData.SceneEntityData>(StringComparer.OrdinalIgnoreCase);
 
 			for (var i = 0; i < SceneData.Entities.Count; i++)
 			{
@@ -342,7 +343,8 @@ namespace Voltage
 				{
 					LoadEntityData(entity, sceneEntityData);
 
-					if (!string.IsNullOrEmpty(entity.GetData<string>("_PendingParentName")))
+					if (!string.IsNullOrEmpty(entity.GetData<string>("_PendingParentName")) ||
+					    entity.GetData<Guid>("_PendingParentId") != Guid.Empty)
 						entitiesNeedingParents.Add(entity);
 				}
 			}
@@ -356,7 +358,8 @@ namespace Voltage
 				{
 					LoadEntityData(entity, sceneEntityData);
 
-					if (!string.IsNullOrEmpty(entity.GetData<string>("_PendingParentName")))
+					if (!string.IsNullOrEmpty(entity.GetData<string>("_PendingParentName")) ||
+					    entity.GetData<Guid>("_PendingParentId") != Guid.Empty)
 						entitiesNeedingParents.Add(entity);
 				}
 			}
@@ -377,7 +380,8 @@ namespace Voltage
 				AddEntity(entity);
 				LoadEntityData(entity, sceneEntity);
 
-				if (!string.IsNullOrEmpty(entity.GetData<string>("_PendingParentName")))
+				if (!string.IsNullOrEmpty(entity.GetData<string>("_PendingParentName")) ||
+				    entity.GetData<Guid>("_PendingParentId") != Guid.Empty)
 					entitiesNeedingParents.Add(entity);
 			}
 
@@ -442,7 +446,7 @@ namespace Voltage
 				// to round-trip through Json.ToJson/FromJson. Just clone the
 				// ComponentDataList entries directly to avoid shared references.
 				var clonedEntityData = entityData.EntityData.Clone();
-
+				
 				entity.SetEntityData(clonedEntityData);
 
 				// Instantiate components from ComponentDataList, but skip any that
