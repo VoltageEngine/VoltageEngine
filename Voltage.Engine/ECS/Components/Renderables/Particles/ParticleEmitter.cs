@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
+using Voltage.Textures;
 using Voltage.Utils;
 using Voltage.Utils.Collections;
 
@@ -46,21 +47,12 @@ namespace Voltage.Particles
 			}
 		}
 
+		private bool _shouldRenderUsingSpriteOrigin;
+
 		/// <summary>
 		/// config object with various properties to deal with particle collisions
 		/// </summary>
 		public ParticleCollisionConfig CollisionConfig;
-
-		/// <summary>
-		/// event that's going to be called when particles count becomes 0 after stopping emission.
-		/// emission can stop after either we stop it manually or when we run for entire duration specified in ParticleEmitterConfig.
-		/// </summary>
-		public event Action<ParticleEmitter> OnAllParticlesExpired;
-
-		/// <summary>
-		/// event that's going to be called when emission is stopped due to reaching duration specified in ParticleEmitterConfig
-		/// </summary>
-		public event Action<ParticleEmitter> OnEmissionDurationReached;
 
 		/// <summary>
 		/// keeps track of how many particles should be emitted
@@ -85,6 +77,31 @@ namespace Voltage.Particles
 		bool _playOnAwake;
 		[Serialize] ParticleEmitterConfig _emitterConfig;
 
+		// Animation fields
+		public float AnimationSpeed = 1f;
+		private int _animCycleTarget;
+		private int _animCycleCount;
+
+		#region Events
+
+		/// <summary>
+		/// event that's going to be called when particles count becomes 0 after stopping emission.
+		/// emission can stop after either we stop it manually or when we run for entire duration specified in ParticleEmitterConfig.
+		/// </summary>
+		public event Action<ParticleEmitter> OnAllParticlesExpired;
+
+		/// <summary>
+		/// event that's going to be called when emission is stopped due to reaching duration specified in ParticleEmitterConfig
+		/// </summary>
+		public event Action<ParticleEmitter> OnEmissionDurationReached;
+
+		/// <summary>
+		/// event fired when the configured number of sprite animation cycles have completed.
+		/// emission is stopped immediately after this fires; any live particles are allowed to expire naturally.
+		/// </summary>
+		public event Action<ParticleEmitter> OnAnimationCyclesCompleted;
+
+		#endregion
 
 		public ParticleEmitter() : this(new ParticleEmitterConfig())
 		{
@@ -136,6 +153,17 @@ namespace Voltage.Particles
 				Play();
 		}
 
+		/// <summary>
+		/// configures the emitter to stop emission after <paramref name="cycles"/> full sprite animation cycles have completed.
+		/// fires <see cref="OnAnimationCyclesCompleted"/> when the target is reached.
+		/// pass 0 to disable.
+		/// </summary>
+		public ParticleEmitter StopEmitAfterAnimationCycles(int cycles)
+		{
+			_animCycleTarget = cycles;
+			_animCycleCount = 0;
+			return this;
+		}
 
 		public virtual void Update()
 		{
@@ -172,36 +200,41 @@ namespace Voltage.Particles
 							OnEmissionDurationReached(this);
 					}
 				}
+			}
 
-				// once all our particles are done we stop the emitter
-				if (!_emitting && _particles.Count == 0)
-				{
-					Stop();
+			// checked outside the emission-rate guard so EmitAt particles also trigger cleanup
+			if (_active && !_emitting && _particles.Count == 0)
+			{
+				Stop();
 
-					if (OnAllParticlesExpired != null)
-						OnAllParticlesExpired(this);
-				}
+				if (OnAllParticlesExpired != null)
+					OnAllParticlesExpired(this);
 			}
 
 			var min = new Vector2(float.MaxValue, float.MaxValue);
 			var max = new Vector2(float.MinValue, float.MinValue);
 			var maxParticleSize = float.MinValue;
 
-			// loop through all the particles updating their location and color
 			for (var i = _particles.Count - 1; i >= 0; i--)
 			{
-				// get the current particle and update it
 				var currentParticle = _particles[i];
 
-				// if update returns true that means the particle is done
 				if (currentParticle.Update(_emitterConfig, ref CollisionConfig, rootPosition))
 				{
+					// accumulate completed cycles for StopEmitAfterAnimationCycles
+					_animCycleCount += currentParticle.AnimCycleCount;
 					Pool<Particle>.Free(currentParticle);
 					_particles.RemoveAt(i);
+
+					if (_animCycleTarget > 0 && _animCycleCount >= _animCycleTarget)
+					{
+						OnAnimationCyclesCompleted?.Invoke(this);
+						PauseEmission();
+						_animCycleCount = 0;
+					}
 				}
 				else
 				{
-					// particle is good. collect min/max positions for the bounds
 					var pos = _emitterConfig.SimulateInWorldSpace ? currentParticle.SpawnPosition : rootPosition;
 					pos += currentParticle.Position;
 					Vector2.Min(ref min, ref pos, out min);
@@ -214,15 +247,16 @@ namespace Voltage.Particles
 			_bounds.Width = max.X - min.X;
 			_bounds.Height = max.Y - min.Y;
 
-			if (_emitterConfig.Sprite == null)
+			var boundsSprite = GetCurrentSprite(null);
+			if (boundsSprite == null)
 			{
 				_bounds.Inflate(1 * maxParticleSize, 1 * maxParticleSize);
 			}
 			else
 			{
-				maxParticleSize /= _emitterConfig.Sprite.SourceRect.Width;
-				_bounds.Inflate(_emitterConfig.Sprite.SourceRect.Width * maxParticleSize,
-					_emitterConfig.Sprite.SourceRect.Height * maxParticleSize);
+				maxParticleSize /= boundsSprite.SourceRect.Width;
+				_bounds.Inflate(boundsSprite.SourceRect.Width * maxParticleSize,
+					boundsSprite.SourceRect.Height * maxParticleSize);
 			}
 		}
 
@@ -241,15 +275,23 @@ namespace Voltage.Particles
 				var currentParticle = _particles[i];
 				var pos = _emitterConfig.SimulateInWorldSpace ? currentParticle.SpawnPosition : rootPosition;
 
-				if (_emitterConfig.Sprite == null)
+				var currentSprite = GetCurrentSprite(currentParticle);
+				if (currentSprite == null)
+				{
 					batcher.Draw(Graphics.Instance.PixelTexture, pos + currentParticle.Position, currentParticle.Color,
 						currentParticle.Rotation, Vector2.One, currentParticle.ParticleSize * 0.5f, SpriteEffects.None,
 						LayerDepth);
+				}
 				else
-					batcher.Draw(_emitterConfig.Sprite, pos + currentParticle.Position,
-						currentParticle.Color, currentParticle.Rotation, _spriteRenderOrigin,
-						currentParticle.ParticleSize / _emitterConfig.Sprite.SourceRect.Width, SpriteEffects.None,
+				{
+					var origin = _emitterConfig.SpriteAnimation != null
+						? (_shouldRenderUsingSpriteOrigin ? currentSprite.Origin : currentSprite.Center)
+						: _spriteRenderOrigin;
+					batcher.Draw(currentSprite, pos + currentParticle.Position,
+						currentParticle.Color, currentParticle.Rotation, origin,
+						currentParticle.ParticleSize / currentSprite.SourceRect.Width, SpriteEffects.None,
 						LayerDepth);
+				}
 			}
 		}
 
@@ -283,6 +325,7 @@ namespace Voltage.Particles
 			_emitting = true;
 			_elapsedTime = 0;
 			_emitCounter = 0;
+			_animCycleCount = 0;
 		}
 
 		/// <summary>
@@ -294,6 +337,7 @@ namespace Voltage.Particles
 			_isPaused = false;
 			_elapsedTime = 0;
 			_emitCounter = 0;
+			_animCycleCount = 0;
 			Clear();
 		}
 
@@ -341,14 +385,45 @@ namespace Voltage.Particles
 		}
 
 		/// <summary>
+		/// spawns a single particle at the given world position without resetting emitter state.
+		/// safe to call multiple times in quick succession — each particle is fully independent.
+		/// </summary>
+		public void EmitAt(Vector2 worldPosition)
+		{
+			_active = true;
+			AddParticle(worldPosition);
+		}
+
+		/// <summary>
 		/// adds a Particle to the emitter
 		/// </summary>
 		void AddParticle(Vector2 position)
 		{
-			// take the next particle out of the particle pool we have created and initialize it
+			// sync lifespan with current AnimationSpeed so the particle lives for exactly one cycle
+			var anim = _emitterConfig.SpriteAnimation;
+			if (anim != null && anim.Sprites.Length > 0)
+			{
+				var totalDuration = 0f;
+				foreach (var rate in anim.FrameRates)
+					totalDuration += 1f / (rate * Math.Max(0.001f, AnimationSpeed));
+				_emitterConfig.ParticleLifespan = totalDuration;
+			}
+
 			var particle = Pool<Particle>.Obtain();
-			particle.Initialize(_emitterConfig, position);
+			particle.Initialize(_emitterConfig, position, AnimationSpeed);
 			_particles.Add(particle);
+		}
+
+		/// <summary>
+		/// returns the sprite for the given particle's current animation frame, or the static Sprite if no animation is set.
+		/// pass null to get the first frame (used for bounds calculation).
+		/// </summary>
+		private Sprite GetCurrentSprite(Particle p)
+		{
+			var anim = _emitterConfig.SpriteAnimation;
+			if (anim != null && anim.Sprites.Length > 0)
+				return anim.Sprites[p != null ? p.AnimFrame : 0];
+			return _emitterConfig.Sprite;
 		}
 	}
 }

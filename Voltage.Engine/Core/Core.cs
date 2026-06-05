@@ -597,19 +597,6 @@ public class Core : Game
 		}
 	}
 
-	public static bool IsTimeFrozen
-	{
-		get => _isTimeFrozen;
-		set
-		{
-			if (_isTimeFrozen != value)
-			{
-				_isTimeFrozen = value;
-				OnTimeFrozen?.Invoke(_isTimeFrozen);
-			}
-		}
-	}
-
 	public static void InvokeSwitchEditMode(bool isEditMode)
 	{
 		// Always clear pause when toggling edit mode
@@ -631,29 +618,6 @@ public class Core : Game
 	public static void InvokeResetScene()
 	{
 		OnResetScene?.Invoke();
-	}
-
-	/// <summary>
-	/// Freeze the game for a certain amount of time
-	/// </summary>
-	public static void FreezeGame(float time)
-	{
-		IsTimeFrozen = true;
-		StartCoroutine(UnfreezeAfterTime(time));
-	}
-
-	/// <summary>
-	/// Freeze the game for indefinite amount of time
-	/// </summary>
-	public static void FreezeGame(bool freeze)
-	{
-		IsTimeFrozen = freeze;
-	}
-
-	private static IEnumerator UnfreezeAfterTime(float time)
-	{
-		yield return Coroutine.WaitForSeconds(time);
-		IsTimeFrozen = false;
 	}
 	#endregion
 

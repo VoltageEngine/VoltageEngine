@@ -248,9 +248,10 @@ public static class GameBuilder
 	/// <summary>
 	/// Finds the game executable in the build output directory.
 	/// </summary>
-	public static string FindGameExecutable(IGameProject project, BuildPlatform platform)
+	public static string FindGameExecutable(IGameProject project, BuildPlatform platform, bool debugBuild = false)
 	{
-		var buildDir = Path.Combine(project.ProjectPath, "Build", platform.FolderSuffix);
+		var configuration = debugBuild ? "Debug" : "Release";
+		var buildDir = Path.Combine(project.ProjectPath, "Build", configuration, platform.FolderSuffix);
 		if (!Directory.Exists(buildDir))
 			return null;
 

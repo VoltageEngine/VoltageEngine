@@ -302,9 +302,6 @@ public class ComponentList : IEnumerable<Component>
 	{
 		UpdateLists();
 
-		if (Core.IsTimeFrozen)
-			return;
-
 		for (var i = 0; i < _updatableComponents.Length; i++)
 		{
 			var updatable = _updatableComponents.Buffer[i];

@@ -71,7 +71,7 @@ public class GameBuildWindow
 		var projectManager = ProjectManager.Instance;
 		if (!projectManager.HasActiveProject)
 		{
-			EditorDebug.Error("No active project to build.", "GameBuildWindow");
+			Debug.Error("No active project to build.", "GameBuildWindow");
 			return;
 		}
 
@@ -84,7 +84,7 @@ public class GameBuildWindow
 		RefreshAvailableScenes();
 		if (_availableScenes.Count == 0)
 		{
-			EditorDebug.Error("No scenes found. Create at least one scene before building.", "GameBuildWindow");
+			Debug.Error("No scenes found. Create at least one scene before building.", "GameBuildWindow");
 			return;
 		}
 
@@ -93,7 +93,7 @@ public class GameBuildWindow
 
 		if (!platform.IsAvailable)
 		{
-			EditorDebug.Error($"Selected platform '{platform.DisplayName}' is not available.", "GameBuildWindow");
+			Debug.Error($"Selected platform '{platform.DisplayName}' is not available.", "GameBuildWindow");
 			return;
 		}
 
@@ -195,7 +195,7 @@ public class GameBuildWindow
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
-			// --- Target Platform ---
+			// Target Platform 
 			ImGui.TextColored(new Num.Vector4(0.8f, 0.9f, 1.0f, 1.0f), "Target Platform");
 			ImGui.Separator();
 
@@ -205,7 +205,7 @@ public class GameBuildWindow
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
-			// --- Build Options ---
+			// Build Options
 			ImGui.TextColored(new Num.Vector4(0.8f, 0.9f, 1.0f, 1.0f), "Build Options");
 			ImGui.Separator();
 
@@ -392,11 +392,10 @@ public class GameBuildWindow
 			var settingsPath = Path.Combine(project.ProjectPath, "ProjectSettings.json");
 			var json = Voltage.Persistence.Json.ToJson(settings, new Voltage.Persistence.JsonSettings { PrettyPrint = true });
 			File.WriteAllText(settingsPath, json, new System.Text.UTF8Encoding(false));
-			EditorDebug.Log($"Saved InitialScene '{selectedScene}' to ProjectSettings.json", "GameBuildWindow");
 		}
 		catch (Exception ex)
 		{
-			EditorDebug.Error($"Failed to save InitialScene setting: {ex.Message}", "GameBuildWindow");
+			Debug.Error($"Failed to save InitialScene setting: {ex.Message}", "GameBuildWindow");
 		}
 	}
 
@@ -455,11 +454,11 @@ public class GameBuildWindow
 			}
 			catch (OperationCanceledException)
 			{
-				EditorDebug.Log("Game build was cancelled.", "GameBuildWindow");
+				Debug.Log("Game build was cancelled.", "GameBuildWindow");
 			}
 			catch (Exception ex)
 			{
-				EditorDebug.Error($"Unexpected build error: {ex.Message}", "GameBuildWindow");
+				Debug.Error($"Unexpected build error: {ex.Message}", "GameBuildWindow");
 			}
 			finally
 			{
@@ -477,14 +476,12 @@ public class GameBuildWindow
 	{
 		try
 		{
-			var exePath = GameBuilder.FindGameExecutable(project, platform);
+			var exePath = GameBuilder.FindGameExecutable(project, platform, _debugBuild.Value);
 			if (exePath == null)
 			{
 				Debug.Error("Could not find the game executable in the build output.");
 				return;
 			}
-
-			EditorDebug.Log($"Launching game: {exePath}", "GameBuildWindow");
 
 			ProcessStartInfo startInfo;
 

@@ -4,7 +4,7 @@ using Voltage.PhysicsShapes;
 using System;
 using RectangleF = Voltage.RectangleF;
 
-public class ColliderUtils
+public partial class ColliderUtils
 {
 	public static void SetColliderRectangle(Collider collider, RectangleF rectangle)
 	{
