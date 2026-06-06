@@ -1,4 +1,4 @@
-﻿namespace Voltage.Farseer
+namespace Voltage.Farseer
 {
 	public class FSGearJoint : FSJoint
 	{

@@ -1,12 +1,14 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using ImGuiNET;
 using Voltage.Data;
 using Voltage.Editor.DebugUtils;
 using Voltage.Editor.FilePickers;
+using Voltage.Editor.Persistence;
 using Voltage.Editor.Tools;
 using Voltage.Editor.Utils;
+using Voltage.Persistence;
 using Voltage.Project;
 using Voltage.Utils;
 using Num = System.Numerics;
@@ -50,7 +52,8 @@ namespace Voltage.Editor.ProjectFile
 		public class ProjectMetadata
 		{
 			public string ProjectName;
-			public string ProjectPath;
+			[JsonExclude]
+			public string ProjectPath;//saved locally, not on file
 			public string ScriptsFolder;
 			public string EffectsFolder;
 			public string ContentsFolder;
@@ -460,8 +463,9 @@ namespace Voltage.Editor.ProjectFile
 					EffectsFolder = EffectsFolder,
 					ContentsFolder = ContentsFolder,
 					DataFolder = DataFolder,
-					ScenesFolder = Path.Combine(DataFolder, ScenesFolder),
-					PrefabsFolder = Path.Combine(DataFolder, PrefabsFolder),
+					// Always use forward slashes for cross-platform portability in the stored .voltage file
+					ScenesFolder = DataFolder + "/" + ScenesFolder,
+					PrefabsFolder = DataFolder + "/" + PrefabsFolder,
 					CreatedDate = DateTime.Now
 				};
 				
@@ -473,6 +477,8 @@ namespace Voltage.Editor.ProjectFile
 				});
 				
 				File.WriteAllText(metadataPath, metadataJson, new System.Text.UTF8Encoding(false));
+				var localPathKey = $"LocalProjectPath_{_projectName}";
+				EditorSettingsLoader.SaveSetting(localPathKey, fullProjectPath);
 				var settingsPath = Path.Combine(fullProjectPath, "ProjectSettings.json");
 				var settingsJson = Voltage.Persistence.Json.ToJson(settings, new Voltage.Persistence.JsonSettings { PrettyPrint = true });
 				File.WriteAllText(settingsPath, settingsJson, new System.Text.UTF8Encoding(false));

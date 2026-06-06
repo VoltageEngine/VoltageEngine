@@ -1,4 +1,4 @@
-﻿//#define DEBUG_FSCOLLISIONS // uncomment to enable Debug of collision points and normals
+//#define DEBUG_FSCOLLISIONS // uncomment to enable Debug of collision points and normals
 
 using System;
 using FarseerPhysics.Collision;

@@ -31,7 +31,7 @@ public static class MonoGameVersionResolver
 
 			if (monoGameAssembly != null)
 			{
-				// Try InformationalVersion first — NuGet packages set this to the full semver string
+				// Try InformationalVersion first  NuGet packages set this to the full semver string
 				var infoAttr = monoGameAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
 				if (infoAttr != null && !string.IsNullOrWhiteSpace(infoAttr.InformationalVersion))
 				{

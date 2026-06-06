@@ -1,4 +1,4 @@
-﻿namespace Voltage.AI.UtilityAI
+namespace Voltage.AI.UtilityAI
 {
 	/// <summary>
 	/// Appraisal for use with an ActionWithOptions

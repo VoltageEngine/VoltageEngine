@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Voltage.Textures;
+using Voltage.Sprites;
 
 
 namespace Voltage.Particles
@@ -10,6 +11,12 @@ namespace Voltage.Particles
 	public class ParticleEmitterConfig : IDisposable
 	{
 		public Sprite Sprite;
+
+		/// <summary>
+		/// Optional. When set, particles will cycle through the animation frames instead of displaying a static Sprite.
+		/// The animation always loops for the lifetime of the emitter. Takes priority over Sprite when set.
+		/// </summary>
+		public SpriteAnimation SpriteAnimation;
 
 		/// <summary>
 		/// If true, particles will simulate in world space. ie when the parent Transform moves it will have no effect on any already active Particles.
@@ -58,11 +65,51 @@ namespace Voltage.Particles
 		// Variance of the minRadius
 		public float MinRadiusVariance;
 
-		// Numeber of degress to rotate a particle around the source pos per second
+		// Number of degrees to rotate a particle around the source pos per second
 		public float RotatePerSecond;
 
 		// Variance in degrees for rotatePerSecond
 		public float RotatePerSecondVariance;
+
+		public ParticleEmitterConfig()
+		{
+			BlendFuncSource = Blend.SourceAlpha;
+			BlendFuncDestination = Blend.InverseSourceAlpha;
+			MaxParticles = 100;
+			EmissionRate = 10f;
+			ParticleLifespan = 1f;
+			StartParticleSize = 32f;
+			FinishParticleSize = 32f;
+			Speed = 50f;
+		}
+
+		/// <summary>
+		/// Creates a config preconfigured for a single animated particle effect (e.g. a hit flash).
+		/// Lifespan and particle size are automatically derived from the animation so nothing
+		/// needs to be calculated manually at the call site.
+		/// </summary>
+		public ParticleEmitterConfig(SpriteAnimation animation)
+		{
+			SpriteAnimation = animation;
+			BlendFuncSource = Blend.SourceAlpha;
+			BlendFuncDestination = Blend.InverseSourceAlpha;
+			MaxParticles = 1;
+			EmissionRate = 100f;
+			Speed = 0f;
+			SimulateInWorldSpace = true;
+
+			// particle must live exactly one full animation cycle
+			var totalDuration = 0f;
+			foreach (var rate in animation.FrameRates)
+				totalDuration += 1f / rate;
+			ParticleLifespan = totalDuration;
+
+			if (animation.Sprites.Length > 0)
+			{
+				StartParticleSize = animation.Sprites[0].SourceRect.Width;
+				FinishParticleSize = animation.Sprites[0].SourceRect.Width;
+			}
+		}
 
 
 		void IDisposable.Dispose()

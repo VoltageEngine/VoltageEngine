@@ -1,4 +1,4 @@
-﻿using FarseerPhysics.Dynamics.Joints;
+using FarseerPhysics.Dynamics.Joints;
 using Microsoft.Xna.Framework;
 using Voltage;
 

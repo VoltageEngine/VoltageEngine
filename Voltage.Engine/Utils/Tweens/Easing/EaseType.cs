@@ -1,4 +1,4 @@
-﻿namespace Voltage.Utils.Tweens.Easing
+namespace Voltage.Utils.Tweens.Easing
 {
 	public enum EaseType
 	{

@@ -13,6 +13,8 @@ using Voltage.Editor.Utils;
 using Voltage.Persistence;
 using Num = System.Numerics;
 using Voltage.Editor.Undo.Core;
+using Voltage.Editor.Undo.PropertyActions;
+using Voltage.Editor.Windows;
 
 namespace Voltage.Editor.Inspectors.ObjectInspectors
 {
@@ -65,7 +67,9 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 				_inspectors = TypeInspectorUtils.GetInspectableProperties(component);
 			}
 
-			// Separate read-only structs from regular inspectors
+			// Remove the auto-generated "Enabled" inspector — we draw it manually with entity-disabled guard
+			_inspectors.RemoveAll(i => i.Name == nameof(Component.Enabled));
+
 			SeparateReadOnlyStructs();
 
 			var typeName = _component.GetType().IsGenericType
@@ -189,7 +193,6 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 					{
 						var clonedComponent = _component.Clone();
 						_imGuiManager.SceneGraphWindow.CopiedComponent = clonedComponent;
-						System.Console.WriteLine($"Copied component: {_component.GetType().Name}");
 					}
 					catch (Exception ex)
 					{
@@ -263,6 +266,10 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 
 			if (isHeaderOpen)
 			{
+				DrawEnabledCheckbox();
+
+				VoltageEditorUtils.SmallVerticalSpace();
+
 				// Draw regular inspectors
 				for (var i = _regularInspectors.Count - 1; i >= 0; i--)
 				{
@@ -321,6 +328,42 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 		}
 
 		/// <summary>
+		/// Draws the component Enabled checkbox. If the user tries to enable a component
+		/// on a disabled Entity, shows a notification and blocks the change.
+		/// </summary>
+		private void DrawEnabledCheckbox()
+		{
+			bool oldEnabled = _component.Enabled;
+			bool enabled = oldEnabled;
+
+			if (ImGui.Checkbox("Enabled", ref enabled) && enabled != oldEnabled)
+			{
+				// Block enabling a component on a disabled entity
+				if (enabled && _component.Entity != null && !_component.Entity.Enabled)
+				{
+					NotificationSystem.ShowTimedNotification(
+						$"Can't enable '{_component.Name}' — the Entity '{_component.Entity.Name}' is disabled!"
+					);
+					return;
+				}
+
+				EditorChangeTracker.PushUndo(
+					new GenericValueChangeAction(
+						_component.Entity,
+						(obj, val) => _component.SetEnabled((bool)val),
+						oldEnabled,
+						enabled,
+						$"{_component}.Enabled"
+					),
+					_component.Entity,
+					$"{_component}.Enabled"
+				);
+
+				_component.SetEnabled(enabled);
+			}
+		}
+
+		/// <summary>
 		/// Pastes component data from source to target component of the same type.
 		/// Uses JSON serialization for reliable deep cloning.
 		/// </summary>
@@ -331,7 +374,7 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 
 			if (sourceComponent.GetType() != targetComponent.GetType())
 			{
-				System.Console.WriteLine($"Cannot paste {sourceComponent.GetType().Name} into {targetComponent.GetType().Name} - types must match");
+				Debug.Error($"Cannot paste {sourceComponent.GetType().Name} into {targetComponent.GetType().Name} - types must match");
 				return;
 			}
 
@@ -342,7 +385,7 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 
 				if (sourceData == null)
 				{
-					System.Console.WriteLine("Source component has no data to copy");
+					Debug.Error("Source component has no data to copy");
 					return;
 				}
 
@@ -361,8 +404,8 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 				}
 				catch (Exception ex)
 				{
-					System.Console.WriteLine($"Failed to clone component data via JSON: {ex.Message}");
-					return;
+					Debug.Error($"Failed to clone component data via JSON: {ex.Message}");
+					return;	
 				}
 
 				// Create undo action BEFORE making changes
@@ -377,14 +420,11 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 					$"Paste {targetComponent.GetType().Name} values"
 				);
 
-				// Apply the cloned data to the target component
 				targetComponent.Data = clonedData;
-
-				System.Console.WriteLine($"Successfully pasted {sourceComponent.GetType().Name} values");
 			}
 			catch (Exception ex)
 			{
-				System.Console.WriteLine($"Failed to paste component values: {ex.Message}");
+				Debug.Error($"Failed to paste component values: {ex.Message}");
 			}
 		}
 	}

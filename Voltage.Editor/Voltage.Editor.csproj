@@ -1,4 +1,4 @@
-﻿<Project>
+<Project>
 	<Import Sdk="Microsoft.NET.Sdk" Project="Sdk.props" />
 
 	<PropertyGroup>
@@ -114,6 +114,20 @@
 	  -->
 	  <ProjectReference Include="..\Voltage.SourceGenerators\Voltage.SourceGenerators\Voltage.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	</ItemGroup>
+
+	<!-- Copy the generator DLL from its build output into the editor root bin directory.
+	     The Analyzer reference above only copies to analyzers\dotnet\cs\ — not the bin root.
+	     Both locations are needed: analyzers\ for VS design-time, bin root for EngineLibsSync + runtime load.
+	     Without this, the runtime ScriptCompiler loads a stale generator and produces outdated .g.cs files. -->
+	<Target Name="CopySourceGeneratorDllToOutput" AfterTargets="Build">
+		<PropertyGroup>
+			<_GeneratorBin>$(MSBuildThisFileDirectory)..\Voltage.SourceGenerators\Voltage.SourceGenerators\bin\$(Configuration)\netstandard2.0\</_GeneratorBin>
+		</PropertyGroup>
+		<Copy SourceFiles="$(_GeneratorBin)Voltage.SourceGenerators.dll"
+		      DestinationFolder="$(OutputPath)"
+		      SkipUnchangedFiles="true"
+		      Condition="Exists('$(_GeneratorBin)Voltage.SourceGenerators.dll')" />
+	</Target>
 
 	<!-- Copy DefaultContent to output, but exclude the Effects folder (since we compile them) -->
 	<ItemGroup>

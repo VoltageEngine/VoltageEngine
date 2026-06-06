@@ -1,4 +1,4 @@
-﻿#if FNA
+#if FNA
 using System;
 using System.Runtime.InteropServices;
 using Microsoft.Xna.Framework;

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Microsoft.Xna.Framework;
@@ -201,8 +201,8 @@ namespace Voltage.Spatial
 
 			if (cellCount > 0)
 			{
-				var textPosition = new Vector2((float) x * (float) _cellSize + 0.5f * _cellSize,
-					(float) y * (float) _cellSize + 0.5f * _cellSize);
+				var textPosition = new Vector2((float)x * (float)_cellSize + 0.5f * _cellSize,
+					(float)y * (float)_cellSize + 0.5f * _cellSize);
 				Debug.DrawText(Graphics.Instance.BitmapFont, cellCount.ToString(), textPosition, Color.DarkGreen,
 					secondsToDisplay, textScale);
 			}
@@ -266,7 +266,6 @@ namespace Voltage.Spatial
 		/// https://github.com/francisengelmann/fast_voxel_traversal/blob/master/main.cpp
 		/// http://www.cse.yorku.ca/~amana/research/grid.pdf
 		/// </summary>
-		/// <remarks>Returns -1 if ray contains NaN values!</remarks>
 		/// <returns>the number of Colliders returned</returns>
 		/// <param name="start">Start.</param>
 		/// <param name="end">End.</param>
@@ -274,25 +273,21 @@ namespace Voltage.Spatial
 		/// <param name="layerMask">Layer mask.</param>
 		public int Linecast(Vector2 start, Vector2 end, RaycastHit[] hits, int layerMask)
 		{
+			// Sanitize inputs — NaN positions can arrive from physics/AI code or improper gamepad inputs
 			if (MathUtils.IsVectorNaN(start))
-				start = Vector2.Zero;
-			if (MathUtils.IsVectorNaN(end))
-				end = start + Vector2.UnitX; // Default direction
-
-			var ray = new Ray2D(start, end);
-
-			// Validate direction vector
-			if (MathUtils.IsVectorNaN(ray.Direction))
-		
 			{
-				Debug.Error("\n Invalid ray direction - using fallback \n");
-				ray = new Ray2D(Vector2.Zero, Vector2.UnitX);
+				Debug.Error($"[SpatialHash] Linecast start is NaN. Defaulting to Vector2.Zero.");
+				start = Vector2.Zero;
 			}
 
-			if (MathUtils.IsVectorNaN(ray.Direction))
-				throw new Exception("ray Direction values are NaN!");
+			if (MathUtils.IsVectorNaN(end))
+			{
+				Debug.Error($"[SpatialHash] Linecast end is NaN. Defaulting to start + UnitX.");
+				end = start + Vector2.UnitX;
+			}
 
-			_raycastParser.Start(ref ray, hits, layerMask);
+			var ray = new Ray2D(start, end);
+			_raycastParser.Start(ref ray, hits, layerMask, _cellSize);
 
 			// get our start/end position in the same space as our grid
 			var currentCell = CellCoords(start.X, start.Y);
@@ -308,10 +303,10 @@ namespace Voltage.Spatial
 
 			// Calculate cell boundaries. when the step is positive, the next cell is after this one meaning we add 1.
 			// If negative, cell is before this one in which case dont add to boundary
-			var xStep = stepX < 0 ? 0f : (float) stepX;
-			var yStep = stepY < 0 ? 0f : (float) stepY;
-			var nextBoundaryX = ((float) currentCell.X + xStep) * _cellSize;
-			var nextBoundaryY = ((float) currentCell.Y + yStep) * _cellSize;
+			var xStep = stepX < 0 ? 0f : (float)stepX;
+			var yStep = stepY < 0 ? 0f : (float)stepY;
+			var nextBoundaryX = ((float)currentCell.X + xStep) * _cellSize;
+			var nextBoundaryY = ((float)currentCell.Y + yStep) * _cellSize;
 
 			// determine the value of t at which the ray crosses the first vertical voxel boundary. same for y/horizontal.
 			// The minimum of these two values will indicate how much we can travel along the ray and still remain in the current voxel
@@ -339,14 +334,14 @@ namespace Voltage.Spatial
 				if (tMaxX < tMaxY)
 				{
 					// HACK: ensures we never overshoot our values
-					currentCell.X = (int) Mathf.Approach(currentCell.X, lastCell.X, Math.Abs(stepX));
+					currentCell.X = (int)Mathf.Approach(currentCell.X, lastCell.X, Math.Abs(stepX));
 
 					// currentCell.X += stepX;
 					tMaxX += tDeltaX;
 				}
 				else
 				{
-					currentCell.Y = (int) Mathf.Approach(currentCell.Y, lastCell.Y, Math.Abs(stepY));
+					currentCell.Y = (int)Mathf.Approach(currentCell.Y, lastCell.Y, Math.Abs(stepY));
 
 					// currentCell.Y += stepY;
 					tMaxY += tDeltaY;
@@ -497,7 +492,7 @@ namespace Voltage.Spatial
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		long GetKey(int x, int y)
 		{
-			return unchecked((long) x << 32 | (uint) y);
+			return unchecked((long)x << 32 | (uint)y);
 		}
 
 
@@ -562,21 +557,23 @@ namespace Voltage.Spatial
 
 		static Comparison<RaycastHit> compareRaycastHits = (a, b) => { return a.Distance.CompareTo(b.Distance); };
 
-		//int _cellSize;
-		//Rectangle _hitTesterRect; see note in checkRayIntersection
+		int _cellSize;
+		Rectangle _hitTesterRect;
 		RaycastHit[] _hits;
 		RaycastHit _tempHit;
 		List<Collider> _checkedColliders = new List<Collider>();
 		List<RaycastHit> _cellHits = new List<RaycastHit>();
+		List<RaycastHit> _foreignCellHits = new List<RaycastHit>();
 		Ray2D _ray;
 		int _layerMask;
 
 
-		public void Start(ref Ray2D ray, RaycastHit[] hits, int layerMask)
+		public void Start(ref Ray2D ray, RaycastHit[] hits, int layerMask, int cellSize)
 		{
 			_ray = ray;
 			_hits = hits;
 			_layerMask = layerMask;
+			_cellSize = cellSize;
 			HitCounter = 0;
 		}
 
@@ -594,6 +591,15 @@ namespace Voltage.Spatial
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public bool CheckRayIntersection(int cellX, int cellY, List<Collider> cell)
 		{
+			// entering a new cell, clear out the hits from the previous cell
+			_cellHits.Clear();
+
+			// used to check if the raycast's hits are inside the current cell
+			_hitTesterRect.X = cellX * _cellSize;
+			_hitTesterRect.Y = cellY * _cellSize;
+			_hitTesterRect.Width = _cellSize;
+			_hitTesterRect.Height = _cellSize;
+
 			float fraction;
 			for (var i = 0; i < cell.Count; i++)
 			{
@@ -625,15 +631,28 @@ namespace Voltage.Spatial
 						if (!Physics.RaycastsStartInColliders && potential.Shape.ContainsPoint(_ray.Start))
 							continue;
 
-						// TODO: make sure the collision point is in the current cell and if it isnt store it off for later evaluation
-						// this would be for giant objects with odd shapes that bleed into adjacent cells
-						//_hitTesterRect.X = cellX * _cellSize;
-						//_hitTesterRect.Y = cellY * _cellSize;
-						//if( !_hitTesterRect.Contains( _tempHit.point ) )
-
 						_tempHit.Collider = potential;
-						_cellHits.Add(_tempHit);
+
+						// colliders often bleed into multiple cells, which can cause the raycast to detect hits outside the
+						// cell we're currently checking. to ensure the hit results are sorted correctly, hits foreign to 
+						// this cell are saved in a separate list which is later checked in future cells.
+						if (!_hitTesterRect.Contains(_tempHit.Point))
+							_foreignCellHits.Add(_tempHit);
+						else
+							_cellHits.Add(_tempHit);
 					}
+				}
+			}
+
+			// check if any of our foreign cell hits are in this cell. if they are,
+			// add them to the current cell's list of hits.
+			for (int i = _foreignCellHits.Count - 1; i >= 0; i--)
+			{
+				var hit = _foreignCellHits[i];
+				if (_hitTesterRect.Contains(hit.Point))
+				{
+					_cellHits.Add(hit);
+					_foreignCellHits.RemoveAt(i);
 				}
 			}
 
@@ -662,6 +681,10 @@ namespace Voltage.Spatial
 			_hits = null;
 			_checkedColliders.Clear();
 			_cellHits.Clear();
+
+			// if the raycast ends early because it filled the _hits array, then _foreignCellHits might
+			// still have a few unprocessed hits in it, so it needs to be cleared.
+			_foreignCellHits.Clear();
 		}
 	}
 }

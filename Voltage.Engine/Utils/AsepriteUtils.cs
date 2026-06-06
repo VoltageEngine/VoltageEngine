@@ -7,7 +7,7 @@ using Voltage.Textures;
 
 namespace Voltage.Utils;
 
-public class AsepriteUtils
+public partial class AsepriteUtils
 {
     /// <summary>
     /// Example for naming animations: If aseprite animation has tag "Idle", but you want it to be called by a different name in the animator (e.g. "Character-Idle")

@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Voltage.Persistence;
 using System;
 using System.Collections.Generic;
@@ -499,7 +499,7 @@ public sealed class Entity : IComparable<Entity>
 			}
 			catch (Exception ex)
 			{
-				System.Console.WriteLine($"Failed to create component {componentType.Name}: {ex.Message}");
+				Debug.Error($"Failed to create component {componentType.Name}: {ex.Message}");
 				continue;
 			}
 
@@ -558,22 +558,17 @@ public sealed class Entity : IComparable<Entity>
 							TypeNameHandling = TypeNameHandling.Auto,
 							PreserveReferencesHandling = false
 						};
-						
-						// Serialize the source component data to JSON
+
 						var json = Json.ToJson(sourceComponent.Data, componentJsonSettings);
-						
-						// Deserialize back to a new instance (deep clone)
 						var clonedData = (ComponentData)Json.FromJson(json, sourceComponent.Data.GetType());
-						
-						// Apply the cloned data to the target component
 						targetComponent.Data = clonedData;
-						
-						System.Console.WriteLine($"Successfully copied data for component: {sourceComponent.GetType().Name}");
+
 					}
 					catch (Exception ex)
 					{
-						System.Console.WriteLine($"Failed to copy component data via JSON for {sourceComponent.GetType().Name}: {ex.Message}");
-						
+						Debug.Error(
+							$"Failed to copy component data via JSON for {sourceComponent.GetType().Name}: {ex.Message}");
+
 						// Fallback to Clone method
 						try
 						{
@@ -581,12 +576,14 @@ public sealed class Entity : IComparable<Entity>
 							if (fallbackClone?.Data != null)
 							{
 								targetComponent.Data = fallbackClone.Data;
-								System.Console.WriteLine($"Used Clone() fallback for component: {sourceComponent.GetType().Name}");
+								Debug.Info(
+									$"Used Clone() fallback for component: {sourceComponent.GetType().Name}");
 							}
 						}
 						catch (Exception cloneEx)
 						{
-							System.Console.WriteLine($"Clone fallback also failed for {sourceComponent.GetType().Name}: {cloneEx.Message}");
+							Debug.Error(
+								$"Clone fallback also failed for {sourceComponent.GetType().Name}: {cloneEx.Message}");
 						}
 					}
 				}
@@ -603,7 +600,7 @@ public sealed class Entity : IComparable<Entity>
 				}
 				catch (Exception ex)
 				{
-					System.Console.WriteLine($"Failed to create component {componentType.Name}: {ex.Message}");
+					Debug.Error($"Failed to create component {componentType.Name}: {ex.Message}");
 					continue;
 				}
 
@@ -632,7 +629,7 @@ public sealed class Entity : IComparable<Entity>
 					}
 					catch (Exception ex)
 					{
-						System.Console.WriteLine($"Failed to copy component data via JSON for {sourceComponent.GetType().Name}: {ex.Message}");
+						Debug.Error($"Failed to copy component data via JSON for {sourceComponent.GetType().Name}: {ex.Message}");
 						
 						// Fallback to Clone method
 						try
@@ -645,7 +642,7 @@ public sealed class Entity : IComparable<Entity>
 						}
 						catch (Exception cloneEx)
 						{
-							System.Console.WriteLine($"Clone fallback also failed for {sourceComponent.GetType().Name}: {cloneEx.Message}");
+							Debug.Error($"Clone fallback also failed for {sourceComponent.GetType().Name}: {cloneEx.Message}");
 						}
 					}
 				}
@@ -710,14 +707,12 @@ public sealed class Entity : IComparable<Entity>
 
 		foreach (var comp in existingComponents)
 		{
-			// If not allowing multiple, return the first existing component of this type
 			if (!allowSameComponentsOnEntity && comp.GetType() == type)
 			{
 				Debug.Error($"Can't add the same Component more than once on Entity: {this.Name}");
 				return comp;
 			}
 
-			// Prevent adding if a component of the same type and name already exists
 			if (comp.GetType() == type && comp.Name == component.Name)
 			{
 				Debug.Error($"Can't add two components with the same name: {comp.Name}, on Entity: {this.Name}");
@@ -768,7 +763,15 @@ public sealed class Entity : IComparable<Entity>
 
 		component.Entity = this;
 		Components.Add(component);
-		component.Initialize();
+		try
+		{
+			// called before it's added to live list
+			component.OnAddedToEntity();
+		}
+		catch (Exception ex)
+		{
+			Debug.Error($"Exception in OnAddedToEntity for component '{component.GetType().Name}' on entity '{component.Entity.Name}': {ex.Message}\n{ex.StackTrace}");
+		}
 
 		TriggerComponentAddedCallbacks(component);
 
@@ -1108,9 +1111,46 @@ public sealed class Entity : IComparable<Entity>
 	/// </summary>
 	public List<T> GetComponentsInChildren<T>() where T : class
 	{
-	var results = new List<T>();
-	GetComponents<T>(results);
-	GetComponentsInChildren<T>(results);
-	return results;
+		var results = new List<T>();
+		GetComponents<T>(results);
+		GetComponentsInChildren<T>(results);
+		return results;
+	}
+
+	/// <summary>
+	/// Searches the parent chain of this entity for the first component of type
+	/// <typeparamref name="T"/>. Does NOT include components on this entity itself.
+	/// Returns null if none is found.
+	/// </summary>
+	public T GetComponentInParent<T>() where T : class
+	{
+		var parent = Transform.Parent;
+		while (parent != null)
+		{
+			var result = parent.Entity.GetComponent<T>();
+			if (result != null)
+				return result;
+
+			parent = parent.Parent;
+		}
+
+		return null;
+	}
+
+	/// <summary>
+	/// Searches the entire parent chain of this entity and collects all components
+	/// of type <typeparamref name="T"/>. Does NOT include components on this entity itself.
+	/// </summary>
+	public List<T> GetComponentsInParents<T>() where T : class
+	{
+		var results = new List<T>();
+		var parent = Transform.Parent;
+		while (parent != null)
+		{
+			parent.Entity.GetComponents<T>(results);
+			parent = parent.Parent;
+		}
+
+		return results;
 	}
 }

@@ -1,4 +1,4 @@
-﻿using System.Xml.Serialization;
+using System.Xml.Serialization;
 using Microsoft.Xna.Framework;
 using Voltage.Utils.Extensions;
 

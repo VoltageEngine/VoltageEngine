@@ -1,4 +1,4 @@
-﻿namespace Voltage.Utils
+namespace Voltage.Utils
 {
 	public class GlobalManager
 	{

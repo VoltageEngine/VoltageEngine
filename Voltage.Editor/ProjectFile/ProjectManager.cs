@@ -5,6 +5,7 @@ using System.Linq;
 using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.SceneFile;
+using Voltage.Editor.Utils;
 using Voltage.Editor.Scripting;
 using Voltage.Project;
 using Voltage.Systems;
@@ -51,7 +52,8 @@ public class ProjectManager : GlobalManager
 
 	private PersistentString _lastProjectPath = new("ProjectManager_LastProjectPath", "");
 	private static readonly string _editorBaseDirectory = AppContext.BaseDirectory;
-
+	private const string _projectPathKeyPrefix = "LocalProjectPath_";
+	
 	#endregion
 
 	#region Properties
@@ -151,8 +153,9 @@ public class ProjectManager : GlobalManager
 			}
 
 			// Create a RuntimeGameProject from the metadata
+			metadata.ProjectPath = ResolveAndCacheProjectPath(voltageFilePath);
 			var project = new RuntimeGameProject(metadata);
-
+			
 			// Unload current project if exists
 			var oldProject = CurrentProject;
 			if (CurrentProject != null)
@@ -237,17 +240,7 @@ public class ProjectManager : GlobalManager
 		if (!HasActiveProject || string.IsNullOrWhiteSpace(filePath))
 			return false;
 
-		try
-		{
-			var normalizedFilePath = Path.GetFullPath(filePath);
-			var normalizedProjectPath = Path.GetFullPath(CurrentProject.ProjectPath);
-
-			return normalizedFilePath.StartsWith(normalizedProjectPath, StringComparison.OrdinalIgnoreCase);
-		}
-		catch
-		{
-			return false;
-		}
+		return CrossPlatformPath.IsPathUnder(CurrentProject.ProjectPath, filePath);
 	}
 
 	/// <summary>
@@ -275,6 +268,40 @@ public class ProjectManager : GlobalManager
 	public string GetPrefabsFolder()
 	{
 		return CurrentProject?.PrefabsFolder;
+	}
+	
+	/// <summary>
+	/// Returns a stable, machine-independent key for a .voltage file,
+	/// based on the project name embedded in the file name.
+	/// </summary>
+	private static string GetLocalPathKey(string voltageFilePath)
+	{
+		// Key is based on filename (e.g. "Jolt.voltage" → "LocalProjectPath_Jolt")
+		var fileNameNoExt = Path.GetFileNameWithoutExtension(voltageFilePath);
+		return $"{_projectPathKeyPrefix}{fileNameNoExt}";
+	}
+	
+	/// <summary>
+	/// Resolves the project path for the given .voltage file.
+	/// Uses local machine settings if available; otherwise falls back to the .voltage file's directory
+	/// and saves that path locally for future use.
+	/// </summary>
+	private static string ResolveAndCacheProjectPath(string voltageFilePath)
+	{
+		var key = GetLocalPathKey(voltageFilePath);
+		var stored = EditorSettingsLoader.LoadSetting(key, "");
+		var voltageDir = Path.GetDirectoryName(voltageFilePath)!;
+
+		if (!string.IsNullOrWhiteSpace(stored) && Directory.Exists(stored))
+		{
+			Debug.Log($"Loaded local project path for key '{key}': {stored}");
+			return stored;
+		}
+
+		// No local data yet (first time on this machine) - derive from .voltage location
+		Debug.Log($"No local project path found for '{key}', defaulting to: {voltageDir}");
+		EditorSettingsLoader.SaveSetting(key, voltageDir);
+		return voltageDir;
 	}
 
 	#endregion

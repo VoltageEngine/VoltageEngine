@@ -1,4 +1,4 @@
-﻿namespace Voltage
+namespace Voltage
 {
 	public class DefaultRenderer : Renderer
 	{

@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using Microsoft.Xna.Framework.Content;
+using Voltage.Persistence;
 using Voltage.Project;
 
 namespace Voltage.Editor.ProjectFile
@@ -9,6 +10,7 @@ namespace Voltage.Editor.ProjectFile
 		// Project info
 		string ProjectName { get; }
 		string ProjectPath { get; }
+		
 		ProjectSettings Settings { get; }
 		Version Version { get; }
 

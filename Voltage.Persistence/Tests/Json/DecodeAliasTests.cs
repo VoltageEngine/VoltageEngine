@@ -1,4 +1,4 @@
-﻿using Nez.Persistence;
+using Nez.Persistence;
 using NUnit.Framework;
 
 

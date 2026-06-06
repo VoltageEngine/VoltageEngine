@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.Xna.Framework;
 using Voltage.Utils.Extensions;
 
@@ -203,9 +203,9 @@ namespace Voltage.UI
 			else if ((alignment & AlignInternal.Left) == 0) //
 				x -= width / 2;
 
-			if ((alignment & AlignInternal.Top) != 0)
+			if ((alignment & AlignInternal.Bottom) != 0)
 				y -= height;
-			else if ((alignment & AlignInternal.Bottom) == 0) //
+			else if ((alignment & AlignInternal.Top) == 0) //
 				y -= height / 2;
 
 			if (this.x != x || this.y != y)

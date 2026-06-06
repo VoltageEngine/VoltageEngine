@@ -602,8 +602,6 @@ public class EntityInspectorWindow
 					Entity,
 					$"Auto-add required {requiredType.Name} to {Entity.Name}"
 				);
-
-				EditorDebug.Log($"[RequireComponent] Auto-added '{requiredType.Name}' required by '{componentType.Name}'.");
 			}
 
 			// Add the requested component itself

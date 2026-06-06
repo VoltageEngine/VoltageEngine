@@ -1,4 +1,4 @@
-﻿using static Nez.Tools.Atlases.SpriteAtlasPacker;
+using static Nez.Tools.Atlases.SpriteAtlasPacker;
 
 namespace Nez.Tools.Atlases.Console
 {

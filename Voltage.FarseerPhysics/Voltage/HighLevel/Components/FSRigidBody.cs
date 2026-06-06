@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using FarseerPhysics.Dynamics;
 using Microsoft.Xna.Framework;
 using Voltage;
@@ -155,7 +155,7 @@ namespace Voltage.Farseer
 
 		#region Component lifecycle
 
-		public override void Initialize()
+		public override void OnAddedToEntity()
 		{
 			CreateBody();
 		}

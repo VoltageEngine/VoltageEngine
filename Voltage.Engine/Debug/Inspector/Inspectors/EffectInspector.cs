@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Reflection;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -37,7 +37,7 @@ namespace Voltage
 					continue;
 
 				if ((!prop.GetMethod.IsPublic || !prop.SetMethod.IsPublic) &&
-				    IEnumerableExt.Count(prop.GetCustomAttributes<InspectableAttribute>()) == 0)
+				    IEnumerableExt.Count(prop.GetCustomAttributes<SerializeAttribute>()) == 0)
 					continue;
 
 				var inspector = GetInspectorForType(prop.PropertyType, effect, prop);

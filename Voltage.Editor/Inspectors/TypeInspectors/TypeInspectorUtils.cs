@@ -20,8 +20,8 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 	public static class TypeInspectorUtils
 	{
 		// Type cache seeing as how typeof isnt free and this will be hit a lot
-		static readonly Type notInspectableAttrType = typeof(HideAttributeInInspector);
-		static readonly Type inspectableAttrType = typeof(InspectableAttribute);
+		static readonly Type notInspectableAttrType = typeof(HideInInspectorAttribute);
+		static readonly Type inspectableAttrType = typeof(SerializeAttribute);
 		static readonly Type componentType = typeof(Component);
 		static readonly Type transformType = typeof(Transform);
 		static readonly Type materialType = typeof(Material);
@@ -148,13 +148,17 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 		/// <param name="memberInfo">Member info.</param>
 		public static AbstractTypeInspector GetInspectorForType(Type valueType, object target, MemberInfo memberInfo)
 		{
-			// Layer-aware int inspectors — must be checked before SimpleTypeInspector
+			// Layer-aware int inspectors  must be checked before SimpleTypeInspector
 			if (valueType == typeof(int) && memberInfo.IsDefined(typeof(PhysicsLayerAttribute)))
 				return new PhysicsLayerTypeInspector();
 			if (valueType == typeof(int) && memberInfo.IsDefined(typeof(PhysicsLayerMaskAttribute)))
 				return new PhysicsLayerMaskTypeInspector();
 			if (valueType == typeof(int) && memberInfo.IsDefined(typeof(RenderLayerAttribute)))
 				return new RenderLayerTypeInspector();
+
+			// String field for file path
+			if (valueType == typeof(string) && memberInfo.IsDefined(typeof(FilePathAttribute)))
+				return new FilePathTypeInspector();
 
 			// built-in types
 			if (SimpleTypeInspector.KSupportedTypes.Contains(valueType))
@@ -165,6 +169,10 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 				return new TypeInspectors_BlendStateInspector();
 			if (valueType.GetTypeInfo().IsEnum)
 				return new TypeInspectors_EnumInspector();
+
+			// must be checked before IsValueType
+			if (typeof(IComponentGroup).IsAssignableFrom(valueType) && !valueType.IsValueType)
+				return new TypeInspectors_ComponentGroupInspector();
 			if (valueType.GetTypeInfo().IsValueType)
 				return new TypeInspectors_StructInspector();
 			if (target is IList && ListInspector.KSupportedTypes.Contains(valueType.GetElementType()))

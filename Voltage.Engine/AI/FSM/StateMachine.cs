@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 
@@ -69,7 +69,7 @@ namespace Voltage.AI.FSM
 		{
 			// avoid changing to the same state
 			if (_currentState.GetType() == newType)
-				return _currentState as State<T>;
+				return _currentState;
 
 			// only call end if we have a currentState
 			if (_currentState != null)
@@ -88,7 +88,7 @@ namespace Voltage.AI.FSM
 			if (OnStateChanged != null)
 				OnStateChanged();
 
-			return _currentState as State<T>;
+			return _currentState;
 		}
 
 		/// <summary>
@@ -96,7 +96,7 @@ namespace Voltage.AI.FSM
 		/// </summary>
 		public R ChangeState<R>() where R : State<T>
 		{
-			return ChangeState(typeof(R)) as R;
+			return (R)ChangeState(typeof(R));
 		}
 
 		/// <summary>
@@ -105,7 +105,7 @@ namespace Voltage.AI.FSM
 		public State<T> ChangeToPreviousState()
 		{
 			if (PreviousState == null)
-				return _currentState as State<T>;
+				return _currentState;
 
 			return ChangeState(PreviousState.GetType());
 		}

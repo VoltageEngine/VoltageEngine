@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Voltage.Utils;
 using Voltage.Editor.ImGuiCore;
 
@@ -28,8 +28,8 @@ namespace Voltage.Editor.Utils
 			RotateCursorIconID = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/Custom/CursorSelection-UI-Rotate.png"));
 			ColliderResizeCursorIconID = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/Custom/CursorSelection-UI-ColliderResize.png"));
 
-			LockedInspectorIconId = renderer.BindTexture(Core.Content.LoadAsepriteFile("DefaultContent/UI/Custom/Inspector-LockMode.aseprite").GetTextureFromLayers("Locked"));
-			UnlockedInspectorIconId = renderer.BindTexture(Core.Content.LoadAsepriteFile("DefaultContent/UI/Custom/Inspector-LockMode.aseprite").GetTextureFromLayers("Unlocked"));
+			LockedInspectorIconId = renderer.BindTexture(Core.Content.LoadAsepriteFile("DefaultContent/UI/Custom/Inspector-LockMode.aseprite").GetTextureFromLayers(1, true, false, "Locked"));
+			UnlockedInspectorIconId = renderer.BindTexture(Core.Content.LoadAsepriteFile("DefaultContent/UI/Custom/Inspector-LockMode.aseprite").GetTextureFromLayers(1, true, false, "Unlocked"));
 
 			WarningIconId = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/alert-hexangular.png"));
 			ErrorIconId = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/alert-triangle.png"));

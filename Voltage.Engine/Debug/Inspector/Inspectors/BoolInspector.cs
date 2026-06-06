@@ -1,4 +1,4 @@
-﻿using Voltage.UI;
+using Voltage.UI;
 
 
 #if EDITOR 

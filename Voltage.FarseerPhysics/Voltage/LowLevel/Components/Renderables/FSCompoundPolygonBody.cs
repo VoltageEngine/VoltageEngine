@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using FarseerPhysics.Collision.Shapes;
 using FarseerPhysics.Common;
 using FarseerPhysics.Common.Decomposition;
@@ -22,9 +22,9 @@ namespace Voltage.Farseer
 		}
 
 
-		public override void Initialize()
+		public override void OnAddedToEntity()
 		{
-			base.Initialize();
+			base.OnAddedToEntity();
 
 			var data = new uint[Sprite.SourceRect.Width * Sprite.SourceRect.Height];
 			Sprite.Texture2D.GetData(0, Sprite.SourceRect, data, 0, data.Length);

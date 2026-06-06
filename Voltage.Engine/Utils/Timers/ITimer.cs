@@ -1,4 +1,4 @@
-﻿namespace Voltage.Utils.Timers
+namespace Voltage.Utils.Timers
 {
 	public interface ITimer
 	{

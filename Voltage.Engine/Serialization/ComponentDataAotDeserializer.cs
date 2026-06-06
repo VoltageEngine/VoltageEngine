@@ -40,5 +40,7 @@ namespace Voltage.Serialization
 		{
 			return dataTypeFullName != null && _deserializers.ContainsKey(dataTypeFullName);
 		}
+
+		public static IReadOnlyCollection<string> RegisteredTypeNames => _deserializers.Keys;
 	}
 }

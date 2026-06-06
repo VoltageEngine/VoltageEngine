@@ -153,7 +153,7 @@ namespace Voltage.Editor.Scripting
 			}
 
 			// Use the project's EngineLibs for Voltage and MonoGame references, but only
-			// load KNOWN MANAGED DLLs by name — never glob *.dll which picks up native binaries.
+			// load KNOWN MANAGED DLLs by name  never glob *.dll which picks up native binaries.
 			var projectPath = ProjectManager.Instance?.CurrentProject?.ProjectPath;
 			bool usedEngineLibs = false;
 

@@ -10,7 +10,7 @@ using Microsoft.Xna.Framework;
 namespace FarseerPhysics.Common.PhysicsLogic
 {
 	// Original Code by Steven Lu - see http://www.box2d.org/forum/viewtopic.php?f=3&t=1688
-	// Ported to Farseer 3.0 by Nicol�s Hormaz�bal
+	// Ported to Farseer 3.0 by Nicols Hormazbal
 
 	struct ShapeData
 	{

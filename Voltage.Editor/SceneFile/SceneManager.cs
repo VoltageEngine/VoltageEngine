@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Voltage.Data;
-using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.ProjectFile;
+using Voltage.Editor.Utils;
 using Voltage.Utils;
 
 namespace Voltage.Editor.SceneFile;
@@ -63,37 +63,65 @@ public class SceneManager : GlobalManager
 
 	#region Scene File Management
 
-	/// <summary>
-	/// Gets the current project's scenes folder, with a guard against no active project.
-	/// </summary>
-	private string GetActiveScenesFolder()
-	{
-		var folder = ProjectManager.Instance.GetScenesFolder();
-		if (string.IsNullOrEmpty(folder))
-		{
-			Debug.Error("No active project. Cannot resolve scenes folder.");
-			return null;
-		}
-		return folder;
-	}
+        /// <summary>
+        /// Gets the current project's scenes folder, with a guard against no active project.
+        /// Performs a cross-platform fallback search when the stored path doesn't resolve.
+        /// </summary>
+        private string GetActiveScenesFolder()
+        {
+                var project = ProjectManager.Instance.CurrentProject;
+                if (project == null)
+                {
+                        Debug.Error("No active project. Cannot resolve scenes folder.");
+                        return null;
+                }
 
-	/// <summary>
-	/// Gets all scene JSON files in the Scenes directory
-	/// </summary>
-	public List<string> GetAllSceneFiles()
-	{
-		var scenesDir = GetActiveScenesFolder();
-		if (scenesDir == null)
-			return new List<string>();
+                // Primary: use the folder from RuntimeGameProject (already normalized)
+                var folder = project.ScenesFolder;
+                if (!string.IsNullOrEmpty(folder) && Directory.Exists(folder))
+                        return folder;
 
-		if (!Directory.Exists(scenesDir))
-		{
-			Debug.Warn($"Scenes directory does not exist: {scenesDir}");
-			return new List<string>();
-		}
+                // Fallback: scan well-known relative locations under the project root
+                var candidates = new[]
+                {
+                        Path.Combine(project.ProjectPath, "Data", "Scenes"),
+                        Path.Combine(project.ProjectPath, "Scenes"),
+                        Path.Combine(project.ProjectPath, "Data", "Scene"),
+                };
 
-		return Directory.GetFiles(scenesDir, "*.vscene", SearchOption.TopDirectoryOnly).ToList();
-	}
+                foreach (var candidate in candidates)
+                {
+                        if (Directory.Exists(candidate))
+                        {
+                                Debug.Warn($"Scenes folder '{folder}' not found. Using fallback: '{candidate}'.");
+                                return candidate;
+                        }
+                }
+
+                // Last resort: create the canonical folder so future saves work
+                var canonical = Path.Combine(project.ProjectPath, "Data", "Scenes");
+                Debug.Warn($"Scenes folder not found. Creating canonical path: '{canonical}'.");
+                Directory.CreateDirectory(canonical);
+                return canonical;
+        }
+
+        /// <summary>
+        /// Gets all scene JSON files in the Scenes directory (and sub-directories).
+        /// </summary>
+        public List<string> GetAllSceneFiles()
+        {
+                var scenesDir = GetActiveScenesFolder();
+                if (scenesDir == null)
+                        return new List<string>();
+
+                if (!Directory.Exists(scenesDir))
+                {
+                        Debug.Warn($"Scenes directory does not exist: {scenesDir}");
+                        return new List<string>();
+                }
+
+                return Directory.GetFiles(scenesDir, "*.vscene", SearchOption.AllDirectories).ToList();
+        }
 
 	/// <summary>
 	/// Gets all scene names (without extension)
@@ -119,45 +147,63 @@ public class SceneManager : GlobalManager
 
 	#region Scene Loading
 
-	/// <summary>
-	/// Loads the last used scene from persistent settings, validating it belongs
-	/// to the currently loaded project.
-	/// </summary>
-	public Scene LoadLastUsedScene()
-	{
-		var project = ProjectManager.Instance.CurrentProject;
+        /// <summary>
+        /// Loads the last used scene from persistent settings, validating it belongs
+        /// to the currently loaded project.
+        /// If the stored path is stale (different OS / machine), falls back to the
+        /// first .vscene discovered in the project's Scenes folder.
+        /// </summary>
+        public Scene LoadLastUsedScene()
+        {
+                var project = ProjectManager.Instance.CurrentProject;
 
-		if (project == null)
-		{
-			return CreateFallbackScene("Cannot load last scene because no project is loaded");
-		}
+                if (project == null)
+                {
+                        return CreateFallbackScene("Cannot load last scene because no project is loaded");
+                }
 
-		var lastScenePath = PersistentScene.GetLastScenePath();
+                var lastScenePath = PersistentScene.GetLastScenePath();
 
-		if (string.IsNullOrWhiteSpace(lastScenePath))
-		{
-			return CreateFallbackScene("No last scene recorded to load");
-		}
+                if (!string.IsNullOrWhiteSpace(lastScenePath))
+                {
+                        // Normalize separators from the stored value (may be from a different OS)
+                        lastScenePath = CrossPlatformPath.Normalize(lastScenePath);
 
-		if (!Path.IsPathRooted(lastScenePath))
-			lastScenePath = Path.Combine(project.ScenesFolder, lastScenePath);
+                        // If the stored path is a relative path, resolve it against ScenesFolder
+                        if (!Path.IsPathRooted(lastScenePath))
+                                lastScenePath = Path.Combine(project.ScenesFolder, lastScenePath);
 
-		// Validate the persisted scene path actually belongs to this project
-		if (!ProjectManager.Instance.IsPathInCurrentProject(lastScenePath))
-		{
-			Debug.Warn($"Last scene '{lastScenePath}' does not belong to the current project '{project.ProjectName}'. Clearing.");
-			PersistentScene.Clear();
-			return CreateFallbackScene("Last scene belongs to a different project");
-		}
+                        // Reject if the path looks like an absolute path from a different OS
+                        // (e.g. "C:\Users\..." on macOS) — detect by checking it exists
+                        bool pathOnCurrentOS = File.Exists(lastScenePath);
 
-		if (!File.Exists(lastScenePath))
-		{
-			return CreateFallbackScene($"Last scene file not found: {lastScenePath}");
-		}
+                        if (pathOnCurrentOS && ProjectManager.Instance.IsPathInCurrentProject(lastScenePath))
+                        {
+                                var scene = LoadScene(lastScenePath);
+                                if (scene != null) return scene;
+                        }
+                        else
+                        {
+                                if (!pathOnCurrentOS)
+                                        Debug.Warn($"Last scene path does not exist on this OS/machine: '{lastScenePath}'. Will auto-discover.");
+                                else
+                                        Debug.Warn($"Last scene '{lastScenePath}' does not belong to current project. Clearing.");
 
-		var scene = LoadScene(lastScenePath);
-		return scene ?? CreateFallbackScene($"Failed to load scene from: {lastScenePath}");
-	}
+                                PersistentScene.Clear();
+                        }
+                }
+
+                // Auto-discover: load the first scene found in the project
+                var allScenes = GetAllSceneFiles();
+                if (allScenes.Count > 0)
+                {
+                        Debug.Log($"Auto-loading discovered scene: {allScenes[0]}");
+                        var discovered = LoadScene(allScenes[0]);
+                        if (discovered != null) return discovered;
+                }
+
+                return CreateFallbackScene("No scene found in project");
+        }
 
 	private Scene CreateFallbackScene(string reason)
 	{
@@ -180,7 +226,7 @@ public class SceneManager : GlobalManager
 	{
 		if (string.IsNullOrWhiteSpace(scenePath))
 		{
-			EditorDebug.Error("Scene path cannot be null or empty", "SceneManagement");
+			Debug.Error("Scene path cannot be null or empty", "SceneManagement");
 			return null;
 		}
 
@@ -299,9 +345,6 @@ public class SceneManager : GlobalManager
 			return false;
 		}
 
-		EditorDebug.Log($"=== Saving Scene ===", "SceneManagement");
-		EditorDebug.Log($"Scene file: {CurrentScenePath}", "SceneManagement");
-
 		try
 		{
 			bool success = Core.Scene.SaveToFile(CurrentScenePath);
@@ -318,7 +361,6 @@ public class SceneManager : GlobalManager
 		catch (Exception ex)
 		{
 			Debug.Error($"Failed to save scene: {ex.Message}");
-			EditorDebug.Log($"Failed to save scene: {ex.Message}");
 			return false;
 		}
 	}
@@ -350,16 +392,11 @@ public class SceneManager : GlobalManager
 		if (sceneFilePath == null)
 			return false;
 
-		// Check if file already exists
 		if (File.Exists(sceneFilePath))
 		{
 			Debug.Error($"Scene file already exists: {sceneFilePath}");
 			return false;
 		}
-
-		EditorDebug.Log($"=== Creating Scene File ===", "SceneManagement");
-		EditorDebug.Log($"Scene name: {sceneName}", "SceneManagement");
-		EditorDebug.Log($"Scene path: {sceneFilePath}", "SceneManagement");
 
 		try
 		{
@@ -386,10 +423,7 @@ public class SceneManager : GlobalManager
 				}
 			}
 
-			// Set current path
 			SetCurrentScenePath(sceneFilePath, sceneName);
-
-			// Save the scene
 			bool success = SaveCurrentScene();
 
 			if (success)
@@ -421,7 +455,6 @@ public class SceneManager : GlobalManager
 			return false;
 		}
 
-		Debug.Log($"Reloading scene: {CurrentSceneName}");
 		var scene = LoadScene(CurrentScenePath);
 		return scene != null;
 	}
@@ -433,8 +466,6 @@ public class SceneManager : GlobalManager
 	{
 		CurrentScenePath = null;
 		CurrentSceneName = null;
-
-		Debug.Log("Cleared current scene reference");
 	}
 
 	#endregion

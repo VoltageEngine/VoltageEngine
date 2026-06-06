@@ -341,7 +341,6 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 
 	private bool _pingPongOnceAnimationStarted = false;
 
-
 	public SpriteAnimator()
 	{
 	}
@@ -354,21 +353,30 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 #if EDITOR // Pause/UnPause animations in Play Mode
 	public override void OnEnabled()
 	{
-		Core.OnChangedToPlayMode += UnPause;
+		if (Core.IsEditMode)
+			Pause();
+		else
+			UnPause();
+
+		Core.OnSwitchEditMode += PauseInEditMode;
+	}
+
+	private void PauseInEditMode(bool isEditMode)
+	{
+		if (isEditMode && AnimationState == State.Running)
+			Pause();
+		else if(!isEditMode && AnimationState != State.Running)
+			UnPause();
 	}
 
 	public override void OnDisabled()
 	{
-		Core.OnChangedToPlayMode -= UnPause;
+		Core.OnSwitchEditMode -= PauseInEditMode;
 	}
 #endif
 
 	public virtual void Update()
 	{
-#if EDITOR // Pause in EditMode
-		if(Core.IsEditMode && AnimationState == State.Running)
-			Pause();
-#endif
 		if (AnimationState != State.Running || CurrentAnimation == null)
 			return;
 
@@ -429,8 +437,7 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 			bool tagExists = asepriteFile.Tags.Any(t => t.Name == LoadedTag);
 			if (!tagExists)
 			{
-				// Optionally log a warning here
-				//System.Console.WriteLine($"SpriteAnimator: Tag '{LoadedTag}' not found in '{TextureFilePath}'. Skipping animation load.");
+				Debug.Error($"SpriteAnimator: Tag '{LoadedTag}' not found in '{TextureFilePath}'. Skipping animation load.");
 				return false;
 			}
 
@@ -572,6 +579,10 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 
 		CurrentLoopMode = loopMode;
 		AnimationState = State.Running;
+
+#if EDITOR
+		PauseInEditMode(Core.IsEditMode);
+#endif
 	}
 
 	/// <summary>
@@ -582,9 +593,6 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 		AnimationState = State.Paused;
 	}
 
-	/// <summary>
-	/// unpauses the animator
-	/// </summary>
 	public void UnPause()
 	{
 		AnimationState = State.Running;
@@ -697,7 +705,7 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 	{
 		if (CurrentLoopMode == LoopMode.PingPong || CurrentLoopMode == LoopMode.PingPongOnce)
 		{
-			System.Console.WriteLine($"Can't calculate NormalizedTime for PingPong type of Loop! Animation: {CurrentAnimationName}");
+			Debug.Error($"Can't calculate NormalizedTime for PingPong type of Loop! Animation: {CurrentAnimationName}");
 			return null;
 		}
 

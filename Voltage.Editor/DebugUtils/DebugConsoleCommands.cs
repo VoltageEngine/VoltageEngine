@@ -1,4 +1,4 @@
-﻿using Voltage.Console;
+using Voltage.Console;
 using Voltage.Editor.ImGuiCore;
 
 namespace Voltage.Editor.DebugUtils

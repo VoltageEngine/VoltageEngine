@@ -21,13 +21,13 @@ namespace Voltage.Editor.ProjectFile
 		{
 			try
 			{
-				// The MonoGame assembly is already loaded — grab its version from metadata.
+				// The MonoGame assembly is already loaded  grab its version from metadata.
 				var monoGameAssembly = AppDomain.CurrentDomain.GetAssemblies()
 					.FirstOrDefault(a => a.GetName().Name == "MonoGame.Framework");
 
 				if (monoGameAssembly != null)
 				{
-					// Try InformationalVersion first — NuGet packages set this to the full semver string
+					// Try InformationalVersion first  NuGet packages set this to the full semver string
 					var infoAttr = monoGameAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
 					if (infoAttr != null && !string.IsNullOrWhiteSpace(infoAttr.InformationalVersion))
 					{
@@ -56,7 +56,7 @@ namespace Voltage.Editor.ProjectFile
 				EditorDebug.Warn($"Could not detect MonoGame version: {ex.Message}", "ProjectStructure");
 			}
 
-			// Fallback — keep in sync with Voltage.Editor.csproj manually if this is ever reached
+			// Fallback  keep in sync with Voltage.Editor.csproj manually if this is ever reached
 			const string fallback = "3.8.5-preview.1";
 			EditorDebug.Warn($"Using fallback MonoGame version: {fallback}", "ProjectStructure");
 			return fallback;
@@ -181,7 +181,7 @@ namespace Voltage.Editor.ProjectFile
     If these DLLs are missing, open the project in the Voltage Editor first to regenerate them.
 
     IMPORTANT: Only managed DLLs are listed here. Never add native binaries (SDL2, OpenAL,
-    clretwrc, etc.) — they are resolved automatically by the MonoGame NuGet package.
+    clretwrc, etc.)  they are resolved automatically by the MonoGame NuGet package.
   -->
   <ItemGroup>
 {referenceItems}  </ItemGroup>
@@ -401,7 +401,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("""")]
 [assembly: AssemblyCompany("""")]
 [assembly: AssemblyProduct(""{projectName}"")]
-[assembly: AssemblyCopyright(""Copyright © {DateTime.Now.Year}"")]
+[assembly: AssemblyCopyright(""Copyright  {DateTime.Now.Year}"")]
 [assembly: AssemblyTrademark("""")]
 [assembly: AssemblyCulture("""")]
 
@@ -667,7 +667,7 @@ Thumbs.db
 			if (allPresent)
 				return;
 
-			// At least one file is missing — locate the source and copy
+			// At least one file is missing  locate the source and copy
 			Directory.CreateDirectory(destDir);
 
 			var fontSourceDir = FindDefaultFontsDir();

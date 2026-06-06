@@ -1,4 +1,4 @@
-﻿using Voltage.Textures;
+using Voltage.Textures;
 using Voltage.Sprites;
 
 namespace Voltage.Materials

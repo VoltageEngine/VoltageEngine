@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Diagnostics;
 using FarseerPhysics.Common.Decomposition.Seidel;
 using Microsoft.Xna.Framework;

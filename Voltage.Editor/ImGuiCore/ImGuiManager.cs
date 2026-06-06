@@ -1,4 +1,4 @@
-﻿using ImGuiNET;
+using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -477,6 +477,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			{
 				_animationEventInspector = new AnimationEventInspector(null);
 				RegisterDrawCommand(_animationEventInspector.Draw);
+			
+				_animationEventInspector.SetWindowFocus();
 			}
 		}
 		else
@@ -495,7 +497,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void OnEditModeSwitched(bool isEditMode)
 	{
-		Core.DebugRenderEnabled = isEditMode;
+		if(EditorSettingsWindow.DisableDebugInPlayMode)
+			Core.DebugRenderEnabled = isEditMode;
 
 		// Returning to EditMode always clears PauseMode
 		if (isEditMode)
@@ -564,21 +567,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 					Path.GetExtension(selectedFile).Equals(".voltage", StringComparison.OrdinalIgnoreCase))
 				{
 					bool success = _projectManager.LoadProject(selectedFile);
-
-					if (success)
-					{
-						EditorDebug.Log(
-							$"Project loaded: {_projectManager.CurrentProject.ProjectName}");
-					}
-					else
-					{
-						EditorDebug.Error(
-							"Failed to load project.");
-					}
+					Debug.ErrorIf(!success, "Failed to load project.");
 				}
 				else if (!string.IsNullOrEmpty(selectedFile))
 				{
-					EditorDebug.Warn("Please select a valid .voltage file.");
+					Debug.Warn("Please select a valid .voltage file.");
 				}
 
 				if (!string.IsNullOrEmpty(selectedFile))
@@ -729,7 +722,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (Core.Scene == null)
 		{
 			Debug.Error("No active scene to save!");
-			EditorDebug.Log("No active scene to save!");
 			return;
 		}
 
@@ -756,7 +748,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			catch (Exception ex)
 			{
 				Debug.Error($"Failed to save scene: {ex.Message}");
-				EditorDebug.Log($"Save failed: {ex.Message}");
 			}
 		});
 	}
@@ -788,7 +779,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			DrawViewMenu();
 			DrawScriptingMenu();
 			DrawEffectsMenu();
-		 DrawBuildMenu();
+			DrawBuildMenu();
 			DrawHelpMenu();
 
 			// Must be the last one, so that it's centered properly
@@ -934,63 +925,67 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void UpdateCamera()
 	{
-		if ((Core.IsEditMode || Core.IsPauseMode) && IsGameWindowFocused)
+		if (Core.IsEditMode || Core.IsPauseMode)
 		{
-			ManageCameraZoom();
-
-			// Camera Dragging with Middle Mouse
-			var mousePos = Input.ScaledMousePosition;
-
-			if (Input.MiddleMouseButtonPressed)
+			if (IsGameWindowFocused)
 			{
-				_isCameraDragging = true;
-				_cameraDragStartMouse = mousePos;
-				_cameraDragStartPosition = _cameraTargetPosition;
-			}
-			else if (_isCameraDragging && Input.MiddleMouseButtonDown)
-			{
-				var delta = mousePos - _cameraDragStartMouse;
-				_cameraTargetPosition = _cameraDragStartPosition - delta;
-			}
-			else if (_isCameraDragging && !Input.MiddleMouseButtonDown)
-			{
-				_isCameraDragging = false;
-			}
+				ManageCameraZoom();
 
-			if (_cameraTargetPosition == default)
-				_cameraTargetPosition = Core.Scene.Camera.Position;
+				// Camera Dragging with Middle Mouse
+				var mousePos = Input.ScaledMousePosition;
 
-			bool isMovingCamera = Input.IsKeyDown(Keys.W) || Input.IsKeyDown(Keys.A) ||
-			                      Input.IsKeyDown(Keys.S) || Input.IsKeyDown(Keys.D);
-
-			if (Input.IsKeyDown(Keys.LeftShift))
-			{
-				if (isMovingCamera)
+				if (Input.MiddleMouseButtonPressed)
 				{
-					CurrentCameraSpeed = _dynamicCameraSpeed;
+					_isCameraDragging = true;
+					_cameraDragStartMouse = mousePos;
+					_cameraDragStartPosition = _cameraTargetPosition;
+				}
+				else if (_isCameraDragging && Input.MiddleMouseButtonDown)
+				{
+					var delta = mousePos - _cameraDragStartMouse;
+					_cameraTargetPosition = _cameraDragStartPosition - delta;
+				}
+				else if (_isCameraDragging && !Input.MiddleMouseButtonDown)
+				{
+					_isCameraDragging = false;
+				}
+
+				if (_cameraTargetPosition == default)
+					_cameraTargetPosition = Core.Scene.Camera.Position;
+
+				bool isMovingCamera = Input.IsKeyDown(Keys.W) || Input.IsKeyDown(Keys.A) ||
+				                      Input.IsKeyDown(Keys.S) || Input.IsKeyDown(Keys.D);
+
+				if (Input.IsKeyDown(Keys.LeftShift))
+				{
+					if (isMovingCamera)
+					{
+						CurrentCameraSpeed = _dynamicCameraSpeed;
+					}
+					else
+					{
+						CurrentCameraSpeed = EditModeCameraFastSpeed;
+					}
 				}
 				else
 				{
-					CurrentCameraSpeed = EditModeCameraFastSpeed;
+					CurrentCameraSpeed = EditModeCameraSpeed;
+				}
+
+				if (!Input.IsKeyDown(Keys.LeftControl) && !Input.IsKeyDown(Keys.RightControl))
+				{
+					if (Input.IsKeyDown(Keys.D))
+						_cameraTargetPosition += new Vector2(CurrentCameraSpeed, 0) * Time.DeltaTime;
+					if (Input.IsKeyDown(Keys.A))
+						_cameraTargetPosition -= new Vector2(CurrentCameraSpeed, 0) * Time.DeltaTime;
+					if (Input.IsKeyDown(Keys.W))
+						_cameraTargetPosition -= new Vector2(0, CurrentCameraSpeed) * Time.DeltaTime;
+					if (Input.IsKeyDown(Keys.S))
+						_cameraTargetPosition += new Vector2(0, CurrentCameraSpeed) * Time.DeltaTime;
 				}
 			}
-			else
-			{
-				CurrentCameraSpeed = EditModeCameraSpeed;
-			}
 
-			if (!Input.IsKeyDown(Keys.LeftControl) && !Input.IsKeyDown(Keys.RightControl))
-			{
-				if (Input.IsKeyDown(Keys.D))
-					_cameraTargetPosition += new Vector2(CurrentCameraSpeed, 0) * Time.DeltaTime;
-				if (Input.IsKeyDown(Keys.A))
-					_cameraTargetPosition -= new Vector2(CurrentCameraSpeed, 0) * Time.DeltaTime;
-				if (Input.IsKeyDown(Keys.W))
-					_cameraTargetPosition -= new Vector2(0, CurrentCameraSpeed) * Time.DeltaTime;
-				if (Input.IsKeyDown(Keys.S))
-					_cameraTargetPosition += new Vector2(0, CurrentCameraSpeed) * Time.DeltaTime;
-			}
-
+			// Works regardless of game window focus in case we select entities in EntityPane
 			Core.Scene.Camera.Position = Vector2.Lerp(Core.Scene.Camera.Position, _cameraTargetPosition, _cameraLerp);
 		}
 	}
