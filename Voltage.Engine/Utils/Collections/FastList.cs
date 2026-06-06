@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -180,6 +180,37 @@ namespace Voltage.Utils.Collections
 		public void Sort(IComparer<T> comparer)
 		{
 			Array.Sort(Buffer, 0, Length, comparer);
+		}
+
+		/// <summary>
+		/// Returns the index of item, or -1 if not found.
+		/// </summary>
+		public int IndexOf(T item)
+		{
+			var comp = EqualityComparer<T>.Default;
+			for (var i = 0; i < Length; i++)
+			{
+				if (comp.Equals(Buffer[i], item))
+					return i;
+			}
+			return -1;
+		}
+
+		/// <summary>
+		/// Inserts item at the given index, shifting subsequent items right.
+		/// </summary>
+		public void Insert(int index, T item)
+		{
+			if (index < 0 || index > Length)
+				index = Length;
+
+			EnsureCapacity(1);
+
+			if (index < Length)
+				Array.Copy(Buffer, index, Buffer, index + 1, Length - index);
+
+			Buffer[index] = item;
+			Length++;
 		}
 	}
 }

@@ -1,4 +1,4 @@
-﻿using FarseerPhysics.Dynamics.Joints;
+using FarseerPhysics.Dynamics.Joints;
 using Voltage;
 using Voltage.Utils.Extensions;
 

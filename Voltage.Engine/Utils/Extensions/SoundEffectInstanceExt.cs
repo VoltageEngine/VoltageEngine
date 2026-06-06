@@ -1,4 +1,4 @@
-﻿#if FNA
+#if FNA
 using System.Reflection;
 using Microsoft.Xna.Framework.Audio;
 

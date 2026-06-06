@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Microsoft.Xna.Framework;
@@ -33,7 +33,7 @@ namespace Voltage
 			var fields = ReflectionUtils.GetFields(targetType);
 			foreach (var field in fields)
 			{
-				if (!field.IsPublic && IEnumerableExt.Count(field.GetCustomAttributes<InspectableAttribute>()) == 0)
+				if (!field.IsPublic && IEnumerableExt.Count(field.GetCustomAttributes<SerializeAttribute>()) == 0)
 					continue;
 
 				if (field.IsInitOnly)
@@ -58,7 +58,7 @@ namespace Voltage
 					continue;
 
 				if ((!prop.GetMethod.IsPublic || !prop.SetMethod.IsPublic) &&
-				    IEnumerableExt.Count(prop.GetCustomAttributes<InspectableAttribute>()) == 0)
+				    IEnumerableExt.Count(prop.GetCustomAttributes<SerializeAttribute>()) == 0)
 					continue;
 
 				// skip Component.enabled which is handled elsewhere

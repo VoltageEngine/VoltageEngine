@@ -1,4 +1,4 @@
-﻿using FarseerPhysics.Dynamics;
+using FarseerPhysics.Dynamics;
 using Microsoft.Xna.Framework.Graphics;
 using Voltage;
 using Voltage.Textures;
@@ -37,7 +37,7 @@ namespace Voltage.Farseer
 
 		#region Component overrides
 
-		public override void Initialize()
+		public override void OnAddedToEntity()
 		{
 			var world = Entity.Scene.GetOrCreateSceneComponent<FSWorld>();
 			Body = new Body(world, Transform.Position * FSConvert.DisplayToSim, Transform.Rotation);

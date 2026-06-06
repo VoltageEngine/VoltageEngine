@@ -1,4 +1,4 @@
-﻿namespace Voltage.Utils.Tweens.Interfaces
+namespace Voltage.Utils.Tweens.Interfaces
 {
 	/// <summary>
 	/// any object that wants to be tweened needs to implement this. TweenManager internally likes to make a simple object

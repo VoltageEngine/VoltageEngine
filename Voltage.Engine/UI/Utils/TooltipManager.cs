@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Voltage.Utils.Timers;
 using Voltage.Utils.Tweens;
 using Voltage.Utils.Tweens.Easing;

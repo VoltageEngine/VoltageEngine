@@ -1,4 +1,4 @@
-﻿namespace Voltage.UI
+namespace Voltage.UI
 {
 	public class TextTooltip : Tooltip
 	{

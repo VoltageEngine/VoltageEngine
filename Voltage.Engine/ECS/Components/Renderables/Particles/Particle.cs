@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
+using System;
 using Voltage.PhysicsShapes;
 using Voltage.Utils;
 using Voltage.Utils.Extensions;
@@ -50,35 +51,28 @@ namespace Voltage.Particles
 
 		Vector2 _velocity;
 
+		public int AnimFrame;
+		public int AnimCycleCount;
+		float _animFrameTimeLeft;
+		float _animSpeed;
 
-		public void Initialize(ParticleEmitterConfig emitterConfig, Vector2 spawnPosition)
+
+		public void Initialize(ParticleEmitterConfig emitterConfig, Vector2 spawnPosition, float animationSpeed = 1f)
 		{
 			_collided = false;
 
-			// init the position of the Particle. This is based on the source position of the particle emitter
-			// plus a configured variance. The Random.minusOneToOne method allows the number to be both positive
-			// and negative
 			Position.X = emitterConfig.SourcePositionVariance.X * Random.MinusOneToOne();
 			Position.Y = emitterConfig.SourcePositionVariance.Y * Random.MinusOneToOne();
 
 			this.SpawnPosition = spawnPosition;
 
-			// init the direction of the   The newAngle is calculated using the angle passed in and the
-			// angle variance.
 			var newAngle =
 				MathHelper.ToRadians(emitterConfig.Angle + emitterConfig.AngleVariance * Random.MinusOneToOne());
 
-			// create a new Vector2 using the newAngle
 			var vector = new Vector2(Mathf.Cos(newAngle), Mathf.Sin(newAngle));
-
-			// calculate the vectorSpeed using the speed and speedVariance which has been passed in
 			var vectorSpeed = emitterConfig.Speed + emitterConfig.SpeedVariance * Random.MinusOneToOne();
-
-			// the particles direction vector is calculated by taking the vector calculated above and
-			// multiplying that by the speed
 			_direction = vector * vectorSpeed;
 
-			// calculate the particles life span using the life span and variance passed in
 			_timeToLive = MathHelper.Max(0,
 				emitterConfig.ParticleLifespan + emitterConfig.ParticleLifespanVariance * Random.MinusOneToOne());
 			_particleLifetime = _timeToLive;
@@ -86,55 +80,56 @@ namespace Voltage.Particles
 			var startRadius = emitterConfig.MaxRadius + emitterConfig.MaxRadiusVariance * Random.MinusOneToOne();
 			var endRadius = emitterConfig.MinRadius + emitterConfig.MinRadiusVariance * Random.MinusOneToOne();
 
-			// set the default diameter of the particle from the source position
 			_radius = startRadius;
 			_radiusDelta = (endRadius - startRadius) / _timeToLive;
 			_angle = MathHelper.ToRadians(emitterConfig.Angle + emitterConfig.AngleVariance * Random.MinusOneToOne());
 			_degreesPerSecond = MathHelper.ToRadians(emitterConfig.RotatePerSecond +
-			                                         emitterConfig.RotatePerSecondVariance * Random.MinusOneToOne());
+													 emitterConfig.RotatePerSecondVariance * Random.MinusOneToOne());
 
 			_radialAcceleration = emitterConfig.RadialAcceleration +
-			                      emitterConfig.RadialAccelVariance * Random.MinusOneToOne();
+								  emitterConfig.RadialAccelVariance * Random.MinusOneToOne();
 			_tangentialAcceleration = emitterConfig.TangentialAcceleration +
-			                          emitterConfig.TangentialAccelVariance * Random.MinusOneToOne();
+									  emitterConfig.TangentialAccelVariance * Random.MinusOneToOne();
 
-			// calculate the particle size using the start and finish particle sizes
 			var particleStartSize = emitterConfig.StartParticleSize +
-			                        emitterConfig.StartParticleSizeVariance * Random.MinusOneToOne();
+									emitterConfig.StartParticleSizeVariance * Random.MinusOneToOne();
 			var particleFinishSize = emitterConfig.FinishParticleSize +
-			                         emitterConfig.FinishParticleSizeVariance * Random.MinusOneToOne();
+									 emitterConfig.FinishParticleSizeVariance * Random.MinusOneToOne();
 			_particleSizeDelta = (particleFinishSize - particleStartSize) / _timeToLive;
 			ParticleSize = MathHelper.Max(0, particleStartSize);
 
-
-			// calculate the color the particle should have when it starts its life. All the elements
-			// of the start color passed in along with the variance are used to calculate the start color
 			_startColor = new Color
 			(
-				(int) (emitterConfig.StartColor.R + emitterConfig.StartColorVariance.R * Random.MinusOneToOne()),
-				(int) (emitterConfig.StartColor.G + emitterConfig.StartColorVariance.G * Random.MinusOneToOne()),
-				(int) (emitterConfig.StartColor.B + emitterConfig.StartColorVariance.B * Random.MinusOneToOne()),
-				(int) (emitterConfig.StartColor.A + emitterConfig.StartColorVariance.A * Random.MinusOneToOne())
+				(int)(emitterConfig.StartColor.R + emitterConfig.StartColorVariance.R * Random.MinusOneToOne()),
+				(int)(emitterConfig.StartColor.G + emitterConfig.StartColorVariance.G * Random.MinusOneToOne()),
+				(int)(emitterConfig.StartColor.B + emitterConfig.StartColorVariance.B * Random.MinusOneToOne()),
+				(int)(emitterConfig.StartColor.A + emitterConfig.StartColorVariance.A * Random.MinusOneToOne())
 			);
 			Color = _startColor;
 
-			// calculate the color the particle should be when its life is over. This is done the same
-			// way as the start color above
 			_finishColor = new Color
 			(
-				(int) (emitterConfig.FinishColor.R + emitterConfig.FinishColorVariance.R * Random.MinusOneToOne()),
-				(int) (emitterConfig.FinishColor.G + emitterConfig.FinishColorVariance.G * Random.MinusOneToOne()),
-				(int) (emitterConfig.FinishColor.B + emitterConfig.FinishColorVariance.B * Random.MinusOneToOne()),
-				(int) (emitterConfig.FinishColor.A + emitterConfig.FinishColorVariance.A * Random.MinusOneToOne())
+				(int)(emitterConfig.FinishColor.R + emitterConfig.FinishColorVariance.R * Random.MinusOneToOne()),
+				(int)(emitterConfig.FinishColor.G + emitterConfig.FinishColorVariance.G * Random.MinusOneToOne()),
+				(int)(emitterConfig.FinishColor.B + emitterConfig.FinishColorVariance.B * Random.MinusOneToOne()),
+				(int)(emitterConfig.FinishColor.A + emitterConfig.FinishColorVariance.A * Random.MinusOneToOne())
 			);
 
-			// calculate the rotation
 			var startA = MathHelper.ToRadians(emitterConfig.RotationStart +
-			                                  emitterConfig.RotationStartVariance * Random.MinusOneToOne());
+											  emitterConfig.RotationStartVariance * Random.MinusOneToOne());
 			var endA = MathHelper.ToRadians(emitterConfig.RotationEnd +
-			                                emitterConfig.RotationEndVariance * Random.MinusOneToOne());
+											emitterConfig.RotationEndVariance * Random.MinusOneToOne());
 			Rotation = startA;
 			_rotationDelta = (endA - startA) / _timeToLive;
+
+			// per-particle animation state
+			AnimFrame = 0;
+			AnimCycleCount = 0;
+			_animSpeed = Math.Max(0.001f, animationSpeed);
+			var anim = emitterConfig.SpriteAnimation;
+			_animFrameTimeLeft = (anim != null && anim.Sprites.Length > 0)
+				? 1f / (anim.FrameRates[0] * _animSpeed)
+				: 0f;
 		}
 
 
@@ -205,6 +200,23 @@ namespace Voltage.Particles
 				// update the rotation of the particle
 				Rotation += _rotationDelta * Time.DeltaTime;
 
+				// update the rotation of the particle
+				Rotation += _rotationDelta * Time.DeltaTime;
+
+				// advance per-particle animation frame
+				var spriteAnim = emitterConfig.SpriteAnimation;
+				if (spriteAnim != null && spriteAnim.Sprites.Length > 0)
+				{
+					_animFrameTimeLeft -= Time.DeltaTime;
+					if (_animFrameTimeLeft <= 0f)
+					{
+						var nextFrame = (AnimFrame + 1) % spriteAnim.Sprites.Length;
+						if (nextFrame == 0)
+							AnimCycleCount++;
+						AnimFrame = nextFrame;
+						_animFrameTimeLeft = 1f / (spriteAnim.FrameRates[AnimFrame] * _animSpeed);
+					}
+				}
 
 				if (collisionConfig.Enabled)
 				{

@@ -80,9 +80,6 @@ namespace Voltage
 
 		#region static variables and constants
 
-		/// if true, the older FNA half-pixel offset will be used when creating the ortho matrix. Autoset to true for FNA.
-		public static bool UseFnaHalfPixelMatrix = false;
-
 		const int MAX_SPRITES = 2048;
 		const int MAX_VERTICES = MAX_SPRITES * 4;
 		const int MAX_INDICES = MAX_SPRITES * 6;
@@ -93,10 +90,6 @@ namespace Voltage
 		static readonly short[] _indexData = GenerateIndexArray();
 
 		#endregion
-
-#if FNA
-		static Batcher() => UseFnaHalfPixelMatrix = true;
-#endif
 
 		public Batcher(GraphicsDevice graphicsDevice)
 		{
@@ -1072,25 +1065,10 @@ namespace Voltage
 			var viewport = GraphicsDevice.Viewport;
 
 			// inlined CreateOrthographicOffCenter
-			if (UseFnaHalfPixelMatrix)
-			{
-				// FNA (DirectX) needs a half-pixel offset to align texels with pixels
-				_projectionMatrix.M11 = (float)(2.0 / (double)(viewport.Width / 2 * 2 - 1));
-				_projectionMatrix.M22 = (float)(-2.0 / (double)(viewport.Height / 2 * 2 - 1));
-				_projectionMatrix.M41 = -1 - 0.5f * _projectionMatrix.M11;
-				_projectionMatrix.M42 = 1 - 0.5f * _projectionMatrix.M22;
-			}
-			else
-			{
-				// OpenGL (MonoGame DesktopGL) pixel centers are already texel-aligned — no offset needed.
-				// Applying the DX9 half-pixel offset here shifts the quad by 0.5px, causing the
-				// right/bottom edge pixels to hit UV=1.0 and wrap to texel 0 with Wrap addressing,
-				// which produces a visible diagonal seam in fullscreen blits.
-				_projectionMatrix.M11 = (float)(2.0 / (double)viewport.Width);
-				_projectionMatrix.M22 = (float)(-2.0 / (double)viewport.Height);
-				_projectionMatrix.M41 = -1;
-				_projectionMatrix.M42 = 1;
-			}
+			_projectionMatrix.M11 = (float)(2.0 / (double)viewport.Width);
+			_projectionMatrix.M22 = (float)(-2.0 / (double)viewport.Height);
+			_projectionMatrix.M41 = -1;
+			_projectionMatrix.M42 = 1;
 
 			Matrix.Multiply(ref _transformMatrix, ref _projectionMatrix, out _matrixTransformMatrix);
 			_spriteEffect.SetMatrixTransform(ref _matrixTransformMatrix);

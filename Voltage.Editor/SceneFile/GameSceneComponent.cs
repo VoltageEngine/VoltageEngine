@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -7,10 +7,8 @@ using Microsoft.Xna.Framework;
 using Voltage.Data;
 using Voltage.DeferredLighting;
 using Voltage.Editor.DebugUtils;
-using Voltage.Editor.Extensions;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.ProjectFile;
-using Voltage.Editor.Serialization;
 using Voltage.Editor.Undo.AssetActions;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Utils;
@@ -424,7 +422,7 @@ public class GameSceneComponent : SceneComponent
                 spriteEntity.Type = Entity.InstanceType.Serialized;
 
                 spriteEntity.Transform.SetParent(parentEntity.Transform);
-                var layerTexture = asepriteFile.GetTextureFromLayers(layerName);
+                var layerTexture = asepriteFile.GetTextureFromLayers(1, true, false, layerName);
 
                 // Calculate local position based on layer offset (if available)
                 // Aseprite layers don't have direct offsets, so we use (0,0) or can be adjusted manually

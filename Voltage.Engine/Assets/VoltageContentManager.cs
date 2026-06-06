@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Text;
 using Microsoft.Xna.Framework.Graphics;
@@ -146,7 +146,7 @@ public class VoltageContentManager : ContentManager
 		}
 		catch (Exception e)
 		{
-			System.Console.WriteLine(e);
+			Debug.Error(e.ToString());
 			throw;
 		}
 	}

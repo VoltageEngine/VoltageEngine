@@ -1,4 +1,4 @@
-﻿using Voltage.Utils.Extensions;
+using Voltage.Utils.Extensions;
 
 namespace Voltage.Sprites
 {

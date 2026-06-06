@@ -1,4 +1,4 @@
-﻿/*
+/*
 * Farseer Physics Engine:
 * Copyright (c) 2012 Ian Qvist
 * 

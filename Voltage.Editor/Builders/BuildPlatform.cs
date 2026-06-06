@@ -6,7 +6,7 @@ namespace Voltage.Editor.Builders;
 
 /// <summary>
 /// Defines a target platform for game builds.
-/// This is the single source of truth for available platforms — both the .csproj template
+/// This is the single source of truth for available platforms  both the .csproj template
 /// and the GameBuildWindow read from this list, ensuring they are always in sync.
 /// </summary>
 public class BuildPlatform

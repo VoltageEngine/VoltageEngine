@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Graphics;
@@ -169,6 +169,7 @@ public class Core : Game
 	{
 #if EDITOR
 		_windowTitle = windowTitle;
+		IsEditMode = true;
 #else
 		IsEditMode = false;
 #endif
@@ -187,6 +188,7 @@ public class Core : Game
 		graphicsManager.DeviceReset += OnGraphicsDeviceReset;
 		graphicsManager.PreferredDepthStencilFormat = DepthFormat.Depth24Stencil8;
 
+		OnSwitchEditMode += (editMode) => { Instance.IsMouseVisible = editMode; };
 		Screen.Initialize(graphicsManager);
 		Window.ClientSizeChanged += OnGraphicsDeviceReset;
 		Window.OrientationChanged += OnOrientationChanged;
@@ -428,7 +430,6 @@ public class Core : Game
 		Emitter.Emit(CoreEvents.SceneChanged);
 		Time.SceneChanged();
 		GC.Collect();
-		_hasBeenInEditMode = false; // Reset after every scene load
 	}
 
 	/// <summary>
@@ -543,17 +544,12 @@ public class Core : Game
 	#endregion
 
 	#region Edit Mode
-	public static event Action<bool> OnTimeFrozen;
-	public static event Action OnChangedToEditMode;
-	public static event Action OnChangedToPlayMode;
 	public static event Action OnResetScene;
 	public static event Action<bool> OnSwitchEditMode;
 	public static event Action<bool> OnSwitchPauseMode;
 
-	private static bool _isTimeFrozen;
 	private static bool _isEditMode;
 	private static bool _isPauseMode;
-	private static bool _hasBeenInEditMode;
 
 	/// In EditMode, Entities' components aren't updated, and instead, user can use the ImGui inspector to move the objects in the scene manually.
 	public static bool IsEditMode
@@ -564,16 +560,7 @@ public class Core : Game
 			if (_isEditMode != value)
 			{
 				_isEditMode = value;
-
-				if (value)
-				{
-					OnChangedToEditMode?.Invoke();
-					_hasBeenInEditMode = true;
-				}
-				else if (_hasBeenInEditMode)
-				{
-					OnChangedToPlayMode?.Invoke();
-				}
+				InvokeSwitchEditMode(value);
 			}
 		}
 	}
@@ -592,19 +579,6 @@ public class Core : Game
 			{
 				_isPauseMode = value;
 				OnSwitchPauseMode?.Invoke(value);
-			}
-		}
-	}
-
-	public static bool IsTimeFrozen
-	{
-		get => _isTimeFrozen;
-		set
-		{
-			if (_isTimeFrozen != value)
-			{
-				_isTimeFrozen = value;
-				OnTimeFrozen?.Invoke(_isTimeFrozen);
 			}
 		}
 	}
@@ -630,29 +604,6 @@ public class Core : Game
 	public static void InvokeResetScene()
 	{
 		OnResetScene?.Invoke();
-	}
-
-	/// <summary>
-	/// Freeze the game for a certain amount of time
-	/// </summary>
-	public static void FreezeGame(float time)
-	{
-		IsTimeFrozen = true;
-		StartCoroutine(UnfreezeAfterTime(time));
-	}
-
-	/// <summary>
-	/// Freeze the game for indefinite amount of time
-	/// </summary>
-	public static void FreezeGame(bool freeze)
-	{
-		IsTimeFrozen = freeze;
-	}
-
-	private static IEnumerator UnfreezeAfterTime(float time)
-	{
-		yield return Coroutine.WaitForSeconds(time);
-		IsTimeFrozen = false;
 	}
 	#endregion
 

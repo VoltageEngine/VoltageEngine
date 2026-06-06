@@ -16,6 +16,7 @@ public class SceneData
 	#region Scene Metadata
 
 	public string Name = "Untitled Scene";
+	[JsonExclude]
 	public string FilePath = string.Empty;
 	public DateTime CreatedAt = DateTime.Now;
 	public DateTime ModifiedAt = DateTime.Now;

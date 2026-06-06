@@ -1,4 +1,4 @@
-﻿namespace Voltage.Verlet
+namespace Voltage.Verlet
 {
 	public class Ragdoll : Composite
 	{

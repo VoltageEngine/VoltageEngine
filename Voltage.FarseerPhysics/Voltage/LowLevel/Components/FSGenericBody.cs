@@ -1,4 +1,4 @@
-﻿using FarseerPhysics.Dynamics;
+using FarseerPhysics.Dynamics;
 using Voltage;
 
 
@@ -30,7 +30,7 @@ namespace Voltage.Farseer
 		}
 
 
-		public override void Initialize()
+		public override void OnAddedToEntity()
 		{
 			var world = Entity.Scene.GetOrCreateSceneComponent<FSWorld>();
 

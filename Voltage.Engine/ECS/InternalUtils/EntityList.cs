@@ -97,6 +97,26 @@ public class EntityList : IEnumerable<Entity>
 	}
 
 	/// <summary>
+	/// Immediately moves an already-live entity to a specific index within the live entity buffer.
+	/// Used for visual reordering of root entities in the scene graph.
+	/// </summary>
+	public void MoveEntityToIndex(Entity entity, int targetIndex)
+	{
+		int currentIndex = _entities.IndexOf(entity);
+		if (currentIndex < 0 || currentIndex == targetIndex)
+			return;
+
+		_entities.RemoveAt(currentIndex);
+
+		// After removal the target index may need adjusting
+		if (targetIndex > currentIndex)
+			targetIndex--;
+
+		targetIndex = Math.Clamp(targetIndex, 0, _entities.Length);
+		_entities.Insert(targetIndex, entity);
+	}
+
+	/// <summary>
 	/// removes an Entity from the list. All lifecycle methods will be called in the next frame.
 	/// </summary>
 	/// <param name="entity">Entity.</param>
@@ -237,12 +257,12 @@ public class EntityList : IEnumerable<Entity>
 			Serialization.ComponentReferenceResolver.ResolveAll();
 
 			foreach (var entity in _tempEntityList)
-				entity.Components.FireStartCallbacks();
+				entity.Components.CallOnEnableAndOnStart();
 
+			// Only the first time the scene is loaded
 			if (_isSceneStarted)
 			{
 				Scene.InvokeFinishedAddingEntities();
-				Scene.InvokeFinishedAddingEntitiesWithData();
 				_isSceneStarted = false;
 			}
 
@@ -300,6 +320,23 @@ public class EntityList : IEnumerable<Entity>
 		for (var i = 0; i < list.Length; i++) returnList.Add(list[i]);
 
 		return returnList;
+	}
+
+	/// <summary>
+	/// returns a list of all entities with the given tag name. Looks up the tag int value from ProjectSettings.
+	/// If the tag name is not found or no entities have the tag, an empty list is returned.
+	/// The returned List can be put back in the pool via ListPool.free.
+	/// </summary>
+	/// <returns>The entities with tag name.</returns>
+	/// <param name="tagName">Tag name.</param>
+	public List<Entity> EntitiesWithTag(string tagName)
+	{
+		var entityTags = Project.ProjectSettings.Instance.Entities.EntityTags;
+
+		if (!entityTags.TryGetValue(tagName, out var tag))
+			return ListPool<Entity>.Obtain();
+
+		return EntitiesWithTag(tag);
 	}
 
 	/// <summary>

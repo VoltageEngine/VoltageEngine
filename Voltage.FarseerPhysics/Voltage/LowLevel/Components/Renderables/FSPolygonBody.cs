@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using FarseerPhysics.Collision.Shapes;
 using FarseerPhysics.Common;
 using Microsoft.Xna.Framework;
@@ -21,9 +21,9 @@ namespace Voltage.Farseer
 			_verts = new Vertices(verts);
 		}
 
-		public override void Initialize()
+		public override void OnAddedToEntity()
 		{
-			base.Initialize();
+			base.OnAddedToEntity();
 			Body.AttachPolygon(_verts, 1);
 		}
 

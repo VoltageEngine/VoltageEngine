@@ -1,4 +1,4 @@
-﻿namespace Voltage.Utils.Coroutines
+namespace Voltage.Utils.Coroutines
 {
 	/// <summary>
 	/// interface returned by startCoroutine which provides the ability to stop the coroutine mid-flight

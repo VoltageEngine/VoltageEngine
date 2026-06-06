@@ -38,11 +38,24 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 
 		public override void DrawMutable()
 		{
+			DrawTree(isReadOnly: false);
+		}
+
+		/// <summary>
+		/// Allows the tree node to open/close freely, but disables all checkboxes inside.
+		/// </summary>
+		public override void DrawReadOnly()
+		{
+			DrawTree(isReadOnly: true);
+		}
+
+		private void DrawTree(bool isReadOnly)
+		{
 			var currentMask = GetValue<int>();
 			var newMask = currentMask;
 
 			var summary = BuildSummary(currentMask);
-			
+
 			VoltageEditorUtils.SmallVerticalSpace();
 
 			if (ImGui.TreeNode($"{_name}: {summary}"))
@@ -50,12 +63,23 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 				for (var i = 0; i < _layerNames.Length; i++)
 				{
 					var isChecked = currentMask == Physics.AllLayers || (currentMask & _layerBitValues[i]) != 0;
-					if (ImGui.Checkbox(_layerNames[i], ref isChecked))
+
+					if (isReadOnly)
 					{
-						if (isChecked)
-							newMask |= _layerBitValues[i];
-						else
-							newMask &= ~_layerBitValues[i];
+						// Disable only the checkboxes - tree remains interactive
+						ImGui.BeginDisabled();
+						ImGui.Checkbox(_layerNames[i], ref isChecked);
+						ImGui.EndDisabled();
+					}
+					else
+					{
+						if (ImGui.Checkbox(_layerNames[i], ref isChecked))
+						{
+							if (isChecked)
+								newMask |= _layerBitValues[i];
+							else
+								newMask &= ~_layerBitValues[i];
+						}
 					}
 				}
 
@@ -64,7 +88,7 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 
 			VoltageEditorUtils.SmallVerticalSpace();
 
-			if (newMask != currentMask)
+			if (!isReadOnly && newMask != currentMask)
 				SetValueWithUndo(newMask, _name);
 
 			HandleTooltip();

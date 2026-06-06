@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using Microsoft.Xna.Framework;
 using Voltage.PhysicsShapes;
 
@@ -7,7 +7,7 @@ namespace Voltage
 {
 	public class BoxCollider : Collider
 	{
-		[Inspectable]
+		[Serialize]
 		[Range(1, float.MaxValue, true)]
 		public float Width
 		{
@@ -20,7 +20,7 @@ namespace Voltage
 			set => SetWidth(value);
 		}
 
-		[Inspectable]
+		[Serialize]
 		[Range(1, float.MaxValue, true)]
 		public float Height
 		{

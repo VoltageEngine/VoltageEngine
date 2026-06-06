@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using ImGuiNET;
 using Voltage.Editor.Tools;
 using Voltage.Utils;

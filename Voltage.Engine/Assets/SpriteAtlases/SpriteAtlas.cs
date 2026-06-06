@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Voltage.Textures;
 
 namespace Voltage.Sprites

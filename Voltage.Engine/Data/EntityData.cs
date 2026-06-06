@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Voltage.Data
@@ -6,10 +6,10 @@ namespace Voltage.Data
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
     public class EntityData
     {
-        [HideAttributeInInspector]
+        [HideInInspector]
         public List<ComponentDataEntry> ComponentDataList;
 
-        [Inspectable]
+        [Serialize]
         public int NumberOfSerializedComponents => ComponentDataList?.Count ?? 0;
 
 		public EntityData()

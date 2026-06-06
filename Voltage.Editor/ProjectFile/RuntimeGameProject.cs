@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Xna.Framework.Content;
 using Voltage.Editor.DebugUtils;
 using Voltage.Editor.SceneFile;
+using Voltage.Editor.Utils;
 using Voltage.Project;
 
 namespace Voltage.Editor.ProjectFile
@@ -56,7 +57,7 @@ namespace Voltage.Editor.ProjectFile
 
 		/// <summary>
 		/// Reads the Version property directly from the game project's .csproj file.
-		/// The .csproj is the single source of truth for version — no caching, no duplication.
+		/// The .csproj is the single source of truth for version  no caching, no duplication.
 		/// </summary>
 		private Version ReadVersionFromCsproj()
 		{
@@ -80,17 +81,17 @@ namespace Voltage.Editor.ProjectFile
 		}
 
 
-		public string ScriptsFolder => Path.Combine(ProjectPath, _metadata.ScriptsFolder);
+		public string ScriptsFolder => CrossPlatformPath.Combine(ProjectPath, CrossPlatformPath.Normalize(_metadata.ScriptsFolder));
 
-		public string EffectsFolder => Path.Combine(ProjectPath, _metadata.EffectsFolder);
+		public string EffectsFolder => CrossPlatformPath.Combine(ProjectPath, CrossPlatformPath.Normalize(_metadata.EffectsFolder));
 
-		public string ContentsFolder => Path.Combine(ProjectPath, _metadata.ContentsFolder);
+		public string ContentsFolder => CrossPlatformPath.Combine(ProjectPath, CrossPlatformPath.Normalize(_metadata.ContentsFolder));
 
-		public string DataFolder => Path.Combine(ProjectPath, _metadata.DataFolder);
+		public string DataFolder => CrossPlatformPath.Combine(ProjectPath, CrossPlatformPath.Normalize(_metadata.DataFolder));
 
-		public string ScenesFolder => Path.Combine(ProjectPath, _metadata.ScenesFolder);
+		public string ScenesFolder => CrossPlatformPath.Combine(ProjectPath, CrossPlatformPath.Normalize(_metadata.ScenesFolder));
 
-		public string PrefabsFolder => Path.Combine(ProjectPath, _metadata.PrefabsFolder);
+		public string PrefabsFolder => CrossPlatformPath.Combine(ProjectPath, CrossPlatformPath.Normalize(_metadata.PrefabsFolder));
 
 
 		public void Initialize()
@@ -206,7 +207,7 @@ namespace Voltage.Editor.ProjectFile
 				}
 			}
 
-			// No settings file found — create defaults and persist
+			// No settings file found  create defaults and persist
 			_settings = new ProjectSettings();
 			try
 			{

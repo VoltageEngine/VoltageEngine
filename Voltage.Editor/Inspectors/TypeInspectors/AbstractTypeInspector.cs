@@ -268,6 +268,82 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 			_pathFromRoot = new List<string>(parentInspector._pathFromRoot) { prop.Name };
 		}
 
+		/// <summary>
+		/// Sets up this inspector as a child of a <see cref="ComponentGroupInspector"/> (class reference, not value type).
+		/// Unlike <see cref="SetStructTarget"/>, no copy-back is needed — fields are mutated directly on the group instance.
+		/// </summary>
+		public void SetClassGroupTarget(object target, AbstractTypeInspector parentInspector, FieldInfo field)
+		{
+			_target = target;
+			_memberInfo = field;
+			_name = field.Name;
+			_valueType = field.FieldType;
+			_isReadOnly = field.IsInitOnly || parentInspector._isReadOnly;
+
+			// Group is a class reference — fetch it once; no copy-back needed.
+			_getter = obj =>
+			{
+				var groupInstance = parentInspector.GetValue();
+				return groupInstance != null ? field.GetValue(groupInstance) : null;
+			};
+
+			if (!_isReadOnly)
+			{
+				_setter = val =>
+				{
+					var groupInstance = parentInspector.GetValue();
+					if (groupInstance == null) return;
+					field.SetValue(groupInstance, val);
+
+					// Notify parent for immediate (non-drag) undo tracking
+					if (parentInspector is ComponentGroupInspector groupInspector && !IsCurrentlyInEditSession())
+						groupInspector.NotifyFieldChanged();
+				};
+			}
+
+			_parentInspector = parentInspector;
+			_pathFromRoot = new List<string>(parentInspector._pathFromRoot) { field.Name };
+		}
+
+		/// <summary>
+		/// Sets up this inspector as a child of a <see cref="ComponentGroupInspector"/> (class reference, not value type).
+		/// Property variant — no copy-back needed.
+		/// </summary>
+		public void SetClassGroupTarget(object target, AbstractTypeInspector parentInspector, PropertyInfo prop)
+		{
+			_target = target;
+			_memberInfo = prop;
+			_name = prop.Name;
+			_valueType = prop.PropertyType;
+
+			bool hasPublicGetter = prop.CanRead && (prop.GetMethod?.IsPublic ?? false);
+			bool hasPublicSetter = prop.CanWrite && (prop.SetMethod?.IsPublic ?? false);
+
+			_isReadOnly = !prop.CanWrite || !hasPublicSetter || parentInspector._isReadOnly;
+
+			if (prop.CanRead)
+			{
+				_getter = obj =>
+				{
+					var groupInstance = parentInspector.GetValue();
+					return groupInstance != null ? ReflectionUtils.GetPropertyGetter(prop).Invoke(groupInstance, null) : null;
+				};
+			}
+
+			if (prop.CanWrite && hasPublicSetter && !parentInspector._isReadOnly)
+			{
+				_setter = val =>
+				{
+					var groupInstance = parentInspector.GetValue();
+					if (groupInstance == null) return;
+					prop.SetValue(groupInstance, val);
+				};
+			}
+
+			_parentInspector = parentInspector;
+			_pathFromRoot = new List<string>(parentInspector._pathFromRoot) { prop.Name };
+		}
+
 		public void SetTarget(object target, MethodInfo method)
 		{
 			_memberInfo = method;
