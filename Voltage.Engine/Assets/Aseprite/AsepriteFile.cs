@@ -334,7 +334,7 @@ public sealed class AsepriteFile
 		return texture;
 	}
 
-	public Texture2D GetTextureFromLayers(string layer, int frameNumber = 1, bool onlyVisibleLayers = true, bool includeBackgroundLayer = false)
+	public Texture2D GetTextureFromLayer(string layer, int frameNumber = 1, bool onlyVisibleLayers = true, bool includeBackgroundLayer = false)
 	{
 		int frameIndex = frameNumber - 1;
 		// Validate frame number
@@ -343,14 +343,44 @@ public sealed class AsepriteFile
 			throw new ArgumentOutOfRangeException(nameof(frameNumber),
 				$"Frame number {frameNumber} is out of range. File has {Frames.Count} frames.");
 		}
-
+	
 		var frame = Frames[frameIndex];
 		var pixels = frame.FlattenFrame(onlyVisibleLayers, includeBackgroundLayer, layer);
-
+	
 		// Create texture from the flattened pixel data
 		var texture = new Texture2D(Core.GraphicsDevice, frame.Width, frame.Height);
 		texture.SetData<Color>(pixels);
+	
+		return texture;
+	}
 
+	/// <summary>
+	/// Generates a <see cref="Texture2D"/> from a specific frame, flattening only the specified layers.
+	/// </summary>
+	/// <param name="frameNumber">The frame number to use (1-based, matching the Aseprite UI).</param>
+	/// <param name="onlyVisibleLayers">Whether to skip layers that are hidden in Aseprite.</param>
+	/// <param name="includeBackgroundLayer">Whether to include the background layer.</param>
+	/// <param name="layers">One or more layer names to include when flattening. If empty, all layers are used.</param>
+	public Texture2D GetTextureFromLayers(int frameNumber = 1, bool onlyVisibleLayers = true, bool includeBackgroundLayer = false, params string[] layers)
+	{
+		int frameIndex = frameNumber - 1;
+
+		if (frameIndex < 0 || frameIndex >= Frames.Count)
+			throw new ArgumentOutOfRangeException(nameof(frameNumber),
+				$"Frame number {frameNumber} is out of range. File has {Frames.Count} frames.");
+
+		var frame = Frames[frameIndex];
+
+		Color[] pixels;
+		if (layers == null || layers.Length == 0)
+			pixels = frame.FlattenFrame(onlyVisibleLayers, includeBackgroundLayer);
+		else if (layers.Length == 1)
+			pixels = frame.FlattenFrame(onlyVisibleLayers, includeBackgroundLayer, layers[0]);
+		else
+			pixels = frame.FlattenFrameOnLayers(onlyVisibleLayers, includeBackgroundLayer, layers);
+
+		var texture = new Texture2D(Core.GraphicsDevice, frame.Width, frame.Height);
+		texture.SetData<Color>(pixels);
 		return texture;
 	}
 }
