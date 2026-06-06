@@ -422,7 +422,7 @@ public class GameSceneComponent : SceneComponent
                 spriteEntity.Type = Entity.InstanceType.Serialized;
 
                 spriteEntity.Transform.SetParent(parentEntity.Transform);
-                var layerTexture = asepriteFile.GetTextureFromLayers(layerName);
+                var layerTexture = asepriteFile.GetTextureFromLayers(1, true, false, layerName);
 
                 // Calculate local position based on layer offset (if available)
                 // Aseprite layers don't have direct offsets, so we use (0,0) or can be adjusted manually

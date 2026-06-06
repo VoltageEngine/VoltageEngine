@@ -283,8 +283,6 @@ public class EntityList : IEnumerable<Entity>
 				_entityDict[tag].Sort();
 			_unsortedTags.Clear();
 		}
-
-
 	}
 
 

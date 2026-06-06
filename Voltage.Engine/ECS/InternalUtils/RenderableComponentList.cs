@@ -32,7 +32,6 @@ public class RenderableComponentList
 
 	#endregion
 
-
 	public void Add(IRenderable component)
 	{
 		_components.Add(component);

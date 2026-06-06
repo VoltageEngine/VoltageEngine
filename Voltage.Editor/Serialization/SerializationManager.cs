@@ -77,7 +77,7 @@ public partial class SerializationManager : GlobalManager
 	{
 		_instance = this;
 		Core.Emitter.AddObserver(CoreEvents.SceneChanged, OnSceneChanged);
-		Core.OnChangedToPlayMode += ChangedToPlayMode;
+		Core.OnSwitchEditMode += ChangedToPlayMode;
 
 		OnSaveSceneAsync += SaveSceneChangesAsync;
 		OnPrefabCreated += OnPrefabCreated;
@@ -167,9 +167,10 @@ public partial class SerializationManager : GlobalManager
 
 	#region Event Handlers
 
-	private void ChangedToPlayMode()
+	private void ChangedToPlayMode(bool isEditMode)
 	{
-		HasExitedEditorMode = true;
+		if(!isEditMode)
+			HasExitedEditorMode = true;
 	}
 
 	private void OnSceneChanged()

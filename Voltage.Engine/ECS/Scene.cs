@@ -276,8 +276,6 @@ public partial class Scene
 		if (_renderers.Length == 0)
 		{
 			AddRenderer(new DefaultRenderer());
-			Debug.Warn(
-				"Scene has begun with no renderer. A DefaultRenderer was added automatically so that something is visible.");
 		}
 
 		Physics.Reset();
