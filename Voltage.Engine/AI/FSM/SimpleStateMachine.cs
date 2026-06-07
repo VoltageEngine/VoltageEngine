@@ -44,7 +44,7 @@ namespace Voltage.AI.FSM
 				_currentState = value;
 
 				// exit the state, fetch the next cached state methods then enter that state
-				if (_stateMethods.ExitState != null)
+				if (_stateMethods?.ExitState != null)
 					_stateMethods.ExitState();
 
 				elapsedTimeInState = 0f;
@@ -82,8 +82,25 @@ namespace Voltage.AI.FSM
 		{
 			elapsedTimeInState += Time.DeltaTime;
 
-			if (_stateMethods.Tick != null)
+			if (_stateMethods == null)
+			{
+				Debug.Error(
+					$"[{GetType().Name}] InitialState was never set. " +
+					$"Assign 'InitialState = <YourFirstState>' in OnStart() before the first Update() runs.");
+				return;
+			}
+
+			if (_stateMethods.Tick == null)
+				return;
+
+			try
+			{
 				_stateMethods.Tick();
+			}
+			catch (Exception ex)
+			{
+				Debug.Error($"[{GetType().Name}] Exception in state '{_currentState}' Tick() — {ex.Message}, from {ex}");
+			}
 		}
 
 		void ConfigureAndCacheState(TEnum stateEnum)

@@ -1,16 +1,12 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Voltage.Data;
 using Voltage.Systems;
-using Voltage.Tiled;
 using System;
 using System.IO;
-using System.Reflection.Metadata;
 using Voltage.DeferredLighting;
 using Voltage.Materials;
 using Voltage.Textures;
 using Voltage.Utils;
-
 
 namespace Voltage.Sprites
 {
