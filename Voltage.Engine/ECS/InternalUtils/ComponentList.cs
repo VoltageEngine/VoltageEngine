@@ -329,7 +329,7 @@ public class ComponentList : IEnumerable<Component>
 			{
 				Debug.Error(
 					$"Exception in Update() on component '{component?.GetType().Name ?? "Unknown"}' " +
-					$"(Name='{component?.Name}') on entity '{_entity.Name}': {ex.Message}\n{ex.StackTrace}");
+					$"(Name='{component?.Name}') on entity '{_entity.Name}':\n{ex}");
 			}
 		}
 	}

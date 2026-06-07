@@ -20,7 +20,7 @@ namespace Voltage
 		}
 
         /// <summary>
-        /// caculates the movement modifying the motion vector to take into account any collisions that will
+        /// Calculates the movement modifying the motion vector to take into account any collisions that will
         /// occur when moving
         /// </summary>
         /// <returns><c>true</c>, if movement was calculated, <c>false</c> otherwise.</returns>
@@ -129,7 +129,7 @@ namespace Voltage
         }
 
         /// <summary>
-        /// applies the movement from calculateMovement to the entity and updates the triggerHelper
+        /// Applies the movement from calculateMovement to the entity and updates the triggerHelper
         /// </summary>
         /// <param name="motion">Motion.</param>
         public void ApplyMovement(Vector2 motion)
@@ -143,7 +143,7 @@ namespace Voltage
 		}
 
 		/// <summary>
-		/// moves the entity taking collisions into account by calling calculateMovement followed by applyMovement;
+		/// Moves the entity taking collisions into account by calling calculateMovement followed by applyMovement;
 		/// </summary>
 		/// <returns><c>true</c>, if move actor was newed, <c>false</c> otherwise.</returns>
 		/// <param name="motion">Motion.</param>
