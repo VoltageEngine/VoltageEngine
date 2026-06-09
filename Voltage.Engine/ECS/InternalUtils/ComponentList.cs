@@ -302,6 +302,13 @@ public class ComponentList : IEnumerable<Component>
 	{
 		UpdateLists();
 
+		// Components added mid-frame (e.g. from another component's OnStart) are committed
+		// by UpdateLists() into _tempBufferList but CallOnEnableAndOnStart() is never reached
+		// from EntityList — it only runs for newly added entities. Call it here so dynamically
+		// added components get their OnEnabled/OnStart before their first Update().
+		if (_tempBufferList.Count > 0)
+			CallOnEnableAndOnStart();
+
 		for (var i = 0; i < _updatableComponents.Length; i++)
 		{
 			var updatable = _updatableComponents.Buffer[i];
