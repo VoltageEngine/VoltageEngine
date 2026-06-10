@@ -256,10 +256,29 @@ public class EntityList : IEnumerable<Entity>
 
 			Serialization.ComponentReferenceResolver.ResolveAll();
 
+			// SceneComponents are scene-level services; entity components are consumers.
+			// OnEnabled + OnStart must fire on all SceneComponents before entity OnStart so
+			// that entity components can safely use them during their own OnStart.
+			// This one-time block only runs during the initial scene load flush (when
+			// _isSceneStarted is true). Runtime-added SceneComponents are handled directly
+			// in Scene.AddSceneComponent() after _didSceneBegin is set.
+			if (_isSceneStarted)
+			{
+				for (var i = 0; i < Scene._sceneComponents.Length; i++)
+				{
+					var sc = Scene._sceneComponents.Buffer[i];
+					if (!sc._onStartCalled && sc.Enabled)
+					{
+						sc.OnEnabled();
+						sc.OnStart();
+						sc._onStartCalled = true;
+					}
+				}
+			}
+
 			foreach (var entity in _tempEntityList)
 				entity.Components.CallOnEnableAndOnStart();
 
-			// Only the first time the scene is loaded
 			if (_isSceneStarted)
 			{
 				Scene.InvokeFinishedAddingEntities();

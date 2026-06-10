@@ -273,6 +273,12 @@ public partial class Scene
 			LoadSceneEntitiesData();
 		}
 
+		// Load SceneComponents from SceneData (scene-scoped script components)
+		if (SceneData != null && SceneData.SceneComponents != null && SceneData.SceneComponents.Count > 0)
+		{
+			LoadSceneComponentsData();
+		}
+
 		if (_renderers.Length == 0)
 		{
 			AddRenderer(new DefaultRenderer());
@@ -752,9 +758,27 @@ public partial class Scene
 	public T AddSceneComponent<T>(T component) where T : SceneComponent
 	{
 		component.Scene = this;
-		component.OnEnabled();
+
+		// During scene load (_didSceneBegin is false), defer OnEnabled and OnStart so they
+		// fire after data is applied and references are resolved. EntityList.UpdateLists()
+		// handles the deferred calls for all scene-load components on the first Update().
+		//
+		// At runtime (_didSceneBegin is true), call both immediately — data has already been
+		// applied by the caller and there is no pending entity-addition flush to piggyback on.
+		if (_didSceneBegin)
+		{
+			component.OnEnabled();
+		}
+
 		_sceneComponents.Add(component);
 		_sceneComponents.Sort();
+
+		if (_didSceneBegin && !component._onStartCalled)
+		{
+			component.OnStart();
+			component._onStartCalled = true;
+		}
+
 		return component;
 	}
 

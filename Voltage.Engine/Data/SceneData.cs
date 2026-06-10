@@ -81,6 +81,12 @@ public class SceneData
 	[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(List<SceneEntityData>))]
 	public List<SceneEntityData> Entities = new();
 
+	/// <summary>
+	/// List of scene-scoped components (SceneComponent subclasses) serialized for this scene.
+	/// </summary>
+	[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(List<SceneComponentDataEntry>))]
+	public List<SceneComponentDataEntry> SceneComponents = new();
+
 	#endregion
 
 	#region Editor Data

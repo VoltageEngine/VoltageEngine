@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Xna.Framework;
 
 
@@ -9,6 +10,7 @@ namespace Voltage.Svg
 	/// to build paths since it is stuck using reflection for everything. It is highly recommended that you use the SvgPathBuilder class
 	/// instead, which must be manually placed in your project.
 	/// </summary>
+	[RequiresUnreferencedCode("Uses System.Drawing types via reflection — not compatible with NativeAOT/trimming. Use SvgPathBuilder instead.")]
 	public class SvgReflectionPathBuilder : ISvgPathBuilder
 	{
 		/// <summary>

@@ -45,6 +45,7 @@ namespace Voltage.Serialization
 					case "EnablePostProcessing": data.EnablePostProcessing = r.ReadBool(); break;
 					case "TiledMapFileName": data.TiledMapFileName = r.ReadString(); break;
 					case "Entities": data.Entities = r.ReadList(ReadSceneEntityData); break;
+					case "SceneComponents": data.SceneComponents = r.ReadList(ReadSceneComponentDataEntry); break;
 					case "EditorData": data.EditorData = r.ReadStringDictionary(rd => rd.ReadString()); break;
 					default: r.SkipValue(); break;
 				}
@@ -125,6 +126,29 @@ namespace Voltage.Serialization
 					case "ComponentName": entry.ComponentName = r.ReadString(); break;
 					case "DataTypeName": entry.DataTypeName = r.ReadString(); break;
 					case "Json": entry.Json = r.ReadString(); break;
+					default: r.SkipValue(); break;
+				}
+			}
+			return entry;
+		}
+
+		#endregion
+
+		#region SceneComponentDataEntry
+
+		private static SceneComponentDataEntry ReadSceneComponentDataEntry(JsonTokenReader r)
+		{
+			var entry = new SceneComponentDataEntry();
+			if (!r.BeginObject()) return entry;
+
+			while (r.ReadNextKey(out var key))
+			{
+				switch (key)
+				{
+					case "ComponentTypeName": entry.ComponentTypeName = r.ReadString(); break;
+					case "ComponentName":     entry.ComponentName     = r.ReadString(); break;
+					case "DataTypeName":      entry.DataTypeName      = r.ReadString(); break;
+					case "Json":              entry.Json              = r.ReadString(); break;
 					default: r.SkipValue(); break;
 				}
 			}
