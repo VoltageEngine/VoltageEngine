@@ -34,6 +34,7 @@ public class ComponentDataGenerator : IIncrementalGenerator
 	private const string SerializedFieldAttribute = "Voltage.SerializedFieldAttribute";
 	private const string InspectableAttribute = "Voltage.InspectableAttribute";
 	private const string ComponentBaseFullName = "Voltage.Component";
+	private const string SceneComponentBaseFullName = "Voltage.SceneComponent";
 	private const string EntityFullName = "Voltage.Entity";
 	private const string TransformFullName = "Voltage.Transform";
 	private const string ComponentReferenceFullName = "Voltage.Serialization.ComponentReference";
@@ -104,14 +105,20 @@ public class ComponentDataGenerator : IIncrementalGenerator
 		if (symbol is null || symbol.IsAbstract)
 			return null;
 
-		if (!DerivesFrom(symbol, ComponentBaseFullName))
+		// Accept both Component and SceneComponent subclasses
+		if (!DerivesFrom(symbol, ComponentBaseFullName) && !DerivesFrom(symbol, SceneComponentBaseFullName))
 			return null;
 
 		if (HasDataOverride(symbol))
 			return null;
 
+		// For SceneComponent subclasses the walk must stop at SceneComponent, not Component
+		var stopAt = DerivesFrom(symbol, ComponentBaseFullName)
+			? ComponentBaseFullName
+			: SceneComponentBaseFullName;
+
 		var members = CollectSerializableMembers(symbol, ctx.SemanticModel.Compilation,
-			out var skipped, out var structsWithExplicitCtor);
+			out var skipped, out var structsWithExplicitCtor, stopAt);
 
 		return new ComponentModel
 		{
@@ -129,8 +136,8 @@ public class ComponentDataGenerator : IIncrementalGenerator
 	}
 
 	/// <summary>
-	/// For the AOT bootstrap: find every concrete Component subclass regardless of
-	/// whether it's partial or has a Data override. We need factory entries for ALL of them.
+	/// For the AOT bootstrap: find every concrete Component and SceneComponent subclass
+	/// regardless of whether it's partial or has a Data override. We need factory entries for ALL of them.
 	/// </summary>
 	private static BootstrapEntry? GetComponentForBootstrap(GeneratorSyntaxContext ctx, System.Threading.CancellationToken ct)
 	{
@@ -139,7 +146,8 @@ public class ComponentDataGenerator : IIncrementalGenerator
 		if (symbol is null || symbol.IsAbstract)
 			return null;
 
-		if (!DerivesFrom(symbol, ComponentBaseFullName))
+		// Accept both Component and SceneComponent subclasses
+		if (!DerivesFrom(symbol, ComponentBaseFullName) && !DerivesFrom(symbol, SceneComponentBaseFullName))
 			return null;
 
 		// Must have a public parameterless constructor
@@ -278,6 +286,23 @@ public class ComponentDataGenerator : IIncrementalGenerator
 				sb.AppendLine($"{indent}\t\tpublic global::{ComponentReferenceFullName} {dataFieldName};");
 			else if (m.IsEntityReference || m.IsTransformReference)
 				sb.AppendLine($"{indent}\t\tpublic global::{EntityReferenceFullName} {dataFieldName};");
+			else if (m.IsListField)
+			{
+				// Collections of references store the wire-form (ComponentReference / EntityReference)
+				// in the Data class. Live references are wired up by ApplyResolvedReferences post-load.
+				var elemFqn = GetCollectionElementWireFqn(m, m.ListElementTypeName);
+				sb.AppendLine($"{indent}\t\tpublic global::System.Collections.Generic.List<{elemFqn}> {dataFieldName};");
+			}
+			else if (m.IsDictionaryField)
+			{
+				var valFqn = GetCollectionElementWireFqn(m, m.DictionaryValueTypeName);
+				sb.AppendLine($"{indent}\t\tpublic global::System.Collections.Generic.Dictionary<string, {valFqn}> {dataFieldName};");
+			}
+			else if (m.IsArrayField)
+			{
+				var elemFqn = GetCollectionElementWireFqn(m, m.ArrayElementTypeName);
+				sb.AppendLine($"{indent}\t\tpublic {elemFqn}[] {dataFieldName};");
+			}
 			else
 				sb.AppendLine($"{indent}\t\tpublic {m.TypeFullName} {dataFieldName};");
 		}
@@ -312,6 +337,12 @@ public class ComponentDataGenerator : IIncrementalGenerator
 				sb.AppendLine($"{indent}\t\t\tif (this.{m.Name} == null) global::Voltage.Debug.Error($\"[{{GetType().Name}}] IComponentGroup field '{m.Name}' is null. Initialize it with '= new {fqn.Split(':').Last().Trim()}()' at declaration.\");");
 				sb.AppendLine($"{indent}\t\t\t_data.{dataFieldName} = {cloneName}(this.{m.Name});");
 			}
+			else if (m.IsListField)
+				EmitCollectionGetterSnapshot(sb, indent + "\t\t\t", m, dataFieldName, CollectionShape.List);
+			else if (m.IsDictionaryField)
+				EmitCollectionGetterSnapshot(sb, indent + "\t\t\t", m, dataFieldName, CollectionShape.Dictionary);
+			else if (m.IsArrayField)
+				EmitCollectionGetterSnapshot(sb, indent + "\t\t\t", m, dataFieldName, CollectionShape.Array);
 			else
 				sb.AppendLine($"{indent}\t\t\t_data.{dataFieldName} = this.{m.Name};");
 		}
@@ -338,6 +369,12 @@ public class ComponentDataGenerator : IIncrementalGenerator
 				var cloneName = GetCloneMethodName(m.UserClassTypeSymbol.ToDisplayString());
 				sb.AppendLine($"{indent}\t\t\t\tthis.{m.Name} = {cloneName}(_d.{dataFieldName});");
 			}
+			else if (m.IsListField)
+				EmitCollectionSetterRestore(sb, indent + "\t\t\t\t", m, dataFieldName, CollectionShape.List);
+			else if (m.IsDictionaryField)
+				EmitCollectionSetterRestore(sb, indent + "\t\t\t\t", m, dataFieldName, CollectionShape.Dictionary);
+			else if (m.IsArrayField)
+				EmitCollectionSetterRestore(sb, indent + "\t\t\t\t", m, dataFieldName, CollectionShape.Array);
 			else
 				sb.AppendLine($"{indent}\t\t\t\tthis.{m.Name} = _d.{dataFieldName};");
 		}
@@ -362,6 +399,27 @@ public class ComponentDataGenerator : IIncrementalGenerator
 
 			if (m.IsComponentGroup && m.UserClassTypeSymbol != null)
 				EmitGroupReaders(sb, indent + "\t", m.UserClassTypeSymbol, emittedReaders);
+
+			// Emit readers for list element / dictionary value / array element types that need them
+			var collectionElemSymbol = m.IsListField ? m.ListElementTypeSymbol
+				: m.IsDictionaryField ? m.DictionaryValueTypeSymbol
+				: m.IsArrayField ? m.ArrayElementTypeSymbol
+				: null;
+			if (collectionElemSymbol != null)
+			{
+				if (collectionElemSymbol is INamedTypeSymbol namedElem)
+				{
+					if (IsUserDefinedStruct(collectionElemSymbol) &&
+						!KnownEngineStructReaders.Contains(collectionElemSymbol.ToDisplayString()))
+					{
+						EmitStructReaders(sb, indent + "\t", namedElem, emittedReaders);
+					}
+					else if (IsComponentGroupType(collectionElemSymbol))
+					{
+						EmitGroupReaders(sb, indent + "\t", namedElem, emittedReaders);
+					}
+				}
+			}
 		}
 
 		// Top-level ComponentData reader
@@ -398,9 +456,11 @@ public class ComponentDataGenerator : IIncrementalGenerator
 		//
 		// Direct field assignment — no reflection. Called by ComponentReferenceResolver
 		// after scene load so Component/Entity/Transform references are restored
-		// correctly in both Editor and NativeAOT published builds.
+		// correctly in both Editor and NativeAOT published builds. Also handles
+		// collections (List/Dictionary/Array) of references — see EmitApplyForRefCollection.
 		bool hasAnyReferences = model.Members.Any(m =>
-			m.IsComponentReference || m.IsEntityReference || m.IsTransformReference);
+			m.IsComponentReference || m.IsEntityReference || m.IsTransformReference
+			|| m.CollectionReferenceKind != ReferenceElementKind.None);
 
 		if (hasAnyReferences)
 		{
@@ -444,6 +504,15 @@ public class ComponentDataGenerator : IIncrementalGenerator
 					sb.AppendLine($"{indent}\t\t\telse");
 					sb.AppendLine($"{indent}\t\t\t\tglobal::Voltage.Debug.Error($\"[{{GetType().Name}}] Could not resolve TransformReference for field '{m.Name}' — entity not found in scene.\");");
 					sb.AppendLine($"{indent}\t\t}}");
+				}
+				else if (m.CollectionReferenceKind != ReferenceElementKind.None)
+				{
+					if (m.IsListField)
+						EmitApplyForRefCollection(sb, indent + "\t\t", m, dataFieldName, CollectionShape.List);
+					else if (m.IsDictionaryField)
+						EmitApplyForRefCollection(sb, indent + "\t\t", m, dataFieldName, CollectionShape.Dictionary);
+					else if (m.IsArrayField)
+						EmitApplyForRefCollection(sb, indent + "\t\t", m, dataFieldName, CollectionShape.Array);
 				}
 			}
 
@@ -520,7 +589,26 @@ public class ComponentDataGenerator : IIncrementalGenerator
 			if (field.DeclaredAccessibility != Accessibility.Public)
 				continue;
 
-			var readExpr = GetReadExpression(field.Type, "_r");
+			string readExpr;
+			if (IsListType(field.Type, out var listElem))
+			{
+				var elemRead = GetReadExpression(listElem, "_er");
+				readExpr = $"_r.ReadList(_er => {elemRead})";
+			}
+			else if (IsDictionaryStringKeyType(field.Type, out var dictVal))
+			{
+				var valRead = GetReadExpression(dictVal, "_vr");
+				readExpr = $"_r.ReadStringDictionary(_vr => {valRead})";
+			}
+			else if (IsArrayType(field.Type, out var arrElem))
+			{
+				var elemRead = GetReadExpression(arrElem, "_er");
+				readExpr = $"_r.ReadArray(_er => {elemRead})";
+			}
+			else
+			{
+				readExpr = GetReadExpression(field.Type, "_r");
+			}
 			sb.AppendLine($"{indent}\t\t\tcase \"{field.Name}\": _v.{field.Name} = {readExpr}; break;");
 		}
 
@@ -606,6 +694,21 @@ public class ComponentDataGenerator : IIncrementalGenerator
 				var nestedClone = GetCloneMethodName(field.Type.ToDisplayString());
 				sb.AppendLine($"{indent}\t_v.{field.Name} = {nestedClone}(_src.{field.Name});");
 			}
+			else if (IsListType(field.Type, out var listElemType))
+			{
+				var elemFqn = listElemType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+				sb.AppendLine($"{indent}\t_v.{field.Name} = _src.{field.Name} != null ? new global::System.Collections.Generic.List<{elemFqn}>(_src.{field.Name}) : null;");
+			}
+			else if (IsDictionaryStringKeyType(field.Type, out var dictValType))
+			{
+				var valFqn = dictValType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+				sb.AppendLine($"{indent}\t_v.{field.Name} = _src.{field.Name} != null ? new global::System.Collections.Generic.Dictionary<string, {valFqn}>(_src.{field.Name}) : null;");
+			}
+			else if (IsArrayType(field.Type, out var arrElemType))
+			{
+				var elemFqn = arrElemType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+				sb.AppendLine($"{indent}\t_v.{field.Name} = _src.{field.Name} != null ? ({elemFqn}[])_src.{field.Name}.Clone() : null;");
+			}
 			else
 			{
 				// Value types (structs, primitives) and strings are copied directly
@@ -633,7 +736,26 @@ public class ComponentDataGenerator : IIncrementalGenerator
 			if (field.IsStatic || field.IsConst || field.IsImplicitlyDeclared) continue;
 			if (field.DeclaredAccessibility != Accessibility.Public) continue;
 
-			var readExpr = GetReadExpression(field.Type, "_r");
+			string readExpr;
+			if (IsListType(field.Type, out var listElem))
+			{
+				var elemRead = GetReadExpression(listElem, "_er");
+				readExpr = $"_r.ReadList(_er => {elemRead})";
+			}
+			else if (IsDictionaryStringKeyType(field.Type, out var dictVal))
+			{
+				var valRead = GetReadExpression(dictVal, "_vr");
+				readExpr = $"_r.ReadStringDictionary(_vr => {valRead})";
+			}
+			else if (IsArrayType(field.Type, out var arrElem))
+			{
+				var elemRead = GetReadExpression(arrElem, "_er");
+				readExpr = $"_r.ReadArray(_er => {elemRead})";
+			}
+			else
+			{
+				readExpr = GetReadExpression(field.Type, "_r");
+			}
 			sb.AppendLine($"{indent}\t\t\tcase \"{field.Name}\": _v.{field.Name} = {readExpr}; break;");
 		}
 
@@ -680,6 +802,21 @@ public class ComponentDataGenerator : IIncrementalGenerator
 			{
 				var readerMethod = GetStructReaderMethodName(m.UserClassTypeSymbol.ToDisplayString());
 				readExpr = $"{readerMethod}(_r)";
+			}
+			else if (m.IsListField && m.ListElementTypeSymbol != null)
+			{
+				var elemRead = GetCollectionElementReadExpr(m, m.ListElementTypeSymbol, "_er");
+				readExpr = $"_r.ReadList(_er => {elemRead})";
+			}
+			else if (m.IsDictionaryField && m.DictionaryValueTypeSymbol != null)
+			{
+				var valRead = GetCollectionElementReadExpr(m, m.DictionaryValueTypeSymbol, "_vr");
+				readExpr = $"_r.ReadStringDictionary(_vr => {valRead})";
+			}
+			else if (m.IsArrayField && m.ArrayElementTypeSymbol != null)
+			{
+				var elemRead = GetCollectionElementReadExpr(m, m.ArrayElementTypeSymbol, "_er");
+				readExpr = $"_r.ReadArray(_er => {elemRead})";
 			}
 			else
 			{
@@ -1023,14 +1160,18 @@ public class ComponentDataGenerator : IIncrementalGenerator
 	private static List<MemberModel> CollectSerializableMembers(
 		INamedTypeSymbol componentType, Compilation compilation,
 		out List<string> skippedFieldNames,
-		out List<string> structsWithExplicitCtorFields)
+		out List<string> structsWithExplicitCtorFields,
+		string stopAtBase = null)
 	{
+		// Default stop point is the Component base class; SceneComponent subclasses pass their own stop name.
+		var stopName = stopAtBase ?? ComponentBaseFullName;
+
 		var members = new List<MemberModel>();
 		skippedFieldNames = new List<string>();
 		structsWithExplicitCtorFields = new List<string>();
 		var currentType = componentType;
 
-		while (currentType is not null && currentType.ToDisplayString() != ComponentBaseFullName)
+		while (currentType is not null && currentType.ToDisplayString() != stopName)
 		{
 			foreach (var member in currentType.GetMembers())
 			{
@@ -1049,12 +1190,18 @@ public class ComponentDataGenerator : IIncrementalGenerator
 					bool isEntityRef = IsEntityType(field.Type, compilation);
 					bool isTransformRef = IsTransformType(field.Type, compilation);
 					bool isComponentGroup = IsComponentGroupType(field.Type);
+					bool isListField = IsListType(field.Type, out var listElementTypeSymbol);
+					ITypeSymbol dictValueTypeSymbol = null;
+					bool isDictField = !isListField && IsDictionaryStringKeyType(field.Type, out dictValueTypeSymbol);
+					ITypeSymbol arrayElementTypeSymbol = null;
+					bool isArrayField = !isListField && !isDictField && IsArrayType(field.Type, out arrayElementTypeSymbol);
 
-					// Skip class references that are not Component/Entity/Transform/IComponentGroup —
+					// Skip class references that are not Component/Entity/Transform/IComponentGroup/List<T>/Dictionary<string,V>/T[] —
 					// they cannot be reliably serialized and must not appear in ComponentData.
 					if (!field.Type.IsValueType &&
 						field.Type.SpecialType != SpecialType.System_String &&
-						!isComponentRef && !isEntityRef && !isTransformRef && !isComponentGroup)
+						!isComponentRef && !isEntityRef && !isTransformRef && !isComponentGroup &&
+						!isListField && !isDictField && !isArrayField)
 					{
 						if (field.DeclaredAccessibility == Accessibility.Public)
 							skippedFieldNames.Add($"{field.Name} ({field.Type.ToDisplayString()})");
@@ -1079,6 +1226,24 @@ public class ComponentDataGenerator : IIncrementalGenerator
 						? field.Type as INamedTypeSymbol
 						: null;
 
+					string listElemFqn = listElementTypeSymbol != null
+						? listElementTypeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+						: null;
+					string dictValueFqn = dictValueTypeSymbol != null
+						? dictValueTypeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+						: null;
+					string arrayElemFqn = arrayElementTypeSymbol != null
+						? arrayElementTypeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+						: null;
+
+					ReferenceElementKind collectionRefKind = ReferenceElementKind.None;
+					if (isListField)
+						collectionRefKind = GetReferenceElementKind(listElementTypeSymbol, compilation);
+					else if (isDictField)
+						collectionRefKind = GetReferenceElementKind(dictValueTypeSymbol, compilation);
+					else if (isArrayField)
+						collectionRefKind = GetReferenceElementKind(arrayElementTypeSymbol, compilation);
+
 					if (field.DeclaredAccessibility == Accessibility.Public)
 					{
 						members.Add(new MemberModel
@@ -1092,7 +1257,17 @@ public class ComponentDataGenerator : IIncrementalGenerator
 							IsTransformReference = isTransformRef,
 							IsComponentGroup = isComponentGroup,
 							UserStructTypeSymbol = userStructSymbol,
-							UserClassTypeSymbol = userClassSymbol
+							UserClassTypeSymbol = userClassSymbol,
+							IsListField = isListField,
+							ListElementTypeSymbol = listElementTypeSymbol,
+							ListElementTypeName = listElemFqn,
+							IsDictionaryField = isDictField,
+							DictionaryValueTypeSymbol = dictValueTypeSymbol,
+							DictionaryValueTypeName = dictValueFqn,
+							IsArrayField = isArrayField,
+							ArrayElementTypeSymbol = arrayElementTypeSymbol,
+							ArrayElementTypeName = arrayElemFqn,
+							CollectionReferenceKind = collectionRefKind
 						});
 					}
 					else if (hasSerializedField || hasInspectable)
@@ -1108,7 +1283,17 @@ public class ComponentDataGenerator : IIncrementalGenerator
 							IsTransformReference = isTransformRef,
 							IsComponentGroup = isComponentGroup,
 							UserStructTypeSymbol = userStructSymbol,
-							UserClassTypeSymbol = userClassSymbol
+							UserClassTypeSymbol = userClassSymbol,
+							IsListField = isListField,
+							ListElementTypeSymbol = listElementTypeSymbol,
+							ListElementTypeName = listElemFqn,
+							IsDictionaryField = isDictField,
+							DictionaryValueTypeSymbol = dictValueTypeSymbol,
+							DictionaryValueTypeName = dictValueFqn,
+							IsArrayField = isArrayField,
+							ArrayElementTypeSymbol = arrayElementTypeSymbol,
+							ArrayElementTypeName = arrayElemFqn,
+							CollectionReferenceKind = collectionRefKind
 						});
 					}
 				}
@@ -1132,10 +1317,16 @@ public class ComponentDataGenerator : IIncrementalGenerator
 					bool isEntityRef = IsEntityType(prop.Type, compilation);
 					bool isTransformRef = IsTransformType(prop.Type, compilation);
 					bool isComponentGroup = IsComponentGroupType(prop.Type);
+					bool isListField = IsListType(prop.Type, out var listElementTypeSymbol);
+					ITypeSymbol dictValueTypeSymbol = null;
+					bool isDictField = !isListField && IsDictionaryStringKeyType(prop.Type, out dictValueTypeSymbol);
+					ITypeSymbol arrayElementTypeSymbol = null;
+					bool isArrayField = !isListField && !isDictField && IsArrayType(prop.Type, out arrayElementTypeSymbol);
 
 					if (!prop.Type.IsValueType &&
 						prop.Type.SpecialType != SpecialType.System_String &&
-						!isComponentRef && !isEntityRef && !isTransformRef && !isComponentGroup)
+						!isComponentRef && !isEntityRef && !isTransformRef && !isComponentGroup &&
+						!isListField && !isDictField && !isArrayField)
 						continue;
 
 					INamedTypeSymbol userStructSymbol = IsUserDefinedStruct(prop.Type)
@@ -1152,6 +1343,24 @@ public class ComponentDataGenerator : IIncrementalGenerator
 						? prop.Type as INamedTypeSymbol
 						: null;
 
+					string listElemFqn = listElementTypeSymbol != null
+						? listElementTypeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+						: null;
+					string dictValueFqn = dictValueTypeSymbol != null
+						? dictValueTypeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+						: null;
+					string arrayElemFqn = arrayElementTypeSymbol != null
+						? arrayElementTypeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+						: null;
+
+					ReferenceElementKind collectionRefKind = ReferenceElementKind.None;
+					if (isListField)
+						collectionRefKind = GetReferenceElementKind(listElementTypeSymbol, compilation);
+					else if (isDictField)
+						collectionRefKind = GetReferenceElementKind(dictValueTypeSymbol, compilation);
+					else if (isArrayField)
+						collectionRefKind = GetReferenceElementKind(arrayElementTypeSymbol, compilation);
+
 					if (hasPublicGetter && hasPublicSetter)
 					{
 						members.Add(new MemberModel
@@ -1165,7 +1374,17 @@ public class ComponentDataGenerator : IIncrementalGenerator
 							IsTransformReference = isTransformRef,
 							IsComponentGroup = isComponentGroup,
 							UserStructTypeSymbol = userStructSymbol,
-							UserClassTypeSymbol = userClassSymbol
+							UserClassTypeSymbol = userClassSymbol,
+							IsListField = isListField,
+							ListElementTypeSymbol = listElementTypeSymbol,
+							ListElementTypeName = listElemFqn,
+							IsDictionaryField = isDictField,
+							DictionaryValueTypeSymbol = dictValueTypeSymbol,
+							DictionaryValueTypeName = dictValueFqn,
+							IsArrayField = isArrayField,
+							ArrayElementTypeSymbol = arrayElementTypeSymbol,
+							ArrayElementTypeName = arrayElemFqn,
+							CollectionReferenceKind = collectionRefKind
 						});
 					}
 					else if ((hasSerializedField || hasInspectable) && prop.SetMethod is not null)
@@ -1181,7 +1400,17 @@ public class ComponentDataGenerator : IIncrementalGenerator
 							IsTransformReference = isTransformRef,
 							IsComponentGroup = isComponentGroup,
 							UserStructTypeSymbol = userStructSymbol,
-							UserClassTypeSymbol = userClassSymbol
+							UserClassTypeSymbol = userClassSymbol,
+							IsListField = isListField,
+							ListElementTypeSymbol = listElementTypeSymbol,
+							ListElementTypeName = listElemFqn,
+							IsDictionaryField = isDictField,
+							DictionaryValueTypeSymbol = dictValueTypeSymbol,
+							DictionaryValueTypeName = dictValueFqn,
+							IsArrayField = isArrayField,
+							ArrayElementTypeSymbol = arrayElementTypeSymbol,
+							ArrayElementTypeName = arrayElemFqn,
+							CollectionReferenceKind = collectionRefKind
 						});
 					}
 				}
@@ -1189,6 +1418,158 @@ public class ComponentDataGenerator : IIncrementalGenerator
 			currentType = currentType.BaseType;
 		}
 		return members;
+	}
+
+	/// <summary>
+	/// Returns true when <paramref name="type"/> is <c>System.Collections.Generic.List&lt;T&gt;</c>
+	/// and T is a serializable element type (primitive, string, enum, value type, or known engine struct).
+	/// When true, sets <paramref name="elementType"/> to T's symbol.
+	/// </summary>
+	private static bool IsListType(ITypeSymbol type, out ITypeSymbol elementType)
+	{
+		elementType = null;
+		if (type is not INamedTypeSymbol named) return false;
+		if (!named.IsGenericType) return false;
+		if (named.ConstructedFrom.ToDisplayString() != "System.Collections.Generic.List<T>") return false;
+		if (named.TypeArguments.Length != 1) return false;
+
+		var arg = named.TypeArguments[0];
+		// Only support element types that GetReadExpression already handles (no nested lists)
+		if (IsSerializableElementType(arg))
+		{
+			elementType = arg;
+			return true;
+		}
+		return false;
+	}
+
+	/// <summary>
+	/// Returns true when <paramref name="type"/> is a classic <c>T[]</c> array and T is
+	/// a serializable element type. When true, sets <paramref name="elementType"/> to T's symbol.
+	/// Multi-dimensional arrays are NOT supported and will return false.
+	/// </summary>
+	private static bool IsArrayType(ITypeSymbol type, out ITypeSymbol elementType)
+	{
+		elementType = null;
+		if (type is not IArrayTypeSymbol arr) return false;
+		if (arr.Rank != 1) return false; // only single-dimensional arrays
+		var elem = arr.ElementType;
+		if (IsSerializableElementType(elem))
+		{
+			elementType = elem;
+			return true;
+		}
+		return false;
+	}
+
+	/// <summary>
+	/// Detects whether an element type (used inside List&lt;T&gt; / Dictionary&lt;string,V&gt; / T[]) is a
+	/// reference-type element that requires the ComponentReference / EntityReference wire-form
+	/// serialization treatment instead of being a regular serializable value.
+	/// Returns the reference kind: None, Component (Component-derived), Entity, or Transform.
+	/// </summary>
+	private static ReferenceElementKind GetReferenceElementKind(ITypeSymbol type, Compilation compilation)
+	{
+		if (type == null) return ReferenceElementKind.None;
+		if (IsTransformType(type, compilation)) return ReferenceElementKind.Transform;
+		if (IsEntityType(type, compilation))    return ReferenceElementKind.Entity;
+		if (IsComponentType(type, compilation)) return ReferenceElementKind.Component;
+		return ReferenceElementKind.None;
+	}
+
+	/// <summary>
+	/// Returns true when <paramref name="type"/> is <c>System.Collections.Generic.Dictionary&lt;string, V&gt;</c>
+	/// and V is a serializable value type. When true, sets <paramref name="valueType"/> to V's symbol.
+	/// </summary>
+	private static bool IsDictionaryStringKeyType(ITypeSymbol type, out ITypeSymbol valueType)
+	{
+		valueType = null;
+		if (type is not INamedTypeSymbol named) return false;
+		if (!named.IsGenericType) return false;
+		if (named.ConstructedFrom.ToDisplayString() != "System.Collections.Generic.Dictionary<TKey, TValue>") return false;
+		if (named.TypeArguments.Length != 2) return false;
+
+		// Key must be string
+		if (named.TypeArguments[0].SpecialType != SpecialType.System_String) return false;
+
+		var vt = named.TypeArguments[1];
+		if (IsSerializableElementType(vt))
+		{
+			valueType = vt;
+			return true;
+		}
+		return false;
+	}
+
+	/// <summary>
+	/// Returns true when a type can be used as a list element or dictionary value in generated code.
+	/// Covers primitives, string, enums, value types (including engine structs), IComponentGroup
+	/// classes, and reference types (Component-derived, Entity, Transform). The latter three are
+	/// serialized via ComponentReference / EntityReference wire-form metadata.
+	/// Explicitly excludes nested collections.
+	/// </summary>
+	private static bool IsSerializableElementType(ITypeSymbol type)
+	{
+		if (type == null) return false;
+		// Primitives and string
+		switch (type.SpecialType)
+		{
+			case SpecialType.System_Boolean:
+			case SpecialType.System_Byte:
+			case SpecialType.System_SByte:
+			case SpecialType.System_Int16:
+			case SpecialType.System_UInt16:
+			case SpecialType.System_Int32:
+			case SpecialType.System_UInt32:
+			case SpecialType.System_Int64:
+			case SpecialType.System_UInt64:
+			case SpecialType.System_Single:
+			case SpecialType.System_Double:
+			case SpecialType.System_String:
+				return true;
+		}
+		// Enums
+		if (type is INamedTypeSymbol { EnumUnderlyingType: not null })
+			return true;
+		// Value types (structs), including user-defined and known engine structs
+		if (type.IsValueType)
+			return true;
+		// IComponentGroup classes
+		if (IsComponentGroupType(type))
+			return true;
+		// Component-derived, Entity, and Transform reference types — serialized as
+		// ComponentReference / EntityReference wire forms inside the collection.
+		// We can't pass Compilation through this static call chain, so we detect
+		// these by walking BaseType / matching name.
+		if (LooksLikeComponentOrEntityOrTransform(type))
+			return true;
+		return false;
+	}
+
+	/// <summary>
+	/// Light, compilation-free probe used by <see cref="IsSerializableElementType"/> to allow
+	/// collections of references to be accepted by the list/dict/array detectors before
+	/// <see cref="CollectSerializableMembers"/> has a chance to call the compilation-aware
+	/// <see cref="GetReferenceElementKind"/>. Walks the BaseType chain for the Component check
+	/// and matches Entity/Transform by their full names.
+	/// </summary>
+	private static bool LooksLikeComponentOrEntityOrTransform(ITypeSymbol type)
+	{
+		if (type == null || type.IsValueType || type.SpecialType == SpecialType.System_String)
+			return false;
+
+		var full = type.ToDisplayString();
+		if (full == EntityFullName) return true;
+		if (full == TransformFullName) return true;
+
+		var current = type;
+		while (current != null)
+		{
+			if (current.ToDisplayString() == ComponentBaseFullName)
+				return true;
+			current = current.BaseType;
+		}
+		return false;
 	}
 
 	private static bool HasAttribute(ISymbol symbol, string fullName)
@@ -1216,6 +1597,266 @@ public class ComponentDataGenerator : IIncrementalGenerator
 		if (memberName.StartsWith("_") && memberName.Length > 1)
 			return char.ToUpperInvariant(memberName[1]) + memberName.Substring(2);
 		return memberName;
+	}
+
+	/// <summary>
+	/// Returns the fully-qualified type name that should appear inside the Data class's
+	/// collection container for a member. For reference-typed elements this is the wire
+	/// form (ComponentReference / EntityReference) rather than the live element type.
+	/// </summary>
+	private static string GetCollectionElementWireFqn(MemberModel m, string defaultElementFqn)
+	{
+		switch (m.CollectionReferenceKind)
+		{
+			case ReferenceElementKind.Component: return "global::" + ComponentReferenceFullName;
+			case ReferenceElementKind.Entity:
+			case ReferenceElementKind.Transform: return "global::" + EntityReferenceFullName;
+			default: return defaultElementFqn;
+		}
+	}
+
+	/// <summary>
+	/// Returns the per-element read expression for a collection reader. For reference-typed
+	/// element collections this dispatches to the hand-written ReadComponentReference /
+	/// ReadEntityReference helpers in AotDeserializers. For value-typed elements this
+	/// returns the standard GetReadExpression result.
+	/// </summary>
+	private static string GetCollectionElementReadExpr(MemberModel m, ITypeSymbol elementSymbol, string readerParam)
+	{
+		switch (m.CollectionReferenceKind)
+		{
+			case ReferenceElementKind.Component:
+				return $"global::Voltage.Serialization.AotDeserializers.ReadComponentReference({readerParam})";
+			case ReferenceElementKind.Entity:
+			case ReferenceElementKind.Transform:
+				return $"global::Voltage.Serialization.AotDeserializers.ReadEntityReference({readerParam})";
+			default:
+				return GetReadExpression(elementSymbol, readerParam);
+		}
+	}
+
+	/// <summary>
+	/// Shape of a collection field — drives the codegen pattern for snapshot/restore/read.
+	/// </summary>
+	private enum CollectionShape { List, Dictionary, Array }
+
+	/// <summary>
+	/// Emits the Data-getter snapshot for a collection field (list/dict/array).
+	/// For value-typed elements: copies into a fresh container of the same shape.
+	/// For reference-typed elements: projects each live reference into its wire form
+	/// (ComponentReference / EntityReference) via the type's static <c>From()</c> factory.
+	/// </summary>
+	private static void EmitCollectionGetterSnapshot(StringBuilder sb, string indent,
+		MemberModel m, string dataFieldName, CollectionShape shape)
+	{
+		var elemFqn = shape switch
+		{
+			CollectionShape.List       => m.ListElementTypeName,
+			CollectionShape.Dictionary => m.DictionaryValueTypeName,
+			CollectionShape.Array      => m.ArrayElementTypeName,
+			_ => null
+		};
+		var wireFqn = GetCollectionElementWireFqn(m, elemFqn);
+		bool isRef = m.CollectionReferenceKind != ReferenceElementKind.None;
+
+		if (!isRef)
+		{
+			// Plain value-element copy.
+			switch (shape)
+			{
+				case CollectionShape.List:
+					sb.AppendLine($"{indent}_data.{dataFieldName} = this.{m.Name} != null ? new global::System.Collections.Generic.List<{elemFqn}>(this.{m.Name}) : null;");
+					return;
+				case CollectionShape.Dictionary:
+					sb.AppendLine($"{indent}_data.{dataFieldName} = this.{m.Name} != null ? new global::System.Collections.Generic.Dictionary<string, {elemFqn}>(this.{m.Name}) : null;");
+					return;
+				case CollectionShape.Array:
+					sb.AppendLine($"{indent}_data.{dataFieldName} = this.{m.Name} != null ? ({elemFqn}[])this.{m.Name}.Clone() : null;");
+					return;
+			}
+		}
+
+		// Reference-element projection.
+		string fromExpr = m.CollectionReferenceKind == ReferenceElementKind.Component
+			? $"global::{ComponentReferenceFullName}.From(_e)"
+			: $"global::{EntityReferenceFullName}.From(_e)";
+
+		switch (shape)
+		{
+			case CollectionShape.List:
+				sb.AppendLine($"{indent}if (this.{m.Name} != null)");
+				sb.AppendLine($"{indent}{{");
+				sb.AppendLine($"{indent}\tvar _l = new global::System.Collections.Generic.List<{wireFqn}>(this.{m.Name}.Count);");
+				sb.AppendLine($"{indent}\tfor (int _i = 0; _i < this.{m.Name}.Count; _i++) {{ var _e = this.{m.Name}[_i]; _l.Add({fromExpr}); }}");
+				sb.AppendLine($"{indent}\t_data.{dataFieldName} = _l;");
+				sb.AppendLine($"{indent}}}");
+				sb.AppendLine($"{indent}else _data.{dataFieldName} = null;");
+				return;
+			case CollectionShape.Dictionary:
+				sb.AppendLine($"{indent}if (this.{m.Name} != null)");
+				sb.AppendLine($"{indent}{{");
+				sb.AppendLine($"{indent}\tvar _d2 = new global::System.Collections.Generic.Dictionary<string, {wireFqn}>(this.{m.Name}.Count);");
+				sb.AppendLine($"{indent}\tforeach (var _kv in this.{m.Name}) {{ var _e = _kv.Value; _d2[_kv.Key] = {fromExpr}; }}");
+				sb.AppendLine($"{indent}\t_data.{dataFieldName} = _d2;");
+				sb.AppendLine($"{indent}}}");
+				sb.AppendLine($"{indent}else _data.{dataFieldName} = null;");
+				return;
+			case CollectionShape.Array:
+				sb.AppendLine($"{indent}if (this.{m.Name} != null)");
+				sb.AppendLine($"{indent}{{");
+				sb.AppendLine($"{indent}\tvar _arr = new {wireFqn}[this.{m.Name}.Length];");
+				sb.AppendLine($"{indent}\tfor (int _i = 0; _i < this.{m.Name}.Length; _i++) {{ var _e = this.{m.Name}[_i]; _arr[_i] = {fromExpr}; }}");
+				sb.AppendLine($"{indent}\t_data.{dataFieldName} = _arr;");
+				sb.AppendLine($"{indent}}}");
+				sb.AppendLine($"{indent}else _data.{dataFieldName} = null;");
+				return;
+		}
+	}
+
+	/// <summary>
+	/// Emits the body of <c>ApplyResolvedReferences</c> for a collection-of-references
+	/// member. Walks the wire-form collection on the Data snapshot, resolves each entry
+	/// via <see cref="ComponentReferenceResolver"/>, and stores into the live collection
+	/// on <c>this</c>. The live collection is expected to already be allocated (the setter
+	/// did this) so we simply assign by index / key.
+	/// </summary>
+	private static void EmitApplyForRefCollection(StringBuilder sb, string indent,
+		MemberModel m, string dataFieldName, CollectionShape shape)
+	{
+		bool isComp = m.CollectionReferenceKind == ReferenceElementKind.Component;
+		bool isTransform = m.CollectionReferenceKind == ReferenceElementKind.Transform;
+
+		string elemFqn = shape switch
+		{
+			CollectionShape.List       => m.ListElementTypeName,
+			CollectionShape.Dictionary => m.DictionaryValueTypeName,
+			CollectionShape.Array      => m.ArrayElementTypeName,
+			_ => null
+		};
+
+		// Emit a local resolver lambda to keep the per-shape code short.
+		// The lambda returns the live element type ({elemFqn}). It logs and returns null
+		// when the entry can't be resolved — the live element stays at its default.
+		string lambdaName = $"_resolveElem_{dataFieldName}";
+		if (isComp)
+		{
+			sb.AppendLine($"{indent}global::System.Func<global::{ComponentReferenceFullName}, {elemFqn}> {lambdaName} = (global::{ComponentReferenceFullName} _ref) =>");
+			sb.AppendLine($"{indent}{{");
+			sb.AppendLine($"{indent}\tif (!_ref.IsValid) return null;");
+			sb.AppendLine($"{indent}\tvar _resolved = global::Voltage.Serialization.ComponentReferenceResolver.FindComponentAot(_scene, _ref);");
+			sb.AppendLine($"{indent}\tif (_resolved is {elemFqn} _typed) return _typed;");
+			sb.AppendLine($"{indent}\tglobal::Voltage.Debug.Error($\"[{{GetType().Name}}] Could not resolve ComponentReference for collection field '{m.Name}'.\");");
+			sb.AppendLine($"{indent}\treturn null;");
+			sb.AppendLine($"{indent}}};");
+		}
+		else
+		{
+			// Entity or Transform — both use EntityReference; Transform pulls .Transform off the resolved entity.
+			sb.AppendLine($"{indent}global::System.Func<global::{EntityReferenceFullName}, {elemFqn}> {lambdaName} = (global::{EntityReferenceFullName} _ref) =>");
+			sb.AppendLine($"{indent}{{");
+			sb.AppendLine($"{indent}\tif (!_ref.IsValid) return null;");
+			sb.AppendLine($"{indent}\tvar _resolved = global::Voltage.Serialization.ComponentReferenceResolver.FindEntityAot(_scene, _ref);");
+			sb.AppendLine($"{indent}\tif (_resolved == null) {{ global::Voltage.Debug.Error($\"[{{GetType().Name}}] Could not resolve EntityReference for collection field '{m.Name}'.\"); return null; }}");
+			if (isTransform)
+				sb.AppendLine($"{indent}\treturn _resolved.Transform;");
+			else
+				sb.AppendLine($"{indent}\treturn _resolved;");
+			sb.AppendLine($"{indent}}};");
+		}
+
+		switch (shape)
+		{
+			case CollectionShape.List:
+				sb.AppendLine($"{indent}if (_d.{dataFieldName} != null && this.{m.Name} != null)");
+				sb.AppendLine($"{indent}{{");
+				sb.AppendLine($"{indent}\tvar _count = _d.{dataFieldName}.Count;");
+				sb.AppendLine($"{indent}\tfor (int _i = 0; _i < _count; _i++)");
+				sb.AppendLine($"{indent}\t\tthis.{m.Name}[_i] = {lambdaName}(_d.{dataFieldName}[_i]);");
+				sb.AppendLine($"{indent}}}");
+				return;
+			case CollectionShape.Dictionary:
+				sb.AppendLine($"{indent}if (_d.{dataFieldName} != null && this.{m.Name} != null)");
+				sb.AppendLine($"{indent}{{");
+				sb.AppendLine($"{indent}\tforeach (var _kv in _d.{dataFieldName})");
+				sb.AppendLine($"{indent}\t\tthis.{m.Name}[_kv.Key] = {lambdaName}(_kv.Value);");
+				sb.AppendLine($"{indent}}}");
+				return;
+			case CollectionShape.Array:
+				sb.AppendLine($"{indent}if (_d.{dataFieldName} != null && this.{m.Name} != null)");
+				sb.AppendLine($"{indent}{{");
+				sb.AppendLine($"{indent}\tvar _count = _d.{dataFieldName}.Length;");
+				sb.AppendLine($"{indent}\tfor (int _i = 0; _i < _count; _i++)");
+				sb.AppendLine($"{indent}\t\tthis.{m.Name}[_i] = {lambdaName}(_d.{dataFieldName}[_i]);");
+				sb.AppendLine($"{indent}}}");
+				return;
+		}
+	}
+
+	/// <summary>
+	/// Emits the Data-setter restore for a collection field. For value-elements the live
+	/// collection is rebuilt from the Data snapshot. For reference-elements the live
+	/// collection is initialised empty (or sized) — the resolver will populate it later
+	/// in <c>ApplyResolvedReferences</c> using the wire-form metadata.
+	/// </summary>
+	private static void EmitCollectionSetterRestore(StringBuilder sb, string indent,
+		MemberModel m, string dataFieldName, CollectionShape shape)
+	{
+		var elemFqn = shape switch
+		{
+			CollectionShape.List       => m.ListElementTypeName,
+			CollectionShape.Dictionary => m.DictionaryValueTypeName,
+			CollectionShape.Array      => m.ArrayElementTypeName,
+			_ => null
+		};
+		bool isRef = m.CollectionReferenceKind != ReferenceElementKind.None;
+
+		if (!isRef)
+		{
+			switch (shape)
+			{
+				case CollectionShape.List:
+					sb.AppendLine($"{indent}this.{m.Name} = _d.{dataFieldName} != null ? new global::System.Collections.Generic.List<{elemFqn}>(_d.{dataFieldName}) : new global::System.Collections.Generic.List<{elemFqn}>();");
+					return;
+				case CollectionShape.Dictionary:
+					sb.AppendLine($"{indent}this.{m.Name} = _d.{dataFieldName} != null ? new global::System.Collections.Generic.Dictionary<string, {elemFqn}>(_d.{dataFieldName}) : new global::System.Collections.Generic.Dictionary<string, {elemFqn}>();");
+					return;
+				case CollectionShape.Array:
+					sb.AppendLine($"{indent}this.{m.Name} = _d.{dataFieldName} != null ? ({elemFqn}[])_d.{dataFieldName}.Clone() : global::System.Array.Empty<{elemFqn}>();");
+					return;
+			}
+		}
+
+		// Reference-element: pre-size the live container; entries are filled by ApplyResolvedReferences.
+		// We leave the elements at default(T) — the resolver replaces them after scene load.
+		switch (shape)
+		{
+			case CollectionShape.List:
+				sb.AppendLine($"{indent}// {m.Name} reference list — entries are wired up by ApplyResolvedReferences.");
+				sb.AppendLine($"{indent}var _src_{dataFieldName} = _d.{dataFieldName};");
+				sb.AppendLine($"{indent}if (_src_{dataFieldName} != null)");
+				sb.AppendLine($"{indent}{{");
+				sb.AppendLine($"{indent}\tvar _l = new global::System.Collections.Generic.List<{elemFqn}>(_src_{dataFieldName}.Count);");
+				sb.AppendLine($"{indent}\tfor (int _i = 0; _i < _src_{dataFieldName}.Count; _i++) _l.Add(null);");
+				sb.AppendLine($"{indent}\tthis.{m.Name} = _l;");
+				sb.AppendLine($"{indent}}}");
+				sb.AppendLine($"{indent}else this.{m.Name} = new global::System.Collections.Generic.List<{elemFqn}>();");
+				return;
+			case CollectionShape.Dictionary:
+				sb.AppendLine($"{indent}// {m.Name} reference dictionary — entries are wired up by ApplyResolvedReferences.");
+				sb.AppendLine($"{indent}var _srcD_{dataFieldName} = _d.{dataFieldName};");
+				sb.AppendLine($"{indent}if (_srcD_{dataFieldName} != null)");
+				sb.AppendLine($"{indent}{{");
+				sb.AppendLine($"{indent}\tvar _d2 = new global::System.Collections.Generic.Dictionary<string, {elemFqn}>(_srcD_{dataFieldName}.Count);");
+				sb.AppendLine($"{indent}\tforeach (var _kv in _srcD_{dataFieldName}) _d2[_kv.Key] = null;");
+				sb.AppendLine($"{indent}\tthis.{m.Name} = _d2;");
+				sb.AppendLine($"{indent}}}");
+				sb.AppendLine($"{indent}else this.{m.Name} = new global::System.Collections.Generic.Dictionary<string, {elemFqn}>();");
+				return;
+			case CollectionShape.Array:
+				sb.AppendLine($"{indent}// {m.Name} reference array — entries are wired up by ApplyResolvedReferences.");
+				sb.AppendLine($"{indent}this.{m.Name} = _d.{dataFieldName} != null ? new {elemFqn}[_d.{dataFieldName}.Length] : global::System.Array.Empty<{elemFqn}>();");
+				return;
+		}
 	}
 
 	#endregion
@@ -1267,6 +1908,68 @@ public class ComponentDataGenerator : IIncrementalGenerator
 		/// <c>EmitGroupReaders</c> can iterate the group's fields.
 		/// </summary>
 		public INamedTypeSymbol UserClassTypeSymbol;
+		/// <summary>
+		/// True when this member's type is <c>List&lt;T&gt;</c> for a serializable element type T.
+		/// </summary>
+		public bool IsListField;
+		/// <summary>
+		/// The type symbol for T in <c>List&lt;T&gt;</c>. Set when <see cref="IsListField"/> is true.
+		/// </summary>
+		public ITypeSymbol ListElementTypeSymbol;
+		/// <summary>
+		/// The fully-qualified type name for T in <c>List&lt;T&gt;</c>. Set when <see cref="IsListField"/> is true.
+		/// </summary>
+		public string ListElementTypeName;
+		/// <summary>
+		/// True when this member's type is <c>Dictionary&lt;string, V&gt;</c> for a serializable value type V.
+		/// </summary>
+		public bool IsDictionaryField;
+		/// <summary>
+		/// The type symbol for V in <c>Dictionary&lt;string, V&gt;</c>. Set when <see cref="IsDictionaryField"/> is true.
+		/// </summary>
+		public ITypeSymbol DictionaryValueTypeSymbol;
+		/// <summary>
+		/// The fully-qualified type name for V in <c>Dictionary&lt;string, V&gt;</c>. Set when <see cref="IsDictionaryField"/> is true.
+		/// </summary>
+		public string DictionaryValueTypeName;
+		/// <summary>
+		/// True when this member's type is <c>T[]</c> (single-dimensional) for a serializable element type T.
+		/// </summary>
+		public bool IsArrayField;
+		/// <summary>
+		/// The type symbol for T in <c>T[]</c>. Set when <see cref="IsArrayField"/> is true.
+		/// </summary>
+		public ITypeSymbol ArrayElementTypeSymbol;
+		/// <summary>
+		/// The fully-qualified type name for T in <c>T[]</c>. Set when <see cref="IsArrayField"/> is true.
+		/// </summary>
+		public string ArrayElementTypeName;
+		/// <summary>
+		/// When this member is a collection (list/dict/array), indicates whether its element/value type
+		/// is a reference type that should be serialized via ComponentReference / EntityReference
+		/// wire-form rather than as a regular value. Drives the special path in:
+		///   - the Data class field (wire form instead of live form),
+		///   - the snapshot getter (convert live references to wire form via .From()),
+		///   - the setter (leave the live collection empty — reference resolver populates it),
+		///   - the reader (uses ReadComponentReference / ReadEntityReference per element),
+		///   - ApplyResolvedReferences (resolves and stores each entry).
+		/// None for value-type element collections (no special path).
+		/// </summary>
+		public ReferenceElementKind CollectionReferenceKind;
+	}
+
+	/// <summary>
+	/// Identifies the wire-form for a reference-type collection element.
+	/// </summary>
+	private enum ReferenceElementKind
+	{
+		None,
+		/// <summary>Element is a <see cref="Component"/>-derived class. Wire form is ComponentReference.</summary>
+		Component,
+		/// <summary>Element is <see cref="Entity"/>. Wire form is EntityReference.</summary>
+		Entity,
+		/// <summary>Element is <see cref="Transform"/>. Wire form is EntityReference; resolves to entity.Transform.</summary>
+		Transform,
 	}
 
 	private struct BootstrapEntry

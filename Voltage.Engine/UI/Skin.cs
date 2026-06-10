@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Xna.Framework;
 using System.Linq;
 using Voltage.BitmapFonts;
@@ -183,6 +184,7 @@ namespace Voltage.UI
 		/// <param name="styleDict">A dictionary that represents one style name within the style config class (i.e. 'default').</param>
 		/// <param name="styleName">The style name that the dictionary represents (i.e. 'default').</param>
 		/// <typeparam name="T">The style config class type (i.e. SelectBoxStyle)</typeparam>
+		[RequiresUnreferencedCode("Uses reflection to dynamically instantiate inline style types by FieldInfo.FieldType — not compatible with NativeAOT/trimming.")]
 		public T SetStylesForStyleClass<T>(T styleClass, Dictionary<string, object> styleDict, VoltageContentManager contentManager, string styleName)
 		{
 			foreach (var styleConfig in styleDict)

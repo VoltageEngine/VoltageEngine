@@ -11,15 +11,16 @@ namespace Voltage
 		/// called when a collider intersects a trigger collider. This is called on the trigger collider and the collider that touched
 		/// the trigger. Movement must be handled by the Mover/ProjectileMover methods for this to function automatically.
 		/// </summary>
-		/// <param name="remote">Remote.</param>
-		/// <param name="local">Local.</param>
 		void OnTriggerEnter(Collider other, Collider local);
+
+		/// <summary>
+		/// called every frame that a collider remains inside a trigger collider.
+		/// </summary>
+		void OnTriggerStay(Collider other, Collider local) { }
 
 		/// <summary>
 		/// called when another collider leaves a trigger collider.
 		/// </summary>
-		/// <param name="remote">Remote.</param>
-		/// <param name="local">Local.</param>
 		void OnTriggerExit(Collider other, Collider local);
 	}
 }

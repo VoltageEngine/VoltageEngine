@@ -175,14 +175,11 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 				return new TypeInspectors_ComponentGroupInspector();
 			if (valueType.GetTypeInfo().IsValueType)
 				return new TypeInspectors_StructInspector();
-			if (target is IList && ListInspector.KSupportedTypes.Contains(valueType.GetElementType()))
-				return new TypeInspectors_ListInspector();
 			if (valueType.IsArray && valueType.GetArrayRank() == 1 &&
-			    ListInspector.KSupportedTypes.Contains(valueType.GetElementType()))
+			    IsListSupportedElementType(valueType.GetElementType()))
 				return new TypeInspectors_ListInspector();
 			if (valueType.IsGenericType && iListType.IsAssignableFrom(valueType) &&
-			    valueType.GetInterface(nameof(IList)) != null &&
-			    ListInspector.KSupportedTypes.Contains(valueType.GetGenericArguments()[0]))
+			    IsListSupportedElementType(valueType.GetGenericArguments()[0]))
 				return new TypeInspectors_ListInspector();
 
 			// check for custom inspectors before checking Voltage types in case a subclass implemented one
@@ -211,6 +208,20 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 				return new ObjectInspectors.ObjectInspector();
 
 			return null;
+		}
+
+		/// <summary>
+		/// Returns true if <paramref name="elementType"/> is supported as a list/array element in the inspector.
+		/// Covers primitives already in KSupportedTypes, plus Entity, Transform, and Component subclasses.
+		/// </summary>
+		static bool IsListSupportedElementType(Type elementType)
+		{
+			if (elementType == null) return false;
+			if (ListInspector.KSupportedTypes.Contains(elementType)) return true;
+			if (elementType == typeof(Entity)) return true;
+			if (elementType == transformType) return true;
+			if (componentType.IsAssignableFrom(elementType) && elementType != objectType) return true;
+			return false;
 		}
 
 		/// <summary>

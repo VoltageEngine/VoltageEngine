@@ -54,6 +54,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	public EntityInspectorWindow MainEntityInspectorWindow { get; private set; }
 	public bool IsInspectorTabLocked = false;
 
+	private SceneComponentInspectorWindow _sceneComponentInspectorWindow;
+
 	public AnimationEventInspector AnimationEventInspectorInstance
 	{
 		get => _animationEventInspector;
@@ -919,6 +921,14 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			_entityInspectors[i].Draw();
 		}
 
+		// Draw the scene component inspector window if it is open
+		if (_sceneComponentInspectorWindow != null)
+		{
+			if (!_sceneComponentInspectorWindow.IsOpen)
+				_sceneComponentInspectorWindow = null;
+			else
+				_sceneComponentInspectorWindow.Draw();
+		}
 	}
 
 	#endregion
@@ -1176,6 +1186,26 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	public void RefreshMainEntityInspector()
 	{
 		MainEntityInspectorWindow?.RefreshComponentInspectors();
+	}
+
+	/// <summary>
+	/// Opens (or re-focuses) the dedicated <see cref="SceneComponentInspectorWindow"/> for
+	/// the given component. If the window is already showing a different component it is
+	/// replaced; if it is showing the same one it is just brought to the front.
+	/// </summary>
+	public void OpenSceneComponentInspector(SceneComponent component)
+	{
+		if (_sceneComponentInspectorWindow == null)
+		{
+			_sceneComponentInspectorWindow = new SceneComponentInspectorWindow(component);
+		}
+		else
+		{
+			_sceneComponentInspectorWindow.IsOpen = true;
+			_sceneComponentInspectorWindow.SetComponent(component);
+		}
+
+		_sceneComponentInspectorWindow.SetWindowFocus();
 	}
 
 	#endregion
