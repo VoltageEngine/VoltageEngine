@@ -30,6 +30,7 @@ public class SceneGraphWindow
 	private PostProcessorsPane _postProcessorsPane = new();
 	private RenderersPane _renderersPane = new();
 	private EntityPane _entityPane = new();
+	private SceneComponentsPane _sceneComponentsPane = new();
 	private ImGuiManager _imGuiManager;
 	public float SceneGraphWidth => _sceneGraphWidth;
 	public float SceneGraphPosY { get; set; }
@@ -65,10 +66,21 @@ public class SceneGraphWindow
 	public static event Action<TmxFilePicker.TmxSelection> OnTmxFileSelected;
 	public static event Action<AsepriteFilePicker.AsepriteSelection> OnAsepriteImageSelected;
 
+	/// <summary>
+	/// Called by <see cref="ImGuiManager.OpenSceneComponentInspector"/> to bring the
+	/// Scene Graph window to the foreground so the user can see the selected component.
+	/// </summary>
+	public void FocusSceneComponentInspector()
+	{
+		// The inspector is drawn inline; just set next-frame focus on the scene graph window.
+		ImGui.SetWindowFocus("Scene Graph ###SceneGraphWindow");
+	}
+
 	public void OnSceneChanged()
 	{
 		_postProcessorsPane.OnSceneChanged();
 		_renderersPane.OnSceneChanged();
+		_sceneComponentsPane.OnSceneChanged();
 		
 		TmxFilePicker = new TmxFilePicker(
 			this,
@@ -177,6 +189,10 @@ public class SceneGraphWindow
 
 			if (ImGui.CollapsingHeader("Entities (double-click label to inspect)", ImGuiTreeNodeFlags.DefaultOpen))
 				_entityPane.Draw();
+
+			VoltageEditorUtils.SmallVerticalSpace();
+			if (ImGui.CollapsingHeader("Scene Components"))
+				_sceneComponentsPane.Draw();
 
 			VoltageEditorUtils.MediumVerticalSpace();
 			if (VoltageEditorUtils.CenteredButton("Save Scene", 0.7f))

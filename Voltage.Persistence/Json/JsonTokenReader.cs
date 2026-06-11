@@ -304,6 +304,37 @@ namespace Voltage.Persistence
 		}
 
 		/// <summary>
+		/// Reads a JSON array into a freshly-allocated T[] array, deserializing each
+		/// element with the given reader func. Returns <c>null</c> if the JSON value
+		/// is <c>null</c> or not an array.
+		/// </summary>
+		public T[] ReadArray<T>(Func<JsonTokenReader, T> elementReader)
+		{
+			ConsumeWhiteSpace();
+			if (Peek() == 'n') { ReadWord(); return null; }
+			if (Peek() != '[') return null;
+			Read(); // consume '['
+
+			ConsumeWhiteSpace();
+			if (Peek() == ']') { Read(); return System.Array.Empty<T>(); }
+
+			// We don't know the length up-front, so collect into a List<T> then ToArray.
+			// Mirrors the pattern in ReadList<T>() — same performance characteristics.
+			var list = new List<T>();
+			while (true)
+			{
+				ConsumeWhiteSpace();
+				list.Add(elementReader(this));
+				ConsumeWhiteSpace();
+				if (Peek() == ',') { Read(); continue; }
+				if (Peek() == ']') { Read(); break; }
+				break; // malformed
+			}
+
+			return list.ToArray();
+		}
+
+		/// <summary>
 		/// Reads a JSON object as a Dictionary&lt;string, TValue&gt;.
 		/// </summary>
 		public Dictionary<string, TValue> ReadStringDictionary<TValue>(Func<JsonTokenReader, TValue> valueReader)

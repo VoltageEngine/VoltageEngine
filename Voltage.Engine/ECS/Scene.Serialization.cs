@@ -159,6 +159,41 @@ namespace Voltage
 				sceneData.Entities.Add(entityData);
 			}
 
+			// Build SceneComponent data — only include components marked as serialized
+			sceneData.SceneComponents.Clear();
+
+			for (var i = 0; i < _sceneComponents.Length; i++)
+			{
+				var sc = _sceneComponents.Buffer[i];
+				if (!sc.IsSerialized)
+					continue;
+
+				var isEngineType = sc.GetType().Assembly == typeof(Component).Assembly;
+
+				var entry = new SceneComponentDataEntry
+				{
+					ComponentTypeName = sc.GetType().FullName,
+					ComponentName     = sc.Name
+				};
+
+				if (sc.Data != null)
+				{
+					var jsonSettings = new Voltage.Persistence.JsonSettings
+					{
+						PrettyPrint = true,
+						TypeNameHandling = isEngineType
+							? Voltage.Persistence.TypeNameHandling.Auto
+							: Voltage.Persistence.TypeNameHandling.None,
+						PreserveReferencesHandling = false
+					};
+
+					entry.DataTypeName = sc.Data.GetType().FullName;
+					entry.Json = Voltage.Persistence.Json.ToJson(sc.Data, jsonSettings);
+				}
+
+				sceneData.SceneComponents.Add(entry);
+			}
+
 			return sceneData;
 		}
 
@@ -566,6 +601,27 @@ namespace Voltage
 		}
 
 		/// <summary>
+		/// Creates a SceneComponent instance by type name.
+		/// Uses ComponentAotFactory first (NativeAOT-safe), then falls back to reflection in editor builds.
+		/// </summary>
+		private static SceneComponent CreateSceneComponentInstance(string typeName)
+		{
+			if (string.IsNullOrEmpty(typeName))
+				return null;
+
+			if (ComponentAotFactory.IsRegistered(typeName))
+				return (SceneComponent)ComponentAotFactory.Create(typeName);
+
+			var type = ResolveType(typeName);
+			if (type == null)
+				return null;
+
+			Debug.Warn($"[Scene] SceneComponent '{typeName}' has no AOT factory registration — using reflection. " +
+				"Ensure the class is 'partial' and Voltage.SourceGenerators is referenced.");
+			return (SceneComponent)Activator.CreateInstance(type);
+		}
+
+		/// <summary>
 		/// Tries to assign component data from entity data using Voltage.Persistence.Json.
 		/// In published builds the generated Data property setter handles field assignment;
 		/// the JSON layer just needs to deserialize the ComponentData subclass, which
@@ -692,6 +748,87 @@ namespace Voltage
 			}
 
 			return null;
+		}
+
+		/// <summary>
+		/// Instantiates and configures all serialized SceneComponents from SceneData.
+		/// Called during <see cref="Scene.Begin"/> after entity loading.
+		/// </summary>
+		private void LoadSceneComponentsData()
+		{
+			if (SceneData?.SceneComponents == null)
+				return;
+
+			ComponentDataSerializationBootstrap.EnsureInitialized();
+
+			foreach (var entry in SceneData.SceneComponents)
+			{
+				if (string.IsNullOrEmpty(entry.ComponentTypeName))
+					continue;
+
+				try
+				{
+					// Check if a SceneComponent of this type is already on the scene
+					// (e.g. added via code in OnStart). If so, just apply data to it.
+					SceneComponent existing = null;
+					for (var i = 0; i < _sceneComponents.Length; i++)
+					{
+						if (_sceneComponents.Buffer[i].GetType().FullName == entry.ComponentTypeName
+							&& _sceneComponents.Buffer[i].Name == entry.ComponentName)
+						{
+							existing = _sceneComponents.Buffer[i];
+							break;
+						}
+					}
+
+					if (existing == null)
+					{
+						existing = CreateSceneComponentInstance(entry.ComponentTypeName);
+						if (existing == null)
+						{
+							Debug.Error($"[Scene] Could not load SceneComponent '{entry.ComponentTypeName}': type not found.");
+							continue;
+						}
+
+						existing.Name = entry.ComponentName ?? existing.GetType().Name;
+						existing.SetSerialized(true);
+						AddSceneComponent(existing);
+					}
+
+					// Apply serialized data if present
+					if (!string.IsNullOrEmpty(entry.DataTypeName) && !string.IsNullOrEmpty(entry.Json))
+					{
+						ComponentData data = null;
+
+						if (Serialization.ComponentDataAotDeserializer.IsRegistered(entry.DataTypeName))
+						{
+							var cleanJson = StripTypeFieldFromJson(entry.Json);
+							data = Serialization.ComponentDataAotDeserializer.TryDeserialize(entry.DataTypeName, cleanJson);
+						}
+						else
+						{
+							var dataType = ResolveType(entry.DataTypeName);
+							if (dataType != null)
+							{
+								var cleanJson = StripTypeFieldFromJson(entry.Json);
+								data = (ComponentData)Persistence.Json.FromJson(cleanJson, dataType);
+							}
+						}
+
+						if (data != null)
+						{
+							existing._pendingLoadedData = data;
+							existing.Data = data;
+						}
+						else
+							Debug.Warn($"[Scene] Could not deserialize data for SceneComponent '{entry.ComponentTypeName}'.");
+					}
+				}
+				catch (Exception ex)
+				{
+					Debug.Error($"[Scene] Failed to load SceneComponent '{entry.ComponentTypeName}': {ex.Message}");
+				}
+			}
 		}
 
 		/// <summary>

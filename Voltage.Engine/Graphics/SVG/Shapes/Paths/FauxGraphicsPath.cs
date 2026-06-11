@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Xna.Framework;
 using Voltage.Utils;
 
@@ -9,6 +10,7 @@ namespace Voltage.Svg
 	/// It has the full public API that Voltage needs for SVG files but the whole mess is all accessed via reflection. It is slow as all hell and not
 	/// recommended for production use. It's only purpose is so that Voltage works with SVG files out of the box to get up and running fast.
 	/// </summary>
+	[RequiresUnreferencedCode("Wraps System.Drawing.Drawing2D.GraphicsPath via reflection — not compatible with NativeAOT/trimming. Use SvgPathBuilder instead.")]
 	public class FauxGraphicsPath
 	{
 		public int PointCount

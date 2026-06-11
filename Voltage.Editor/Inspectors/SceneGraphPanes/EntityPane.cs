@@ -647,7 +647,7 @@ public class EntityPane
 	    }
 
 	    // Ctrl+D: Duplicate selected
-	    if (Core.IsEditMode && imguiCtrlDown && ImGui.IsKeyPressed(ImGuiKey.D) && _selectedEntities.Count > 0)
+	    if (Core.IsEditMode && imguiCtrlDown && ImGui.IsKeyPressed(ImGuiKey.D, false) && _selectedEntities.Count > 0)
 	    {
 	        var entitiesToDuplicate = _selectedEntities.Where(e => !ShouldBlockDuplication(e)).ToList();
 	        if (entitiesToDuplicate.Count > 1)
@@ -759,6 +759,9 @@ public class EntityPane
 		// Copy all components from the source entity
 		foreach (var sourceComponent in entity.Components)
 		{
+			if (!sourceComponent.IsSerialized)
+				continue;
+
 			// Component doesn't exist - create a new one
 			var componentType = sourceComponent.GetType();
 			Component clonedComponent;
@@ -884,6 +887,9 @@ public class EntityPane
             // Copy all components from the source entity
             foreach (var sourceComponent in entity.Components)
             {
+				if(!sourceComponent.IsSerialized)
+					continue;
+
                 var componentType = sourceComponent.GetType();
                 Component clonedComponent;
                 try

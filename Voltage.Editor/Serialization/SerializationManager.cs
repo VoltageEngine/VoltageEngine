@@ -483,6 +483,44 @@ public partial class SerializationManager : GlobalManager
 			newSceneData.Entities.Add(sceneEntityData);
 		}
 
+		// Build SceneComponent data — only include components marked as serialized
+		newSceneData.SceneComponents.Clear();
+
+		for (var i = 0; i < scene._sceneComponents.Length; i++)
+		{
+			var sc = scene._sceneComponents.Buffer[i];
+			if (!sc.IsSerialized)
+				continue;
+
+			var isEngineType = sc.GetType().Assembly == typeof(Component).Assembly;
+
+			var scEntry = new SceneComponentDataEntry
+			{
+				ComponentTypeName = sc.GetType().FullName,
+				ComponentName     = sc.Name
+			};
+
+			if (sc.Data != null)
+			{
+				var isDynamicScriptType = sc.Data.GetType().Assembly.GetName().Name
+					?.StartsWith("DynamicScripts") == true;
+
+				var scJsonSettings = new JsonSettings
+				{
+					PrettyPrint = true,
+					TypeNameHandling = (isEngineType && !isDynamicScriptType)
+						? TypeNameHandling.Auto
+						: TypeNameHandling.None,
+					PreserveReferencesHandling = false
+				};
+
+				scEntry.DataTypeName = sc.Data.GetType().FullName;
+				scEntry.Json = Json.ToJson(sc.Data, scJsonSettings);
+			}
+
+			newSceneData.SceneComponents.Add(scEntry);
+		}
+
 		var settings = new JsonSettings
 		{
 			PrettyPrint = true,

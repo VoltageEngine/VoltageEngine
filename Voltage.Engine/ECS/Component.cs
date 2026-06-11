@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using Voltage.Persistence;
 using Voltage.Serialization;
+using Voltage.Serialization.Registries;
 
 namespace Voltage;
 
@@ -35,6 +36,23 @@ public struct ComponentDataEntry
 	public string ComponentTypeName;
 	public string ComponentName; // In case there are multiple components of the same type on an Entity, this is used to differentiate them.
 	public string DataTypeName;
+	public string Json;
+}
+
+/// <summary>
+/// Parallel to <see cref="ComponentDataEntry"/> but for scene-scoped <see cref="SceneComponent"/> instances.
+/// Stored in <see cref="Voltage.Data.SceneData.SceneComponents"/>.
+/// </summary>
+[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
+public struct SceneComponentDataEntry
+{
+	/// <summary>Full type name of the SceneComponent subclass (e.g. "Jolt.Scripts.LevelManager").</summary>
+	public string ComponentTypeName;
+	/// <summary>Display name / instance name. Matches <see cref="SceneComponent.Name"/>.</summary>
+	public string ComponentName;
+	/// <summary>Full type name of the ComponentData subclass, or null when the component has no data.</summary>
+	public string DataTypeName;
+	/// <summary>JSON-serialized ComponentData, or null when the component has no data.</summary>
 	public string Json;
 }
 
@@ -237,12 +255,17 @@ public abstract class Component : IComparable<Component>
 	public virtual Component Clone()
 	{
 		var componentType = GetType();
-		var clone = (Component)Activator.CreateInstance(componentType);
-		
+		var typeId = componentType.FullName ?? componentType.Name;
+		Component clone;
+		if (ComponentAotFactory.IsRegistered(typeId))
+			clone = (Component)ComponentAotFactory.Create(typeId);
+		else
+			clone = (Component)Activator.CreateInstance(componentType);
+
 		clone.Name = Name;
 		clone.Enabled = Enabled;
 		clone.Entity = null;
-		
+
 		return clone;
 	}
 
