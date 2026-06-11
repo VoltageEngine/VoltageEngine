@@ -7,7 +7,7 @@ namespace Voltage.Project
 		/// Gets the entity tag value by its name.
 		/// Returns 0 if not found.
 		/// </summary>
-		public int GetEntityTag(string tagName)
+		public static int GetEntityTag(string tagName)
 		{
 			if (ProjectSettings.Instance.Entities.EntityTags.TryGetValue(tagName, out var tagValue))
 				return tagValue;
@@ -19,7 +19,7 @@ namespace Voltage.Project
 		/// <summary>
 		/// Tries to get the entity tag value by its name.
 		/// </summary>
-		public bool TryGetEntityTag(string tagName, out int tagValue)
+		public static bool TryGetEntityTag(string tagName, out int tagValue)
 		{
 			return ProjectSettings.Instance.Entities.EntityTags.TryGetValue(tagName, out tagValue);
 		}

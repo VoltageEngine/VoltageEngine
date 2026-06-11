@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -33,6 +34,9 @@ namespace Voltage.BitmapFonts
 		/// <param name="font"></param>
 		/// <param name="texture"></param>
 		/// <returns></returns>
+		[UnconditionalSuppressMessage("ReflectionAnalysis", "IL2072",
+			Justification = "SpriteFont has no public constructor; non-public constructor is intentionally preserved via DynamicallyAccessedMembers on _spriteFontType.")]
+		[DynamicDependency(DynamicallyAccessedMemberTypes.NonPublicConstructors, typeof(SpriteFont))]
 		public static SpriteFont LoadSpriteFontFromBitmapFont(BitmapFont font, Texture2D texture)
 		{
 			var glyphBounds = new List<Rectangle>();

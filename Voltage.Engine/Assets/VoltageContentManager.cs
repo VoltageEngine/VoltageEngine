@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Text;
 using Microsoft.Xna.Framework.Graphics;
@@ -295,7 +296,7 @@ public class VoltageContentManager : ContentManager
 	/// </summary>
 	/// <returns>The effect.</returns>
 	/// <param name="name">Name.</param>
-	public T LoadEffect<T>(string name, byte[] effectCode) where T : Effect
+	public T LoadEffect<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string name, byte[] effectCode) where T : Effect
 	{
 		var effect = Activator.CreateInstance(typeof(T), Core.GraphicsDevice, effectCode) as T;
 		effect.Name = name + "-" + Utils.Utils.RandomString(5);
@@ -311,7 +312,7 @@ public class VoltageContentManager : ContentManager
 	/// </summary>
 	/// <returns>The mono game effect.</returns>
 	/// <typeparam name="T">The 1st type parameter.</typeparam>
-	public T LoadMonoGameEffect<T>() where T : Effect
+	public T LoadMonoGameEffect<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>() where T : Effect
 	{
 		var effect = Activator.CreateInstance(typeof(T), Core.GraphicsDevice) as T;
 		effect.Name = typeof(T).Name + "-" + Utils.Utils.RandomString(5);

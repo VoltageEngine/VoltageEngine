@@ -9,6 +9,13 @@ public static class ComponentReferenceResolver
 	{
 		var scene = Core.Scene;
 
+		// Resolve SceneComponent references first: they are scene-level services and must
+		// have their references wired up before entity components (which may query them
+		// during OnStart). SceneComponents do not extend Component so they have their own
+		// pending-data field and resolver method.
+		for (var i = 0; i < scene._sceneComponents.Length; i++)
+			ResolveOnSceneComponent(scene._sceneComponents.Buffer[i], scene);
+
 		for (var e = 0; e < scene.Entities.Count; e++)
 		{
 			var entity = scene.Entities[e];
@@ -45,32 +52,74 @@ public static class ComponentReferenceResolver
 
 	private static void ResolveOnComponent(Component target, Scene scene)
 	{
-		var data = target._pendingLoadedData;
-		if (data == null)
+		ResolveReferencesReflectionFallback(
+			target,
+			ref target._pendingLoadedData,
+			scene,
+			typeof(Component),
+			isSceneComponent: false);
+	}
+
+	/// <summary>
+	/// Resolves ComponentReference / EntityReference fields on a SceneComponent.
+	/// Shares its implementation with <see cref="ResolveOnComponent"/> via
+	/// <see cref="ResolveReferencesReflectionFallback"/>.
+	/// </summary>
+	private static void ResolveOnSceneComponent(SceneComponent target, Scene scene)
+	{
+		ResolveReferencesReflectionFallback(
+			target,
+			ref target._pendingLoadedData,
+			scene,
+			typeof(SceneComponent),
+			isSceneComponent: true);
+	}
+
+	/// <summary>
+	/// Unified reflection-fallback resolver shared by <see cref="ResolveOnComponent"/> and
+	/// <see cref="ResolveOnSceneComponent"/>. Calls the AOT-safe generator-emitted
+	/// <c>ApplyResolvedReferences</c> override first (zero reflection), then walks the live
+	/// fields with reflection for engine components that have manual Data overrides.
+	/// The walk stops at <paramref name="walkStopAt"/> (Component or SceneComponent).
+	/// </summary>
+	private static void ResolveReferencesReflectionFallback(
+		object target,
+		ref ComponentData pendingData,
+		Scene scene,
+		Type walkStopAt,
+		bool isSceneComponent)
+	{
+		if (pendingData == null)
 			return;
 
-		// AOT-safe path: generated override on the component assigns fields directly.
-		// Works in NativeAOT published builds where reflection is trimmed.
-		target.ApplyResolvedReferences(data, scene);
+		// AOT-safe path: generated override assigns fields directly.
+		if (isSceneComponent)
+			((SceneComponent)target).ApplyResolvedReferences(pendingData, scene);
+		else
+			((Component)target).ApplyResolvedReferences(pendingData, scene);
 
 		// Reflection fallback: handles components without a generated ApplyResolvedReferences
 		// override (e.g. engine components with manual Data overrides, or script components
 		// that were compiled without the source generator).
-		var dataType = data.GetType();
-		var componentType = target.GetType();
+		//
+		// NOTE: This path uses GetFields() + GetValue() which requires reflection metadata.
+		// Under NativeAOT the Voltage engine assembly is preserved via TrimmerRoots.xml, so
+		// engine components with manual Data overrides work correctly. Script components from
+		// game projects must be 'partial' so the source generator emits ApplyResolvedReferences
+		// for them — that generated override runs first above and skips this loop.
+		var dataType = pendingData.GetType();
+		var targetType = target.GetType();
+		var label = isSceneComponent ? "SceneComponent" : "Component";
 
 		foreach (var dataField in dataType.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance))
 		{
 			if (dataField.FieldType == typeof(ComponentReference))
 			{
-				var reference = (ComponentReference)dataField.GetValue(data);
+				var reference = (ComponentReference)dataField.GetValue(pendingData);
 				if (!reference.IsValid)
 					continue;
 
-				// The generator may have renamed the field (e.g. _myRef → MyRef via GetDataFieldName).
-				// Search all instance fields on the component and pick the one whose
-				// GetDataFieldName-equivalent matches the data field name.
-				var liveField = FindLiveField(componentType, dataField.Name, typeof(Component));
+				var liveField = FindLiveField(targetType, dataField.Name, typeof(Component), walkStopAt);
 
 				if (liveField == null || !typeof(Component).IsAssignableFrom(liveField.FieldType))
 				{
@@ -78,29 +127,28 @@ public static class ComponentReferenceResolver
 					continue;
 				}
 
-				var resolved = FindComponent(scene, reference);
+				var resolved = FindComponentAot(scene, reference);
 				if (resolved != null)
 					liveField.SetValue(target, resolved);
 				else
 					Debug.Error($"[ComponentReferenceResolver] Could not resolve ComponentReference '{reference}' " +
-					            $"for field '{dataField.Name}' on '{target}'.");
+					            $"for field '{dataField.Name}' on {label} '{target}'.");
 			}
 			else if (dataField.FieldType == typeof(EntityReference))
 			{
-				var reference = (EntityReference)dataField.GetValue(data);
+				var reference = (EntityReference)dataField.GetValue(pendingData);
 				if (!reference.IsValid)
 					continue;
 
-				var liveField = FindLiveField(componentType, dataField.Name, null);
-
+				var liveField = FindLiveField(targetType, dataField.Name, null, walkStopAt);
 				if (liveField == null)
 					continue;
 
-				var resolvedEntity = FindEntity(scene, reference);
+				var resolvedEntity = FindEntityAot(scene, reference);
 				if (resolvedEntity == null)
 				{
 					Debug.Error($"[ComponentReferenceResolver] Could not resolve EntityReference '{reference}' " +
-					            $"for field '{dataField.Name}' on '{target}'.");
+					            $"for field '{dataField.Name}' on {label} '{target}'.");
 					continue;
 				}
 
@@ -111,19 +159,23 @@ public static class ComponentReferenceResolver
 			}
 		}
 
-		target._pendingLoadedData = null;
+		pendingData = null;
 	}
 
 	/// <summary>
-	/// Finds a live field on <paramref name="componentType"/> (including base types) that
-	/// corresponds to a data field named <paramref name="dataFieldName"/>.
+	/// Finds a live field on <paramref name="targetType"/> (including base types up to but
+	/// not including <paramref name="walkStopAt"/>) that corresponds to a data field named
+	/// <paramref name="dataFieldName"/>.
 	///
 	/// The source generator applies <c>GetDataFieldName</c> which strips a leading underscore
 	/// and capitalises the next character (e.g. <c>_myRef</c> → <c>MyRef</c>). This method
 	/// reverses that transform so both <c>myRef</c> (exact match) and <c>_myRef</c>
 	/// (underscore-prefixed variant) are tried.
+	///
+	/// Used for both Component and SceneComponent hierarchies — pass typeof(Component) or
+	/// typeof(SceneComponent) as <paramref name="walkStopAt"/>.
 	/// </summary>
-	private static System.Reflection.FieldInfo FindLiveField(Type componentType, string dataFieldName, Type mustBeAssignableTo)
+	private static System.Reflection.FieldInfo FindLiveField(Type targetType, string dataFieldName, Type mustBeAssignableTo, Type walkStopAt)
 	{
 		const System.Reflection.BindingFlags flags =
 			System.Reflection.BindingFlags.Public |
@@ -135,8 +187,8 @@ public static class ComponentReferenceResolver
 		if (dataFieldName.Length > 0 && char.IsUpper(dataFieldName[0]))
 			camelVariant = "_" + char.ToLowerInvariant(dataFieldName[0]) + dataFieldName.Substring(1);
 
-		var type = componentType;
-		while (type != null && type != typeof(Component))
+		var type = targetType;
+		while (type != null && type != walkStopAt)
 		{
 			var exact = type.GetField(dataFieldName, flags);
 			if (exact != null && (mustBeAssignableTo == null || mustBeAssignableTo.IsAssignableFrom(exact.FieldType)))
@@ -226,63 +278,6 @@ public static class ComponentReferenceResolver
 		return null;
 	}
 
-	private static Component FindComponent(Scene scene, ComponentReference reference)
-	{
-		var persistentId = reference.GetPersistentId();
-		if (persistentId != Guid.Empty)
-		{
-			var entity = FindEntityById(scene, persistentId);
-			if (entity != null)
-			{
-				var comp = FindComponentOnEntity(entity, ResolveType(reference.ComponentTypeName), reference.ComponentName);
-				if (comp != null)
-					return comp;
-			}
-		}
-
-		if (!string.IsNullOrEmpty(reference.EntityName))
-		{
-			var entity = FindEntityByName(scene, reference.EntityName);
-			if (entity != null)
-			{
-				var comp = FindComponentOnEntity(entity, ResolveType(reference.ComponentTypeName), reference.ComponentName);
-				if (comp != null)
-					return comp;
-			}
-		}
-
-		Debug.Error($"[ComponentReferenceResolver] Could not resolve ComponentReference '{reference}'. " +
-		            "Check that the entity and component still exist in the scene.");
-		return null;
-	}
-
-	private static Component FindComponentOnEntity(Entity entity, Type type, string componentName)
-	{
-		if (type == null)
-			return null;
-
-		for (var i = 0; i < entity.Components.Count; i++)
-		{
-			var comp = entity.Components[i];
-			if (!type.IsAssignableFrom(comp.GetType()))
-				continue;
-			if (string.IsNullOrEmpty(componentName) || comp.Name == componentName)
-				return comp;
-		}
-
-		var pending = entity.Components.GetComponentsToAddList();
-		for (var i = 0; i < pending.Count; i++)
-		{
-			var comp = pending[i];
-			if (!type.IsAssignableFrom(comp.GetType()))
-				continue;
-			if (string.IsNullOrEmpty(componentName) || comp.Name == componentName)
-				return comp;
-		}
-
-		return null;
-	}
-
 	private static Entity FindEntity(Scene scene, EntityReference reference)
 	{
 		var persistentId = reference.GetPersistentId();
@@ -325,34 +320,6 @@ public static class ComponentReferenceResolver
 		foreach (var pending in scene.Entities.EntitiesToAdd)
 			if (string.Equals(pending.Name, name, StringComparison.OrdinalIgnoreCase))
 				return pending;
-
-		return null;
-	}
-
-	private static Type ResolveType(string typeName)
-	{
-		if (string.IsNullOrEmpty(typeName))
-			return null;
-
-		var type = Type.GetType(typeName);
-		if (type != null)
-			return type;
-
-		// Check the latest hot-reloaded script assembly first so fresh script types
-		// are found even when the same name exists in an older loaded assembly.
-		if (Core.LatestScriptAssembly != null)
-		{
-			type = Core.LatestScriptAssembly.GetType(typeName);
-			if (type != null)
-				return type;
-		}
-
-		foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
-		{
-			type = asm.GetType(typeName);
-			if (type != null)
-				return type;
-		}
 
 		return null;
 	}

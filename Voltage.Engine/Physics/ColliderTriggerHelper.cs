@@ -5,22 +5,18 @@ using Voltage.Utils.Collections;
 namespace Voltage
 {
 	/// <summary>
-	/// helper class used by the Movers to manage trigger colliders interactions and calling ITriggerListeners.
+	/// Helper used by Mover to dispatch trigger events to ITriggerListeners.
+	/// Tracks per-pair overlap state across frames and fires OnTriggerEnter / OnTriggerStay / OnTriggerExit
+	/// as the set transitions. Call Update AFTER the entity has been moved this frame.
 	/// </summary>
 	public class ColliderTriggerHelper
 	{
+		enum TriggerEventType { Enter, Stay, Exit }
+
 		Entity _entity;
 
-		/// <summary>
-		/// stores all the active intersection pairs that occured in the current frame
-		/// </summary>
 		HashSet<Pair<Collider>> _activeTriggerIntersections = new HashSet<Pair<Collider>>();
-
-		/// <summary>
-		/// stores the previous frames intersection pairs so that we can detect exits after moving this frame
-		/// </summary>
 		HashSet<Pair<Collider>> _previousTriggerIntersections = new HashSet<Pair<Collider>>();
-
 		List<ITriggerListener> _tempTriggerList = new List<ITriggerListener>();
 
 
@@ -30,95 +26,74 @@ namespace Voltage
 		}
 
 
-		/// <summary>
-		/// update should be called AFTER Entity is moved. It will take care of any ITriggerListeners that the Collider overlaps.
-		/// </summary>
 		public void Update()
 		{
-			// 3. do an overlap check of all entity.colliders that are triggers with all broadphase colliders, triggers or not.
-			//    Any overlaps result in trigger events.
 			var colliders = _entity.GetComponents<Collider>();
 			for (var i = 0; i < colliders.Count; i++)
 			{
 				var collider = colliders[i];
-				if(!collider.Enabled)
+				if (!collider.Enabled)
 					continue;
 
-				// fetch anything that we might collide with us at our new position
 				var neighbors = Physics.BoxcastBroadphase(collider.Bounds, collider.CollidesWithLayers);
 				foreach (var neighbor in neighbors)
 				{
-					// we need at least one of the colliders to be a trigger
 					if (!collider.IsTrigger && !neighbor.IsTrigger)
 						continue;
 
-					if (collider.Overlaps(neighbor))
-					{
-						var pair = new Pair<Collider>(collider, neighbor);
+					if (!collider.Overlaps(neighbor))
+						continue;
 
-						// if we already have this pair in one of our sets (the previous or current trigger intersections) dont call the enter event
-						var shouldReportTriggerEvent = !_activeTriggerIntersections.Contains(pair) &&
-						                               !_previousTriggerIntersections.Contains(pair);
-						if (shouldReportTriggerEvent)
-							NotifyTriggerListeners(pair, true);
+					var pair = new Pair<Collider>(collider, neighbor);
+					// HashSet.Add == false → already counted this pair this frame (duplicate broadphase hit)
+					if (!_activeTriggerIntersections.Add(pair))
+						continue;
 
-						_activeTriggerIntersections.Add(pair);
-					} // overlaps
-				} // end foreach
+					NotifyTriggerListeners(pair,
+						_previousTriggerIntersections.Contains(pair) ? TriggerEventType.Stay : TriggerEventType.Enter);
+				}
 			}
-
 			ListPool<Collider>.Free(colliders);
 
-			CheckForExitedColliders();
-		}
-
-
-		void CheckForExitedColliders()
-		{
-			// remove all the triggers that we did interact with this frame leaving us with the ones we exited
-			_previousTriggerIntersections.ExceptWith(_activeTriggerIntersections);
-
+			// pairs that were active last frame but not this frame → exit
 			foreach (var pair in _previousTriggerIntersections)
-				NotifyTriggerListeners(pair, false);
+			{
+				if (!_activeTriggerIntersections.Contains(pair))
+					NotifyTriggerListeners(pair, TriggerEventType.Exit);
+			}
 
-			// clear out the previous set cause we are done with it for now
-			_previousTriggerIntersections.Clear();
-
-			// add in all the currently active triggers
-			_previousTriggerIntersections.UnionWith(_activeTriggerIntersections);
-
-			// clear out the active set in preparation for the next frame
+			// swap the two sets so we keep allocations to zero per frame
+			var swap = _previousTriggerIntersections;
+			_previousTriggerIntersections = _activeTriggerIntersections;
+			_activeTriggerIntersections = swap;
 			_activeTriggerIntersections.Clear();
 		}
 
 
-		void NotifyTriggerListeners(Pair<Collider> collisionPair, bool isEntering)
+		void NotifyTriggerListeners(Pair<Collider> collisionPair, TriggerEventType eventType)
 		{
-			// call the onTriggerEnter method for any relevant components
 			collisionPair.First.Entity.GetComponents(_tempTriggerList);
 			for (var i = 0; i < _tempTriggerList.Count; i++)
-			{
-				if (isEntering)
-					_tempTriggerList[i].OnTriggerEnter(collisionPair.Second, collisionPair.First);
-				else
-					_tempTriggerList[i].OnTriggerExit(collisionPair.Second, collisionPair.First);
-			}
-
+				Dispatch(_tempTriggerList[i], eventType, collisionPair.Second, collisionPair.First);
 			_tempTriggerList.Clear();
 
-			// also call it for the collider we moved onto if it wasn't destroyed by the first
 			if (collisionPair.Second.Entity != null)
 			{
 				collisionPair.Second.Entity.GetComponents(_tempTriggerList);
 				for (var i = 0; i < _tempTriggerList.Count; i++)
-				{
-					if (isEntering)
-						_tempTriggerList[i].OnTriggerEnter(collisionPair.First, collisionPair.Second);
-					else
-						_tempTriggerList[i].OnTriggerExit(collisionPair.First, collisionPair.Second);
-				}
-
+					Dispatch(_tempTriggerList[i], eventType, collisionPair.First, collisionPair.Second);
 				_tempTriggerList.Clear();
+			}
+		}
+
+
+		static void Dispatch(ITriggerListener listener, TriggerEventType eventType, Collider other, Collider local)
+		{
+			switch (eventType)
+			{
+				case TriggerEventType.Enter: listener.OnTriggerEnter(other, local); break;
+				case TriggerEventType.Stay:  listener.OnTriggerStay(other, local);  break;
+				case TriggerEventType.Exit:  listener.OnTriggerExit(other, local);  break;
 			}
 		}
 	}

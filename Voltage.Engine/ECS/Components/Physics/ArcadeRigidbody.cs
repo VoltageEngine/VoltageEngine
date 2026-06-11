@@ -1,5 +1,8 @@
 using Microsoft.Xna.Framework;
+using System.Collections.Generic;
+using Voltage.Serialization;
 using Voltage.Utils;
+using Voltage.Utils.Collections;
 
 
 namespace Voltage
@@ -93,6 +96,20 @@ namespace Voltage
 		float _glue = 0.01f;
 		float _inverseMass;
 		Collider _collider;
+
+		// Polling-based trigger detection, deduplicated at the EXTERNAL trigger level.
+		// When the rigidbody entity has multiple colliders (e.g. a Body + GroundCollider with
+		// IsTrigger=true), each one would otherwise generate its own pair against the same
+		// external trigger. The naive listener pattern (Enabled = false on every Exit) breaks
+		// when one local collider leaves while the others are still inside. Tracking the
+		// external trigger as the unit of state collapses these into a single Enter/Stay/Exit
+		// lifecycle per external trigger.
+		HashSet<Collider> _activeExternalTriggers = new HashSet<Collider>();
+		HashSet<Collider> _previousExternalTriggers = new HashSet<Collider>();
+		// Remembers which of our local colliders first touched each external trigger this frame.
+		// Used to pass a meaningful `local` argument to ITriggerListener callbacks.
+		Dictionary<Collider, Collider> _externalToLocal = new Dictionary<Collider, Collider>();
+		List<ITriggerListener> _tempTriggerList = new List<ITriggerListener>();
 
 
 		public ArcadeRigidbody()
@@ -231,6 +248,171 @@ namespace Voltage
 							Velocity += relativeVelocity;
 						}
 					}
+			}
+
+			UpdateTriggerInteractions();
+		}
+
+
+		/// <summary>
+		/// Polls the broadphase per-frame and fires OnTriggerEnter / OnTriggerStay / OnTriggerExit
+		/// on ITriggerListeners. Events are deduplicated at the external-trigger level: each
+		/// external trigger gets exactly one Enter when the first local collider touches it,
+		/// continuous Stay while any local collider remains inside, and exactly one Exit when
+		/// the last local collider leaves.
+		/// </summary>
+		void UpdateTriggerInteractions()
+		{
+			if (_collider == null)
+			{
+				ReleasePreviousTriggers();
+				return;
+			}
+
+			var colliders = Entity.GetComponents<Collider>();
+			for (var i = 0; i < colliders.Count; i++)
+			{
+				var local = colliders[i];
+				if (!local.Enabled)
+					continue;
+
+				var localBounds = local.Bounds;
+				var neighbors = Physics.BoxcastBroadphase(localBounds, local.CollidesWithLayers);
+				foreach (var neighbor in neighbors)
+				{
+					if (neighbor.Entity == Entity)
+						continue;
+					if (!local.IsTrigger && !neighbor.IsTrigger)
+						continue;
+
+					RegisterActiveExternal(neighbor, local);
+				}
+			}
+			ListPool<Collider>.Free(colliders);
+
+			// Inclusive rescue pass: pairs whose AABBs touch on an exact edge (e.g. player.bottom
+			// == floor.top after MTV) fail the broadphase's strict-< intersection test. Re-check
+			// every previously-known external with inclusive <= so they don't fall out spuriously.
+			if (_previousExternalTriggers.Count > 0)
+			{
+				foreach (var external in _previousExternalTriggers)
+				{
+					if (_activeExternalTriggers.Contains(external))
+						continue;
+					if (external.Entity == null || !external.Enabled)
+						continue;
+
+					var localRescue = ResolveInclusiveOverlap(external);
+					if (localRescue != null)
+						RegisterActiveExternal(external, localRescue);
+				}
+			}
+
+			// Exit: any external present last frame but not this frame
+			foreach (var external in _previousExternalTriggers)
+			{
+				if (_activeExternalTriggers.Contains(external))
+					continue;
+
+				_externalToLocal.TryGetValue(external, out var localForExit);
+				if (localForExit == null || !localForExit.Enabled)
+					localForExit = _collider;
+				NotifyExternalTrigger(external, localForExit, TriggerEventType.Exit);
+				_externalToLocal.Remove(external);
+			}
+
+			// swap sets to keep per-frame allocations at zero
+			var swap = _previousExternalTriggers;
+			_previousExternalTriggers = _activeExternalTriggers;
+			_activeExternalTriggers = swap;
+			_activeExternalTriggers.Clear();
+		}
+
+
+		void RegisterActiveExternal(Collider external, Collider local)
+		{
+			// First sighting this frame? Fire Enter or Stay, depending on prior frame state.
+			if (!_activeExternalTriggers.Add(external))
+				return;
+
+			_externalToLocal[external] = local;
+			NotifyExternalTrigger(external, local,
+				_previousExternalTriggers.Contains(external) ? TriggerEventType.Stay : TriggerEventType.Enter);
+		}
+
+
+		Collider ResolveInclusiveOverlap(Collider external)
+		{
+			var externalBounds = external.Bounds;
+			var colliders = Entity.GetComponents<Collider>();
+			Collider result = null;
+			for (var i = 0; i < colliders.Count; i++)
+			{
+				var local = colliders[i];
+				if (!local.Enabled)
+					continue;
+				if (!local.IsTrigger && !external.IsTrigger)
+					continue;
+
+				var localBounds = local.Bounds;
+				if (localBounds.Left   <= externalBounds.Right  &&
+					externalBounds.Left  <= localBounds.Right   &&
+					localBounds.Top    <= externalBounds.Bottom &&
+					externalBounds.Top   <= localBounds.Bottom)
+				{
+					result = local;
+					break;
+				}
+			}
+			ListPool<Collider>.Free(colliders);
+			return result;
+		}
+
+
+		void ReleasePreviousTriggers()
+		{
+			if (_previousExternalTriggers.Count == 0)
+				return;
+
+			foreach (var external in _previousExternalTriggers)
+			{
+				_externalToLocal.TryGetValue(external, out var local);
+				NotifyExternalTrigger(external, local ?? _collider, TriggerEventType.Exit);
+			}
+			_previousExternalTriggers.Clear();
+			_externalToLocal.Clear();
+		}
+
+
+		enum TriggerEventType { Enter, Stay, Exit }
+
+
+		void NotifyExternalTrigger(Collider external, Collider local, TriggerEventType eventType)
+		{
+			// Dispatch on our entity's listeners (the rigidbody side)
+			Entity.GetComponents(_tempTriggerList);
+			for (var i = 0; i < _tempTriggerList.Count; i++)
+				DispatchTrigger(_tempTriggerList[i], eventType, external, local);
+			_tempTriggerList.Clear();
+
+			// Dispatch on the external entity's listeners (the trigger zone side)
+			if (external.Entity != null)
+			{
+				external.Entity.GetComponents(_tempTriggerList);
+				for (var i = 0; i < _tempTriggerList.Count; i++)
+					DispatchTrigger(_tempTriggerList[i], eventType, local, external);
+				_tempTriggerList.Clear();
+			}
+		}
+
+
+		static void DispatchTrigger(ITriggerListener listener, TriggerEventType eventType, Collider other, Collider local)
+		{
+			switch (eventType)
+			{
+				case TriggerEventType.Enter: listener.OnTriggerEnter(other, local); break;
+				case TriggerEventType.Stay:  listener.OnTriggerStay(other, local);  break;
+				case TriggerEventType.Exit:  listener.OnTriggerExit(other, local);  break;
 			}
 		}
 

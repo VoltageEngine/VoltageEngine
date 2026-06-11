@@ -1,10 +1,13 @@
 using Microsoft.Xna.Framework;
 using Voltage.Persistence;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Voltage.Data;
+using Voltage.Serialization.Registries;
+using Voltage.Utils.Coroutines;
 
 namespace Voltage;
 
@@ -439,6 +442,17 @@ public sealed class Entity : IComparable<Entity>
 		}
 	}
 
+	public void Destroy(float timer)
+	{
+		Core.StartCoroutine(DestroyAfterDelay(timer));
+	}
+
+	private IEnumerator DestroyAfterDelay(float timer)
+	{
+		yield return Coroutine.WaitForSeconds(timer);
+		Destroy();
+	}
+	
 	/// <summary>
 	/// detaches the Entity from the scene.
 	/// the following lifecycle method will be called on the Entity: OnRemovedFromScene
@@ -492,10 +506,13 @@ public sealed class Entity : IComparable<Entity>
 			// Create new component instance
 			var componentType = sourceComponent.GetType();
 			Component clonedComponent;
-			
+
 			try
 			{
-				clonedComponent = (Component)Activator.CreateInstance(componentType);
+				var typeId = componentType.FullName ?? componentType.Name;
+				clonedComponent = ComponentAotFactory.IsRegistered(typeId)
+					? (Component)ComponentAotFactory.Create(typeId)
+					: (Component)Activator.CreateInstance(componentType);
 			}
 			catch (Exception ex)
 			{
@@ -593,10 +610,13 @@ public sealed class Entity : IComparable<Entity>
 				// No existing component of this type, create a new one using JSON serialization
 				var componentType = sourceComponent.GetType();
 				Component newComponent;
-				
+
 				try
 				{
-					newComponent = (Component)Activator.CreateInstance(componentType);
+					var typeId = componentType.FullName ?? componentType.Name;
+					newComponent = ComponentAotFactory.IsRegistered(typeId)
+						? (Component)ComponentAotFactory.Create(typeId)
+						: (Component)Activator.CreateInstance(componentType);
 				}
 				catch (Exception ex)
 				{
