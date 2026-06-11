@@ -1,11 +1,13 @@
 using Microsoft.Xna.Framework;
 using Voltage.Persistence;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Voltage.Data;
 using Voltage.Serialization.Registries;
+using Voltage.Utils.Coroutines;
 
 namespace Voltage;
 
@@ -440,6 +442,17 @@ public sealed class Entity : IComparable<Entity>
 		}
 	}
 
+	public void Destroy(float timer)
+	{
+		Core.StartCoroutine(DestroyAfterDelay(timer));
+	}
+
+	private IEnumerator DestroyAfterDelay(float timer)
+	{
+		yield return Coroutine.WaitForSeconds(timer);
+		Destroy();
+	}
+	
 	/// <summary>
 	/// detaches the Entity from the scene.
 	/// the following lifecycle method will be called on the Entity: OnRemovedFromScene
