@@ -5,9 +5,14 @@ using Voltage.UI;
 namespace Voltage
 {
 	/// <summary>
-	/// simple component that houses a Stage and delegates update/render/debugRender calls
+	/// simple component that houses a Stage and delegates update/render/debugRender calls.
+	/// <para>
+	/// This is the base UI component. By implementing <see cref="IUpdatableInPauseMode"/> it keeps
+	/// updating while the game is paused (<see cref="Core.IsPauseMode"/> == true) — gameplay
+	/// components are frozen during a pause, but UI (pause menus, HUD, etc.) stays interactive.
+	/// </para>
 	/// </summary>
-	public class UICanvas : RenderableComponent, IUpdatable
+	public class UICanvas : RenderableComponent, IUpdatable, IUpdatableInPauseMode
 	{
 		public override float Width => Stage.GetWidth();
 

@@ -279,13 +279,14 @@ public class Core : Game
 				// 		- unless it is SceneTransition that doesn't change Scenes (no reason not to update)
 				//		- or it is a SceneTransition that has already switched to the new Scene (the new Scene needs to do its thing)
 
-				if (!IsPauseMode) 
-				{
-					if (_sceneTransition == null ||
+				// Note: we call Scene.Update() even while in PauseMode. The pause does not skip the
+				// whole update — it is applied deeper so that UI components (IUpdatableInPauseMode) keep
+				// running while gameplay components and SceneComponents are frozen.
+				// See Scene.Update() and ComponentList.Update().
+				if (_sceneTransition == null ||
 				     _sceneTransition != null &&
 				     (!_sceneTransition._loadsNewScene || _sceneTransition._isNewSceneLoaded))
-						_scene.Update();
-				}
+					_scene.Update();
 
 				if (_nextScene != null)
 				{

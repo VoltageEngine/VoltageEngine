@@ -250,12 +250,22 @@ public abstract class Component : IComparable<Component>
 	/// <summary>
 	/// Creates a clone of this component. Override this method in derived classes for proper deep copying.
 	/// Default implementation creates a new instance of the same type but doesn't copy any data.
+	/// Returns null when the component type cannot be constructed (no AOT factory registration and no
+	/// public parameterless constructor) — callers must handle a null return.
 	/// </summary>
-	/// <returns>A new component instance</returns>
+	/// <returns>A new component instance, or null if the type cannot be constructed.</returns>
 	public virtual Component Clone()
 	{
 		var componentType = GetType();
 		var typeId = componentType.FullName ?? componentType.Name;
+
+		// Types that require constructor arguments are code-only and cannot be cloned generically.
+		bool canCreate = ComponentAotFactory.IsRegistered(typeId)
+			|| componentType.GetConstructor(Type.EmptyTypes) != null;
+
+		if (!canCreate)
+			return null;
+
 		Component clone;
 		if (ComponentAotFactory.IsRegistered(typeId))
 			clone = (Component)ComponentAotFactory.Create(typeId);

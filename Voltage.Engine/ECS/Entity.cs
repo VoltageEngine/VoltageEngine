@@ -482,6 +482,20 @@ public sealed class Entity : IComparable<Entity>
 	}
 
 	/// <summary>
+	/// Returns true if a component of the given type can be constructed — either because it is
+	/// registered in <see cref="ComponentAotFactory"/> or because it exposes a public parameterless
+	/// constructor. When neither is true the copy paths skip the component entirely.
+	/// </summary>
+	private static bool CanConstructComponent(Type componentType)
+	{
+		var typeId = componentType.FullName ?? componentType.Name;
+		if (ComponentAotFactory.IsRegistered(typeId))
+			return true;
+
+		return componentType.GetConstructor(System.Type.EmptyTypes) != null;
+	}
+
+	/// <summary>
 	/// copies the properties, components and colliders of Entity to this instance
 	/// </summary>
 	/// <param name="entity">Entity.</param>
@@ -502,9 +516,15 @@ public sealed class Entity : IComparable<Entity>
 		for (var i = 0; i < entity.Components.Count; i++)
 		{
 			var sourceComponent = entity.Components[i];
-			
+
 			// Create new component instance
 			var componentType = sourceComponent.GetType();
+
+			// Skip components that cannot be constructed — they are code-only and must not be
+			// cloned through the editor copy path.
+			if (!CanConstructComponent(componentType))
+				continue;
+
 			Component clonedComponent;
 
 			try
@@ -558,6 +578,11 @@ public sealed class Entity : IComparable<Entity>
 	{
 		foreach (var sourceComponent in entity.Components)
 		{
+			// Skip components that cannot be constructed — they are code-only and must not be
+			// cloned through the editor copy path.
+			if (!CanConstructComponent(sourceComponent.GetType()))
+				continue;
+
 			// Try to find a matching component in this entity (by type and name)
 			var targetComponent = Components.FirstOrDefault(c => c.GetType() == sourceComponent.GetType() && c.Name == sourceComponent.Name);
 

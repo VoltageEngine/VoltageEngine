@@ -321,9 +321,15 @@ public class ComponentList : IEnumerable<Component>
 
 			var component = updatable as Component;
 
-			bool shouldUpdate = Core.IsEditMode
-				? component is RenderableComponent && updatable.Enabled && component.Enabled
-				: (updatable.Enabled && component.Enabled) || (component is Collider collider && collider.IsVisibleEvenDisabled);
+			bool shouldUpdate;
+			if (Core.IsEditMode)
+				// in EditMode only renderables update (so the scene stays visible while editing)
+				shouldUpdate = component is RenderableComponent && updatable.Enabled && component.Enabled;
+			else if (Core.IsPauseMode)
+				// while paused, only UI components keep running; gameplay components are frozen
+				shouldUpdate = component is IUpdatableInPauseMode && updatable.Enabled && component.Enabled;
+			else
+				shouldUpdate = (updatable.Enabled && component.Enabled) || (component is Collider collider && collider.IsVisibleEvenDisabled);
 
 			if (!shouldUpdate)
 				continue;
