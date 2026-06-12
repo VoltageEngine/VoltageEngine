@@ -179,6 +179,10 @@ public class ProjectManager : GlobalManager
 			// paths like "Content/..." resolve against the project, not the editor binary.
 			VoltageContentManager.ContentRoot = project.ProjectPath;
 
+			// Point Scene.LoadLevel(name) at the project's Scenes folder so it resolves correctly
+			// in play mode (where AppContext.BaseDirectory is the editor binary, not the game project).
+			Scene.ScenesDirectory = project.ScenesFolder;
+
 			OnProjectLoaded?.Invoke(project);
 			if (oldProject != null)
 			{

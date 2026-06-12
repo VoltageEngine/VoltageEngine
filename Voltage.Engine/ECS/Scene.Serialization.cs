@@ -5,8 +5,10 @@ using System.Linq;
 using System.Reflection;
 using Microsoft.Xna.Framework;
 using Voltage.Data;
+using Voltage.Project;
 using Voltage.Serialization;
 using Voltage.Serialization.Registries;
+using Voltage.Utils;
 using Voltage.Utils.Extensions;
 
 namespace Voltage
@@ -46,6 +48,10 @@ namespace Voltage
 				var scene = new Scene();
 				scene.ApplySceneData(sceneData);
 
+				// Remember where we loaded from so the scene knows its level/file identity.
+				// FilePath is [JsonExclude], so it is not present in the .vscene itself.
+				scene.SceneData.FilePath = scenePath;
+
 				return scene;
 			}
 			catch (Exception ex)
@@ -54,6 +60,104 @@ namespace Voltage
 							$" \n Stack trace: {ex.StackTrace}");
 				return null;
 			}
+		}
+
+		/// <summary>
+		/// Optional override for the directory that <see cref="LoadLevel"/> resolves level names against.
+		/// In a published game this stays null and levels resolve to <c>AppContext.BaseDirectory/Data/Scenes</c>.
+		/// The Voltage Editor sets this to the open project's Scenes folder so LoadLevel works in play mode,
+		/// where the base directory is the editor binary rather than the game project.
+		/// </summary>
+		public static string ScenesDirectory;
+
+		/// <summary>
+		/// Loads a level (.vscene) by name, makes it the active <see cref="Core.Scene"/>, and applies the
+		/// design resolution (and optionally the display settings) configured in <see cref="ProjectSettings"/>.
+		/// <para>This is the runtime entry point for level switching, e.g. <c>Scene.LoadLevel("Level2")</c>.</para>
+		/// <para>Level names resolve against <see cref="ScenesDirectory"/> when set, otherwise
+		/// <c>AppContext.BaseDirectory/Data/Scenes</c>. To reload the active scene, prefer
+		/// <see cref="ReloadCurrentLevel"/>, which reuses the exact file the scene was loaded from.</para>
+		/// </summary>
+		/// <param name="levelName">The .vscene file name without extension (e.g. "MainScene").</param>
+		/// <param name="applyDisplaySettings">
+		/// When true, applies the ProjectSettings Display block (screen size, fullscreen, vsync) to the window.
+		/// Intended for the initial load at startup; leave false for in-game level switches so the window is not reset.
+		/// </param>
+		/// <returns>The loaded Scene, now assigned as the active Core.Scene.</returns>
+		/// <exception cref="Exception">Thrown when the level file is missing or fails to load.</exception>
+		public static Scene LoadLevel(string levelName, bool applyDisplaySettings = false)
+		{
+			if (string.IsNullOrEmpty(levelName))
+				throw new Exception("Scene.LoadLevel was called with a null or empty level name.");
+
+			var scenesDir = string.IsNullOrEmpty(ScenesDirectory)
+				? Path.Combine(AppContext.BaseDirectory, "Data", "Scenes")
+				: ScenesDirectory;
+			var scenePath = Path.Combine(scenesDir, levelName + ".vscene");
+
+			return LoadLevelFromPath(scenePath, applyDisplaySettings);
+		}
+
+		/// <summary>
+		/// Reloads the currently active scene from its source .vscene file — a fresh copy from disk,
+		/// discarding any runtime changes. Handy for a "restart level" button or script.
+		/// <para>Reloads from the exact path the scene was loaded from (<see cref="SceneData.FilePath"/>),
+		/// so it works both in a published game and inside the editor regardless of the working directory.</para>
+		/// <para>Like any Core.Scene assignment, the swap happens at the end of the current frame, so it
+		/// is safe to call from inside a component's Update/OnStart.</para>
+		/// </summary>
+		/// <param name="applyDisplaySettings">See <see cref="LoadLevel"/>. Defaults to false for a reload.</param>
+		/// <returns>The freshly loaded Scene.</returns>
+		/// <exception cref="Exception">Thrown when the active scene was not loaded from a file.</exception>
+		public static Scene ReloadCurrentLevel(bool applyDisplaySettings = false)
+		{
+			var scenePath = Core.Scene?.SceneData?.FilePath;
+			if (string.IsNullOrEmpty(scenePath))
+				throw new Exception("ReloadCurrentLevel: the active scene was not loaded from a file (SceneData.FilePath is empty).");
+
+			return LoadLevelFromPath(scenePath, applyDisplaySettings);
+		}
+
+		/// <summary>
+		/// Shared loader: loads a scene from a full .vscene path, makes it the active Core.Scene, and applies
+		/// the display + design resolution settings from <see cref="ProjectSettings"/>.
+		/// </summary>
+		private static Scene LoadLevelFromPath(string scenePath, bool applyDisplaySettings)
+		{
+			if (!File.Exists(scenePath))
+				throw new Exception($"Scene file not found: {scenePath}");
+
+			var loadedScene = LoadFromFile(scenePath);
+			if (loadedScene == null)
+				throw new Exception($"Failed to load scene from: {scenePath}");
+
+			Core.Scene = loadedScene;
+
+			var settings = ProjectSettings.Instance;
+
+			// Apply display settings (screen size, fullscreen, vsync). Startup only by default so that
+			// in-game level switches don't resize/reset the window.
+			if (applyDisplaySettings && settings?.Display != null)
+			{
+				Screen.SetSize(settings.Display.ScreenWidth, settings.Display.ScreenHeight);
+				Screen.IsFullscreen = settings.Display.IsFullscreen;
+				Screen.SynchronizeWithVerticalRetrace = settings.Display.EnableVSync;
+				Screen.ApplyChanges();
+			}
+
+			// Apply the configured design resolution as the default for all scenes and to this scene.
+			// We operate on loadedScene directly (not Core.Scene) since a runtime switch defers the swap.
+			var design = settings?.DesignResolution;
+			if (design != null && design.Width > 0 && design.Height > 0)
+			{
+				SetDefaultDesignResolution(design.Width, design.Height, design.ResolutionPolicy,
+					design.HorizontalBleed, design.VerticalBleed);
+
+				loadedScene.SetDesignResolution(design.Width, design.Height, design.ResolutionPolicy,
+					design.HorizontalBleed, design.VerticalBleed);
+			}
+
+			return loadedScene;
 		}
 
 		/// <summary>

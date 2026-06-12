@@ -323,64 +323,12 @@ namespace {projectName}
             var settings = ProjectSettings.Instance;
 
             // Load the initial scene configured in ProjectSettings.json
-            if (settings != null && !string.IsNullOrEmpty(settings.InitialScene))
-            {{
-                var scenePath = System.IO.Path.Combine(
-                    AppContext.BaseDirectory,
-                    ""Data"", ""Scenes"",
-                    settings.InitialScene + "".vscene""
-                );
-
-                if (System.IO.File.Exists(scenePath))
-                {{
-                    var loadedScene = Scene.LoadFromFile(scenePath);
-                    if (loadedScene != null)
-                    {{
-                        Scene = loadedScene;
-
-                        // Apply display settings (screen size, fullscreen, vsync)
-                        if (settings.Display != null)
-                        {{
-                            Screen.SetSize(settings.Display.ScreenWidth, settings.Display.ScreenHeight);
-                            Screen.IsFullscreen = settings.Display.IsFullscreen;
-                            Screen.SynchronizeWithVerticalRetrace = settings.Display.EnableVSync;
-                            Screen.ApplyChanges();
-                        }}
-
-                        // Apply design resolution as the default for all scenes
-                        if (settings.DesignResolution != null
-                            && settings.DesignResolution.Width > 0
-                            && settings.DesignResolution.Height > 0)
-                        {{
-                            Scene.SetDefaultDesignResolution(
-                                settings.DesignResolution.Width,
-                                settings.DesignResolution.Height,
-                                settings.DesignResolution.ResolutionPolicy,
-                                settings.DesignResolution.HorizontalBleed,
-                                settings.DesignResolution.VerticalBleed);
-
-                            Scene.SetDesignResolution(
-                                settings.DesignResolution.Width,
-                                settings.DesignResolution.Height,
-                                settings.DesignResolution.ResolutionPolicy,
-                                settings.DesignResolution.HorizontalBleed,
-                                settings.DesignResolution.VerticalBleed);
-                        }}
-                    }}
-                    else
-                    {{
-                        throw new Exception($""Failed to load scene from: {{scenePath}}"");
-                    }}
-                }}
-                else
-                {{
-                    throw new Exception($""Scene file not found: {{scenePath}}"");
-                }}
-            }}
-            else
-            {{
+            if (settings == null || string.IsNullOrEmpty(settings.InitialScene))
                 throw new Exception(""Initial scene is not specified in ProjectSettings.json!"");
-            }}
+
+            // Loads the level, sets it as the active Scene, and applies the display + design
+            // resolution settings from ProjectSettings. Use Scene.LoadLevel(name) to switch levels at runtime.
+            Scene.LoadLevel(settings.InitialScene, applyDisplaySettings: true);
         }}
     }}
 }}
