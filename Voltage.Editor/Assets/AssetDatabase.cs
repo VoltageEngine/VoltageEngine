@@ -132,6 +132,25 @@ namespace Voltage.Editor.Assets
             ".xnb", ".mgcb", ".meta",
         };
 
+        /// <summary>
+        /// True for atomic-write / editor temp &amp; backup files that briefly appear in watched
+        /// folders during a save or compile (e.g. <c>l3yaop11.3uj~</c>). These must never get a
+        /// <c>.meta</c> sidecar; doing so litters the project with orphaned junk metas.
+        /// </summary>
+        private static bool IsTransientFile(string path)
+        {
+            var name = Path.GetFileName(path);
+            if (string.IsNullOrEmpty(name))
+                return true;
+
+            // Trailing '~' (backup) or leading '~' (e.g. '~$' Office lock files).
+            if (name[name.Length - 1] == '~' || name[0] == '~')
+                return true;
+
+            var ext = Path.GetExtension(path);
+            return ext.Equals(".tmp", StringComparison.OrdinalIgnoreCase);
+        }
+
         /// <summary>Debounce window for FSW events, in ms. Mirrors <c>ScriptWatcher</c>.</summary>
         private const double FswDebounceMs = 600;
 
@@ -243,6 +262,10 @@ namespace Voltage.Editor.Assets
         public Guid GetOrCreateGuid(string absolutePath)
         {
             if (string.IsNullOrEmpty(absolutePath))
+                return Guid.Empty;
+
+            // Never create a sidecar for transient temp/backup files.
+            if (IsTransientFile(absolutePath))
                 return Guid.Empty;
 
             lock (_guidLock)
@@ -383,7 +406,7 @@ namespace Voltage.Editor.Assets
             foreach (var filePath in files)
             {
                 var ext = Path.GetExtension(filePath);
-                if (SkippedExtensions.Contains(ext))
+                if (SkippedExtensions.Contains(ext) || IsTransientFile(filePath))
                     continue;
 
                 GetOrCreateGuid(filePath);
@@ -440,7 +463,7 @@ namespace Voltage.Editor.Assets
             foreach (var filePath in files)
             {
                 var ext = Path.GetExtension(filePath);
-                if (SkippedExtensions.Contains(ext))
+                if (SkippedExtensions.Contains(ext) || IsTransientFile(filePath))
                     continue;
 
                 // GUIDs are already created by BuildFolderNode — GetOrCreateGuid is idempotent.
@@ -574,7 +597,7 @@ namespace Voltage.Editor.Assets
         private void OnFswEvent(object sender, FileSystemEventArgs e)
         {
             var ext = Path.GetExtension(e.FullPath);
-            if (SkippedExtensions.Contains(ext))
+            if (SkippedExtensions.Contains(ext) || IsTransientFile(e.FullPath))
                 return;
 
             lock (_fswLock)
@@ -591,6 +614,8 @@ namespace Voltage.Editor.Assets
             var extNew = Path.GetExtension(e.FullPath);
             var extOld = Path.GetExtension(e.OldFullPath);
             if (SkippedExtensions.Contains(extNew) && SkippedExtensions.Contains(extOld))
+                return;
+            if (IsTransientFile(e.FullPath) && IsTransientFile(e.OldFullPath))
                 return;
 
             lock (_fswLock)
