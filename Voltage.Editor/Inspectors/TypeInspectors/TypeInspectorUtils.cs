@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using Microsoft.Xna.Framework.Graphics;
 using Voltage;
+using Voltage.Serialization;
 using Voltage.Utils;
 using Voltage.Utils.Extensions;
 
@@ -171,6 +172,8 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 				return new TypeInspectors_EnumInspector();
 
 			// must be checked before IsValueType
+			if (valueType == typeof(PrefabReference))
+				return new PrefabReferenceTypeInspector();
 			if (typeof(IComponentGroup).IsAssignableFrom(valueType) && !valueType.IsValueType)
 				return new TypeInspectors_ComponentGroupInspector();
 			if (valueType.GetTypeInfo().IsValueType)

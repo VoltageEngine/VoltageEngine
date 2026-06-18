@@ -80,6 +80,14 @@ namespace Voltage.Serialization
 					case "CanBeSelected": data.IsSelectableInEditor = r.ReadBool(); break;
 					case "DebugRenderEnabled": data.DebugRenderEnabled = r.ReadBool(); break;
 					case "OriginalPrefabName": data.OriginalPrefabName = r.ReadString(); break;
+					case "OriginalPrefabGuid": data.OriginalPrefabGuid = r.ReadNullableGuid(); break;
+					case "PrefabOverrides":
+					{
+						var list = r.ReadList(rd => rd.ReadString());
+						data.PrefabOverrides = list != null ? new System.Collections.Generic.HashSet<string>(list) : null;
+						break;
+					}
+					case "RemovedPrefabComponents": data.RemovedPrefabComponents = r.ReadList(rd => rd.ReadString()); break;
 					case "EntityData": data.EntityData = r.ReadObject(ReadEntityData); break;
 					default: r.SkipValue(); break;
 				}
@@ -174,6 +182,7 @@ namespace Voltage.Serialization
 			{
 				switch (key)
 				{
+					case "Id": data.Id = r.ReadGuid(); break;
 					case "InstanceType": data.InstanceType = r.ReadEnum<Entity.InstanceType>(); break;
 					case "Name": data.Name = r.ReadString(); break;
 					case "Rotation": data.Rotation = r.ReadFloat(); break;
@@ -423,6 +432,29 @@ namespace Voltage.Serialization
 				{
 					case "EntityPersistentId": v.EntityPersistentId = r.ReadString(); break;
 					case "EntityName":         v.EntityName = r.ReadString(); break;
+					default: r.SkipValue(); break;
+				}
+			}
+			return v;
+		}
+
+		/// <summary>
+		/// AOT-safe reader for PrefabReference. Used by source-generated ComponentData deserializers.
+		/// </summary>
+		public static PrefabReference ReadPrefabReference(JsonTokenReader r)
+		{
+			var v = new PrefabReference();
+			if (!r.BeginObject()) return v;
+			while (r.ReadNextKey(out var key))
+			{
+				switch (key)
+				{
+					case "PrefabGuid":
+						var guidStr = r.ReadString();
+						if (System.Guid.TryParse(guidStr, out var g)) v.PrefabGuid = g;
+						break;
+					case "PrefabPath": v.PrefabPath = r.ReadString(); break;
+					case "PrefabName": v.PrefabName = r.ReadString(); break;
 					default: r.SkipValue(); break;
 				}
 			}

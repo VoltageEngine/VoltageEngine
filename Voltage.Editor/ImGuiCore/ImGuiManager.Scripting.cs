@@ -53,6 +53,7 @@ public partial class ImGuiManager
 	private void OnProjectLoaded(IGameProject project)
 	{
 		ReinitializeScriptManager();
+		_assetBrowserWindow.OnProjectLoaded();
 		EditorDebug.Log($"Project loaded: {project.ProjectName}");
 	}
 
@@ -60,6 +61,7 @@ public partial class ImGuiManager
 	{
 		_scriptManager?.Dispose();
 		_scriptManager = null;
+		_assetBrowserWindow.OnProjectUnloaded();
 		EditorDebug.Log("Project unloaded");
 	}
 

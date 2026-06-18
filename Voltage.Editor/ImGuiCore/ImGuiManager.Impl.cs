@@ -12,7 +12,10 @@ using Voltage.Persistence.Binary;
 using Num = System.Numerics;
 using Voltage;
 using Voltage.Editor.SceneFile;
+using Voltage.Editor.Inspectors.CustomInspectors;
 using Voltage.Editor.Undo.Core;
+using Voltage.Editor.Windows;
+using Voltage.Editor.Assets;
 
 namespace Voltage.Editor.ImGuiCore;
 
@@ -31,7 +34,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private Num.Vector2 _gameImageSize;
 	private bool _hasValidGameWindowData;
 	private float _scale;
-	private bool _isDisposed = false; // To detect redundant calls
+	private bool _isDisposed = false;
 
 	[Flags]
 	private enum WindowPosition
@@ -132,6 +135,14 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_drawCommands.Clear();
 		_entityInspectors.Clear();
 
+		// _drawCommands.Clear() just dropped the AnimationEventInspector's Draw delegate, but the
+		// instance pointer would survive. If we leave it non-null, LayoutGui's "== null" guard never
+		// fires and the draw command is never re-registered  the window shows as open in the menu
+		// but is never actually drawn (and "Manage Events" becomes a no-op). Null it so LayoutGui
+		// re-creates and re-registers it next frame whenever ShowAnimationEventInspector is true.
+		_animationEventInspector = null;
+		SpriteAnimatorFileInspector.AnimationEventInspectorInstance = null;
+
 		if (_renderTargetId != IntPtr.Zero)
 		{
 			_renderer.UnbindTexture(_renderTargetId);
@@ -203,18 +214,16 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_gameImageSize = imageSize;
 		_hasValidGameWindowData = true;
 
-		// Only draw the image if we have a valid texture ID
 		if (_renderTargetId != IntPtr.Zero)
 		{
 			ImGui.Image(_renderTargetId, imageSize);
 		}
 		else
 		{
-			// Reserve the space even if we don't have a texture yet
 			ImGui.Dummy(imageSize);
 		}
 
-		// NOW draw buttons and text on top using screen coordinates
+		// Draw buttons and text on top using screen coordinates
 		var camera = Core.Scene?.Camera;
 		bool showZoomButton = camera != null && Math.Abs(camera.Zoom - Camera.DefaultZoom) > 0.01f;
 		bool showSpeedButton = Math.Abs(GetDynamicCameraSpeed() - EditModeCameraSpeed) > 0.1f;
@@ -260,7 +269,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			}
 		}
 
-		// Camera Speed Indicator at top-right
 		if (Core.IsEditMode && Math.Abs(GetDynamicCameraSpeed() - EditModeCameraSpeed) > 0.1f)
 		{
 			var speedText = $"Camera Speed: {(int)GetDynamicCameraSpeed()}";
@@ -291,7 +299,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			ImGui.TextColored(new Num.Vector4(1.0f, 1.0f, 0.0f, 1.0f), speedText);
 		}
 
-		// convert mouse input to the game windows coordinates
 		OverrideMouseInput();
 
 		if (!ImGui.IsWindowFocused())
@@ -426,6 +433,34 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			mouseState.LeftButton, mouseState.MiddleButton, mouseState.RightButton,
 			mouseState.XButton1, mouseState.XButton2);
 		Input.SetCurrentMouseState(newMouseState);
+	}
+
+	/// <summary>
+	/// Resolves an asset dragged from the Asset Browser onto the game viewport. The viewport is a
+	/// dockspace passthrough with no ImGui window to host a drop target, so we poll for the mouse
+	/// release instead: if a drag is still pending (the Scene Graph drop target didn't consume it
+	/// earlier this frame) and the cursor is over the game window, spawn at the cursor's world
+	/// position via Input.ScaledMousePosition into Camera.ScreenToWorldPoint (the gizmo path).
+	/// </summary>
+	private void HandleGameViewAssetDrop()
+	{
+		if (AssetBrowserWindow.DraggedReference.IsEmpty)
+			return;
+
+		if (!Input.LeftMouseButtonReleased)
+			return;
+
+		var reference = AssetBrowserWindow.DraggedReference;
+		AssetBrowserWindow.DraggedReference = AssetReference.Empty;
+
+		if (!_cursorSelectionManager.IsCursorWithinGameWindow())
+			return;
+
+		Vector2? worldPos = Core.Scene?.Camera?.ScreenToWorldPoint(Input.ScaledMousePosition);
+
+		var ext        = System.IO.Path.GetExtension(reference.HintPath);
+		var descriptor = AssetTypeRegistry.Resolve(ext);
+		descriptor.DropFactory?.Invoke(reference, worldPos);
 	}
 
 	#region GlobalManager Lifecycle

@@ -113,25 +113,49 @@ public class SceneData
 		public Entity.InstanceType InstanceType;
 		public string Name;
 
-		// Transform
 		public Vector2 Position;
 		public float Rotation;
 		public Vector2 Scale = new Vector2(1, 1);
 
-		// Hierarchy
 		public string ParentEntityName;
-		
-		// Properties
+
 		public bool Enabled = true;
 		public int UpdateOrder;
 		public int Tag;
 		public bool IsSelectableInEditor = true;
 		public bool DebugRenderEnabled = false;
 
-		// Prefab reference
 		public string OriginalPrefabName;
-		
-		// Entity-specific data
+
+		/// <summary>
+		/// Stable GUID of the prefab asset (from its <c>.meta</c> sidecar).
+		/// Empty/null for entities from scenes saved before Phase 3.
+		/// Falls back to <see cref="OriginalPrefabName"/> for resolution when absent.
+		/// </summary>
+		public Guid? OriginalPrefabGuid;
+
+		/// <summary>
+		/// Component-level override tracking (Phase 4b).
+		/// When non-null this entity is stored as a delta against its source prefab rather than
+		/// as a full standalone copy.
+		/// <para>
+		/// Contains the <see cref="ComponentDataEntry.ComponentName"/> of every component whose
+		/// data has been changed relative to the source prefab, plus every component that was
+		/// added on this instance (not present in the prefab).
+		/// Components NOT listed here are inherited from the current prefab unchanged.
+		/// </para>
+		/// <para><b>Backward compatibility rule:</b> null means "legacy full-data entry" — the
+		/// instance owns all its component data and the source prefab is not consulted during
+		/// load.  This preserves behaviour for all scenes saved before Phase 4b.</para>
+		/// </summary>
+		public HashSet<string> PrefabOverrides;
+
+		/// <summary>
+		/// Names of components that exist in the source prefab but have been explicitly
+		/// removed on this instance (Phase 4b).  Null when <see cref="PrefabOverrides"/> is null.
+		/// </summary>
+		public List<string> RemovedPrefabComponents;
+
 		public EntityData EntityData;
 	}
 
