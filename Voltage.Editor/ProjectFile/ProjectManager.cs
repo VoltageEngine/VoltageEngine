@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Voltage.Editor.Assets;
 using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.SceneFile;
@@ -183,6 +184,42 @@ public class ProjectManager : GlobalManager
 			// in play mode (where AppContext.BaseDirectory is the editor binary, not the game project).
 			Scene.ScenesDirectory = project.ScenesFolder;
 
+			// Same for Scene.LoadPrefab(path) — resolve relative prefab paths against the project's
+			// Prefabs folder in play mode rather than the editor binary directory.
+			Scene.PrefabsDirectory = project.PrefabsFolder;
+
+			// Phase 4b: wire the GUID-based prefab path resolver so the engine's overlay-load
+			// path can find source prefabs by GUID via AssetDatabase (survives renames).
+			var prefabsRoot = project.PrefabsFolder;
+			Scene.PrefabPathResolver = (guid, name) =>
+			{
+				// 1. GUID lookup via AssetDatabase.
+				if (guid != Guid.Empty && AssetDatabase.Instance != null)
+				{
+					var byGuid = AssetDatabase.Instance.GetPath(guid);
+					if (!string.IsNullOrEmpty(byGuid) && File.Exists(byGuid))
+						return byGuid;
+				}
+
+				// 2. Name-based fallback — scan PrefabsFolder subdirectories.
+				if (!string.IsNullOrEmpty(name) && Directory.Exists(prefabsRoot))
+				{
+					var direct = Path.Combine(prefabsRoot, name + ".vprefab");
+					if (File.Exists(direct))
+						return direct;
+
+					foreach (var sub in Directory.GetDirectories(prefabsRoot))
+					{
+						var candidate = Path.Combine(sub, name + ".vprefab");
+						if (File.Exists(candidate)) return candidate;
+						candidate = Path.Combine(sub, name + ".prefab");
+						if (File.Exists(candidate)) return candidate;
+					}
+				}
+
+				return null;
+			};
+
 			OnProjectLoaded?.Invoke(project);
 			if (oldProject != null)
 			{
@@ -335,7 +372,6 @@ public class ProjectManager : GlobalManager
 	{
 		var recentProjects = GetRecentProjects();
 
-		// Remove and add to front if already exists
 		recentProjects.Remove(projectPath);
 		recentProjects.Insert(0, projectPath);
 
@@ -344,7 +380,6 @@ public class ProjectManager : GlobalManager
 			recentProjects = recentProjects.Take(MaxRecentProjects).ToList();
 		}
 
-		// Save
 		_recentProjects.Value = string.Join("|", recentProjects);
 	}
 

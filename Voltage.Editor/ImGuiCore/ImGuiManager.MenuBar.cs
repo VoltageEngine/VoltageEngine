@@ -83,6 +83,14 @@ public partial class ImGuiManager
 		set => _preserveGameWindowAspectRatio.Value = value;
 	}
 
+	private PersistentBool _showAssetBrowser = new("ImGui_ShowAssetBrowser", false);
+
+	public bool ShowAssetBrowser
+	{
+		get => _showAssetBrowser.Value;
+		set => _showAssetBrowser.Value = value;
+	}
+
 	private PersistentString _lastSelectedLayout = new("ImGui_LastSelectedLayout", "Default");
 	private PersistentString _lastSelectedTheme = new("ImGui_LastSelectedTheme", "DarkTheme1");
 	#endregion
@@ -278,7 +286,6 @@ public partial class ImGuiManager
 		{
 			if (ImGui.BeginMenu("Themes"))
 			{
-				// Show current theme at the top
 				ImGui.TextColored(new Vector4(0.5f, 0.8f, 1.0f, 1.0f),
 					$"Current: {_themeManager.CurrentThemeName}");
 				ImGui.Separator();
@@ -318,7 +325,6 @@ public partial class ImGuiManager
 				{
 					foreach (var layoutName in _layoutManager.GetLayoutNames())
 					{
-						// Highlight the currently active layout
 						bool isCurrentLayout = layoutName.Equals(_layoutManager.CurrentLayoutName,
 							StringComparison.OrdinalIgnoreCase);
 
@@ -389,7 +395,6 @@ public partial class ImGuiManager
 
 			if (ImGui.BeginMenu("Window"))
 			{
-				// Main Inspector
 				var showMainInspector = ShowMainInspectorWindow;
 				ImGui.MenuItem("Inspector Window", null, ref showMainInspector);
 				ShowMainInspectorWindow = showMainInspector;
@@ -399,7 +404,6 @@ public partial class ImGuiManager
 					ImGui.OpenPopup("MainInspectorContextMenu");
 				}
 
-				// Core Window
 				var showCoreWindow = ShowCoreWindow;
 				ImGui.MenuItem("Core Window", null, ref showCoreWindow);
 				ShowCoreWindow = showCoreWindow;
@@ -409,7 +413,6 @@ public partial class ImGuiManager
 					ImGui.OpenPopup("CoreWindowContextMenu");
 				}
 
-				// Scene Graph Window 
 				var showSceneGraphWindow = ShowSceneGraphWindow;
 				ImGui.MenuItem("Scene Graph Window", null, ref showSceneGraphWindow);
 				ShowSceneGraphWindow = showSceneGraphWindow;
@@ -419,7 +422,6 @@ public partial class ImGuiManager
 					ImGui.OpenPopup("SceneGraphWindowContextMenu");
 				}
 
-				// Separate Game Window
 				var showSeparateGameWindow = ShowSeparateGameWindow;
 				ImGui.MenuItem("Separate Game Window", null, ref showSeparateGameWindow);
 				ShowSeparateGameWindow = showSeparateGameWindow;
@@ -429,10 +431,13 @@ public partial class ImGuiManager
 					ImGui.OpenPopup("SeparateGameWindowContextMenu");
 				}
 
-				// Animation Event Inspector 
 				var showAnimationEventInspector = ShowAnimationEventInspector;
 				ImGui.MenuItem("Animation Event Inspector", null, ref showAnimationEventInspector);
 				ShowAnimationEventInspector = showAnimationEventInspector;
+
+				var showAssetBrowser = ShowAssetBrowser;
+				ImGui.MenuItem("Asset Browser", null, ref showAssetBrowser);
+				ShowAssetBrowser = showAssetBrowser;
 
 				if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
 				{
@@ -441,7 +446,6 @@ public partial class ImGuiManager
 
 				ImGui.Separator();
 
-				// Game Window Aspect Ratio toggle
 				var preserveAspectRatio = PreserveGameWindowAspectRatio;
 				ImGui.MenuItem("Preserve Game Window Aspect Ratio", null, ref preserveAspectRatio);
 				PreserveGameWindowAspectRatio = preserveAspectRatio;
@@ -704,12 +708,12 @@ public partial class ImGuiManager
 		{
 			var project = _projectManager.CurrentProject;
 			var sceneManager = SceneManager.Instance;
-			
+
 			// Get current scene name
-			string sceneName = sceneManager.HasLoadedScene 
-				? sceneManager.CurrentSceneName 
+			string sceneName = sceneManager.HasLoadedScene
+				? sceneManager.CurrentSceneName
 				: "NONE";
-			
+
 			displayText = $"[*] {project.ProjectName} | Scene: {sceneName} | v{project.Version}";
 			iconColor = new Vector4(0.4f, 0.8f, 0.4f, 1.0f);
 		}
@@ -719,11 +723,17 @@ public partial class ImGuiManager
 			iconColor = new Vector4(0.6f, 0.6f, 0.6f, 1.0f);
 		}
 
+		// Center the indicator within the menu bar.
+		// The play/stop/pause/reset cluster has moved to the Editor Tools bar so
+		// there is no longer any collision risk here.
 		var textSize = ImGui.CalcTextSize(displayText);
 		var windowWidth = ImGui.GetWindowWidth();
-		var centerX = (windowWidth - textSize.X) * 0.5f;
+		var centeredX = (windowWidth - textSize.X) * 0.5f;
 
-		ImGui.SetCursorPosX(centerX);
+		// Clamp so we never overdraw content already placed to the left.
+		var safeX = Math.Max(ImGui.GetCursorPosX(), centeredX);
+
+		ImGui.SetCursorPosX(safeX);
 
 		if (_projectManager.HasActiveProject)
 		{
@@ -920,6 +930,141 @@ public partial class ImGuiManager
 
 			ImGui.EndMenu();
 		}
+	}
+
+	/// <summary>
+	/// Audio mute toggle — right-aligned inside the Editor Tools bar.
+	/// Shows volume-up icon when <see cref="Core.IsAudioOn"/> is true, volume-mute when false.
+	/// Clicking toggles <see cref="Core.IsAudioOn"/>.
+	/// </summary>
+	private void DrawAudioToggleRightAligned()
+	{
+		float iconSize    = 24f * FontSizeMultiplier;
+		float framePad    = ImGui.GetStyle().FramePadding.X;
+		float buttonWidth = iconSize + framePad * 2f;
+		const float rightPadding = 8f;
+
+		// Position the cursor so the button sits flush against the right edge.
+		float posX = ImGui.GetWindowWidth() - buttonWidth - rightPadding;
+		if (posX > ImGui.GetCursorPosX())
+			ImGui.SetCursorPosX(posX);
+
+		var iconSizeVec = new Vector2(iconSize, iconSize);
+
+		IntPtr icon = Core.IsAudioOn
+			? ImguiImageLoader.AudioOn
+			: ImguiImageLoader.AudioMute;
+
+		// Tint the button red-ish when muted so the state is immediately obvious.
+		if (!Core.IsAudioOn)
+		{
+			ImGui.PushStyleColor(ImGuiCol.Button,        new Vector4(0.6f, 0.1f, 0.1f, 1.0f));
+			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0.8f, 0.2f, 0.2f, 1.0f));
+			ImGui.PushStyleColor(ImGuiCol.ButtonActive,  new Vector4(0.9f, 0.3f, 0.3f, 1.0f));
+		}
+
+		if (ImGui.ImageButton("AudioToggle", icon, iconSizeVec))
+			Core.IsAudioOn = !Core.IsAudioOn;
+
+		if (!Core.IsAudioOn)
+			ImGui.PopStyleColor(3);
+
+		if (ImGui.IsItemHovered())
+			ImGui.SetTooltip(Core.IsAudioOn ? "Audio: ON (click to mute)" : "Audio: MUTED (click to unmute)");
+	}
+
+	/// <summary>
+	/// Play / Stop / Pause / Reset icon-button cluster — drawn inside the Editor Tools bar.
+	///
+	/// Centering math:
+	///   Preferred center: game-window center X = _gameImageScreenPos.X + _gameImageSize.X * 0.5f
+	///   Fall-back center: tools-bar center = ImGui.GetWindowWidth() * 0.5f
+	///   cursor X = center - (totalClusterWidth * 0.5f)
+	///
+	/// Because the audio toggle is right-aligned AFTER this call, the cluster's
+	/// SetCursorPosX is applied before the audio button takes the right side.
+	/// </summary>
+	private void DrawEditorModeControls()
+	{
+		float iconSize    = 24f * FontSizeMultiplier;
+		float buttonSpace = iconSize + ImGui.GetStyle().FramePadding.X * 2f;
+		float spacing     = 4f * FontSizeMultiplier;
+
+		float totalWidth  = buttonSpace * 3f + spacing * 2f;
+
+		// Center the cluster within the Editor Tools bar.
+		float centerX = ImGui.GetWindowWidth() * 0.5f;
+		float cursorX = centerX - totalWidth * 0.5f;
+
+		// Clamp so the cluster never goes off-screen on very small windows.
+		cursorX = Math.Max(cursorX, ImGui.GetCursorPosX());
+
+		ImGui.SetCursorPosX(cursorX);
+
+		var iconSizeVec = new Vector2(iconSize, iconSize);
+
+		if (Core.IsEditMode)
+		{
+			if (ImGui.ImageButton("EditorPlay", ImguiImageLoader.EditorModePlay, iconSizeVec))
+				Core.InvokeSwitchEditMode(false);
+
+			if (ImGui.IsItemHovered())
+				ImGui.SetTooltip("Play (F1)");
+		}
+		else
+		{
+			ImGui.PushStyleColor(ImGuiCol.Button,        new Vector4(0.6f, 0.1f, 0.1f, 0.9f));
+			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0.8f, 0.2f, 0.2f, 1.0f));
+			ImGui.PushStyleColor(ImGuiCol.ButtonActive,  new Vector4(0.9f, 0.3f, 0.3f, 1.0f));
+
+			if (ImGui.ImageButton("EditorPlay", ImguiImageLoader.EditorModeStop, iconSizeVec))
+			{
+				Core.IsPauseMode = false;
+				Core.InvokeSwitchEditMode(true);
+			}
+
+			ImGui.PopStyleColor(3);
+
+			if (ImGui.IsItemHovered())
+				ImGui.SetTooltip("Stop (F1)");
+		}
+
+		ImGui.SameLine(0, spacing);
+
+		if (Core.IsEditMode)
+			ImGui.BeginDisabled();
+
+		bool isPaused = Core.IsPauseMode;
+		if (isPaused)
+		{
+			ImGui.PushStyleColor(ImGuiCol.Button,        new Vector4(0.2f, 0.5f, 1.0f, 0.9f));
+			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0.3f, 0.6f, 1.0f, 1.0f));
+			ImGui.PushStyleColor(ImGuiCol.ButtonActive,  new Vector4(0.4f, 0.7f, 1.0f, 1.0f));
+		}
+
+		if (ImGui.ImageButton("EditorPause", ImguiImageLoader.EditorModePause, iconSizeVec))
+			Core.InvokeSwitchPauseMode(!Core.IsPauseMode);
+
+		if (isPaused)
+			ImGui.PopStyleColor(3);
+
+		if (Core.IsEditMode)
+			ImGui.EndDisabled();
+
+		if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+			ImGui.SetTooltip(Core.IsEditMode ? "Pause (unavailable in Edit Mode)" : isPaused ? "Unpause (F2)" : "Pause (F2)");
+
+		ImGui.SameLine(0, spacing);
+
+		if (ImGui.ImageButton("EditorReset", ImguiImageLoader.EditorModeReset, iconSizeVec))
+			Core.InvokeResetScene();
+
+		if (ImGui.IsItemHovered())
+			ImGui.SetTooltip("Reset Scene (F5)");
+
+		// Keep cursor on the same line so DrawAudioToggleRightAligned can
+		// use SetCursorPosX to jump to the right edge within the same row.
+		ImGui.SameLine();
 	}
 }
 

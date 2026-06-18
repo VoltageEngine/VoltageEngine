@@ -11,7 +11,6 @@ using Voltage.Editor.ProjectFile;
 using Voltage.Editor.SceneFile;
 using Voltage.Editor.Utils;
 using Voltage.Editor.Undo.Core;
-using Voltage.Editor.Utils;
 using Voltage.Persistence;
 using Voltage.Serialization;
 using Voltage.Serialization.Registries;
@@ -80,9 +79,16 @@ public partial class SerializationManager : GlobalManager
 		Core.OnSwitchEditMode += ChangedToPlayMode;
 
 		OnSaveSceneAsync += SaveSceneChangesAsync;
-		OnPrefabCreated += OnPrefabCreated;
-		OnPrefabLoadRequested += OnPrefabLoadRequested;
-		OnLoadEntityData += OnLoadEntityData;
+		// Wire each event to its real handler. (These previously subscribed the events to
+		// themselves — a copy-paste bug — so OnPrefabLoadRequested/OnLoadEntityData never fired,
+		// making prefab instantiation produce empty, nameless, component-less entities.)
+		OnPrefabCreated += SavePrefabDataAsync;
+		OnPrefabLoadRequested += name => LoadPrefabData(name) ?? new PrefabData();
+		OnLoadEntityData += (entity, data) =>
+		{
+			if (data is PrefabData prefabData)
+				LoadPrefabEntityData(entity, prefabData);
+		};
 	}
 
 	#region Event Invokers
@@ -107,7 +113,6 @@ public partial class SerializationManager : GlobalManager
 			return;
 		}
 
-		// Schedule the async save operation properly
 		Core.Schedule(0f, false, this, async _ =>
 		{
 			try
@@ -349,7 +354,6 @@ public partial class SerializationManager : GlobalManager
 		}
 		else
 		{
-			// Fallback if no existing data
 			newSceneData.Name = Path.GetFileNameWithoutExtension(filePath);
 			newSceneData.FilePath = filePath;
 			newSceneData.CreatedAt = DateTime.Now;
@@ -421,7 +425,11 @@ public partial class SerializationManager : GlobalManager
 				Tag = entity.Tag,
 				IsSelectableInEditor = entity.CanBeSelected,
 				DebugRenderEnabled = entity.DebugRenderEnabled,
-				OriginalPrefabName = entity.OriginalPrefabName
+				OriginalPrefabName = entity.OriginalPrefabName,
+				// Phase 3+: persist the stable prefab GUID (was previously omitted here).
+				OriginalPrefabGuid = entity.OriginalPrefabGuid != Guid.Empty
+					? entity.OriginalPrefabGuid
+					: (Guid?)null
 			};
 
 			var entityData = entity.GetEntityData();
@@ -429,7 +437,9 @@ public partial class SerializationManager : GlobalManager
 			// Component data handling based on PlayMode
 			if (ignoreEntityTransform && hasOldData && oldEntityData.EntityData != null)
 			{
-				// Use old data as base, but update ONLY IPlayModeSaveableComponent components
+				// Play-mode save: use old data as base, but update ONLY IPlayModeSaveableComponent
+				// components. Preserve any Phase 4b override metadata from the old data so
+				// round-tripping through play mode does not strip the delta.
 				var oldEntityDataClone = oldEntityData.EntityData.Clone();
 
 				if (entityData != null)
@@ -451,7 +461,6 @@ public partial class SerializationManager : GlobalManager
 						}
 					}
 
-					// Then, add current IPlayModeSaveableComponent components (update them)
 					foreach (var component in GetAllSerializedComponents(entity))
 					{
 						if (component is IPlayModeSaveableComponent && component.Data != null)
@@ -464,19 +473,25 @@ public partial class SerializationManager : GlobalManager
 				}
 
 				sceneEntityData.EntityData = oldEntityDataClone;
+				// Preserve Phase 4b override metadata from the on-disk entry (play-mode save should
+				// not strip it — we are not re-diffing against the prefab here).
+				sceneEntityData.PrefabOverrides          = oldEntityData.PrefabOverrides;
+				sceneEntityData.RemovedPrefabComponents  = oldEntityData.RemovedPrefabComponents;
 			}
 			else
 			{
 				if (entityData != null)
 				{
-					entityData.ComponentDataList.Clear();
-
+					var currentEntries = new List<ComponentDataEntry>();
 					foreach (var component in GetAllSerializedComponents(entity))
-					{
-						entityData.ComponentDataList.Add(SerializeComponent(component));
-					}
+						currentEntries.Add(SerializeComponent(component));
 
-					sceneEntityData.EntityData = entityData;
+					// Prefab instances are saved self-contained (full component data) so a scene
+					// reload never depends on resolving the source .vprefab. OriginalPrefabName/Guid
+					// keep the prefab link; PrefabOverrides stays null (full-data entry).
+					entityData.ComponentDataList = currentEntries;
+					sceneEntityData.EntityData   = entityData;
+					sceneEntityData.PrefabOverrides = null;
 				}
 			}
 
@@ -639,6 +654,58 @@ public partial class SerializationManager : GlobalManager
 	}
 
 	/// <summary>
+	/// Public façade for <see cref="CreateComponentInstance"/> used by the Phase 4b revert UI
+	/// (<see cref="Voltage.Editor.Windows.EntityInspectorWindow"/>).
+	/// </summary>
+	public static Component CreateComponentInstancePublic(string componentTypeName)
+		=> CreateComponentInstance(componentTypeName);
+
+	/// <summary>
+	/// Applies a single <see cref="ComponentDataEntry"/> to a live <see cref="Component"/> by
+	/// deserializing the entry's JSON via the AOT/reflection path used everywhere else.
+	/// Called by the Phase 4b per-component revert UI.
+	/// </summary>
+	public void ApplyComponentEntry(Component component, ComponentDataEntry entry)
+	{
+		if (component == null || string.IsNullOrEmpty(entry.DataTypeName) || string.IsNullOrEmpty(entry.Json))
+			return;
+
+		// Re-use the same deserialization path as TryAssignComponentDataFromEntityData,
+		// but applied directly rather than scanning the EntityData list.
+		try
+		{
+			ComponentData data = null;
+			var typeName = entry.DataTypeName;
+
+			if (!ComponentDataAotDeserializer.IsRegistered(typeName) &&
+			    TypeRenameRegistry.TryResolve(typeName, out var renamed))
+				typeName = renamed.FullName ?? typeName;
+
+			if (ComponentDataAotDeserializer.IsRegistered(typeName))
+			{
+				var clean = StripTypeFieldFromJson(entry.Json);
+				data = ComponentDataAotDeserializer.TryDeserialize(typeName, clean);
+			}
+			else
+			{
+				var dataType = ResolveType(entry.DataTypeName);
+				if (dataType != null)
+				{
+					var clean = StripTypeFieldFromJson(entry.Json);
+					data = (ComponentData)Json.FromJson(clean, dataType);
+				}
+			}
+
+			if (data != null)
+				component.Data = data;
+		}
+		catch (Exception ex)
+		{
+			Debug.Error($"[SerializationManager] ApplyComponentEntry failed for '{component.Name}': {ex.Message}");
+		}
+	}
+
+	/// <summary>
 	/// Loads predefined entity data onto an entity.
 	/// </summary>
 	public void LoadPredefinedEntityData(Entity newEntity, SceneData.SceneEntityData entityData)
@@ -651,9 +718,14 @@ public partial class SerializationManager : GlobalManager
 		newEntity.Type = entityData.InstanceType;
 
 		if (newEntity.Type == Entity.InstanceType.SerializedPrefab)
+		{
 			newEntity.OriginalPrefabName = entityData.OriginalPrefabName;
+			newEntity.OriginalPrefabGuid = entityData.OriginalPrefabGuid ?? Guid.Empty;
+		}
 		else
+		{
 			newEntity.OriginalPrefabName = null;
+		}
 
 		// Handle transform and parent assignment
 		Entity parentEntity = null;
@@ -800,6 +872,9 @@ public partial class SerializationManager : GlobalManager
 	/// Resolves a type by its full name, searching all loaded assemblies if Type.GetType() fails.
 	/// When a LatestScriptAssembly is set, it is checked first to ensure newly compiled script types
 	/// take priority over stale types from previously loaded assemblies.
+	/// On a final miss, consults <see cref="TypeRenameRegistry"/> so that component
+	/// classes whose fully-qualified name changed (class or namespace rename) still resolve correctly
+	/// from serialized scene/prefab data.
 	/// </summary>
 	private static Type ResolveType(string typeName)
 	{
@@ -830,6 +905,16 @@ public partial class SerializationManager : GlobalManager
 			type = assembly.GetType(typeName);
 			if (type != null)
 				return type;
+		}
+
+		// Last resort: check the rename registry (populated by [FormerlyKnownAs] at module init).
+		// This is the only path that changes behavior for renamed types — all direct lookups
+		// above are identical to the pre-Phase-4a code.
+		if (TypeRenameRegistry.TryResolve(typeName, out var renamedType))
+		{
+			Debug.Warn($"[Editor] Type '{typeName}' resolved via TypeRenameRegistry → '{renamedType.FullName}'. " +
+				"Re-save the scene/prefab to update the stored type name.");
+			return renamedType;
 		}
 
 		return null;
@@ -872,13 +957,23 @@ public partial class SerializationManager : GlobalManager
 					// Prefer the AOT deserializer: it keys by FullName only, so it is
 					// immune to the stale assembly name baked into the JSON $type field
 					// by TypeNameHandling.Auto after a script recompile.
-					if (ComponentDataAotDeserializer.IsRegistered(entry.DataTypeName))
+					var aotDataTypeName = entry.DataTypeName;
+
+					// If the stored DataTypeName is unknown to the AOT registry, check whether
+					// it is a renamed type and use the current name instead (Phase 4a rename path).
+					if (!ComponentDataAotDeserializer.IsRegistered(aotDataTypeName) &&
+					    TypeRenameRegistry.TryResolve(aotDataTypeName, out var renamedDataType))
+					{
+						aotDataTypeName = renamedDataType.FullName ?? aotDataTypeName;
+					}
+
+					if (ComponentDataAotDeserializer.IsRegistered(aotDataTypeName))
 					{
 						// Strip any stale $type from the JSON before passing to the AOT
 						// deserializer. The AOT deserializer uses a strongly-typed
 						// Json.FromJson<T>, so a stale $type would still win if left in.
 						var cleanJson = StripTypeFieldFromJson(entry.Json);
-						data = ComponentDataAotDeserializer.TryDeserialize(entry.DataTypeName, cleanJson);
+						data = ComponentDataAotDeserializer.TryDeserialize(aotDataTypeName, cleanJson);
 					}
 					else
 					{
@@ -901,6 +996,7 @@ public partial class SerializationManager : GlobalManager
 						}
 					}
 
+					component._pendingLoadedData = data;
 					component.Data = data;
 
 					entityData.ComponentDataList.RemoveAt(i);
@@ -921,6 +1017,172 @@ public partial class SerializationManager : GlobalManager
 	#endregion
 
 	#region Prefab Methods
+
+	// Phase 4b helpers — prefab diff / delta computation
+
+	/// <summary>
+	/// Resolves the source prefab <c>.vprefab</c> file for a <see cref="Entity.InstanceType.SerializedPrefab"/>
+	/// entity and returns its deserialized <see cref="PrefabData"/>, or null when the prefab cannot be found.
+	/// <para>Resolution order: AssetDatabase GUID lookup (editor) → name-based search under PrefabsFolder.</para>
+	/// </summary>
+	private PrefabData? TryLoadSourcePrefabForDiff(string prefabName, Guid prefabGuid)
+	{
+		if (string.IsNullOrEmpty(prefabName))
+			return null;
+
+		string resolvedPath = null;
+
+		// 1. GUID-based lookup via AssetDatabase (editor path — survives renames).
+		if (prefabGuid != Guid.Empty && Assets.AssetDatabase.Instance != null)
+			resolvedPath = Assets.AssetDatabase.Instance.GetPath(prefabGuid);
+
+		// 2. Name-based fallback — scan PrefabsFolder subdirectories.
+		if (string.IsNullOrEmpty(resolvedPath) || !File.Exists(resolvedPath))
+		{
+			var prefabsDir = ProjectManager.Instance.CurrentProject?.PrefabsFolder;
+			if (!string.IsNullOrEmpty(prefabsDir) && Directory.Exists(prefabsDir))
+			{
+				// Direct match at root.
+				var direct = Path.Combine(prefabsDir, prefabName + ".vprefab");
+				if (File.Exists(direct))
+				{
+					resolvedPath = direct;
+				}
+				else
+				{
+					foreach (var sub in Directory.GetDirectories(prefabsDir))
+					{
+						var candidate = Path.Combine(sub, prefabName + ".vprefab");
+						if (File.Exists(candidate)) { resolvedPath = candidate; break; }
+						candidate = Path.Combine(sub, prefabName + ".prefab");
+						if (File.Exists(candidate)) { resolvedPath = candidate; break; }
+					}
+				}
+			}
+		}
+
+		if (string.IsNullOrEmpty(resolvedPath) || !File.Exists(resolvedPath))
+			return null;
+
+		try
+		{
+			var json = File.ReadAllText(resolvedPath);
+			var pd = AotDeserializers.DeserializePrefabData(json);
+			return pd.Name != null ? pd : (PrefabData?)null;
+		}
+		catch (Exception ex)
+		{
+			Debug.Warn($"[SerializationManager] Could not load source prefab '{resolvedPath}': {ex.Message}");
+			return null;
+		}
+	}
+
+	/// <summary>
+	/// Computes the Phase 4b override delta between the source prefab's component list and the
+	/// current instance's serialized component entries.
+	/// </summary>
+	/// <param name="prefabEntityData">Source prefab component list (may be null for an empty prefab).</param>
+	/// <param name="currentEntries">Fully serialized current instance component entries.</param>
+	/// <param name="overrideNames">
+	/// Output: component names that differ from the prefab (data changed) or are new (not in prefab).
+	/// These are stored in <see cref="SceneData.SceneEntityData.PrefabOverrides"/>.
+	/// </param>
+	/// <param name="removedNames">
+	/// Output: component names that exist in the prefab but were removed on this instance.
+	/// </param>
+	/// <param name="overrideEntries">
+	/// Output: the subset of <paramref name="currentEntries"/> whose names appear in <paramref name="overrideNames"/>.
+	/// Only the overriding data is stored in <see cref="SceneData.SceneEntityData.EntityData"/>; the rest
+	/// is re-sourced from the prefab at load time.
+	/// </param>
+	private static void BuildPrefabOverrideDelta(
+		EntityData prefabEntityData,
+		List<ComponentDataEntry> currentEntries,
+		out HashSet<string> overrideNames,
+		out List<string> removedNames,
+		out List<ComponentDataEntry> overrideEntries)
+	{
+		overrideNames  = new HashSet<string>(StringComparer.Ordinal);
+		removedNames   = new List<string>();
+		overrideEntries = new List<ComponentDataEntry>();
+
+		// Build lookup of prefab component entries by name.
+		var prefabByName = new Dictionary<string, ComponentDataEntry>(StringComparer.Ordinal);
+		if (prefabEntityData?.ComponentDataList != null)
+		{
+			foreach (var e in prefabEntityData.ComponentDataList)
+				prefabByName[e.ComponentName] = e;
+		}
+
+		// Build lookup of current (instance) entries by name.
+		var currentByName = new Dictionary<string, ComponentDataEntry>(StringComparer.Ordinal);
+		foreach (var e in currentEntries)
+			currentByName[e.ComponentName] = e;
+
+		// Detect changed / added components.
+		foreach (var current in currentEntries)
+		{
+			if (!prefabByName.TryGetValue(current.ComponentName, out var prefabEntry))
+			{
+				// Added on instance — always an override.
+				overrideNames.Add(current.ComponentName);
+				overrideEntries.Add(current);
+			}
+			else if (!ComponentDataJsonEquals(prefabEntry, current))
+			{
+				// Differs from prefab — override.
+				overrideNames.Add(current.ComponentName);
+				overrideEntries.Add(current);
+			}
+			// Identical to prefab — inherited, do not include in overrideEntries.
+		}
+
+		// Detect removed components (in prefab but not in current instance).
+		foreach (var name in prefabByName.Keys)
+		{
+			if (!currentByName.ContainsKey(name))
+				removedNames.Add(name);
+		}
+	}
+
+	/// <summary>
+	/// Returns true when two <see cref="ComponentDataEntry"/> values represent the same component
+	/// data, using a normalised JSON string comparison.  Two entries that were both serialised
+	/// from the same data should produce identical JSON; we normalise whitespace to absorb
+	/// pretty-print differences (the prefab is always pretty-printed; instance data also).
+	/// </summary>
+	private static bool ComponentDataJsonEquals(ComponentDataEntry a, ComponentDataEntry b)
+	{
+		// If both are data-less, they are equal.
+		if (string.IsNullOrEmpty(a.Json) && string.IsNullOrEmpty(b.Json))
+			return string.Equals(a.ComponentTypeName, b.ComponentTypeName, StringComparison.Ordinal) &&
+			       string.Equals(a.DataTypeName, b.DataTypeName, StringComparison.Ordinal);
+
+		// Type mismatch — definitely different.
+		if (!string.Equals(a.ComponentTypeName, b.ComponentTypeName, StringComparison.Ordinal) ||
+		    !string.Equals(a.DataTypeName, b.DataTypeName, StringComparison.Ordinal))
+			return false;
+
+		// Normalise whitespace before comparing JSON strings to absorb pretty-print differences.
+		var normA = NormaliseJson(a.Json);
+		var normB = NormaliseJson(b.Json);
+		return string.Equals(normA, normB, StringComparison.Ordinal);
+	}
+
+	/// <summary>
+	/// Collapses all runs of whitespace (space, tab, newline) in a JSON string to a single space
+	/// and trims the result.  This is intentionally naive — it only normalises inter-token
+	/// whitespace and does not handle whitespace inside string values.  Since component data
+	/// field values are almost always numbers, booleans, or short strings without embedded
+	/// whitespace sequences, this is safe for the diff comparison use-case.
+	/// </summary>
+	private static string NormaliseJson(string json)
+	{
+		if (string.IsNullOrEmpty(json))
+			return string.Empty;
+
+		return System.Text.RegularExpressions.Regex.Replace(json, @"\s+", " ").Trim();
+	}
 
 	/// <summary>
 	/// Saves a prefab entity to a JSON file.
@@ -958,6 +1220,7 @@ public partial class SerializationManager : GlobalManager
 
 			var prefabData = new PrefabData
 			{
+				Id = prefabEntity.PersistentId,
 				InstanceType = prefabEntity.Type,
 				Name = prefabEntity.Name,
 				Rotation = prefabEntity.Transform.Rotation,
@@ -982,8 +1245,16 @@ public partial class SerializationManager : GlobalManager
 				var childEntity = child.Entity;
 				if (childEntity.Type != Entity.InstanceType.NonSerialized)
 				{
+					var childEntityData = childEntity.GetEntityData().Clone();
+					childEntityData.ComponentDataList.Clear();
+					foreach (var childComp in GetAllSerializedComponents(childEntity))
+						childEntityData.ComponentDataList.Add(SerializeComponent(childComp));
+
 					var childData = new SceneData.SceneEntityData
 					{
+						// Persist the child's stable id so the prefab-instantiation remap can map
+						// it to the new instance child's id and rewrite references that point to it.
+						Id = childEntity.PersistentId,
 						InstanceType = childEntity.Type,
 						Name = childEntity.Name,
 						Position = childEntity.Transform.LocalPosition,
@@ -995,7 +1266,7 @@ public partial class SerializationManager : GlobalManager
 						Tag = childEntity.Tag,
 						DebugRenderEnabled = childEntity.DebugRenderEnabled,
 						OriginalPrefabName = childEntity.OriginalPrefabName,
-						EntityData = childEntity.GetEntityData().Clone()
+						EntityData = childEntityData
 					};
 					prefabData.ChildEntities.Add(childData);
 				}
@@ -1013,12 +1284,46 @@ public partial class SerializationManager : GlobalManager
 			var jsonData = Json.ToJson(prefabData, settings);
 			await File.WriteAllTextAsync(sourceFilePath, jsonData);
 
+			if (Assets.AssetDatabase.Instance != null)
+				prefabEntity.OriginalPrefabGuid = Assets.AssetDatabase.Instance.GetReference(sourceFilePath).Guid;
+
 			return true;
 		}
 		catch (Exception ex)
 		{
 			Debug.Error($"Failed to save prefab {prefabEntity.Name}: {ex.Message}");
 			return false;
+		}
+	}
+
+	/// <summary>
+	/// Loads a prefab from an absolute file path.
+	/// Used by the asset-drop path where the absolute path is already known, avoiding
+	/// the name-based directory scan in <see cref="LoadPrefabData"/> that fails when
+	/// the prefab is not in a one-level subdirectory of PrefabsFolder.
+	/// </summary>
+	public PrefabData? LoadPrefabDataFromPath(string absolutePath)
+	{
+		try
+		{
+			if (!File.Exists(absolutePath))
+				throw new Exception($"Prefab file not found at path: {absolutePath}");
+
+			var jsonContent = File.ReadAllText(absolutePath);
+
+			if (string.IsNullOrWhiteSpace(jsonContent))
+				throw new Exception($"Prefab file is empty: {absolutePath}");
+
+			var prefabData = AotDeserializers.DeserializePrefabData(jsonContent);
+
+			if (prefabData.Name == null)
+				throw new Exception($"Invalid prefab data (missing Name) at: {absolutePath}");
+
+			return prefabData;
+		}
+		catch (Exception ex)
+		{
+			throw new Exception($"Failed to load prefab from path '{absolutePath}': {ex.Message}");
 		}
 	}
 
@@ -1079,12 +1384,50 @@ public partial class SerializationManager : GlobalManager
 		newEntity.Transform.Rotation = prefabData.Rotation;
 		newEntity.Transform.Scale = prefabData.Scale;
 
+		// old prefab id -> new instance id, built structurally (not by name, since instance
+		// children get uniquified names). Used to remap intra-prefab references after load.
+		var idMap = new Dictionary<Guid, Guid>();
+		if (prefabData.Id != Guid.Empty)
+			idMap[prefabData.Id] = newEntity.PersistentId;
+
 		if (prefabData.EntityData != null)
 		{
-			// Clone directly — no JSON round-trip needed
 			var clonedEntityData = prefabData.EntityData.Clone();
-
 			newEntity.SetEntityData(clonedEntityData);
+
+			// Instantiate components from the prefab's ComponentDataList. SetEntityData only
+			// stores the data; without this loop the root entity comes out component-less.
+			if (clonedEntityData.ComponentDataList != null)
+			{
+				foreach (var componentEntry in clonedEntityData.ComponentDataList)
+				{
+					bool alreadyExists =
+						newEntity.Components.Any(c => c.Name == componentEntry.ComponentName) ||
+						newEntity.ComponentsToAdd.Any(c => c.Name == componentEntry.ComponentName);
+
+					if (alreadyExists)
+						continue;
+
+					try
+					{
+						var component = CreateComponentInstance(componentEntry.ComponentTypeName);
+						if (component == null)
+						{
+							Debug.Error($"Could not create component: {componentEntry.ComponentTypeName}");
+							continue;
+						}
+
+						component.Name = componentEntry.ComponentName;
+						component.SetSerialized(true);
+						newEntity.AddComponent(component, true);
+					}
+					catch (Exception ex)
+					{
+						Debug.Error($"Failed to instantiate component {componentEntry.ComponentTypeName}: {ex.Message}");
+					}
+				}
+			}
+
 			var processedComponents = new HashSet<string>();
 
 			foreach (var comp in newEntity.ComponentsToAdd)
@@ -1120,10 +1463,21 @@ public partial class SerializationManager : GlobalManager
 
 				var childEntity = new Entity();
 				LoadPredefinedEntityData(childEntity, childData);
-				childEntity.Transform.SetParent(newEntity.Transform);
 				newEntity.Scene.AddEntity(childEntity);
+				childEntity.Transform.SetParent(newEntity.Transform);
+				// childData stores LOCAL transform (see SavePrefabDataAsync); apply it after
+				// parenting so the child follows the instance instead of keeping a stale world pos.
+				childEntity.Transform.SetLocalPosition(childData.Position);
+				childEntity.Transform.SetLocalRotation(childData.Rotation);
+				childEntity.Transform.SetLocalScale(childData.Scale);
+
+				if (childData.Id != Guid.Empty)
+					idMap[childData.Id] = childEntity.PersistentId;
 			}
 		}
+
+		Voltage.Serialization.ComponentReferenceResolver.RemapEntitySubtree(newEntity, idMap);
+		Voltage.Serialization.ComponentReferenceResolver.ResolveEntitySubtree(newEntity, newEntity.Scene);
 	}
 
 	private bool IsDuplicateChild(Scene scene, SceneData.SceneEntityData childData)

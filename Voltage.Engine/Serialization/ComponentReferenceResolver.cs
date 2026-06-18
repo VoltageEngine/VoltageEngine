@@ -50,6 +50,151 @@ public static class ComponentReferenceResolver
 		ResolveOnComponent(component, scene);
 	}
 
+	/// <summary>
+	/// Resolves references on the given entity and all of its Transform descendants.
+	/// Only processes components that have a non-null <c>_pendingLoadedData</c> so
+	/// already-resolved or data-less components are skipped without side effects.
+	/// </summary>
+	public static void ResolveEntitySubtree(Entity root, Scene scene)
+	{
+		ResolveEntityComponents(root, scene);
+		foreach (var childTransform in root.Transform.Children)
+			ResolveEntitySubtree(childTransform.Entity, scene);
+	}
+
+	/// <summary>
+	/// Walks the subtree rooted at <paramref name="root"/> (including all Transform descendants)
+	/// and calls <see cref="Component.RemapReferences"/> on every component, passing the
+	/// <paramref name="remap"/> dictionary. For components that have a source-generated override
+	/// this is a zero-reflection direct field operation; for engine components with manual Data
+	/// overrides the reflection fallback below is used instead.
+	/// Call this BEFORE <see cref="ResolveEntitySubtree"/> so the resolver sees corrected ids.
+	/// </summary>
+	public static void RemapEntitySubtree(Entity root, Dictionary<Guid, Guid> remap)
+	{
+		if (root == null || remap == null || remap.Count == 0)
+			return;
+		RemapEntityComponents(root, remap);
+		foreach (var childTransform in root.Transform.Children)
+			RemapEntitySubtree(childTransform.Entity, remap);
+	}
+
+	private static void RemapEntityComponents(Entity entity, Dictionary<Guid, Guid> remap)
+	{
+		for (var c = 0; c < entity.Components.Count; c++)
+			RemapOnComponent(entity.Components[c], remap);
+
+		var pending = entity.Components.GetComponentsToAddList();
+		for (var c = 0; c < pending.Count; c++)
+			RemapOnComponent(pending[c], remap);
+	}
+
+	private static void RemapOnComponent(Component target, Dictionary<Guid, Guid> remap)
+	{
+		target.RemapReferences(remap);
+		RemapReferencesReflectionFallback(target, remap, typeof(Component));
+	}
+
+	/// <summary>
+	/// Reflection-based remap fallback for engine components that have manual Data overrides
+	/// and therefore no source-generated <c>RemapReferences</c> override. Walks the live fields
+	/// on <paramref name="target"/> (up to but not including <paramref name="walkStopAt"/>) and
+	/// rewrites <c>EntityPersistentId</c> on any <see cref="EntityReference"/> or
+	/// <see cref="ComponentReference"/> field whose stored entity id is a key in <paramref name="remap"/>.
+	/// Operates on the live object — no ComponentData involved.
+	/// <para>
+	/// Under NativeAOT the engine assembly is preserved via TrimmerRoots.xml so reflection
+	/// metadata is available for engine types. Script/game components must be <c>partial</c>
+	/// so the generator emits <c>RemapReferences</c> for them — that override runs before
+	/// this fallback inside <see cref="RemapOnComponent"/>.
+	/// </para>
+	/// </summary>
+	private static void RemapReferencesReflectionFallback(object target, Dictionary<Guid, Guid> remap, Type walkStopAt)
+	{
+		const System.Reflection.BindingFlags flags =
+			System.Reflection.BindingFlags.Public |
+			System.Reflection.BindingFlags.NonPublic |
+			System.Reflection.BindingFlags.Instance;
+
+		var targetType = target.GetType();
+		var type = targetType;
+
+		while (type != null && type != walkStopAt)
+		{
+			foreach (var field in type.GetFields(flags))
+			{
+				if (field.IsStatic || field.IsInitOnly)
+					continue;
+
+				if (field.FieldType == typeof(EntityReference))
+				{
+					var r = (EntityReference)field.GetValue(target);
+					var remapped = RemapEntityReference(r, remap);
+					if (remapped.EntityPersistentId != r.EntityPersistentId)
+						field.SetValue(target, remapped);
+				}
+				else if (field.FieldType == typeof(ComponentReference))
+				{
+					var r = (ComponentReference)field.GetValue(target);
+					var remapped = RemapComponentReference(r, remap);
+					if (remapped.EntityPersistentId != r.EntityPersistentId)
+						field.SetValue(target, remapped);
+				}
+				else if (field.FieldType == typeof(System.Collections.Generic.List<EntityReference>))
+				{
+					var list = (System.Collections.Generic.List<EntityReference>)field.GetValue(target);
+					if (list != null)
+						for (int i = 0; i < list.Count; i++)
+							list[i] = RemapEntityReference(list[i], remap);
+				}
+				else if (field.FieldType == typeof(System.Collections.Generic.List<ComponentReference>))
+				{
+					var list = (System.Collections.Generic.List<ComponentReference>)field.GetValue(target);
+					if (list != null)
+						for (int i = 0; i < list.Count; i++)
+							list[i] = RemapComponentReference(list[i], remap);
+				}
+			}
+			type = type.BaseType;
+		}
+	}
+
+	private static EntityReference RemapEntityReference(EntityReference r, Dictionary<Guid, Guid> remap)
+	{
+		if (!r.IsValid) return r;
+		var oldId = r.GetPersistentId();
+		if (oldId != Guid.Empty && remap.TryGetValue(oldId, out var newId))
+			r.EntityPersistentId = newId.ToString();
+		return r;
+	}
+
+	private static ComponentReference RemapComponentReference(ComponentReference r, Dictionary<Guid, Guid> remap)
+	{
+		if (!r.IsValid) return r;
+		var oldId = r.GetPersistentId();
+		if (oldId != Guid.Empty && remap.TryGetValue(oldId, out var newId))
+			r.EntityPersistentId = newId.ToString();
+		return r;
+	}
+
+	private static void ResolveEntityComponents(Entity entity, Scene scene)
+	{
+		for (var c = 0; c < entity.Components.Count; c++)
+		{
+			var comp = entity.Components[c];
+			if (comp._pendingLoadedData != null)
+				ResolveOnComponent(comp, scene);
+		}
+
+		var pending = entity.Components.GetComponentsToAddList();
+		for (var c = 0; c < pending.Count; c++)
+		{
+			var comp = pending[c];
+			if (comp._pendingLoadedData != null)
+				ResolveOnComponent(comp, scene);
+		}
+	}
+
 	private static void ResolveOnComponent(Component target, Scene scene)
 	{
 		ResolveReferencesReflectionFallback(
@@ -253,9 +398,15 @@ public static class ComponentReferenceResolver
 	/// <summary>
 	/// Matches a component by its type full name string and optional component name.
 	/// Fully AOT-safe — no Type.GetType(), no IsAssignableFrom(), no reflection.
+	/// <para>
+	/// Phase 4b seam: when <paramref name="componentTypeName"/> does not match any live
+	/// component, consults <see cref="TypeRenameRegistry"/> and retries with the current
+	/// name so that <see cref="ComponentReference"/> fields survive a class/namespace rename.
+	/// </para>
 	/// </summary>
 	private static Component FindComponentOnEntityByName(Entity entity, string componentTypeName, string componentName)
 	{
+		// Direct match pass.
 		for (var i = 0; i < entity.Components.Count; i++)
 		{
 			var comp = entity.Components[i];
@@ -273,6 +424,32 @@ public static class ComponentReferenceResolver
 				continue;
 			if (string.IsNullOrEmpty(componentName) || comp.Name == componentName)
 				return comp;
+		}
+
+		// Rename-registry fallback: if the stored type name is a former name, resolve the
+		// current type and retry.  This handles ComponentReference fields in saved data that
+		// refer to a component whose class or namespace was renamed after Phase 4a.
+		if (TypeRenameRegistry.TryResolve(componentTypeName, out var currentType))
+		{
+			var currentTypeName = currentType.FullName;
+
+			for (var i = 0; i < entity.Components.Count; i++)
+			{
+				var comp = entity.Components[i];
+				if (comp.GetType().FullName != currentTypeName)
+					continue;
+				if (string.IsNullOrEmpty(componentName) || comp.Name == componentName)
+					return comp;
+			}
+
+			for (var i = 0; i < pending.Count; i++)
+			{
+				var comp = pending[i];
+				if (comp.GetType().FullName != currentTypeName)
+					continue;
+				if (string.IsNullOrEmpty(componentName) || comp.Name == componentName)
+					return comp;
+			}
 		}
 
 		return null;

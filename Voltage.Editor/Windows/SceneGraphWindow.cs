@@ -17,6 +17,9 @@ using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Serialization;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Undo.EntityActions;
+using Voltage.Editor.Assets;
+using Voltage.Serialization;
+using PrefabData = Voltage.Data.PrefabData;
 
 namespace Voltage.Editor.Windows;
 
@@ -115,7 +118,9 @@ public class SceneGraphWindow
 			
 			foreach (var entityTypeDir in entityTypeDirectories)
 			{
-				var prefabFiles = Directory.GetFiles(entityTypeDir, "*.prefab");
+				// Native engine format is .vprefab; also scan .prefab for legacy files.
+				var prefabFiles = Directory.GetFiles(entityTypeDir, "*.vprefab")
+					.Concat(Directory.GetFiles(entityTypeDir, "*.prefab")).ToArray();
 				foreach (var file in prefabFiles)
 				{
 					var fileName = Path.GetFileNameWithoutExtension(file);
@@ -161,24 +166,12 @@ public class SceneGraphWindow
 			if (Math.Abs(currentWidth - _sceneGraphWidth) > 0.01f)
 				_sceneGraphWidth = Math.Clamp(currentWidth, _minSceneGraphWidth, _maxSceneGraphWidth);
 
-			VoltageEditorUtils.SmallVerticalSpace();
-			if (Core.IsEditMode)
-			{
-				ImGui.TextWrapped("Press F1 for Play/Edit mode, or F2 for Pause Mode");
-				VoltageEditorUtils.SmallVerticalSpace();
-
-				DrawPlayPauseButtons();
-
-				VoltageEditorUtils.SmallVerticalSpace();
-				if (VoltageEditorUtils.CenteredButton("Reset Scene", 0.8f))
-					Core.InvokeResetScene();
-			}
-			else
-			{
-				ImGui.TextWrapped("\"Press F1 for Play/Edit mode, or F2 for Pause Mode\"");
-				VoltageEditorUtils.SmallVerticalSpace();
-				DrawPlayPauseButtons();
-			}
+			// Wrap all content in a child so BeginDragDropTarget() after EndChild() binds
+			// to the child item — making the entire scene-graph area a valid drop zone.
+			// Child is borderless/transparent so it is invisible to the user.
+			var childSize = ImGui.GetContentRegionAvail();
+			// border: false — child is invisible; the window provides the border.
+			ImGui.BeginChild("##SceneGraphContent", childSize, false, ImGuiWindowFlags.None);
 
 			VoltageEditorUtils.MediumVerticalSpace();
 			if (ImGui.CollapsingHeader("Post Processors"))
@@ -251,6 +244,33 @@ public class SceneGraphWindow
 				}
 			}
 
+			ImGui.EndChild(); // ##SceneGraphContent
+
+			// BeginDragDropTarget() immediately after EndChild() binds to the child item,
+			// covering the whole scene-graph area — clicks on tree nodes pass through normally.
+			if (ImGui.BeginDragDropTarget())
+			{
+				var payload = ImGui.AcceptDragDropPayload(AssetBrowserWindow.DragDropPayloadId);
+				bool accepted;
+				unsafe { accepted = payload.NativePtr != null; }
+
+				if (accepted && !AssetBrowserWindow.DraggedReference.IsEmpty)
+				{
+					var reference = AssetBrowserWindow.DraggedReference;
+					AssetBrowserWindow.DraggedReference = AssetReference.Empty;
+
+					// Resolve the item descriptor via the hint-path extension so we can
+					// look up the correct DropFactory without re-scanning the database.
+					var ext        = System.IO.Path.GetExtension(reference.HintPath);
+					var descriptor = Voltage.Editor.Assets.AssetTypeRegistry.Resolve(ext);
+
+					// Invoke the per-kind factory registered in AssetTypeRegistry.
+					descriptor.DropFactory?.Invoke(reference);
+				}
+
+				ImGui.EndDragDropTarget();
+			}
+
 			ImGui.End();
 			ImGui.PopStyleVar();
 			ImGui.PopStyleColor();
@@ -280,7 +300,6 @@ public class SceneGraphWindow
 
 			RefreshPrefabCache();
 
-			// Simple option to create an empty entity
 			ImGui.TextColored(new Num.Vector4(0.8f, 1.0f, 0.8f, 1.0f), "Create Empty Entity:");
 			ImGui.Separator();
 			
@@ -290,7 +309,6 @@ public class SceneGraphWindow
 				ImGui.CloseCurrentPopup();
 			}
 
-			// Show prefabs if they exist
 			if (_cachedPrefabNames.Count > 0)
 			{
 				ImGui.Separator();
@@ -300,8 +318,7 @@ public class SceneGraphWindow
 				// Show flat list of prefabs (filtered if search text is entered)
 				foreach (var prefabName in _cachedPrefabNames.OrderBy(p => p))
 				{
-					// Apply filter if search text is entered
-					if (!string.IsNullOrEmpty(_prefabFilterName) && 
+					if (!string.IsNullOrEmpty(_prefabFilterName) &&
 					    !prefabName.ToLower().Contains(_prefabFilterName.ToLower()))
 					{
 						continue;
@@ -313,7 +330,6 @@ public class SceneGraphWindow
 						ImGui.CloseCurrentPopup();
 					}
 					
-					// Right-click context menu
 					if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
 					{
 						ImGui.OpenPopup($"prefab-context-{prefabName}");
@@ -411,8 +427,11 @@ public class SceneGraphWindow
 				
 				foreach (var entityTypeDir in entityTypeDirectories)
 				{
-					var prefabFilePath = Path.Combine(entityTypeDir, $"{prefabName}.prefab");
-					
+					// Try .vprefab first (native format), then .prefab (legacy).
+					var prefabFilePath = Path.Combine(entityTypeDir, $"{prefabName}.vprefab");
+					if (!File.Exists(prefabFilePath))
+						prefabFilePath = Path.Combine(entityTypeDir, $"{prefabName}.prefab");
+
 					if (File.Exists(prefabFilePath))
 					{
 						File.Delete(prefabFilePath);
@@ -426,7 +445,6 @@ public class SceneGraphWindow
 			{
 				_cachedPrefabNames.Remove(prefabName);
 				
-				// Force prefab cache to reinitialize on next use
 				_prefabCacheInitialized = false;
 				
 				ImGui.CloseCurrentPopup();
@@ -461,7 +479,7 @@ public class SceneGraphWindow
 		var entity = new Entity("Entity", Entity.InstanceType.Serialized);
 		entity.Type = Entity.InstanceType.Serialized;
 		entity.Name = Core.Scene.GetUniqueEntityName("Entity", entity);
-		entity.Transform.Position = Core.Scene.Camera.Transform.Position;
+		entity.Transform.Position = GetCameraCenterWorld();
 
 		Core.Scene.AddEntity(entity);
 
@@ -477,103 +495,115 @@ public class SceneGraphWindow
 	}
 
 	/// <summary>
-	/// Creates a new entity from a prefab.
+	/// World-space center of the current editor camera view, so new entities land in the
+	/// middle of the viewport rather than its top-left corner.
 	/// </summary>
-	private void CreateEntityFromPrefab(string prefabName)
+	private static Vector2 GetCameraCenterWorld()
+	{
+		var rt = Core.Scene.SceneRenderTargetSize;
+		return Core.Scene.Camera.ScreenToWorldPoint(new Vector2(rt.X * 0.5f, rt.Y * 0.5f));
+	}
+
+	/// <summary>
+	/// Creates a new entity from a prefab by name.
+	/// Used by the in-editor right-click popup list, where the name is already
+	/// guaranteed to be resolvable via the serialization manager's name scan.
+	/// </summary>
+	/// <param name="prefabName">File name without extension (backward-compat key).</param>
+	/// <param name="prefabGuid">
+	/// Stable GUID from the prefab's <c>.meta</c> sidecar.  Pass <see cref="Guid.Empty"/>
+	/// (or omit) when the drop path is not involved.
+	/// </param>
+	internal void CreateEntityFromPrefab(string prefabName, Guid prefabGuid = default, Vector2? worldPosition = null)
 	{
 		try
 		{
+			if (prefabGuid == Guid.Empty)
+				prefabGuid = ResolvePrefabGuidByName(prefabName);
+
 			var prefabData = SerializationManager.Instance.InvokePrefabLoadRequested(prefabName);
-
-			if (prefabData.EntityData == null)
-			{
-				EditorDebug.Log($"Null SerializedPrefab EntityData: {prefabName}");
-				return;
-			}
-
-			try
-			{
-				var entity = Core.Scene.SimpleCreateEntity(prefabData.Name, Entity.InstanceType.SerializedPrefab);
-				entity.Type = Entity.InstanceType.SerializedPrefab;
-				entity.Transform.Position = Core.Scene.Camera.Transform.Position;
-
-				SerializationManager.Instance.InvokeLoadEntityData(entity, prefabData);
-				entity.Name = Core.Scene.GetUniqueEntityName(prefabData.Name, entity);
-				entity.OriginalPrefabName = prefabName;
-
-				EditorChangeTracker.PushUndo(
-					new EntityCreateDeleteUndoAction(Core.Scene, entity, wasCreated: true,
-						$"Create Entity from SerializedPrefab {entity.Name}"),
-					entity,
-					$"Create Entity from SerializedPrefab {entity.Name}"
-				);
-
-				_imGuiManager.SceneGraphWindow.EntityPane.SetSelectedEntity(entity, false);
-				_imGuiManager.MainEntityInspectorWindow.DelayedSetEntity(entity);
-
-				EditorDebug.Log($"Created entity from prefab: {prefabName}");
-			}
-			catch
-			{
-				EditorDebug.Log(
-					$"Failed to create entity from prefab: {prefabName}.");
-			}
+			InstantiateEntityFromPrefabData(prefabData, prefabName, prefabGuid, worldPosition);
 		}
 		catch (Exception ex)
 		{
-			EditorDebug.Log($"Error creating entity from prefab {prefabName}: {ex.Message}");
+			EditorDebug.Log($"Error creating entity from prefab '{prefabName}': {ex.Message}");
+		}
+	}
+
+	private static Guid ResolvePrefabGuidByName(string prefabName)
+	{
+		var db = Assets.AssetDatabase.Instance;
+		if (db == null)
+			return Guid.Empty;
+
+		var prefabsDir = ProjectManager.Instance.CurrentProject?.PrefabsFolder;
+		if (string.IsNullOrEmpty(prefabsDir) || !System.IO.Directory.Exists(prefabsDir))
+			return Guid.Empty;
+
+		var direct = System.IO.Path.Combine(prefabsDir, $"{prefabName}.vprefab");
+		if (System.IO.File.Exists(direct))
+			return db.GetReference(direct).Guid;
+
+		foreach (var sub in System.IO.Directory.GetDirectories(prefabsDir))
+		{
+			var candidate = System.IO.Path.Combine(sub, $"{prefabName}.vprefab");
+			if (System.IO.File.Exists(candidate))
+				return db.GetReference(candidate).Guid;
+		}
+
+		return Guid.Empty;
+	}
+
+	/// <summary>
+	/// Creates a new entity from a preloaded <see cref="PrefabData"/>.
+	/// Used by the asset-drop path where the absolute file path is already resolved,
+	/// so we bypass the name-based scan entirely.
+	/// </summary>
+	internal void CreateEntityFromPrefabData(PrefabData prefabData, string prefabName, Guid prefabGuid = default, Vector2? worldPosition = null)
+	{
+		try
+		{
+			InstantiateEntityFromPrefabData(prefabData, prefabName, prefabGuid, worldPosition);
+		}
+		catch (Exception ex)
+		{
+			EditorDebug.Log($"Error instantiating prefab '{prefabName}' from preloaded data: {ex.Message}");
 		}
 	}
 
 	/// <summary>
-	/// Draws the Play/Stop and Pause/Unpause buttons side by side.
-	/// Pause is disabled when in EditMode since there is nothing to pause.
+	/// Core instantiation logic shared by both overloads above.
 	/// </summary>
-	private void DrawPlayPauseButtons()
+	private void InstantiateEntityFromPrefabData(PrefabData prefabData, string prefabName, Guid prefabGuid, Vector2? worldPosition)
 	{
-		var totalPercent = 0.8f;
-		var gap = 8f;
-		var availWidth = ImGui.GetContentRegionAvail().X * totalPercent;
-		var buttonWidth = (availWidth - gap) / 2f;
-		var startX = (ImGui.GetContentRegionAvail().X - availWidth) / 2f;
-		var buttonHeight = VoltageEditorUtils.GetDefaultWidgetHeight();
-
-		ImGui.SetCursorPosX(startX);
-
-		// Play / Stop
-		if (Core.IsEditMode)
+		if (prefabData.EntityData == null)
 		{
-			if (ImGui.Button("PLAY", new Num.Vector2(buttonWidth, buttonHeight)))
-				Core.InvokeSwitchEditMode(false);
-		}
-		else
-		{
-			if (ImGui.Button("STOP", new Num.Vector2(buttonWidth, buttonHeight)))
-			{
-				Core.IsPauseMode = false;
-				Core.InvokeSwitchEditMode(true);
-			}
+			EditorDebug.Log($"Null SerializedPrefab EntityData for '{prefabName}'.");
+			return;
 		}
 
-		ImGui.SameLine(0, gap);
+		var entity = Core.Scene.SimpleCreateEntity(prefabData.Name, Entity.InstanceType.SerializedPrefab);
+		entity.Type = Entity.InstanceType.SerializedPrefab;
+		entity.Transform.Position = worldPosition ?? GetCameraCenterWorld();
 
-		// Pause / Unpause  disabled in EditMode
-		if (Core.IsEditMode)
-			ImGui.BeginDisabled();
+		// LoadPrefabEntityData instantiates components + children and performs the reference
+		// remap + resolve internally (it owns the old->new id map built at child creation).
+		SerializationManager.Instance.InvokeLoadEntityData(entity, prefabData);
+		entity.Name = Core.Scene.GetUniqueEntityName(prefabData.Name, entity);
+		entity.OriginalPrefabName = prefabName;
+		entity.OriginalPrefabGuid = prefabGuid;
 
-		if (Core.IsPauseMode)
-		{
-			if (ImGui.Button("Unpause", new Num.Vector2(buttonWidth, buttonHeight)))
-				Core.InvokeSwitchPauseMode(false);
-		}
-		else
-		{
-			if (ImGui.Button("Pause", new Num.Vector2(buttonWidth, buttonHeight)))
-				Core.InvokeSwitchPauseMode(true);
-		}
+		EditorChangeTracker.PushUndo(
+			new EntityCreateDeleteUndoAction(Core.Scene, entity, wasCreated: true,
+				$"Create Entity from SerializedPrefab {entity.Name}"),
+			entity,
+			$"Create Entity from SerializedPrefab {entity.Name}"
+		);
 
-		if (Core.IsEditMode)
-			ImGui.EndDisabled();
+		_imGuiManager.SceneGraphWindow.EntityPane.SetSelectedEntity(entity, false);
+		_imGuiManager.MainEntityInspectorWindow.DelayedSetEntity(entity);
+
+		EditorDebug.Log($"Created entity '{entity.Name}' from prefab '{prefabName}'.");
 	}
 
 	#region Entity Selection Navigation

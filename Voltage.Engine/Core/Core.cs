@@ -134,7 +134,6 @@ public class Core : Game
 	/// </summary>
 	private ITimer _graphicsDeviceChangeTimer;
 
-	// globally accessible systems
 	private FastList<GlobalManager> _globalManagers = new();
 	private CoroutineManager _coroutineManager = new();
 	private TimerManager _timerManager = new();
@@ -399,7 +398,6 @@ public class Core : Game
 	private void StartDebugDraw(TimeSpan elapsedGameTime)
 	{
 #if EDITOR
-		// fps counter
 		_frameCounter++;
 		_frameCounterElapsedTime += elapsedGameTime;
 		if (_frameCounterElapsedTime >= TimeSpan.FromSeconds(1))
@@ -549,8 +547,15 @@ public class Core : Game
 	public static event Action<bool> OnSwitchEditMode;
 	public static event Action<bool> OnSwitchPauseMode;
 
+	/// <summary>
+	/// Raised when audio is muted or un-muted.  Payload: true = audio is ON, false = muted.
+	/// Components that implement <see cref="IAudioComponent"/> subscribe here to respond.
+	/// </summary>
+	public static event Action<bool> OnSwitchAudio;
+
 	private static bool _isEditMode;
 	private static bool _isPauseMode;
+	private static bool _isAudioOn = true;
 
 	/// In EditMode, Entities' components aren't updated, and instead, user can use the ImGui inspector to move the objects in the scene manually.
 	public static bool IsEditMode
@@ -586,7 +591,6 @@ public class Core : Game
 
 	public static void InvokeSwitchEditMode(bool isEditMode)
 	{
-		// Always clear pause when toggling edit mode
 		if (isEditMode)
 			IsPauseMode = false;
 
@@ -605,6 +609,41 @@ public class Core : Game
 	public static void InvokeResetScene()
 	{
 		OnResetScene?.Invoke();
+	}
+
+	/// <summary>
+	/// Whether game audio is currently active.  Defaults to <c>true</c>.
+	/// Setting this to <c>false</c> mutes all <see cref="IAudioComponent"/> instances and
+	/// also sets <see cref="Microsoft.Xna.Framework.Audio.SoundEffect.MasterVolume"/> to 0
+	/// as a global backstop.
+	/// </summary>
+	public static bool IsAudioOn
+	{
+		get => _isAudioOn;
+		set
+		{
+			if (_isAudioOn != value)
+			{
+				_isAudioOn = value;
+				InvokeSwitchAudio(value);
+			}
+		}
+	}
+
+	/// <summary>
+	/// Explicitly raises the <see cref="OnSwitchAudio"/> event and applies the global
+	/// MonoGame master-volume backstop.  Mirrors the Invoke* convention used by
+	/// <see cref="InvokeSwitchEditMode"/> and <see cref="InvokeSwitchPauseMode"/>.
+	/// </summary>
+	public static void InvokeSwitchAudio(bool isAudioOn)
+	{
+		_isAudioOn = isAudioOn;
+
+		// Global backstop: mute/restore MonoGame's master volume so any sound that
+		// slips through without implementing IAudioComponent is also silenced.
+		Microsoft.Xna.Framework.Audio.SoundEffect.MasterVolume = isAudioOn ? 1f : 0f;
+
+		OnSwitchAudio?.Invoke(isAudioOn);
 	}
 	#endregion
 
