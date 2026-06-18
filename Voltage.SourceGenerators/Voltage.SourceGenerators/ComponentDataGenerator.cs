@@ -39,6 +39,7 @@ public class ComponentDataGenerator : IIncrementalGenerator
 	private const string TransformFullName = "Voltage.Transform";
 	private const string ComponentReferenceFullName = "Voltage.Serialization.ComponentReference";
 	private const string EntityReferenceFullName = "Voltage.Serialization.EntityReference";
+	private const string PrefabReferenceFullName = "Voltage.Serialization.PrefabReference";
 	private const string ComponentGroupInterface = "Voltage.IComponentGroup";
 
 	// Engine struct types whose readers are already hand-written in AotDeserializers.
@@ -50,6 +51,7 @@ public class ComponentDataGenerator : IIncrementalGenerator
 		"Voltage.RectangleF",
 		"Voltage.Serialization.ComponentReference",
 		"Voltage.Serialization.EntityReference",
+		"Voltage.Serialization.PrefabReference",
 	};
 
 	// Maps a known engine struct full name to the static read call expression the
@@ -62,6 +64,7 @@ public class ComponentDataGenerator : IIncrementalGenerator
 			["Voltage.RectangleF"]                    = "global::Voltage.Serialization.AotDeserializers.ReadRectangleF(_r)",
 			["Voltage.Serialization.ComponentReference"] = "global::Voltage.Serialization.AotDeserializers.ReadComponentReference(_r)",
 			["Voltage.Serialization.EntityReference"]    = "global::Voltage.Serialization.AotDeserializers.ReadEntityReference(_r)",
+			["Voltage.Serialization.PrefabReference"]    = "global::Voltage.Serialization.AotDeserializers.ReadPrefabReference(_r)",
 		};
 
 	public void Initialize(IncrementalGeneratorInitializationContext context)
@@ -168,13 +171,66 @@ public class ComponentDataGenerator : IIncrementalGenerator
 			manualDataTypeName = dataType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 		}
 
+		// Collect [FormerlyKnownAs] old names from all attribute instances on this class.
+		// The attribute is Voltage.Serialization.FormerlyKnownAsAttribute; constructor takes
+		// params string[] oldFullyQualifiedNames.
+		List<string> formerNames = null;
+		List<string> formerDataNames = null;
+
+		foreach (var attr in symbol.GetAttributes())
+		{
+			if (attr.AttributeClass?.ToDisplayString() != "Voltage.Serialization.FormerlyKnownAsAttribute")
+				continue;
+
+			// Constructor argument is params string[] — stored as an array in ConstructorArguments[0]
+			// when invoked as [FormerlyKnownAs("A", "B")] (params expansion) or as a single string.
+			foreach (var arg in attr.ConstructorArguments)
+			{
+				if (arg.Kind == Microsoft.CodeAnalysis.TypedConstantKind.Array)
+				{
+					foreach (var elem in arg.Values)
+					{
+						if (elem.Value is string s && !string.IsNullOrEmpty(s))
+						{
+							formerNames ??= new List<string>();
+							formerNames.Add(s);
+						}
+					}
+				}
+				else if (arg.Value is string single && !string.IsNullOrEmpty(single))
+				{
+					formerNames ??= new List<string>();
+					formerNames.Add(single);
+				}
+			}
+		}
+
+		// Derive old data-type names from the old component names.
+		// For auto-generated data types: old component FQN + "+" + ClassName + "GeneratedData"
+		// For manual data types: old component FQN + "+" + ManualDataTypeName (nested class suffix)
+		if (formerNames != null && formerNames.Count > 0)
+		{
+			formerDataNames = new List<string>(formerNames.Count);
+			var simpleDataTypeSuffix = manualDataTypeName != null
+				? ExtractNestedTypeSuffix(manualDataTypeName)
+				: symbol.Name + "GeneratedData";
+
+			foreach (var oldName in formerNames)
+			{
+				// The nested data type is always "OldComponentFQN+DataTypeName"
+				formerDataNames.Add(oldName + "+" + simpleDataTypeSuffix);
+			}
+		}
+
 		return new BootstrapEntry
 		{
 			ComponentFullName = symbol.ToDisplayString(),
 			Namespace = symbol.ContainingNamespace.IsGlobalNamespace
 				? null
 				: symbol.ContainingNamespace.ToDisplayString(),
-			ManualDataTypeFullName = manualDataTypeName
+			ManualDataTypeFullName = manualDataTypeName,
+			FormerNames = formerNames,
+			FormerDataNames = formerDataNames
 		};
 	}
 
@@ -513,6 +569,59 @@ public class ComponentDataGenerator : IIncrementalGenerator
 						EmitApplyForRefCollection(sb, indent + "\t\t", m, dataFieldName, CollectionShape.Dictionary);
 					else if (m.IsArrayField)
 						EmitApplyForRefCollection(sb, indent + "\t\t", m, dataFieldName, CollectionShape.Array);
+				}
+			}
+
+			sb.AppendLine($"{indent}\t}}");
+			sb.AppendLine();
+		}
+
+		// ── RemapReferences override (AOT-safe intra-subtree reference remapping) ─
+		//
+		// Rewrites EntityPersistentId on EntityReference and ComponentReference fields in
+		// _pendingLoadedData whose stored entity id is a key in the remap dictionary.
+		// Called after clone/prefab-instantiation, before ResolveEntitySubtree, so the
+		// resolver sees the corrected new ids rather than the original source ids.
+		// PrefabReference fields are intentionally excluded — their Guid is an asset id.
+		bool hasRemappableReferences = model.Members.Any(m =>
+			m.IsComponentReference || m.IsEntityReference || m.IsTransformReference
+			|| m.CollectionReferenceKind != ReferenceElementKind.None);
+
+		if (hasRemappableReferences)
+		{
+			sb.AppendLine($"{indent}\tpublic override void RemapReferences(global::System.Collections.Generic.Dictionary<global::System.Guid, global::System.Guid> _remap)");
+			sb.AppendLine($"{indent}\t{{");
+			sb.AppendLine($"{indent}\t\tif (_remap == null || _remap.Count == 0) return;");
+			sb.AppendLine($"{indent}\t\tif (_pendingLoadedData is not {dataClassName} _d) return;");
+			sb.AppendLine();
+
+			foreach (var m in model.Members)
+			{
+				var dataFieldName = GetDataFieldName(m.Name);
+				if (m.IsEntityReference || m.IsTransformReference)
+				{
+					sb.AppendLine($"{indent}\t\t{{");
+					sb.AppendLine($"{indent}\t\t\tvar _oldId_{m.Name} = _d.{dataFieldName}.GetPersistentId();");
+					sb.AppendLine($"{indent}\t\t\tif (_oldId_{m.Name} != global::System.Guid.Empty && _remap.TryGetValue(_oldId_{m.Name}, out var _newId_{m.Name}))");
+					sb.AppendLine($"{indent}\t\t\t\t_d.{dataFieldName}.EntityPersistentId = _newId_{m.Name}.ToString();");
+					sb.AppendLine($"{indent}\t\t}}");
+				}
+				else if (m.IsComponentReference)
+				{
+					sb.AppendLine($"{indent}\t\t{{");
+					sb.AppendLine($"{indent}\t\t\tvar _oldId_{m.Name} = _d.{dataFieldName}.GetPersistentId();");
+					sb.AppendLine($"{indent}\t\t\tif (_oldId_{m.Name} != global::System.Guid.Empty && _remap.TryGetValue(_oldId_{m.Name}, out var _newId_{m.Name}))");
+					sb.AppendLine($"{indent}\t\t\t\t_d.{dataFieldName}.EntityPersistentId = _newId_{m.Name}.ToString();");
+					sb.AppendLine($"{indent}\t\t}}");
+				}
+				else if (m.CollectionReferenceKind != ReferenceElementKind.None)
+				{
+					if (m.IsListField)
+						EmitRemapForRefCollection(sb, indent + "\t\t", m, dataFieldName, CollectionShape.List);
+					else if (m.IsDictionaryField)
+						EmitRemapForRefCollection(sb, indent + "\t\t", m, dataFieldName, CollectionShape.Dictionary);
+					else if (m.IsArrayField)
+						EmitRemapForRefCollection(sb, indent + "\t\t", m, dataFieldName, CollectionShape.Array);
 				}
 			}
 
@@ -992,6 +1101,7 @@ public class ComponentDataGenerator : IIncrementalGenerator
 		var sb = new StringBuilder();
 		sb.AppendLine("// <auto-generated/>");
 		sb.AppendLine("#nullable disable");
+		sb.AppendLine("using Voltage.Serialization;");
 		sb.AppendLine("using Voltage.Serialization.Registries;");
 		sb.AppendLine();
 
@@ -1034,6 +1144,54 @@ public class ComponentDataGenerator : IIncrementalGenerator
 				sb.AppendLine($"\t\t\tglobal::Voltage.Serialization.ComponentDataAotDeserializer.Register(");
 				sb.AppendLine($"\t\t\t\ttypeof({entry.ManualDataTypeFullName}).FullName,");
 				sb.AppendLine($"\t\t\t\tstatic _json => (global::Voltage.ComponentData)global::Voltage.Persistence.Json.FromJson(_json, typeof({entry.ManualDataTypeFullName})));");
+			}
+
+			// Emit TypeRenameRegistry registrations for every old name declared via
+			// [FormerlyKnownAs] on this component. Both the component type name and its
+			// generated/manual data type name are registered so that all serialized
+			// occurrences of ComponentTypeName and DataTypeName survive the rename.
+			// These calls are AOT-safe: typeof(T) is a static token, no reflection used.
+			if (entry.FormerNames != null && entry.FormerNames.Count > 0)
+			{
+				sb.AppendLine();
+
+				// The data class C# type expression for typeof():
+				// - Auto-generated: global::ComponentFQN.ComponentNameGeneratedData
+				//   (nested type accessed via dot in C#; '+' is only in reflection metadata)
+				// - Manual override: entry.ManualDataTypeFullName (already fully-qualified, dots)
+				string currentDataTypeExpr;
+				if (entry.ManualDataTypeFullName != null)
+				{
+					currentDataTypeExpr = $"global::{entry.ManualDataTypeFullName}";
+				}
+				else
+				{
+					// Auto-generated: ComponentFQN.ComponentNameGeneratedData
+					// Same convention as EmitDataClass: dataClassName = ClassName + "GeneratedData"
+					var autoSuffix = GetSimpleClassName(entry.ComponentFullName) + "GeneratedData";
+					currentDataTypeExpr = $"global::{entry.ComponentFullName}.{autoSuffix}";
+				}
+
+				for (int fi = 0; fi < entry.FormerNames.Count; fi++)
+				{
+					var oldName = entry.FormerNames[fi];
+
+					// Register old ComponentTypeName → current component Type
+					sb.AppendLine($"\t\t\tglobal::Voltage.Serialization.TypeRenameRegistry.Register(");
+					sb.AppendLine($"\t\t\t\t\"{EscapeString(oldName)}\",");
+					sb.AppendLine($"\t\t\t\ttypeof(global::{entry.ComponentFullName}));");
+
+					// Register old DataTypeName → current data Type.
+					// oldDataName is in reflection metadata form: OldComponentFQN+DataSuffix
+					if (entry.FormerDataNames != null && fi < entry.FormerDataNames.Count)
+					{
+						var oldDataName = entry.FormerDataNames[fi];
+
+						sb.AppendLine($"\t\t\tglobal::Voltage.Serialization.TypeRenameRegistry.Register(");
+						sb.AppendLine($"\t\t\t\t\"{EscapeString(oldDataName)}\",");
+						sb.AppendLine($"\t\t\t\ttypeof({currentDataTypeExpr}));");
+					}
+				}
 			}
 
 			sb.AppendLine();
@@ -1592,6 +1750,43 @@ public class ComponentDataGenerator : IIncrementalGenerator
 		return false;
 	}
 
+	/// <summary>
+	/// Returns the simple (unqualified) class name from a dot-separated fully-qualified name.
+	/// e.g. "Jolt.Scripts.Enemies.DroneComponent" → "DroneComponent".
+	/// </summary>
+	private static string GetSimpleClassName(string fullyQualifiedName)
+	{
+		if (string.IsNullOrEmpty(fullyQualifiedName))
+			return fullyQualifiedName;
+		var dotIdx = fullyQualifiedName.LastIndexOf('.');
+		return dotIdx >= 0 ? fullyQualifiedName.Substring(dotIdx + 1) : fullyQualifiedName;
+	}
+
+	/// <summary>
+	/// Escapes a string for embedding inside a C# string literal (backslash and double-quote).
+	/// </summary>
+	private static string EscapeString(string s)
+	{
+		if (string.IsNullOrEmpty(s)) return s;
+		return s.Replace("\\", "\\\\").Replace("\"", "\\\"");
+	}
+
+	/// <summary>
+	/// Given a fully-qualified type name like "Jolt.Scripts.Enemies.DroneComponent+DroneComponentGeneratedData",
+	/// returns the nested suffix "DroneComponentGeneratedData". Used when computing the old data-type
+	/// name from an old component name for [FormerlyKnownAs] registration.
+	/// If no '+' separator is present, returns the simple name as-is.
+	/// </summary>
+	private static string ExtractNestedTypeSuffix(string fullyQualifiedDataTypeName)
+	{
+		if (string.IsNullOrEmpty(fullyQualifiedDataTypeName))
+			return fullyQualifiedDataTypeName;
+		var plusIdx = fullyQualifiedDataTypeName.LastIndexOf('+');
+		return plusIdx >= 0
+			? fullyQualifiedDataTypeName.Substring(plusIdx + 1)
+			: fullyQualifiedDataTypeName;
+	}
+
 	private static string GetDataFieldName(string memberName)
 	{
 		if (memberName.StartsWith("_") && memberName.Length > 1)
@@ -1793,6 +1988,62 @@ public class ComponentDataGenerator : IIncrementalGenerator
 	}
 
 	/// <summary>
+	/// Emits the body of <c>RemapReferences</c> for a collection-of-references member.
+	/// Walks the wire-form collection on the Data snapshot (_pendingLoadedData) and rewrites
+	/// EntityPersistentId on each entry whose stored entity id is present in the remap dictionary.
+	/// Dictionaries use values only (keys are string, never entity ids).
+	/// </summary>
+	private static void EmitRemapForRefCollection(StringBuilder sb, string indent,
+		MemberModel m, string dataFieldName, CollectionShape shape)
+	{
+		bool isComp = m.CollectionReferenceKind == ReferenceElementKind.Component;
+		string wireTypeFqn = isComp
+			? "global::" + ComponentReferenceFullName
+			: "global::" + EntityReferenceFullName;
+
+		switch (shape)
+		{
+			case CollectionShape.List:
+				sb.AppendLine($"{indent}if (_d.{dataFieldName} != null)");
+				sb.AppendLine($"{indent}{{");
+				sb.AppendLine($"{indent}\tfor (int _ri = 0; _ri < _d.{dataFieldName}.Count; _ri++)");
+				sb.AppendLine($"{indent}\t{{");
+				sb.AppendLine($"{indent}\t\tvar _ref = _d.{dataFieldName}[_ri];");
+				sb.AppendLine($"{indent}\t\tvar _oid = _ref.GetPersistentId();");
+				sb.AppendLine($"{indent}\t\tif (_oid != global::System.Guid.Empty && _remap.TryGetValue(_oid, out var _nid))");
+				sb.AppendLine($"{indent}\t\t{{ _ref.EntityPersistentId = _nid.ToString(); _d.{dataFieldName}[_ri] = _ref; }}");
+				sb.AppendLine($"{indent}\t}}");
+				sb.AppendLine($"{indent}}}");
+				return;
+			case CollectionShape.Dictionary:
+				sb.AppendLine($"{indent}if (_d.{dataFieldName} != null)");
+				sb.AppendLine($"{indent}{{");
+				sb.AppendLine($"{indent}\tvar _keys_{dataFieldName} = new global::System.Collections.Generic.List<string>(_d.{dataFieldName}.Keys);");
+				sb.AppendLine($"{indent}\tforeach (var _k in _keys_{dataFieldName})");
+				sb.AppendLine($"{indent}\t{{");
+				sb.AppendLine($"{indent}\t\tvar _ref = _d.{dataFieldName}[_k];");
+				sb.AppendLine($"{indent}\t\tvar _oid = _ref.GetPersistentId();");
+				sb.AppendLine($"{indent}\t\tif (_oid != global::System.Guid.Empty && _remap.TryGetValue(_oid, out var _nid))");
+				sb.AppendLine($"{indent}\t\t{{ _ref.EntityPersistentId = _nid.ToString(); _d.{dataFieldName}[_k] = _ref; }}");
+				sb.AppendLine($"{indent}\t}}");
+				sb.AppendLine($"{indent}}}");
+				return;
+			case CollectionShape.Array:
+				sb.AppendLine($"{indent}if (_d.{dataFieldName} != null)");
+				sb.AppendLine($"{indent}{{");
+				sb.AppendLine($"{indent}\tfor (int _ri = 0; _ri < _d.{dataFieldName}.Length; _ri++)");
+				sb.AppendLine($"{indent}\t{{");
+				sb.AppendLine($"{indent}\t\tvar _ref = _d.{dataFieldName}[_ri];");
+				sb.AppendLine($"{indent}\t\tvar _oid = _ref.GetPersistentId();");
+				sb.AppendLine($"{indent}\t\tif (_oid != global::System.Guid.Empty && _remap.TryGetValue(_oid, out var _nid))");
+				sb.AppendLine($"{indent}\t\t{{ _ref.EntityPersistentId = _nid.ToString(); _d.{dataFieldName}[_ri] = _ref; }}");
+				sb.AppendLine($"{indent}\t}}");
+				sb.AppendLine($"{indent}}}");
+				return;
+		}
+	}
+
+	/// <summary>
 	/// Emits the Data-setter restore for a collection field. For value-elements the live
 	/// collection is rebuilt from the Data snapshot. For reference-elements the live
 	/// collection is initialised empty (or sized) — the resolver will populate it later
@@ -1977,6 +2228,19 @@ public class ComponentDataGenerator : IIncrementalGenerator
 		public string ComponentFullName;
 		public string Namespace;
 		public string ManualDataTypeFullName;
+		/// <summary>
+		/// Old fully-qualified names declared by [FormerlyKnownAs] on this component.
+		/// One list entry per old name across all [FormerlyKnownAs] attributes on the class.
+		/// Null/empty when the attribute is absent.
+		/// </summary>
+		public List<string> FormerNames;
+		/// <summary>
+		/// Old fully-qualified names from [FormerlyKnownAs] that correspond to the
+		/// auto-generated or manual data type (the nested XxxGeneratedData class or the
+		/// manual Data override type). Null/empty when the attribute is absent.
+		/// Derived from FormerNames by appending "+XxxGeneratedData" / the data type suffix.
+		/// </summary>
+		public List<string> FormerDataNames;
 	}
 
 	#endregion

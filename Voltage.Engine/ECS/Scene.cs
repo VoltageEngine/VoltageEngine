@@ -89,6 +89,21 @@ public partial class Scene
 	public SceneData SceneData;
 
 	/// <summary>
+	/// The scene's display name, taken from its .vscene metadata (e.g. "Main Scene").
+	/// This is for showing to users; it may differ from the level file name. To reload a scene
+	/// use <see cref="LevelName"/> / <see cref="ReloadCurrentLevel"/> instead.
+	/// </summary>
+	public string Name => SceneData?.Name;
+
+	/// <summary>
+	/// The level key this scene was loaded from — the .vscene file name without extension
+	/// (e.g. "MainScene"). Returns null if the scene was not loaded from a file.
+	/// Pass this to <see cref="LoadLevel"/> to load/reload the same level.
+	/// </summary>
+	public string LevelName =>
+		string.IsNullOrEmpty(SceneData?.FilePath) ? null : System.IO.Path.GetFileNameWithoutExtension(SceneData.FilePath);
+
+	/// <summary>
 	/// default scene Camera
 	/// </summary>
 	public Camera Camera;
@@ -347,10 +362,12 @@ public partial class Scene
 		// update our lists in case they have any changes
 		Entities.UpdateLists();
 
-		// update our SceneComponents
-		for (var i = _sceneComponents.Length - 1; i >= 0; i--)
-			if (_sceneComponents.Buffer[i].Enabled)
-				_sceneComponents.Buffer[i].Update();
+		// update our SceneComponents — these are gameplay-level services, so they are frozen
+		// while paused. UI entity components still update (handled in ComponentList.Update).
+		if (!Core.IsPauseMode)
+			for (var i = _sceneComponents.Length - 1; i >= 0; i--)
+				if (_sceneComponents.Buffer[i].Enabled)
+					_sceneComponents.Buffer[i].Update();
 
 		// update our Entities
 		Entities.Update();

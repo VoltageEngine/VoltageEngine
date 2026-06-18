@@ -250,12 +250,22 @@ public abstract class Component : IComparable<Component>
 	/// <summary>
 	/// Creates a clone of this component. Override this method in derived classes for proper deep copying.
 	/// Default implementation creates a new instance of the same type but doesn't copy any data.
+	/// Returns null when the component type cannot be constructed (no AOT factory registration and no
+	/// public parameterless constructor) — callers must handle a null return.
 	/// </summary>
-	/// <returns>A new component instance</returns>
+	/// <returns>A new component instance, or null if the type cannot be constructed.</returns>
 	public virtual Component Clone()
 	{
 		var componentType = GetType();
 		var typeId = componentType.FullName ?? componentType.Name;
+
+		// Types that require constructor arguments are code-only and cannot be cloned generically.
+		bool canCreate = ComponentAotFactory.IsRegistered(typeId)
+			|| componentType.GetConstructor(Type.EmptyTypes) != null;
+
+		if (!canCreate)
+			return null;
+
 		Component clone;
 		if (ComponentAotFactory.IsRegistered(typeId))
 			clone = (Component)ComponentAotFactory.Create(typeId);
@@ -279,6 +289,15 @@ public abstract class Component : IComparable<Component>
 	/// The source generator overrides this with direct field assignments — zero reflection.
 	/// </summary>
 	public virtual void ApplyResolvedReferences(ComponentData data, Scene scene) { }
+
+	/// <summary>
+	/// Rewrites EntityPersistentId/EntityName on every EntityReference and ComponentReference field
+	/// whose stored entity id is a key in <paramref name="remap"/>. Used after cloning or prefab
+	/// instantiation to fix intra-subtree references so they point at the new ids rather than the
+	/// originals. References whose id is not in the map are left untouched (external scene refs).
+	/// The source generator overrides this for partial component subclasses — no reflection, AOT-safe.
+	/// </summary>
+	public virtual void RemapReferences(System.Collections.Generic.Dictionary<Guid, Guid> remap) { }
 
 	public override string ToString()
 	{
