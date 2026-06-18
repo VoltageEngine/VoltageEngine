@@ -45,10 +45,9 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
             {
                 ImGui.OpenPopup(_popupId);
 
-                // Seed the picker at the project Content folder if available
                 var project = ProjectManager.Instance?.CurrentProject;
-                var startPath = project != null && Directory.Exists(project.ContentsFolder)
-                    ? project.ContentsFolder
+                var startPath = project != null && Directory.Exists(project.ProjectPath)
+                    ? project.ProjectPath
                     : Environment.CurrentDirectory;
 
                 // Re-create the picker each time the popup opens so the start path is fresh

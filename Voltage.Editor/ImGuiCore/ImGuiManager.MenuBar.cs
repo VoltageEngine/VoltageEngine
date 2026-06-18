@@ -950,13 +950,14 @@ public partial class ImGuiManager
 			ImGui.SetCursorPosX(posX);
 
 		var iconSizeVec = new Vector2(iconSize, iconSize);
+		bool audioOn = Core.IsAudioOn;
 
-		IntPtr icon = Core.IsAudioOn
+		IntPtr icon = audioOn
 			? ImguiImageLoader.AudioOn
 			: ImguiImageLoader.AudioMute;
 
 		// Tint the button red-ish when muted so the state is immediately obvious.
-		if (!Core.IsAudioOn)
+		if (!audioOn)
 		{
 			ImGui.PushStyleColor(ImGuiCol.Button,        new Vector4(0.6f, 0.1f, 0.1f, 1.0f));
 			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0.8f, 0.2f, 0.2f, 1.0f));
@@ -966,7 +967,7 @@ public partial class ImGuiManager
 		if (ImGui.ImageButton("AudioToggle", icon, iconSizeVec))
 			Core.IsAudioOn = !Core.IsAudioOn;
 
-		if (!Core.IsAudioOn)
+		if (!audioOn)
 			ImGui.PopStyleColor(3);
 
 		if (ImGui.IsItemHovered())
