@@ -71,6 +71,150 @@ namespace Voltage
 		public static string ScenesDirectory;
 
 		/// <summary>
+		/// Optional resolver for Phase 4b prefab delta loading.
+		/// Given a prefab GUID (may be <see cref="Guid.Empty"/>) and name, returns the absolute
+		/// path to the <c>.vprefab</c> file, or null when it cannot be found.
+		/// <para>
+		/// In a published game this stays null and the engine falls back to the standard
+		/// <see cref="PrefabsDirectory"/> path-by-name resolution.  The editor wires in a
+		/// <see cref="Voltage.Editor.Assets.AssetDatabase"/>-backed implementation that
+		/// resolves by GUID first, then by name.
+		/// </para>
+		/// </summary>
+		public static Func<Guid, string, string> PrefabPathResolver;
+
+		/// <summary>
+		/// Optional override for the directory that <see cref="LoadPrefab"/> resolves relative paths against.
+		/// In a published game this stays null and paths resolve to <c>AppContext.BaseDirectory/Data/Prefabs</c>.
+		/// The Voltage Editor sets this to the open project's Prefabs folder so LoadPrefab works in play mode,
+		/// where the base directory is the editor binary rather than the game project.
+		/// </summary>
+		public static string PrefabsDirectory;
+
+		/// <summary>
+		/// Loads a prefab from a <c>.vprefab</c> file, instantiates it as a new <see cref="Entity"/>,
+		/// adds it to this scene, and returns the entity.
+		/// <para>
+		/// <b>Path resolution:</b> If <paramref name="prefabPath"/> is an absolute path it is used verbatim.
+		/// Otherwise it is resolved relative to <see cref="PrefabsDirectory"/> when set, or
+		/// <c>AppContext.BaseDirectory/Data/Prefabs</c> in a published game.
+		/// </para>
+		/// <para>
+		/// <b>Failure contract:</b> Returns <c>null</c> (never throws) if the file is missing or fails to
+		/// parse. The reason is logged via <see cref="Debug"/>. Callers must null-check the return value.
+		/// </para>
+		/// <para>
+		/// <b>Limitations vs editor prefab instancing:</b> <see cref="Entity.OriginalPrefabGuid"/> is always
+		/// <see cref="Guid.Empty"/> at runtime because the GUID/meta system is editor-only. The entity is
+		/// identified by <see cref="Entity.OriginalPrefabName"/> (the file name without extension) instead.
+		/// Component references (<see cref="ComponentReference"/>, <see cref="EntityReference"/>) that cross
+		/// entity boundaries are not resolved — they receive their serialised default values, matching the
+		/// behaviour of entities loaded from a scene at runtime.
+		/// </para>
+		/// </summary>
+		/// <param name="prefabPath">
+		/// Absolute path to a <c>.vprefab</c> file, or a path relative to the prefabs root directory.
+		/// </param>
+		/// <param name="position">World-space position for the instantiated entity. Defaults to origin.</param>
+		/// <returns>The newly added entity, or <c>null</c> on failure.</returns>
+		public Entity LoadPrefab(string prefabPath, Vector2 position = default)
+		{
+			if (string.IsNullOrWhiteSpace(prefabPath))
+			{
+				Debug.Error("[Scene.LoadPrefab] prefabPath cannot be null or empty.");
+				return null;
+			}
+
+			// Resolve to an absolute path using the same convention as LoadLevel/ScenesDirectory.
+			var resolvedPath = Path.IsPathRooted(prefabPath)
+				? prefabPath
+				: Path.Combine(
+					string.IsNullOrEmpty(PrefabsDirectory)
+						? Path.Combine(AppContext.BaseDirectory, "Data", "Prefabs")
+						: PrefabsDirectory,
+					prefabPath);
+
+			if (!File.Exists(resolvedPath))
+			{
+				Debug.Error($"[Scene.LoadPrefab] Prefab file not found: {resolvedPath}");
+				return null;
+			}
+
+			PrefabData prefabData;
+			try
+			{
+				var json = File.ReadAllText(resolvedPath);
+				prefabData = Serialization.AotDeserializers.DeserializePrefabData(json);
+
+				if (prefabData.Name == null)
+				{
+					Debug.Error($"[Scene.LoadPrefab] Prefab at '{resolvedPath}' is missing a Name field — invalid .vprefab format.");
+					return null;
+				}
+			}
+			catch (Exception ex)
+			{
+				Debug.Error($"[Scene.LoadPrefab] Failed to read or parse '{resolvedPath}': {ex.Message}");
+				return null;
+			}
+
+			try
+			{
+				// Derive the prefab identity from the file name (no extension).
+				// OriginalPrefabGuid is left Empty — GUID/.meta is editor-only.
+				var prefabName = Path.GetFileNameWithoutExtension(resolvedPath);
+
+				// Convert to SceneEntityData so we can drive the shared LoadEntityData path.
+				// Position is set here; all other fields come from the PrefabData.
+				var sceneEntityData = prefabData.ToSceneEntityData(position);
+				sceneEntityData.OriginalPrefabName = prefabName;
+				sceneEntityData.OriginalPrefabGuid = null; // GUID is editor-only
+
+				// Create and register the root entity. AddEntity at runtime marks it NonSerialized;
+				// LoadEntityData below will restore the correct InstanceType (SerializedPrefab) and
+				// OriginalPrefabName immediately afterwards.
+				var entity = new Entity(prefabData.Name);
+				AddEntity(entity);
+
+				// Apply all prefab data through the exact same runtime path that scene loading uses.
+				// This sets Type, OriginalPrefabName, transform, components, and component data.
+				LoadEntityData(entity, sceneEntityData);
+
+				// Instantiate child entities.
+				if (prefabData.ChildEntities != null)
+				{
+					var childrenNeedingParents = new List<Entity>();
+
+					foreach (var childData in prefabData.ChildEntities)
+					{
+						if (childData.InstanceType == Entity.InstanceType.NonSerialized)
+							continue;
+
+						var childEntity = new Entity(childData.Name);
+						AddEntity(childEntity);
+						LoadEntityData(childEntity, childData);
+
+						// If the parent wasn't resolved during LoadEntityData (parent not yet in
+						// the scene at that point), track it for a deferred assignment pass.
+						if (!string.IsNullOrEmpty(childEntity.GetData<string>("_PendingParentName")) ||
+							childEntity.GetData<Guid>("_PendingParentId") != Guid.Empty)
+							childrenNeedingParents.Add(childEntity);
+					}
+
+					if (childrenNeedingParents.Count > 0)
+						AssignParentRelationships(childrenNeedingParents);
+				}
+
+				return entity;
+			}
+			catch (Exception ex)
+			{
+				Debug.Error($"[Scene.LoadPrefab] Failed to instantiate prefab '{resolvedPath}': {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
 		/// Loads a level (.vscene) by name, makes it the active <see cref="Core.Scene"/>, and applies the
 		/// design resolution (and optionally the display settings) configured in <see cref="ProjectSettings"/>.
 		/// <para>This is the runtime entry point for level switching, e.g. <c>Scene.LoadLevel("Level2")</c>.</para>
@@ -109,11 +253,14 @@ namespace Voltage
 		/// <param name="applyDisplaySettings">See <see cref="LoadLevel"/>. Defaults to false for a reload.</param>
 		/// <returns>The freshly loaded Scene.</returns>
 		/// <exception cref="Exception">Thrown when the active scene was not loaded from a file.</exception>
-		public static Scene ReloadCurrentLevel(bool applyDisplaySettings = false)
+		public static Scene ReloadCurrentLevel(bool applyDisplaySettings = true)
 		{
+#if EDITOR
+			applyDisplaySettings = false; // let the editor handle it
+#endif
 			var scenePath = Core.Scene?.SceneData?.FilePath;
 			if (string.IsNullOrEmpty(scenePath))
-				throw new Exception("ReloadCurrentLevel: the active scene was not loaded from a file (SceneData.FilePath is empty).");
+				Debug.Error("ReloadCurrentLevel: the active scene was not loaded from a file (SceneData.FilePath is empty).");
 
 			return LoadLevelFromPath(scenePath, applyDisplaySettings);
 		}
@@ -122,14 +269,17 @@ namespace Voltage
 		/// Shared loader: loads a scene from a full .vscene path, makes it the active Core.Scene, and applies
 		/// the display + design resolution settings from <see cref="ProjectSettings"/>.
 		/// </summary>
-		private static Scene LoadLevelFromPath(string scenePath, bool applyDisplaySettings)
+		private static Scene LoadLevelFromPath(string scenePath, bool applyDisplaySettings = true)
 		{
+#if EDITOR
+			applyDisplaySettings = false; // let the editor handle it
+#endif
 			if (!File.Exists(scenePath))
-				throw new Exception($"Scene file not found: {scenePath}");
+				Debug.Error($"Scene file not found: {scenePath}");
 
 			var loadedScene = LoadFromFile(scenePath);
 			if (loadedScene == null)
-				throw new Exception($"Failed to load scene from: {scenePath}");
+				Debug.Error($"Failed to load scene from: {scenePath}");
 
 			Core.Scene = loadedScene;
 
@@ -173,14 +323,10 @@ namespace Voltage
 
 			try
 			{
-				// Build scene data from current state
 				var sceneData = BuildSceneData();
 				sceneData.FilePath = scenePath;
-
-				// Update modification time
 				sceneData.ModifiedAt = DateTime.Now;
 
-				// Serialize to JSON
 				var jsonSettings = new Voltage.Persistence.JsonSettings
 				{
 					PrettyPrint = true,
@@ -190,14 +336,10 @@ namespace Voltage
 
 				var jsonContent = Voltage.Persistence.Json.ToJson(sceneData, jsonSettings);
 
-				// Ensure directory exists
 				var directory = Path.GetDirectoryName(scenePath);
 				if (!string.IsNullOrEmpty(directory))
-				{
 					Directory.CreateDirectory(directory);
-				}
 
-				// Write to file
 				File.WriteAllText(scenePath, jsonContent, new System.Text.UTF8Encoding(false));
 
 				Debug.Log($"Successfully saved scene to: {scenePath}");
@@ -218,7 +360,6 @@ namespace Voltage
 		{
 			var sceneData = new SceneData();
 
-			// Copy scene metadata
 			if (SceneData != null)
 			{
 				sceneData.Name = SceneData.Name;
@@ -230,17 +371,12 @@ namespace Voltage
 			}
 			else
 			{
-				// Fallback: use the scene type name if no SceneData exists
 				sceneData.Name = GetType().Name;
 			}
 
-			// IMPORTANT: Ensure the name is never empty
 			if (string.IsNullOrWhiteSpace(sceneData.Name))
-			{
 				sceneData.Name = "Untitled Scene";
-			}
 
-			// Copy scene settings
 			sceneData.ClearColor = ClearColor;
 			sceneData.LetterboxColor = LetterboxColor;
 			sceneData.ResolutionPolicy = _resolutionPolicy.ToString();
@@ -250,12 +386,10 @@ namespace Voltage
 			sceneData.VerticalBleed = _designBleedSize.Y;
 			sceneData.EnablePostProcessing = EnablePostProcessing;
 
-			// Build entity data
 			sceneData.Entities.Clear();
 
 			foreach (var entity in Entities)
 			{
-				// Skip non-serialized entities
 				if (entity.Type == Entity.InstanceType.NonSerialized)
 					continue;
 
@@ -263,7 +397,6 @@ namespace Voltage
 				sceneData.Entities.Add(entityData);
 			}
 
-			// Build SceneComponent data — only include components marked as serialized
 			sceneData.SceneComponents.Clear();
 
 			for (var i = 0; i < _sceneComponents.Length; i++)
@@ -350,7 +483,10 @@ namespace Voltage
 				Tag = entity.Tag,
 				IsSelectableInEditor = entity.CanBeSelected,
 				DebugRenderEnabled = entity.DebugRenderEnabled,
-				OriginalPrefabName = entity.OriginalPrefabName
+				OriginalPrefabName = entity.OriginalPrefabName,
+				OriginalPrefabGuid = entity.OriginalPrefabGuid != Guid.Empty
+					? entity.OriginalPrefabGuid
+					: (Guid?)null
 			};
 
 			// Get entity-specific data
@@ -527,6 +663,151 @@ namespace Voltage
 			AssignParentRelationships(entitiesNeedingParents);
 		}
 
+		/// <summary>
+		/// Resolves the source prefab for a <see cref="Entity.InstanceType.SerializedPrefab"/> entity
+		/// and returns its deserialized <see cref="PrefabData"/>, or null when the prefab cannot be found.
+		/// <para>
+		/// Resolution order:
+		/// <list type="number">
+		///   <item><description><see cref="PrefabPathResolver"/> delegate — set by the editor to use AssetDatabase GUID lookup.</description></item>
+		///   <item><description>Name-based search under <see cref="PrefabsDirectory"/> (subdirectories included).</description></item>
+		/// </list>
+		/// </para>
+		/// </summary>
+		private static PrefabData? TryLoadSourcePrefab(string prefabName, Guid prefabGuid)
+		{
+			if (string.IsNullOrEmpty(prefabName))
+				return null;
+
+			// 1. Delegate path (editor wires AssetDatabase GUID resolver here).
+			string resolvedPath = null;
+			if (PrefabPathResolver != null)
+				resolvedPath = PrefabPathResolver(prefabGuid, prefabName);
+
+			// 2. Name-based fallback under PrefabsDirectory (same as LoadPrefab).
+			if (string.IsNullOrEmpty(resolvedPath))
+			{
+				var baseDir = string.IsNullOrEmpty(PrefabsDirectory)
+					? Path.Combine(AppContext.BaseDirectory, "Data", "Prefabs")
+					: PrefabsDirectory;
+
+				// Direct match
+				var direct = Path.Combine(baseDir, prefabName + ".vprefab");
+				if (File.Exists(direct))
+				{
+					resolvedPath = direct;
+				}
+				else
+				{
+					// Search one level of sub-directories (mirrors SerializationManager.LoadPrefabData).
+					if (Directory.Exists(baseDir))
+					{
+						foreach (var sub in Directory.GetDirectories(baseDir))
+						{
+							var candidate = Path.Combine(sub, prefabName + ".vprefab");
+							if (File.Exists(candidate)) { resolvedPath = candidate; break; }
+							candidate = Path.Combine(sub, prefabName + ".prefab");
+							if (File.Exists(candidate)) { resolvedPath = candidate; break; }
+						}
+					}
+				}
+			}
+
+			if (string.IsNullOrEmpty(resolvedPath) || !File.Exists(resolvedPath))
+				return null;
+
+			try
+			{
+				var json = File.ReadAllText(resolvedPath);
+				var pd = Serialization.AotDeserializers.DeserializePrefabData(json);
+				return pd.Name != null ? pd : (PrefabData?)null;
+			}
+			catch (Exception ex)
+			{
+				Debug.Warn($"[Scene.LoadEntityData] Could not load source prefab '{resolvedPath}' for override overlay: {ex.Message}");
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Builds a merged <see cref="EntityData"/> for a prefab instance that uses the Phase 4b delta model.
+		/// <para>
+		/// Algorithm:
+		/// <list type="bullet">
+		///   <item><description>Start from the source prefab's component list (provides defaults).</description></item>
+		///   <item><description>Remove any entries whose ComponentName is in <paramref name="removed"/>.</description></item>
+		///   <item><description>Replace or append entries whose ComponentName is in <paramref name="overrides"/> with
+		///     the instance's stored data.</description></item>
+		///   <item><description>Components not listed in either set are inherited verbatim from the prefab.</description></item>
+		/// </list>
+		/// </para>
+		/// </summary>
+		private static EntityData MergeEntityDataWithPrefab(
+			EntityData prefabEntityData,
+			EntityData instanceEntityData,
+			HashSet<string> overrides,
+			List<string> removed)
+		{
+			var merged = new EntityData();
+
+			// Build a quick lookup of the instance's override entries.
+			var instanceByName = new Dictionary<string, ComponentDataEntry>(StringComparer.Ordinal);
+			if (instanceEntityData?.ComponentDataList != null)
+			{
+				foreach (var e in instanceEntityData.ComponentDataList)
+					instanceByName[e.ComponentName] = e;
+			}
+
+			var removedSet = removed != null && removed.Count > 0
+				? new HashSet<string>(removed, StringComparer.Ordinal)
+				: null;
+
+			// Walk prefab entries: keep as-is, remove, or replace with override.
+			if (prefabEntityData?.ComponentDataList != null)
+			{
+				foreach (var prefabEntry in prefabEntityData.ComponentDataList)
+				{
+					// Removed on instance — skip.
+					if (removedSet != null && removedSet.Contains(prefabEntry.ComponentName))
+						continue;
+
+					// Overridden on instance — use instance data.
+					if (overrides != null && overrides.Contains(prefabEntry.ComponentName) &&
+					    instanceByName.TryGetValue(prefabEntry.ComponentName, out var overrideEntry))
+					{
+						merged.ComponentDataList.Add(overrideEntry);
+					}
+					else
+					{
+						// Inherited from prefab — clone to avoid shared references.
+						merged.ComponentDataList.Add(new ComponentDataEntry
+						{
+							ComponentTypeName = prefabEntry.ComponentTypeName,
+							ComponentName     = prefabEntry.ComponentName,
+							DataTypeName      = prefabEntry.DataTypeName,
+							Json              = prefabEntry.Json
+						});
+					}
+				}
+			}
+
+			// Append instance-only added components (in overrides but not in prefab).
+			var prefabNames = prefabEntityData?.ComponentDataList != null
+				? new HashSet<string>(prefabEntityData.ComponentDataList.Select(e => e.ComponentName), StringComparer.Ordinal)
+				: new HashSet<string>();
+
+			if (overrides != null)
+			{
+				foreach (var name in overrides)
+				{
+					if (!prefabNames.Contains(name) && instanceByName.TryGetValue(name, out var addedEntry))
+						merged.ComponentDataList.Add(addedEntry);
+				}
+			}
+
+			return merged;
+		}
+
 		private void LoadEntityData(Entity entity, SceneData.SceneEntityData entityData)
 		{
 			entity.PersistentId = entityData.Id;
@@ -539,9 +820,16 @@ namespace Voltage
 			entity.CanBeSelected = entityData.IsSelectableInEditor;
 
 			if (entity.Type == Entity.InstanceType.SerializedPrefab)
+			{
 				entity.OriginalPrefabName = entityData.OriginalPrefabName;
+				// OriginalPrefabGuid is additive — absent in pre-Phase-3 scenes (null → Empty).
+				entity.OriginalPrefabGuid = entityData.OriginalPrefabGuid ?? Guid.Empty;
+			}
 			else
+			{
 				entity.OriginalPrefabName = null;
+				entity.OriginalPrefabGuid = Guid.Empty;
+			}
 
 			// Handle transform and parent assignment (prefer ParentId if present)
 			Entity parentEntity = null;
@@ -578,13 +866,41 @@ namespace Voltage
 				entity.Transform.Scale = entityData.Scale;
 			}
 
-			// Load entity-specific data and components
-			if (entityData.EntityData != null)
+			// Load entity-specific data and components.
+			// Phase 4b: when PrefabOverrides is non-null this is a delta entry — merge with
+			// the source prefab before applying.  Null means legacy full-data (pre-4b) entry.
+			EntityData effectiveEntityData = entityData.EntityData;
+
+			if (entityData.InstanceType == Entity.InstanceType.SerializedPrefab &&
+			    entityData.PrefabOverrides != null)
+			{
+				var sourceGuid = entityData.OriginalPrefabGuid ?? Guid.Empty;
+				var sourcePrefab = TryLoadSourcePrefab(entityData.OriginalPrefabName, sourceGuid);
+
+				if (sourcePrefab.HasValue)
+				{
+					effectiveEntityData = MergeEntityDataWithPrefab(
+						sourcePrefab.Value.EntityData,
+						entityData.EntityData,
+						entityData.PrefabOverrides,
+						entityData.RemovedPrefabComponents);
+				}
+				else
+				{
+					// Source prefab missing — fall back to the stored (possibly partial) data.
+					// This is graceful degradation: non-overridden fields will be absent but
+					// the overridden components will load correctly.
+					Debug.Warn($"[Scene] Prefab '{entityData.OriginalPrefabName}' not found for override-delta entity '{entityData.Name}'. " +
+					           "Loading with stored data only. Re-save the scene after relocating the prefab.");
+				}
+			}
+
+			if (effectiveEntityData != null)
 			{
 				// The EntityData was already deserialized by AotDeserializers — no need
 				// to round-trip through Json.ToJson/FromJson. Just clone the
 				// ComponentDataList entries directly to avoid shared references.
-				var clonedEntityData = entityData.EntityData.Clone();
+				var clonedEntityData = effectiveEntityData.Clone();
 				
 				entity.SetEntityData(clonedEntityData);
 
@@ -758,10 +1074,20 @@ namespace Voltage
 
 						// Try AOT deserializer first — it keys by FullName only so it is
 						// immune to stale assembly-qualified $type names in the JSON.
-						if (Serialization.ComponentDataAotDeserializer.IsRegistered(entry.DataTypeName))
+						var aotDataTypeName = entry.DataTypeName;
+
+						// If the stored DataTypeName is unknown to the AOT registry, check whether
+						// it is a renamed type and use the current name instead (Phase 4a rename path).
+						if (!Serialization.ComponentDataAotDeserializer.IsRegistered(aotDataTypeName) &&
+						    Serialization.TypeRenameRegistry.TryResolve(aotDataTypeName, out var renamedDataType))
+						{
+							aotDataTypeName = renamedDataType.FullName ?? aotDataTypeName;
+						}
+
+						if (Serialization.ComponentDataAotDeserializer.IsRegistered(aotDataTypeName))
 						{
 							var cleanJson = StripTypeFieldFromJson(entry.Json);
-							data = Serialization.ComponentDataAotDeserializer.TryDeserialize(entry.DataTypeName, cleanJson);
+							data = Serialization.ComponentDataAotDeserializer.TryDeserialize(aotDataTypeName, cleanJson);
 						}
 						else
 						{
@@ -820,6 +1146,9 @@ namespace Voltage
 
 		/// <summary>
 		/// Resolves a type by its full name, searching all loaded assemblies if Type.GetType fails.
+		/// On a final miss, consults <see cref="Serialization.TypeRenameRegistry"/> so that
+		/// component classes whose fully-qualified name changed (class or namespace rename) still
+		/// resolve correctly from serialized scene/prefab data.
 		/// </summary>
 		private static Type ResolveType(string typeName)
 		{
@@ -851,6 +1180,16 @@ namespace Voltage
 					return type;
 			}
 
+			// Last resort: check the rename registry (populated by [FormerlyKnownAs] at module init).
+			// This is the only path that changes behavior for renamed types — all direct lookups
+			// above are identical to the pre-Phase-4a code.
+			if (Serialization.TypeRenameRegistry.TryResolve(typeName, out var renamedType))
+			{
+				Debug.Warn($"[Scene] Type '{typeName}' resolved via TypeRenameRegistry → '{renamedType.FullName}'. " +
+					"Re-save the scene/prefab to update the stored type name.");
+				return renamedType;
+			}
+
 			return null;
 		}
 
@@ -874,11 +1213,23 @@ namespace Voltage
 				{
 					// Check if a SceneComponent of this type is already on the scene
 					// (e.g. added via code in OnStart). If so, just apply data to it.
+					// Also accept renamed types via the TypeRenameRegistry (Phase 4a).
 					SceneComponent existing = null;
 					for (var i = 0; i < _sceneComponents.Length; i++)
 					{
-						if (_sceneComponents.Buffer[i].GetType().FullName == entry.ComponentTypeName
-							&& _sceneComponents.Buffer[i].Name == entry.ComponentName)
+						var scFull = _sceneComponents.Buffer[i].GetType().FullName;
+						bool nameMatch = scFull == entry.ComponentTypeName;
+
+						// Rename-registry check: the stored name is an old name whose current type
+						// matches the live SceneComponent's type.
+						if (!nameMatch &&
+						    Serialization.TypeRenameRegistry.TryResolve(entry.ComponentTypeName, out var resolvedScType) &&
+						    scFull == resolvedScType.FullName)
+						{
+							nameMatch = true;
+						}
+
+						if (nameMatch && _sceneComponents.Buffer[i].Name == entry.ComponentName)
 						{
 							existing = _sceneComponents.Buffer[i];
 							break;
@@ -904,10 +1255,18 @@ namespace Voltage
 					{
 						ComponentData data = null;
 
-						if (Serialization.ComponentDataAotDeserializer.IsRegistered(entry.DataTypeName))
+						// Resolve DataTypeName through the rename registry if needed (Phase 4a).
+						var scDataTypeName = entry.DataTypeName;
+						if (!Serialization.ComponentDataAotDeserializer.IsRegistered(scDataTypeName) &&
+						    Serialization.TypeRenameRegistry.TryResolve(scDataTypeName, out var renamedScDataType))
+						{
+							scDataTypeName = renamedScDataType.FullName ?? scDataTypeName;
+						}
+
+						if (Serialization.ComponentDataAotDeserializer.IsRegistered(scDataTypeName))
 						{
 							var cleanJson = StripTypeFieldFromJson(entry.Json);
-							data = Serialization.ComponentDataAotDeserializer.TryDeserialize(entry.DataTypeName, cleanJson);
+							data = Serialization.ComponentDataAotDeserializer.TryDeserialize(scDataTypeName, cleanJson);
 						}
 						else
 						{

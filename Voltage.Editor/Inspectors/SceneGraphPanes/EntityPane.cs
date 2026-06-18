@@ -11,6 +11,7 @@ using Voltage.Editor.Undo.ComponentActions;
 using Voltage.Editor.Undo.EntityActions;
 using Voltage.Editor.Utils;
 using Voltage.Persistence;
+using Voltage.Serialization;
 
 namespace Voltage.Editor.Inspectors.SceneGraphPanes;
 
@@ -724,20 +725,46 @@ public class EntityPane
 	}
 
 	/// <summary>
-	/// Duplicates the given entity and adds it to the scene.
-	/// If the entity is NonSerialized, the clone will be of type Serialized.
-	/// Uses JSON serialization for reliable component copying.
+	/// Duplicates the given entity and its subtree, remaps intra-subtree references so
+	/// EntityReference/ComponentReference fields that pointed at siblings or children now
+	/// point at the corresponding clones, then resolves all references. Returns the root clone.
 	/// </summary>
 	public Entity DuplicateEntity(Entity entity, string customName = null)
 	{
 		if (entity == null || entity.Scene == null)
 			return null;
 
+		var idMap = new Dictionary<Guid, Guid>();
+		var clone = DuplicateEntityInternal(entity, customName, idMap);
+		if (clone == null)
+			return null;
+
+		ComponentReferenceResolver.RemapEntitySubtree(clone, idMap);
+		ComponentReferenceResolver.ResolveEntitySubtree(clone, Core.Scene);
+
+		EditorChangeTracker.PushUndo(
+			new EntityCreateDeleteUndoAction(entity.Scene, clone, wasCreated: true, $"Created: Entity {clone.Name}"),
+			clone,
+			$"Created: {clone.Name}"
+		);
+
+		_imGuiManager.MainEntityInspectorWindow.DelayedSetEntity(clone);
+		return clone;
+	}
+
+	/// <summary>
+	/// Internal recursive clone builder. Populates <paramref name="idMap"/> with
+	/// sourceId → cloneId pairs for every entity in the subtree, but does NOT remap or resolve.
+	/// Pass <paramref name="pendingClones"/> when cloning multiple roots simultaneously so
+	/// name uniqueness accounts for the other in-flight clones.
+	/// </summary>
+	private Entity DuplicateEntityInternal(Entity entity, string customName, Dictionary<Guid, Guid> idMap,
+		List<Entity> pendingClones = null)
+	{
 		var clone = new Entity("Entity");
 		string baseName = customName ?? entity.Name;
-		clone.Name = Core.Scene.GetUniqueEntityName(baseName, clone);
+		clone.Name = Core.Scene.GetUniqueEntityName(baseName, clone, pendingClones);
 
-		// Set up the clone with basic properties first
 		clone.Transform.Position = entity.Transform.Position;
 		clone.Transform.Rotation = entity.Rotation;
 		clone.Transform.Scale = entity.Scale;
@@ -747,8 +774,8 @@ public class EntityPane
 		clone.UpdateInterval = entity.UpdateInterval;
 		clone.UpdateOrder = entity.UpdateOrder;
 
-		if(entity.Type == Entity.InstanceType.NonSerialized || entity.Type == Entity.InstanceType.Serialized
-		   || entity.Type == Entity.InstanceType.SceneRequired)
+		if (entity.Type == Entity.InstanceType.NonSerialized || entity.Type == Entity.InstanceType.Serialized
+		    || entity.Type == Entity.InstanceType.SceneRequired)
 			clone.Type = Entity.InstanceType.Serialized;
 		else
 		{
@@ -756,16 +783,15 @@ public class EntityPane
 			clone.OriginalPrefabName = entity.OriginalPrefabName;
 		}
 
-		// Copy all components from the source entity
+		idMap[entity.PersistentId] = clone.PersistentId;
+
 		foreach (var sourceComponent in entity.Components)
 		{
 			if (!sourceComponent.IsSerialized)
 				continue;
 
-			// Component doesn't exist - create a new one
 			var componentType = sourceComponent.GetType();
 			Component clonedComponent;
-			
 			try
 			{
 				clonedComponent = (Component)Activator.CreateInstance(componentType);
@@ -776,13 +802,11 @@ public class EntityPane
 				continue;
 			}
 
-			// Copy basic component properties
 			clonedComponent.Name = sourceComponent.Name;
 			clonedComponent.Enabled = sourceComponent.Enabled;
 			clone.AddComponent(clonedComponent);
 			clonedComponent.SetSerialized(true);
 
-			// Copy component data using JSON serialization
 			if (sourceComponent.Data != null)
 			{
 				try
@@ -793,21 +817,21 @@ public class EntityPane
 						TypeNameHandling = TypeNameHandling.Auto,
 						PreserveReferencesHandling = false
 					};
-				
+
 					var json = Json.ToJson(sourceComponent.Data, componentJsonSettings);
 					var clonedData = (ComponentData)Json.FromJson(json, sourceComponent.Data.GetType());
+					clonedComponent._pendingLoadedData = clonedData;
 					clonedComponent.Data = clonedData;
 				}
 				catch (Exception ex)
 				{
 					Debug.Warn($"Failed to copy data for component {sourceComponent.GetType().Name}: {ex.Message}");
-					
-					// fallback
 					try
 					{
 						var fallbackClone = sourceComponent.Clone();
-						if (fallbackClone != null && fallbackClone.Data != null)
+						if (fallbackClone?.Data != null)
 						{
+							clonedComponent._pendingLoadedData = fallbackClone.Data;
 							clonedComponent.Data = fallbackClone.Data;
 						}
 					}
@@ -821,146 +845,46 @@ public class EntityPane
 
 		Core.Scene.AddEntity(clone);
 
-		// Copy children if any exist, but SKIP NonSerialized entities
 		for (var i = 0; i < entity.Transform.ChildCount; i++)
 		{
 			var childEntity = entity.Transform.GetChild(i).Entity;
-			
-			// Skip NonSerialized children - they should be created by the parent entity's initialization logic
 			if (childEntity.Type == Entity.InstanceType.NonSerialized)
-			{
 				continue;
-			}
-			
-			// Only duplicate Serialized and SerializedPrefab children
-			var clonedChild = DuplicateEntity(childEntity, null);
+
+			var clonedChild = DuplicateEntityInternal(childEntity, null, idMap);
 			if (clonedChild != null)
 			{
+				var cWorldPos = childEntity.Transform.Position;
+				var cWorldRot = childEntity.Transform.Rotation;
+				var cWorldScale = childEntity.Transform.Scale;
 				clonedChild.Transform.SetParent(clone.Transform);
+				clonedChild.Transform.RecomputeLocalsFromWorld(cWorldPos, cWorldRot, cWorldScale);
 			}
 		}
 
-		// Undo/Redo support for entity creation
-		EditorChangeTracker.PushUndo(
-			new EntityCreateDeleteUndoAction(entity.Scene, clone, wasCreated: true, $"Created: Entity {clone.Name}"),
-			clone,
-			$"Created: {clone.Name}"
-		);
-
-		_imGuiManager.MainEntityInspectorWindow.DelayedSetEntity(clone);
-		
 		return clone;
 	}
 
     /// <summary>
-    /// Duplicates the given entities and adds them to the scene.
-    /// Uses JSON serialization for reliable component copying.
+    /// Duplicates multiple entities, remapping intra-subtree references on each clone
+    /// before resolving. Each top-level entity gets its own remap pass over its own subtree.
     /// </summary>
     public List<Entity> DuplicateEntities(IEnumerable<Entity> entitiesToDuplicate)
     {
         var clones = new List<Entity>();
 
-        // First, create all clones and assign unique names considering both scene and pending clones
         foreach (var entity in entitiesToDuplicate)
         {
-			// Create a new entity directly
-			var clone = new Entity();
-            clone.Name = Core.Scene.GetUniqueEntityName(entity.Name, clone, clones);
-            clone.Transform.Position = entity.Transform.Position;
-            clone.Transform.Rotation = entity.Rotation;
-            clone.Transform.Scale = entity.Scale;
-            clone.SetTag(entity.Tag);
-            clone.Enabled = entity.Enabled;
-            clone.DebugRenderEnabled = entity.DebugRenderEnabled;
-            clone.UpdateInterval = entity.UpdateInterval;
-            clone.UpdateOrder = entity.UpdateOrder;
+			var idMap = new Dictionary<Guid, Guid>();
+			var clone = DuplicateEntityInternal(entity, null, idMap, clones);
+			if (clone == null)
+				continue;
 
-            if (entity.Type == Entity.InstanceType.NonSerialized || entity.Type == Entity.InstanceType.Serialized
-                || entity.Type == Entity.InstanceType.SceneRequired)
-                clone.Type = Entity.InstanceType.Serialized;
-            else
-            {
-                clone.Type = Entity.InstanceType.SerializedPrefab;
-                clone.OriginalPrefabName = entity.OriginalPrefabName;
-            }
-
-            // Copy all components from the source entity
-            foreach (var sourceComponent in entity.Components)
-            {
-				if(!sourceComponent.IsSerialized)
-					continue;
-
-                var componentType = sourceComponent.GetType();
-                Component clonedComponent;
-                try
-                {
-                    clonedComponent = (Component)Activator.CreateInstance(componentType);
-				}
-				catch (Exception ex)
-                {
-                    Debug.Error($"Failed to create component {componentType.Name}: {ex.Message}");
-                    continue;
-                }
-
-                clonedComponent.Name = sourceComponent.Name;
-                clonedComponent.Enabled = sourceComponent.Enabled;
-
-				if (sourceComponent.Data != null)
-                {
-                    try
-                    {
-                        var componentJsonSettings = new JsonSettings
-                        {
-                            PrettyPrint = false,
-                            TypeNameHandling = TypeNameHandling.Auto,
-                            PreserveReferencesHandling = false
-                        };
-
-                        var json = Json.ToJson(sourceComponent.Data, componentJsonSettings);
-                        var clonedData = (ComponentData)Json.FromJson(json, sourceComponent.Data.GetType());
-                        clonedComponent.Data = clonedData;
-                    }
-					catch (Exception ex)
-                    {
-                        Debug.Warn($"Failed to copy data for component {sourceComponent.GetType().Name}: {ex.Message}");
-                        try
-                        {
-                            var fallbackClone = sourceComponent.Clone();
-                            if (fallbackClone != null && fallbackClone.Data != null)
-                            {
-                                clonedComponent.Data = fallbackClone.Data;
-                            }
-                        }
-                        catch (Exception cloneEx)
-                        {
-                            Debug.Error($"Clone() fallback also failed for {sourceComponent.GetType().Name}: {cloneEx.Message}");
-                        }
-                    }
-                }
-
-                clone.AddComponent(clonedComponent);
-			}
-
-			// Copy children if any exist, but SKIP NonSerialized entities
-			for (var i = 0; i < entity.Transform.ChildCount; i++)
-            {
-                var childEntity = entity.Transform.GetChild(i).Entity;
-                if (childEntity.Type == Entity.InstanceType.NonSerialized)
-                    continue;
-
-                var clonedChild = DuplicateEntity(childEntity, null);
-                if (clonedChild != null)
-                {
-                    clonedChild.Transform.SetParent(clone.Transform);
-                }
-            }
+			ComponentReferenceResolver.RemapEntitySubtree(clone, idMap);
+			ComponentReferenceResolver.ResolveEntitySubtree(clone, Core.Scene);
 
             clones.Add(clone);
         }
-
-        // Add all clones to the scene after naming
-        foreach (var clone in clones)
-            Core.Scene.AddEntity(clone);
 
         return clones;
 	}

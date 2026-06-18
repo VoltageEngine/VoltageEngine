@@ -290,6 +290,15 @@ public abstract class Component : IComparable<Component>
 	/// </summary>
 	public virtual void ApplyResolvedReferences(ComponentData data, Scene scene) { }
 
+	/// <summary>
+	/// Rewrites EntityPersistentId/EntityName on every EntityReference and ComponentReference field
+	/// whose stored entity id is a key in <paramref name="remap"/>. Used after cloning or prefab
+	/// instantiation to fix intra-subtree references so they point at the new ids rather than the
+	/// originals. References whose id is not in the map are left untouched (external scene refs).
+	/// The source generator overrides this for partial component subclasses — no reflection, AOT-safe.
+	/// </summary>
+	public virtual void RemapReferences(System.Collections.Generic.Dictionary<Guid, Guid> remap) { }
+
 	public override string ToString()
 	{
 		var type = GetType();

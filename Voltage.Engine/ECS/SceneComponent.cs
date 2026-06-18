@@ -72,6 +72,14 @@ namespace Voltage
 		public virtual void ApplyResolvedReferences(ComponentData data, Scene scene) { }
 
 		/// <summary>
+		/// Rewrites EntityPersistentId on every EntityReference and ComponentReference field
+		/// whose stored entity id is a key in <paramref name="remap"/>. Mirror of the same
+		/// virtual on <see cref="Component"/>; overridden by the source generator for partial
+		/// SceneComponent subclasses.
+		/// </summary>
+		public virtual void RemapReferences(System.Collections.Generic.Dictionary<Guid, Guid> remap) { }
+
+		/// <summary>
 		/// Temporary storage for ComponentData assigned during scene load, passed to
 		/// <see cref="Voltage.Serialization.ComponentReferenceResolver"/> after all entities
 		/// are instantiated. Cleared by the resolver once references are wired up.

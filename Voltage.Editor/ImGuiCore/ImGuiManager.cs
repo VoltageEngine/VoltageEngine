@@ -46,7 +46,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	public float FontSizeMultiplier;
 
-	// Public instances
 	public GizmoSelectionManager CursorSelectionManager => _cursorSelectionManager;
 	public SceneGraphWindow SceneGraphWindow { get; private set; }
 
@@ -115,7 +114,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private Vector2 _cameraDragStartMouse;
 	private Vector2 _cameraDragStartPosition;
 
-	// Before game exits, we may need to prompt to save changes (aka, pending actions)
 	private bool _pendingExit = false;
 	private bool _pendingSceneChange = false;
 	private Type _requestedSceneType = null;
@@ -126,7 +124,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private bool _pendingProjectClose = false;
 	private ExitPromptType _pendingActionAfterSave;
 
-	//EditorStyling management
 	private string _layoutFilePath;
 	private LayoutManager _layoutManager;
 	private ThemeManager _themeManager;
@@ -146,19 +143,16 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private bool _showEngineEffectsPrompt = false;
 	private bool _engineEffectsCheckComplete = false;
 
-	// File picker for project loading
 	private FilePicker _projectFilePicker;
 	private bool _showProjectFilePicker = false;
 	private bool _reopenMenuAfterProjectPicker = false;
 
-	// Script management
 	private ScriptManager _scriptManager;
 
-	// Editor settings window
 	private EditorSettingsWindow _editorSettingsWindow = new();
 	private ProjectSettingsWindow _projectSettingsWindow = new();
+	private AssetBrowserWindow _assetBrowserWindow = new();
 
-	// Entity Selection
 	private List<(Entity entity, Collider collider)> _highlightedEntities = new();
 	private IReadOnlyList<Entity> _lastSelectedEntities = null;
 
@@ -430,6 +424,18 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_projectCreatorWindow.Draw();
 		_sceneCreator.Draw();
 		_projectSettingsWindow.Draw();
+
+		if (ShowAssetBrowser)
+		{
+			_assetBrowserWindow.IsOpen = true;
+			_assetBrowserWindow.Draw();
+			// Persist toggle state if the user closed the window via its X button.
+			ShowAssetBrowser = _assetBrowserWindow.IsOpen;
+		}
+
+		// Resolve a pending asset drag dropped onto the game viewport. Runs after the Scene Graph
+		// and asset browser draws so their drop targets get first chance at the payload.
+		HandleGameViewAssetDrop();
 
 		for (var i = _drawCommands.Count - 1; i >= 0; i--)
 			_drawCommands[i]();
@@ -740,7 +746,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			return;
 		}
 
-		// Schedule the async save operation
 		Core.Schedule(0f, false, this, async _ =>
 		{
 			try
@@ -769,9 +774,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	#region Drawing Methods
 
-	/// <summary>
-	/// draws the main menu bar
-	/// </summary>
 	private void DrawMainMenuBar()
 	{
 		if (ImGui.BeginMainMenuBar())
@@ -784,7 +786,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			DrawBuildMenu();
 			DrawHelpMenu();
 
-			// Must be the last one, so that it's centered properly
+			// Project indicator — centered in the menu bar.
 			DrawCurrentProjectIndicator();
 
 			ImGui.EndMainMenuBar();
@@ -798,7 +800,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		float spacing = 12f * FontSizeMultiplier;
 		float iconSize = 24f * FontSizeMultiplier;
 
-		// Normal Button
 		System.Numerics.Vector4 normalButtonColor;
 		if (_cursorSelectionManager.SelectionMode == CursorSelectionMode.Normal)
 			normalButtonColor = new System.Numerics.Vector4(0.2f, 0.5f, 1f, 1f);
@@ -819,7 +820,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		ImGui.SameLine(0, spacing);
 
-		// Resize Button 
 		System.Numerics.Vector4 resizeButtonColor;
 		if (_cursorSelectionManager.SelectionMode == CursorSelectionMode.Resize)
 			resizeButtonColor = new System.Numerics.Vector4(0.2f, 0.5f, 1f, 1f);
@@ -840,7 +840,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		ImGui.SameLine(0, spacing);
 
-		// Rotate Button
 		System.Numerics.Vector4 rotateButtonColor;
 		if (_cursorSelectionManager.SelectionMode == CursorSelectionMode.Rotate)
 			rotateButtonColor = new System.Numerics.Vector4(0.2f, 0.5f, 1f, 1f);
@@ -861,7 +860,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		ImGui.SameLine(0, spacing);
 
-		// Collider Resize Button
 		System.Numerics.Vector4 colliderResizeButtonColor;
 		if (_cursorSelectionManager.SelectionMode == CursorSelectionMode.ColliderResize)
 			colliderResizeButtonColor = new System.Numerics.Vector4(0.2f, 0.5f, 1f, 1f);
@@ -894,6 +892,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			ImGui.SetTooltip("Camera zoom level (Mouse Wheel to adjust)");
 		}
+
+		// Keep the mode cluster and audio toggle on the same row as the cursor tools.
+		ImGui.SameLine(0, spacing);
+		DrawEditorModeControls();
+
+		ImGui.SameLine();
+		DrawAudioToggleRightAligned();
 
 		ImGui.End();
 	}
@@ -941,7 +946,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			{
 				ManageCameraZoom();
 
-				// Camera Dragging with Middle Mouse
 				var mousePos = Input.ScaledMousePosition;
 
 				if (Input.MiddleMouseButtonPressed)
@@ -1495,7 +1499,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_lastSelectedEntities = null;
 	}
 
-	private void RequestSceneChange(string sceneName)
+	/// <summary>
+	/// Requests a scene change, showing the unsaved-changes prompt when the scene is dirty.
+	/// Internal so that editor windows (e.g. SceneGraphWindow) can trigger scene loads.
+	/// </summary>
+	internal void RequestSceneChange(string sceneName)
 	{
 		if (EditorChangeTracker.IsDirty)
 		{

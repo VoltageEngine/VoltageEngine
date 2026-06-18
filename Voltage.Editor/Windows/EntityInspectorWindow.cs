@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Voltage.Data;
 using Voltage.Editor.DebugUtils;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Inspectors.ObjectInspectors;
@@ -16,6 +17,7 @@ using Voltage.Editor.Undo.PrefabActions;
 using Voltage.Editor.Undo.PropertyActions;
 using Voltage.Editor.Utils;
 using Voltage.Persistence;
+using Voltage.Serialization;
 using Voltage.Utils;
 using Voltage.Utils.Coroutines;
 using Num = System.Numerics;
@@ -46,6 +48,9 @@ public class EntityInspectorWindow
 	private bool _showApplyToPrefabCopiesConfirmation = false;
 	private List<Entity> _prefabCopiesToModify = new();
 	private bool _showApplyToOriginalPrefabConfirmation = false;
+
+	private bool _showRevertAllOverridesConfirmation = false;
+	private string _revertComponentName = null; // non-null triggers single-component revert popup
 	private ImGuiManager _imGuiManager;
 	private Entity _lockedEntity;
 
@@ -192,12 +197,22 @@ public class EntityInspectorWindow
 				var type = Entity.Type.ToString();
 				ImGui.InputText("InstanceType", ref type, 30);
 
-				// Show OriginalPrefabName for SerializedPrefab entities (readonly)
+				// Show OriginalPrefabName / GUID for SerializedPrefab entities (readonly).
 				if (Entity.Type == Entity.InstanceType.SerializedPrefab && !string.IsNullOrEmpty(Entity.OriginalPrefabName))
 				{
 					var originalPrefabName = Entity.OriginalPrefabName;
 					ImGui.InputText("Original SerializedPrefab Name", ref originalPrefabName, 50,
 						ImGuiInputTextFlags.ReadOnly);
+
+					// Phase 3: show the stable GUID when present (absent on pre-Phase-3 entities).
+					if (Entity.OriginalPrefabGuid != Guid.Empty)
+					{
+						var guidStr = Entity.OriginalPrefabGuid.ToString();
+						ImGui.InputText("Prefab GUID", ref guidStr, 40, ImGuiInputTextFlags.ReadOnly);
+					}
+
+					// Phase 4b: show component-level override state and revert controls.
+					DrawPrefabOverridePanel();
 				}
 
 				#region Entity Basic Info
@@ -464,6 +479,8 @@ public class EntityInspectorWindow
 				DrawPrefabCreatorPopup();
 				DrawApplyToPrefabCopiesConfirmationPopup();
 				DrawApplyToOriginalPrefabConfirmationPopup();
+				DrawRevertAllOverridesConfirmationPopup();
+				DrawRevertComponentOverrideConfirmationPopup();
 			}
 		}
 		else
@@ -477,9 +494,6 @@ public class EntityInspectorWindow
 	}
 
 
-	/// <summary>
-	/// Caches all available Component types with parameterless constructors using reflection.
-	/// </summary>
 	/// <summary>
 	/// Invalidates the cached component types so they are rebuilt on next access.
 	/// Call this after script recompilation to pick up new/changed component types.
@@ -536,7 +550,6 @@ public class EntityInspectorWindow
 	/// </summary>
 	private static bool HasParameterlessConstructor(Type type)
 	{
-		// Check for public parameterless constructor
 		var publicConstructor = type.GetConstructor(
 			BindingFlags.Public | BindingFlags.Instance,
 			null,
@@ -547,8 +560,6 @@ public class EntityInspectorWindow
 		if (publicConstructor != null)
 			return true;
 
-		// Check for non-public parameterless constructor (protected/private)
-		// Some components might have protected constructors
 		var nonPublicConstructor = type.GetConstructor(
 			BindingFlags.NonPublic | BindingFlags.Instance,
 			null,
@@ -1266,5 +1277,383 @@ public class EntityInspectorWindow
 	public void SetWindowFocus()
 	{
 		_shouldFocusWindow = true;
+	}
+
+	// Phase 4b — Prefab override panel
+
+	/// <summary>
+	/// Gets the <see cref="Voltage.Data.SceneData.SceneEntityData"/> for the current entity
+	/// from the active scene's SceneData, or null when not present.
+	/// This is the authoritative source of override metadata (<see cref="Voltage.Data.SceneData.SceneEntityData.PrefabOverrides"/>).
+	/// </summary>
+	private Voltage.Data.SceneData.SceneEntityData GetCurrentSceneEntityData()
+	{
+		var sceneData = Core.Scene?.SceneData;
+		if (sceneData?.Entities == null || Entity == null)
+			return null;
+
+		return sceneData.Entities.FirstOrDefault(e =>
+			string.Equals(e.Name, Entity.Name, StringComparison.OrdinalIgnoreCase));
+	}
+
+	/// <summary>
+	/// Draws the Phase 4b override summary panel for a <see cref="Entity.InstanceType.SerializedPrefab"/> entity.
+	/// Shows which components are overridden / removed relative to the source prefab and provides
+	/// per-component and all-at-once revert actions.
+	/// </summary>
+	private void DrawPrefabOverridePanel()
+	{
+		var entityData = GetCurrentSceneEntityData();
+		if (entityData == null)
+			return;
+
+		var overrides = entityData.PrefabOverrides;
+		var removed   = entityData.RemovedPrefabComponents;
+
+		// Legacy full-data entry (pre-Phase-4b) — no override metadata to show.
+		if (overrides == null)
+		{
+			ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(0.7f, 0.7f, 0.7f, 1f));
+			ImGui.TextWrapped("(Legacy entry — no override tracking. Re-save scene to enable delta model.)");
+			ImGui.PopStyleColor();
+			return;
+		}
+
+		var totalOverrides = overrides.Count + (removed?.Count ?? 0);
+
+		if (totalOverrides == 0)
+		{
+			ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(0.5f, 0.9f, 0.5f, 1f));
+			ImGui.Text("No overrides — all components match prefab.");
+			ImGui.PopStyleColor();
+			return;
+		}
+
+		// Header with count.
+		ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(1f, 0.75f, 0.2f, 1f));
+		ImGui.Text($"Overrides: {totalOverrides} component(s)");
+		ImGui.PopStyleColor();
+
+		VoltageEditorUtils.SmallVerticalSpace();
+
+		// Per-component list.
+		if (ImGui.BeginChild("##PrefabOverrideList",
+			new Num.Vector2(0, Math.Min(150, (totalOverrides + 1) * 22 + 10)), true))
+		{
+			// Overridden / added components.
+			foreach (var name in overrides)
+			{
+				ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(1f, 0.85f, 0.3f, 1f));
+				ImGui.Bullet();
+				ImGui.SameLine();
+				ImGui.Text(name);
+				ImGui.PopStyleColor();
+
+				ImGui.SameLine(ImGui.GetContentRegionAvail().X - 60f);
+				if (ImGui.SmallButton($"Revert##{name}"))
+					_revertComponentName = name;
+
+				if (ImGui.IsItemHovered())
+					ImGui.SetTooltip($"Revert '{name}' to the prefab's version.");
+			}
+
+			// Removed components.
+			if (removed != null)
+			{
+				foreach (var name in removed)
+				{
+					ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(1f, 0.4f, 0.4f, 1f));
+					ImGui.Bullet();
+					ImGui.SameLine();
+					ImGui.Text($"{name}  (removed)");
+					ImGui.PopStyleColor();
+
+					ImGui.SameLine(ImGui.GetContentRegionAvail().X - 60f);
+					if (ImGui.SmallButton($"Restore##{name}"))
+						_revertComponentName = name;
+
+					if (ImGui.IsItemHovered())
+						ImGui.SetTooltip($"Restore '{name}' from the prefab.");
+				}
+			}
+		}
+		ImGui.EndChild();
+
+		VoltageEditorUtils.SmallVerticalSpace();
+
+		if (VoltageEditorUtils.CenteredButton("Revert All Overrides to Prefab", 0.8f))
+			_showRevertAllOverridesConfirmation = true;
+	}
+
+	/// <summary>
+	/// Draws the confirmation popup for reverting ALL overrides on the entity.
+	/// </summary>
+	private void DrawRevertAllOverridesConfirmationPopup()
+	{
+		if (_showRevertAllOverridesConfirmation)
+		{
+			ImGui.OpenPopup("revert-all-overrides-confirmation");
+			_showRevertAllOverridesConfirmation = false;
+		}
+
+		var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.4f);
+		ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
+		ImGui.SetNextWindowSize(new Num.Vector2(420, 0), ImGuiCond.Appearing);
+
+		bool open = true;
+		if (ImGui.BeginPopupModal("revert-all-overrides-confirmation", ref open,
+			ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar))
+		{
+			ImGui.TextColored(new Num.Vector4(1f, 0.6f, 0.2f, 1f),
+				"Revert all component overrides to prefab?");
+			ImGui.Separator();
+			ImGui.TextWrapped(
+				$"This will discard all overrides on '{Entity?.Name}' and restore it to the " +
+				$"current '{Entity?.OriginalPrefabName}' prefab state. The entity position and " +
+				"rotation are NOT affected.");
+
+			VoltageEditorUtils.MediumVerticalSpace();
+
+			var bw = 80f;
+			ImGui.SetCursorPosX((ImGui.GetWindowSize().X - bw * 2 - 10f) * 0.5f);
+
+			if (ImGui.Button("Revert", new Num.Vector2(bw, 0)))
+			{
+				RevertAllOverrides();
+				ImGui.CloseCurrentPopup();
+			}
+
+			ImGui.SameLine();
+
+			if (ImGui.Button("Cancel", new Num.Vector2(bw, 0)))
+				ImGui.CloseCurrentPopup();
+
+			ImGui.EndPopup();
+		}
+	}
+
+	/// <summary>
+	/// Draws the confirmation popup for reverting a single component override.
+	/// </summary>
+	private void DrawRevertComponentOverrideConfirmationPopup()
+	{
+		if (_revertComponentName != null)
+		{
+			ImGui.OpenPopup("revert-component-override-confirmation");
+		}
+
+		var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.4f);
+		ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
+		ImGui.SetNextWindowSize(new Num.Vector2(420, 0), ImGuiCond.Appearing);
+
+		bool open = true;
+		if (ImGui.BeginPopupModal("revert-component-override-confirmation", ref open,
+			ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar))
+		{
+			var compName = _revertComponentName ?? "(unknown)";
+			ImGui.TextColored(new Num.Vector4(1f, 0.6f, 0.2f, 1f),
+				$"Revert '{compName}' to prefab version?");
+			ImGui.Separator();
+			ImGui.TextWrapped(
+				$"The component '{compName}' on '{Entity?.Name}' will be restored to the " +
+				$"'{Entity?.OriginalPrefabName}' prefab's version.  If the component was removed " +
+				"on this instance it will be re-added from the prefab.");
+
+			VoltageEditorUtils.MediumVerticalSpace();
+
+			var bw = 80f;
+			ImGui.SetCursorPosX((ImGui.GetWindowSize().X - bw * 2 - 10f) * 0.5f);
+
+			if (ImGui.Button("Revert", new Num.Vector2(bw, 0)))
+			{
+				RevertComponentOverride(_revertComponentName);
+				_revertComponentName = null;
+				ImGui.CloseCurrentPopup();
+			}
+
+			ImGui.SameLine();
+
+			if (ImGui.Button("Cancel", new Num.Vector2(bw, 0)))
+			{
+				_revertComponentName = null;
+				ImGui.CloseCurrentPopup();
+			}
+
+			ImGui.EndPopup();
+		}
+	}
+
+	/// <summary>
+	/// Reverts all component overrides on the current entity by clearing the override metadata
+	/// and reloading component data from the source prefab.
+	/// </summary>
+	private void RevertAllOverrides()
+	{
+		if (Entity == null || Entity.Type != Entity.InstanceType.SerializedPrefab)
+			return;
+
+		var entitySceneData = GetCurrentSceneEntityData();
+		if (entitySceneData == null)
+			return;
+
+		// Clear override metadata — next save will produce a fresh (possibly zero-override) diff.
+		entitySceneData.PrefabOverrides         = new System.Collections.Generic.HashSet<string>();
+		entitySceneData.RemovedPrefabComponents = null;
+		entitySceneData.EntityData              = new Voltage.Data.EntityData();
+
+		// Reload live component data from the source prefab.
+		var prefabData = TryLoadPrefabForRevert(Entity.OriginalPrefabName, Entity.OriginalPrefabGuid);
+		if (prefabData.HasValue)
+		{
+			ApplyPrefabDataToEntity(Entity, prefabData.Value);
+			EditorDebug.Log($"Reverted all overrides on '{Entity.Name}' to prefab '{Entity.OriginalPrefabName}'.");
+		}
+		else
+		{
+			EditorDebug.Error($"Could not load prefab '{Entity.OriginalPrefabName}' for revert.");
+		}
+
+		DelayedSetEntity(Entity);
+	}
+
+	/// <summary>
+	/// Reverts a single component override by name, restoring it from the source prefab.
+	/// </summary>
+	private void RevertComponentOverride(string componentName)
+	{
+		if (Entity == null || string.IsNullOrEmpty(componentName))
+			return;
+
+		var entitySceneData = GetCurrentSceneEntityData();
+		if (entitySceneData == null)
+			return;
+
+		var prefabData = TryLoadPrefabForRevert(Entity.OriginalPrefabName, Entity.OriginalPrefabGuid);
+		if (!prefabData.HasValue)
+		{
+			EditorDebug.Error($"Could not load prefab '{Entity.OriginalPrefabName}' for component revert.");
+			return;
+		}
+
+		// Find the component entry in the prefab.
+		var prefabEntry = prefabData.Value.EntityData?.ComponentDataList
+			?.FirstOrDefault(e => string.Equals(e.ComponentName, componentName, StringComparison.Ordinal));
+
+		// Remove from override set.
+		entitySceneData.PrefabOverrides?.Remove(componentName);
+		entitySceneData.RemovedPrefabComponents?.Remove(componentName);
+
+		// Remove instance override entry from EntityData.
+		entitySceneData.EntityData?.ComponentDataList?.RemoveAll(
+			e => string.Equals(e.ComponentName, componentName, StringComparison.Ordinal));
+
+		// Apply prefab component data to the live entity.
+		if (prefabEntry.HasValue && !string.IsNullOrEmpty(prefabEntry.Value.ComponentTypeName))
+		{
+			// Find or recreate the component on the entity.
+			var liveComp = Entity.Components
+				.Concat(Entity.ComponentsToAdd)
+				.FirstOrDefault(c => string.Equals(c.Name, componentName, StringComparison.Ordinal));
+
+			if (liveComp == null)
+			{
+				// Component was removed — re-add it from the prefab.
+				liveComp = SerializationManager.CreateComponentInstancePublic(prefabEntry.Value.ComponentTypeName);
+				if (liveComp != null)
+				{
+					liveComp.Name = componentName;
+					liveComp.SetSerialized(true);
+					Entity.AddComponent(liveComp, true);
+				}
+			}
+
+			if (liveComp != null && !string.IsNullOrEmpty(prefabEntry.Value.DataTypeName) &&
+			    !string.IsNullOrEmpty(prefabEntry.Value.Json))
+			{
+				SerializationManager.Instance.ApplyComponentEntry(liveComp, prefabEntry.Value);
+			}
+		}
+		else
+		{
+			// Component not in prefab — it was added on instance, now being reverted means
+			// removing it from the entity entirely.
+			var liveComp = Entity.Components
+				.Concat(Entity.ComponentsToAdd)
+				.FirstOrDefault(c => string.Equals(c.Name, componentName, StringComparison.Ordinal));
+			liveComp?.Entity?.RemoveComponent(liveComp);
+		}
+
+		EditorDebug.Log($"Reverted '{componentName}' on '{Entity.Name}' to prefab version.");
+		DelayedSetEntity(Entity);
+	}
+
+	/// <summary>
+	/// Loads the source prefab for revert operations. Uses <see cref="SerializationManager"/> path.
+	/// </summary>
+	private static PrefabData? TryLoadPrefabForRevert(string prefabName, Guid prefabGuid)
+	{
+		if (string.IsNullOrEmpty(prefabName))
+			return null;
+
+		try
+		{
+			// Use the engine-side resolver (wired in ProjectManager) for consistency.
+			var path = Scene.PrefabPathResolver?.Invoke(prefabGuid, prefabName);
+			if (string.IsNullOrEmpty(path) || !File.Exists(path))
+				return null;
+
+			var json = File.ReadAllText(path);
+			var pd = Voltage.Serialization.AotDeserializers.DeserializePrefabData(json);
+			return pd.Name != null ? pd : (PrefabData?)null;
+		}
+		catch
+		{
+			return null;
+		}
+	}
+
+	/// <summary>
+	/// Applies <see cref="PrefabData"/> component data to a live entity's components,
+	/// replacing existing data for matching components.
+	/// </summary>
+	private static void ApplyPrefabDataToEntity(Entity entity, PrefabData prefabData)
+	{
+		if (prefabData.EntityData?.ComponentDataList == null)
+			return;
+
+		foreach (var entry in prefabData.EntityData.ComponentDataList)
+		{
+			var liveComp = entity.Components
+				.Concat(entity.ComponentsToAdd)
+				.FirstOrDefault(c => string.Equals(c.Name, entry.ComponentName, StringComparison.Ordinal));
+
+			if (liveComp == null)
+			{
+				// Add component from prefab (was removed on instance).
+				liveComp = SerializationManager.CreateComponentInstancePublic(entry.ComponentTypeName);
+				if (liveComp != null)
+				{
+					liveComp.Name = entry.ComponentName;
+					liveComp.SetSerialized(true);
+					entity.AddComponent(liveComp, true);
+				}
+			}
+
+			if (liveComp != null && !string.IsNullOrEmpty(entry.DataTypeName) && !string.IsNullOrEmpty(entry.Json))
+				SerializationManager.Instance.ApplyComponentEntry(liveComp, entry);
+		}
+
+		// Remove any components that exist on the entity but are not in the prefab.
+		var prefabNames = new System.Collections.Generic.HashSet<string>(
+			prefabData.EntityData.ComponentDataList.Select(e => e.ComponentName),
+			StringComparer.Ordinal);
+
+		var toRemove = entity.Components
+			.Concat(entity.ComponentsToAdd)
+			.Where(c => c.IsSerialized && !prefabNames.Contains(c.Name))
+			.ToList();
+
+		foreach (var comp in toRemove)
+			entity.RemoveComponent(comp);
 	}
 }

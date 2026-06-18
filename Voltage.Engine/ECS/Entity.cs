@@ -90,6 +90,16 @@ public sealed class Entity : IComparable<Entity>
 	}
 
 	/// <summary>
+	/// Stable GUID of the prefab asset this entity was created from, taken from its
+	/// <c>.meta</c> sidecar.  Empty when the entity was not created from a prefab,
+	/// or when the scene was saved before Phase 3 was introduced.
+	///
+	/// Used for move/rename-safe prefab re-instantiation.  Falls back to
+	/// <see cref="OriginalPrefabName"/> when empty (backward compat).
+	/// </summary>
+	public Guid OriginalPrefabGuid { get; set; } = Guid.Empty;
+
+	/// <summary>
 	/// Unique identifer for this Entity
 	/// </summary>
 	public readonly uint Id;
@@ -511,13 +521,14 @@ public sealed class Entity : IComparable<Entity>
 		Transform.Scale = entity.Transform.Scale;
 
 		if(Type == InstanceType.SerializedPrefab)
+		{
 			OriginalPrefabName = entity.OriginalPrefabName;
+			OriginalPrefabGuid = entity.OriginalPrefabGuid;
+		}
 
 		for (var i = 0; i < entity.Components.Count; i++)
 		{
 			var sourceComponent = entity.Components[i];
-
-			// Create new component instance
 			var componentType = sourceComponent.GetType();
 
 			// Skip components that cannot be constructed — they are code-only and must not be
@@ -545,7 +556,6 @@ public sealed class Entity : IComparable<Entity>
 
 			AddComponent(clonedComponent);
 
-			// Use JSON serialization for reliable component data copying
 			if (sourceComponent.Data != null)
 			{
 				try
@@ -556,7 +566,7 @@ public sealed class Entity : IComparable<Entity>
 						TypeNameHandling = TypeNameHandling.Auto,
 						PreserveReferencesHandling = false
 					};
-					
+
 					var json = Json.ToJson(sourceComponent.Data, componentJsonSettings);
 					var clonedData = (ComponentData)Json.FromJson(json, sourceComponent.Data.GetType());
 					clonedComponent.Data = clonedData;
@@ -583,17 +593,14 @@ public sealed class Entity : IComparable<Entity>
 			if (!CanConstructComponent(sourceComponent.GetType()))
 				continue;
 
-			// Try to find a matching component in this entity (by type and name)
 			var targetComponent = Components.FirstOrDefault(c => c.GetType() == sourceComponent.GetType() && c.Name == sourceComponent.Name);
 
 			if (targetComponent != null)
 			{
-				// Use the same approach as component paste with JSON serialization
 				if (sourceComponent.Data != null)
 				{
 					try
 					{
-						// Use JSON serialization for reliable component data copying (same as paste)
 						var componentJsonSettings = new JsonSettings
 						{
 							PrettyPrint = false,

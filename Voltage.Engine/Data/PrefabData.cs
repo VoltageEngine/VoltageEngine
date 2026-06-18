@@ -8,6 +8,9 @@ namespace Voltage.Data
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
     public struct PrefabData
     {
+        // Stable id of the prefab root at save time. Used so prefab instantiation can map this
+        // old root id to the new instance's id and remap references that point at the root.
+        public Guid Id;
         public Entity.InstanceType InstanceType;
         public string Name;
         public float Rotation;
