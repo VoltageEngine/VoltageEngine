@@ -93,12 +93,17 @@ namespace Voltage.Editor.Windows
 			ImGui.BeginChild("DebugLogScroll", new Num.Vector2(0, -ImGui.GetFrameHeightWithSpacing()), true,
 				ImGuiWindowFlags.HorizontalScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
 
-			// Only scroll with mouse wheel when hovering over this child window
-			if (ImGui.IsWindowHovered())
+			var wheel = ImGui.GetIO().MouseWheel;
+			if (wheel != 0)
 			{
-				var wheel = ImGui.GetIO().MouseWheel;
-				if (wheel != 0)
+				// Immediately switch focus to DebugWindow if we want to scroll with mouse
+				if (ImGui.IsWindowHovered() || ImGui.IsWindowFocused())
+				{
+					if (!ImGui.IsWindowFocused())
+						ImGui.SetWindowFocus();
+
 					ImGui.SetScrollY(ImGui.GetScrollY() - wheel * ImGui.GetTextLineHeightWithSpacing() * 3f);
+				}
 			}
 
 			if (groupLogsValue)
