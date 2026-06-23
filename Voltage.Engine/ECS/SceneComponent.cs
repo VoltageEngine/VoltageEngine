@@ -85,7 +85,7 @@ namespace Voltage
 		/// are instantiated. Cleared by the resolver once references are wired up.
 		/// </summary>
 		[JsonExclude]
-		internal ComponentData _pendingLoadedData;
+		protected internal ComponentData _pendingLoadedData;
 
 		/// <summary>
 		/// Guards against calling <see cref="OnStart"/> more than once (e.g. if components

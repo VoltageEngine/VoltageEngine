@@ -89,7 +89,7 @@
 			<Link>libcimgui.dylib</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
-		<Content Include=".$(ImGuiRuntimes)linux-x64\native\*.so" Condition="'$(OS)' != 'Windows_NT' AND $(IsLinux) == 'true'">
+		<Content Include="$(ImGuiRuntimes)linux-x64\native\*.so" Condition="'$(OS)' != 'Windows_NT' AND $(IsLinux) == 'true'">
 			<Link>%(Filename)%(Extension)</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
