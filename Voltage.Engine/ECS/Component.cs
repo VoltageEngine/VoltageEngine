@@ -148,7 +148,7 @@ public abstract class Component : IComparable<Component>
 	/// all entities are instantiated. Cleared by the resolver once references are wired up.
 	/// </summary>
 	[JsonExclude]
-	internal ComponentData _pendingLoadedData;
+	protected internal ComponentData _pendingLoadedData;
 
 	#region Component Lifecycle
 
