@@ -6,7 +6,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using ImGuiNET;
+using Voltage.Diagnostics;
 using Voltage.Editor.DebugUtils;
+using Voltage.Editor.Diagnostics;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.SceneFile;
@@ -27,9 +29,14 @@ public class GameBuildWindow
 	// Persistent user preferences
 	private readonly PersistentBool _compileAssets = new("GameBuild.CompileAssets", false);
 	private readonly PersistentBool _debugBuild = new("GameBuild.DebugBuild", false);
+	private readonly PersistentBool _linuxCompatContainer = new("GameBuild.LinuxCompatContainer", true);
 	private readonly PersistentInt _selectedPlatformIndex = new("GameBuild.SelectedPlatformIndex", 0);
 
 	private CancellationTokenSource _buildCancellationToken;
+
+	// Build-dependency preflight (clang / ld / zlib for NativeAOT). Shown BEFORE publish so the
+	// user gets a clear, actionable dialog instead of the cryptic "cannot find -lz" linker error.
+	private readonly DependencyPreflightDialog _depPreflightDialog = new();
 
 	// Initial scene selection
 	private List<string> _availableScenes = new();
@@ -107,6 +114,7 @@ public class GameBuildWindow
 	public void Draw()
 	{
 		DrawBuildOptionsPopup();
+		_depPreflightDialog.Draw();
 		_progressWindow.Draw();
 	}
 
@@ -172,16 +180,16 @@ public class GameBuildWindow
 			// Project info
 			ImGui.Text("Project:");
 			ImGui.SameLine();
-			ImGui.TextColored(new Num.Vector4(0.7f, 1.0f, 0.7f, 1.0f), project.ProjectName);
+			ImGuiSafe.TextColoredSafe(new Num.Vector4(0.7f, 1.0f, 0.7f, 1.0f), project.ProjectName);
 
 			ImGui.Text("Version:");
 			ImGui.SameLine();
-			ImGui.TextDisabled(project.Version.ToString());
+			ImGuiSafe.TextDisabledSafe(project.Version.ToString());
 
 			var buildDir = Path.Combine(project.ProjectPath, "Build", selectedPlatform.FolderSuffix);
 			ImGui.Text("Output:");
 			ImGui.SameLine();
-			ImGui.TextDisabled(buildDir);
+			ImGuiSafe.TextDisabledSafe(buildDir);
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
@@ -226,7 +234,7 @@ public class GameBuildWindow
 			}
 
 			ImGui.SameLine();
-			ImGui.TextColored(
+			ImGuiSafe.TextColoredSafe(
 				_debugBuild.Value
 					? new Num.Vector4(1.0f, 0.8f, 0.2f, 1.0f)
 					: new Num.Vector4(0.5f, 1.0f, 0.5f, 1.0f),
@@ -235,6 +243,35 @@ public class GameBuildWindow
 			VoltageEditorUtils.SmallVerticalSpace();
 
 			ImGui.TextWrapped("The game will be published as a self-contained, trimmed executable for standalone deployment.");
+
+				VoltageEditorUtils.SmallVerticalSpace();
+
+				// Linux glibc-compat container option (only relevant for Linux targets).
+				if (LinuxContainerBuild.IsLinux(selectedPlatform))
+				{
+					var compatValue = _linuxCompatContainer.Value;
+					if (ImGui.Checkbox("Build in glibc-compat container (recommended)", ref compatValue))
+						_linuxCompatContainer.Value = compatValue;
+
+					if (ImGui.IsItemHovered())
+					{
+						ImGui.SetTooltip(
+							"NativeAOT links the Linux binary against the build machine's glibc. When the editor\n" +
+							"runs inside a newer-glibc container (e.g. distrobox), a direct build only runs there.\n\n" +
+							"When enabled (default), the AOT publish runs inside an Ubuntu 20.04 (glibc 2.31)\n" +
+							"container via podman, so the binary also runs on stock SteamOS and older distros.\n" +
+							"Requires podman (reached on the host automatically). The first build provisions the\n" +
+							"image and may take several minutes.\n\n" +
+							"When disabled, the game is built directly and may not run outside this environment.");
+					}
+
+					ImGui.SameLine();
+					ImGuiSafe.TextColoredSafe(
+						_linuxCompatContainer.Value
+							? new Num.Vector4(0.5f, 1.0f, 0.5f, 1.0f)
+							: new Num.Vector4(1.0f, 0.8f, 0.2f, 1.0f),
+						_linuxCompatContainer.Value ? "(glibc 2.31)" : "(host glibc)");
+				}
 
 			VoltageEditorUtils.SmallVerticalSpace();
 
@@ -424,13 +461,44 @@ public class GameBuildWindow
 
 				if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
 				{
-					ImGui.SetTooltip(platform.UnavailableReason ?? "This platform is not yet supported.");
+					ImGuiSafe.SetTooltipSafe(platform.UnavailableReason ?? "This platform is not yet supported.");
 				}
 			}
 		}
 	}
 
+	/// <summary>
+	/// Entry point for a build. Runs the NativeAOT build-dependency preflight (clang / ld / zlib) first.
+	/// Only Linux can be missing these; on Windows/macOS the check trivially passes and the build starts
+	/// immediately. If a dep is missing on Linux, a blocking dialog is shown with manual instructions and
+	/// an opt-in auto-install, and the build only proceeds once the user has resolved them (or cancels).
+	/// </summary>
 	private void StartBuild(IGameProject project, BuildPlatform platform, bool runAfterBuild)
+	{
+		var result = NativeDependencyChecker.Check(NativeDependencyCatalog.BuildDependencies);
+
+		if (result.AllPresent)
+		{
+			BeginBuildTask(project, platform, runAfterBuild);
+			return;
+		}
+
+		// Block the build behind the preflight dialog. "Continue" is only enabled once all deps are present.
+		var missingNames = string.Join(", ", result.Missing.Select(s => s.Dependency.FriendlyName));
+		Debug.Warn($"Cannot build yet: missing native build dependencies ({missingNames}).", "GameBuildWindow");
+
+		_depPreflightDialog.Open(
+			title: "Missing build dependencies",
+			intro: "Building a standalone game uses NativeAOT, which needs a few native toolchain " +
+			       "components. The following are required but were not found on this system. " +
+			       "Install them, then press Continue to start the build.",
+			result: result,
+			dependencySet: NativeDependencyCatalog.BuildDependencies,
+			onProceed: () => BeginBuildTask(project, platform, runAfterBuild),
+			onCancel: () => Debug.Log("Build cancelled: build dependencies not satisfied.", "GameBuildWindow"));
+	}
+
+	private void BeginBuildTask(IGameProject project, BuildPlatform platform, bool runAfterBuild)
 	{
 		_isBuilding = true;
 
@@ -445,7 +513,7 @@ public class GameBuildWindow
 		{
 			try
 			{
-				bool success = await GameBuilder.BuildGameAsync(project, platform, _compileAssets.Value, debugBuild, token);
+				bool success = await GameBuilder.BuildGameAsync(project, platform, _compileAssets.Value, debugBuild, _linuxCompatContainer.Value, token);
 
 				if (success && runAfterBuild)
 				{

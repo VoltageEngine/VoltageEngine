@@ -376,14 +376,14 @@ public class AssetBrowserWindow : IDisposable
         if (ImGui.IsItemHovered())
         {
             ImGui.BeginTooltip();
-            ImGui.TextColored(new Num.Vector4(0.7f, 0.9f, 1f, 1f), item.Descriptor.Kind.ToString());
-            ImGui.Text(item.AbsolutePath);
+            ImGuiSafe.TextColoredSafe(new Num.Vector4(0.7f, 0.9f, 1f, 1f), item.Descriptor.Kind.ToString());
+            ImGuiSafe.TextSafe(item.AbsolutePath);
 
             if (AssetDatabase.Instance != null)
             {
                 var guid = AssetDatabase.Instance.GetOrCreateGuid(item.AbsolutePath);
                 if (guid != Guid.Empty)
-                    ImGui.TextColored(new Num.Vector4(0.5f, 0.8f, 0.5f, 1f), guid.ToString());
+                    ImGuiSafe.TextColoredSafe(new Num.Vector4(0.5f, 0.8f, 0.5f, 1f), guid.ToString());
             }
 
             ImGui.EndTooltip();
@@ -430,11 +430,11 @@ public class AssetBrowserWindow : IDisposable
                     ImGui.SetDragDropPayload(DragDropPayloadId, (IntPtr)(&sentinel), 1);
                 }
 
-                ImGui.Text(item.FileName);
+                ImGuiSafe.TextSafe(item.FileName);
             }
             else
             {
-                ImGui.TextColored(new Num.Vector4(1f, 0.5f, 0.3f, 1f), item.FileName);
+                ImGuiSafe.TextColoredSafe(new Num.Vector4(1f, 0.5f, 0.3f, 1f), item.FileName);
                 ImGui.SetTooltip("File type is not supported by Drag-N-Drop");
             }
 
@@ -566,7 +566,7 @@ public class AssetBrowserWindow : IDisposable
             ImGui.Separator();
 
             string fileName = _fileToDelete != null ? Path.GetFileName(_fileToDelete) : string.Empty;
-            ImGui.TextWrapped($"Are you sure you want to delete '{fileName}'?");
+            ImGuiSafe.TextWrappedSafe($"Are you sure you want to delete '{fileName}'?");
             ImGui.TextColored(new Num.Vector4(1f, 0.6f, 0.2f, 1f), "This action cannot be undone!");
 
             VoltageEditorUtils.MediumVerticalSpace();

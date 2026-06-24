@@ -105,8 +105,8 @@ namespace Voltage.Editor.ProjectFile
 			{
 				var project = _projectManager.CurrentProject;
 
-				ImGui.TextColored(new Vector4(0.2f, 0.8f, 1.0f, 1.0f), $"Project: {project.ProjectName}");
-				ImGui.TextColored(new Vector4(0.7f, 0.7f, 0.7f, 1.0f), $"Version: {project.Version}");
+				ImGuiSafe.TextColoredSafe(new Vector4(0.2f, 0.8f, 1.0f, 1.0f), $"Project: {project.ProjectName}");
+				ImGuiSafe.TextColoredSafe(new Vector4(0.7f, 0.7f, 0.7f, 1.0f), $"Version: {project.Version}");
 				ImGui.Separator();
 
 				VoltageEditorUtils.SmallVerticalSpace();
@@ -217,11 +217,11 @@ namespace Voltage.Editor.ProjectFile
 
 			ImGui.Text("Project Name:");
 			ImGui.SameLine();
-			ImGui.TextDisabled(project.ProjectName);
+			ImGuiSafe.TextDisabledSafe(project.ProjectName);
 
 			ImGui.Text("Project Path:");
 			ImGui.SameLine();
-			ImGui.TextDisabled(project.ProjectPath);
+			ImGuiSafe.TextDisabledSafe(project.ProjectPath);
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
@@ -323,9 +323,9 @@ namespace Voltage.Editor.ProjectFile
 					var description = GetResolutionPolicyDescription(currentPolicyName);
 					ImGui.BeginTooltip();
 					ImGui.PushTextWrapPos(400f);
-					ImGui.TextColored(new Vector4(0.7f, 1.0f, 0.7f, 1.0f), currentPolicyName);
+					ImGuiSafe.TextColoredSafe(new Vector4(0.7f, 1.0f, 0.7f, 1.0f), currentPolicyName);
 					ImGui.Separator();
-					ImGui.TextWrapped(description);
+					ImGuiSafe.TextWrappedSafe(description);
 					ImGui.PopTextWrapPos();
 					ImGui.EndTooltip();
 				}
@@ -404,10 +404,10 @@ namespace Voltage.Editor.ProjectFile
 				{
 					ImGui.TableNextRow();
 					ImGui.TableNextColumn();
-					ImGui.Text(kvp.Key);
+					ImGuiSafe.TextSafe(kvp.Key);
 					
 					ImGui.TableNextColumn();
-					ImGui.Text(kvp.Value.ToString());
+					ImGuiSafe.TextSafe(kvp.Value.ToString());
 					
 					ImGui.TableNextColumn();
 					if (ImGui.Button($"Remove##physics_{kvp.Key}"))
@@ -472,10 +472,10 @@ namespace Voltage.Editor.ProjectFile
 				{
 					ImGui.TableNextRow();
 					ImGui.TableNextColumn();
-					ImGui.Text(kvp.Key);
+					ImGuiSafe.TextSafe(kvp.Key);
 					
 					ImGui.TableNextColumn();
-					ImGui.Text(kvp.Value.ToString());
+					ImGuiSafe.TextSafe(kvp.Value.ToString());
 					
 					ImGui.TableNextColumn();
 					if (ImGui.Button($"Remove##rendering_{kvp.Key}"))
@@ -539,10 +539,10 @@ namespace Voltage.Editor.ProjectFile
 				{
 					ImGui.TableNextRow();
 					ImGui.TableNextColumn();
-					ImGui.Text(kvp.Key);
+					ImGuiSafe.TextSafe(kvp.Key);
 					
 					ImGui.TableNextColumn();
-					ImGui.Text(kvp.Value.ToString());
+					ImGuiSafe.TextSafe(kvp.Value.ToString());
 					
 					ImGui.TableNextColumn();
 					if (ImGui.Button($"Remove##tag_{kvp.Key}"))

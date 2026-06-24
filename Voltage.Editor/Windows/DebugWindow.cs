@@ -51,6 +51,14 @@ namespace Voltage.Editor.Windows
 			if (_imguiManager == null)
 				_imguiManager = Core.GetGlobalManager<ImGuiManager>();
 
+			var viewport = ImGui.GetMainViewport();
+			var workPos = viewport.WorkPos;
+			var workSize = viewport.WorkSize;
+			ImGui.SetNextWindowPos(
+				new Num.Vector2(workPos.X, workPos.Y + workSize.Y * 0.7f), ImGuiCond.FirstUseEver);
+			ImGui.SetNextWindowSize(
+				new Num.Vector2(workSize.X, workSize.Y * 0.3f), ImGuiCond.FirstUseEver);
+
 			ImGui.Begin("Debug Log ###DebugWindow", ImGuiWindowFlags.HorizontalScrollbar);
 
 			// Controls row
@@ -192,14 +200,14 @@ namespace Voltage.Editor.Windows
 				ImGui.PushTextWrapPos(0.0f);
 				DrawMessageIcon(type, color);
 				ImGui.SameLine();
-				ImGui.TextColored(color, text);
+				ImGuiSafe.TextColoredSafe(color, text);
 				ImGui.PopTextWrapPos();
 			}
 			else
 			{
 				DrawMessageIcon(type, color);
 				ImGui.SameLine();
-				ImGui.TextColored(color, text);
+				ImGuiSafe.TextColoredSafe(color, text);
 			}
 
 			// Pop font if we pushed one
@@ -231,7 +239,7 @@ namespace Voltage.Editor.Windows
 			{
 				if (ImGui.MenuItem("Copy text"))
 				{
-					ImGui.SetClipboardText(_copiedText);
+					Clipboard.SetContents(_copiedText);
 				}
 
 				ImGui.EndPopup();

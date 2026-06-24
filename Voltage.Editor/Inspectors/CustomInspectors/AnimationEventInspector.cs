@@ -9,6 +9,7 @@ using Voltage.Editor.Serialization;
 using Num = System.Numerics;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Undo.PropertyActions;
+using Voltage.Editor.Utils;
 
 namespace Voltage.Editor.Inspectors.CustomInspectors
 {
@@ -212,7 +213,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
 
                         // Animation column (shows current assignment or "Not Selected")
                         ImGui.TableSetColumnIndex(2);
-                        ImGui.Text(evt.AnimationName ?? "Not Selected");
+                        ImGuiSafe.TextSafe(evt.AnimationName ?? "Not Selected");
 
                         // Animation selection listbox
                         ImGui.TableSetColumnIndex(3);
@@ -360,7 +361,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                 {
                     if (Time.TotalTime - _saveStatusMessageTime < SaveMessageDuration)
                     {
-                        ImGui.TextColored(new Num.Vector4(0.2f, 1.0f, 0.2f, 1.0f), _saveStatusMessage);
+                        ImGuiSafe.TextColoredSafe(new Num.Vector4(0.2f, 1.0f, 0.2f, 1.0f), _saveStatusMessage);
                     }
                     else
                     {

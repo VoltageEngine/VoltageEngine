@@ -296,7 +296,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			);
 
 			ImGui.SetCursorScreenPos(speedTextPos);
-			ImGui.TextColored(new Num.Vector4(1.0f, 1.0f, 0.0f, 1.0f), speedText);
+			ImGuiSafe.TextColoredSafe(new Num.Vector4(1.0f, 1.0f, 0.0f, 1.0f), speedText);
 		}
 
 		OverrideMouseInput();
@@ -535,7 +535,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			int i = 1;
 			foreach (var (_, description) in EditorChangeTracker.ChangedObjects)
 			{
-				ImGui.BulletText($"{i++}. {description}");
+				ImGuiSafe.BulletTextSafe($"{i++}. {description}");
 			}
 
 			ImGui.Separator();

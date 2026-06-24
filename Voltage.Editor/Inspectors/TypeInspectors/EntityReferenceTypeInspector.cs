@@ -39,7 +39,7 @@ public class EntityReferenceTypeInspector : AbstractTypeInspector
 			current = _getter(_target) as Entity;
 		}
 
-		ImGui.Text(_name);
+		ImGuiSafe.TextSafe(_name);
 		ImGui.SameLine();
 
 		var label = current != null
@@ -146,7 +146,7 @@ public class EntityReferenceTypeInspector : AbstractTypeInspector
 		if (!ImGui.BeginPopupModal($"entref_picker_{_scopeId}", ref open, ImGuiWindowFlags.NoResize))
 			return;
 
-		ImGui.TextColored(new Num.Vector4(0.4f, 1f, 0.6f, 1f), $"{_name}  ({_valueType.Name})");
+		ImGuiSafe.TextColoredSafe(new Num.Vector4(0.4f, 1f, 0.6f, 1f), $"{_name}  ({_valueType.Name})");
 		ImGui.Separator();
 
 		ImGui.SetNextItemWidth(-1);

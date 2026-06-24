@@ -63,7 +63,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
 
             if (!string.IsNullOrEmpty(animator.TextureFilePath))
             {
-                ImGui.Text($"Current File: {Path.GetFileName(animator.TextureFilePath)}");
+                ImGuiSafe.TextSafe($"Current File: {Path.GetFileName(animator.TextureFilePath)}");
             }
             else
             {
@@ -75,7 +75,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             if (!string.IsNullOrEmpty(_errorMessage))
             {
                 ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(1.0f, 0.6f, 0.6f, 1.0f));
-                ImGui.TextWrapped($"WARNING: {_errorMessage}");
+                ImGuiSafe.TextWrappedSafe($"WARNING: {_errorMessage}");
                 ImGui.PopStyleColor();
                 ImGui.Spacing();
             }
@@ -128,7 +128,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                     ImGui.Text("Aseprite Animation Options:");
                     ImGui.Separator();
 
-                    ImGui.Text($"Selected File: {Path.GetFileName(picker.SelectedFile)}");
+                    ImGuiSafe.TextSafe($"Selected File: {Path.GetFileName(picker.SelectedFile)}");
 
                     // Tag selection box
                     DrawTagSelectionBox(picker);

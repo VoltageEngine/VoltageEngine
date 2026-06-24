@@ -83,7 +83,15 @@ public partial class ImGuiManager
 		set => _preserveGameWindowAspectRatio.Value = value;
 	}
 
-	private PersistentBool _showAssetBrowser = new("ImGui_ShowAssetBrowser", false);
+	private PersistentBool _showAssetBrowser = new("ImGui_ShowAssetBrowser", true);
+
+	// When set, the "Missing Engine Effects" startup prompt is suppressed permanently. Persisted across
+	// sessions. Useful on Linux where compiling the effects fails, so the user can dismiss it for good.
+	private PersistentBool _dontShowEngineEffectsPrompt = new("ImGui_DontShowEngineEffectsPrompt", false);
+
+	// Transient checkbox state for the "Don't show again" option inside the prompt (not persisted directly;
+	// only written to _dontShowEngineEffectsPrompt when the user dismisses with "No").
+	private bool _engineEffectsDontShowAgainChecked = false;
 
 	public bool ShowAssetBrowser
 	{
@@ -125,7 +133,7 @@ public partial class ImGuiManager
 
 						if (ImGui.IsItemHovered())
 						{
-							ImGui.SetTooltip(projectPath);
+							ImGuiSafe.SetTooltipSafe(projectPath);
 						}
 					}
 
@@ -286,7 +294,7 @@ public partial class ImGuiManager
 		{
 			if (ImGui.BeginMenu("Themes"))
 			{
-				ImGui.TextColored(new Vector4(0.5f, 0.8f, 1.0f, 1.0f),
+				ImGuiSafe.TextColoredSafe(new Vector4(0.5f, 0.8f, 1.0f, 1.0f),
 					$"Current: {_themeManager.CurrentThemeName}");
 				ImGui.Separator();
 
@@ -309,7 +317,7 @@ public partial class ImGuiManager
 
 			if (ImGui.BeginMenu("Layout"))
 			{
-				ImGui.TextColored(new Vector4(0.5f, 0.8f, 1.0f, 1.0f),
+				ImGuiSafe.TextColoredSafe(new Vector4(0.5f, 0.8f, 1.0f, 1.0f),
 					$"Current: {_layoutManager.CurrentLayoutName}");
 				ImGui.Separator();
 
@@ -484,7 +492,7 @@ public partial class ImGuiManager
 			bool layoutExists = _layoutManager.GetLayoutNames().Contains(_newLayoutName.Trim());
 			if (!string.IsNullOrWhiteSpace(_newLayoutName) && layoutExists)
 			{
-				ImGui.TextColored(new Vector4(1.0f, 0.6f, 0.2f, 1.0f),
+				ImGuiSafe.TextColoredSafe(new Vector4(1.0f, 0.6f, 0.2f, 1.0f),
 					$"Warning: Layout '{_newLayoutName.Trim()}' already exists and will be overwritten!");
 			}
 
@@ -554,6 +562,15 @@ public partial class ImGuiManager
 			ImGui.Spacing();
 			ImGui.TextWrapped("Would you like to compile them now?");
 
+			VoltageEditorUtils.SmallVerticalSpace();
+
+			// "Don't show again": when checked and the user dismisses with "No", the prompt is suppressed
+			// permanently. Handy on Linux where compiling the effects fails.
+			ImGui.Checkbox("Don't show again", ref _engineEffectsDontShowAgainChecked);
+			if (ImGui.IsItemHovered())
+				ImGuiSafe.SetTooltipSafe("If checked and you press \"No\", this prompt will not appear again.\n" +
+				                         "You can re-enable it later from the Effects menu.");
+
 			VoltageEditorUtils.MediumVerticalSpace();
 
 			var buttonWidth = 120f;
@@ -576,6 +593,10 @@ public partial class ImGuiManager
 
 			if (ImGui.Button("No", new Vector2(buttonWidth, 0)))
 			{
+				// Persist the suppression only when dismissing with "No" (per the user's request).
+				if (_engineEffectsDontShowAgainChecked)
+					_dontShowEngineEffectsPrompt.Value = true;
+
 				_showEngineEffectsPrompt = false;
 				_engineEffectsCheckComplete = true;
 				ImGui.CloseCurrentPopup();
@@ -602,7 +623,7 @@ public partial class ImGuiManager
 			}
 			else
 			{
-				ImGui.TextColored(new Vector4(0.7f, 1.0f, 0.7f, 1.0f),
+				ImGuiSafe.TextColoredSafe(new Vector4(0.7f, 1.0f, 0.7f, 1.0f),
 					$"Project: {_projectManager.CurrentProject.ProjectName}");
 				ImGui.Separator();
 			}
@@ -749,22 +770,22 @@ public partial class ImGuiManager
 				ImGui.BeginTooltip();
 				ImGui.Text("Active Project");
 				ImGui.Separator();
-				ImGui.TextColored(new Vector4(0.7f, 0.9f, 1.0f, 1.0f), project.ProjectName);
-				ImGui.Text($"Version: {project.Version}");
-				ImGui.Text($"Path: {project.ProjectPath}");
+				ImGuiSafe.TextColoredSafe(new Vector4(0.7f, 0.9f, 1.0f, 1.0f), project.ProjectName);
+				ImGuiSafe.TextSafe($"Version: {project.Version}");
+				ImGuiSafe.TextSafe($"Path: {project.ProjectPath}");
 				
 				if (sceneManager.HasLoadedScene)
 				{
 					ImGui.Separator();
-					ImGui.Text($"Scene: {sceneManager.CurrentSceneName}");
-					ImGui.Text($"Scene Path: {sceneManager.CurrentScenePath}");
+					ImGuiSafe.TextSafe($"Scene: {sceneManager.CurrentSceneName}");
+					ImGuiSafe.TextSafe($"Scene Path: {sceneManager.CurrentScenePath}");
 				}
 				
 				ImGui.EndTooltip();
 			}
 
 			ImGui.SameLine();
-			ImGui.TextColored(new Vector4(0.9f, 0.9f, 1.0f, 1.0f), project.ProjectName);
+			ImGuiSafe.TextColoredSafe(new Vector4(0.9f, 0.9f, 1.0f, 1.0f), project.ProjectName);
 
 			ImGui.SameLine();
 			ImGui.TextDisabled("|");
@@ -772,7 +793,7 @@ public partial class ImGuiManager
 			ImGui.SameLine();
 			if (sceneManager.HasLoadedScene)
 			{
-				ImGui.TextColored(new Vector4(0.7f, 0.9f, 0.7f, 1.0f), $"Scene: {sceneManager.CurrentSceneName}");
+				ImGuiSafe.TextColoredSafe(new Vector4(0.7f, 0.9f, 0.7f, 1.0f), $"Scene: {sceneManager.CurrentSceneName}");
 			}
 			else
 			{
@@ -783,7 +804,7 @@ public partial class ImGuiManager
 			ImGui.TextDisabled("|");
 			
 			ImGui.SameLine();
-			ImGui.TextDisabled($"v{project.Version}");
+			ImGuiSafe.TextDisabledSafe($"v{project.Version}");
 		}
 		else
 		{
@@ -854,6 +875,20 @@ public partial class ImGuiManager
 			if (!hasProject)
 			{
 				ImGui.EndDisabled();
+			}
+
+			// Let the user re-enable the "Missing Engine Effects" startup prompt if they previously
+			// dismissed it with "Don't show again".
+			if (_dontShowEngineEffectsPrompt.Value)
+			{
+				ImGui.Separator();
+				if (ImGui.MenuItem("Re-enable \"Missing Effects\" startup prompt"))
+				{
+					_dontShowEngineEffectsPrompt.Value = false;
+				}
+				if (ImGui.IsItemHovered())
+					ImGuiSafe.SetTooltipSafe("The startup warning about missing compiled engine effects is " +
+					                         "currently hidden. Click to show it again on the next launch.");
 			}
 
 			ImGui.EndMenu();
@@ -971,7 +1006,7 @@ public partial class ImGuiManager
 			ImGui.PopStyleColor(3);
 
 		if (ImGui.IsItemHovered())
-			ImGui.SetTooltip(Core.IsAudioOn ? "Audio: ON (click to mute)" : "Audio: MUTED (click to unmute)");
+			ImGuiSafe.SetTooltipSafe(Core.IsAudioOn ? "Audio: ON (click to mute)" : "Audio: MUTED (click to unmute)");
 	}
 
 	/// <summary>
@@ -1053,7 +1088,7 @@ public partial class ImGuiManager
 			ImGui.EndDisabled();
 
 		if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-			ImGui.SetTooltip(Core.IsEditMode ? "Pause (unavailable in Edit Mode)" : isPaused ? "Unpause (F2)" : "Pause (F2)");
+			ImGuiSafe.SetTooltipSafe(Core.IsEditMode ? "Pause (unavailable in Edit Mode)" : isPaused ? "Unpause (F2)" : "Pause (F2)");
 
 		ImGui.SameLine(0, spacing);
 

@@ -23,7 +23,7 @@ public class PrefabReferenceTypeInspector : AbstractTypeInspector
     {
         var current = (PrefabReference)_getter(_target);
 
-        ImGui.Text(_name);
+        ImGuiSafe.TextSafe(_name);
         ImGui.SameLine();
 
         var label = current.IsValid
@@ -45,8 +45,8 @@ public class PrefabReferenceTypeInspector : AbstractTypeInspector
         if (current.IsValid && ImGui.IsItemHovered())
         {
             ImGui.BeginTooltip();
-            ImGui.Text($"Path: {current.PrefabPath}");
-            ImGui.Text($"GUID: {current.PrefabGuid}");
+            ImGuiSafe.TextSafe($"Path: {current.PrefabPath}");
+            ImGuiSafe.TextSafe($"GUID: {current.PrefabGuid}");
             ImGui.EndTooltip();
         }
         else
@@ -82,7 +82,7 @@ public class PrefabReferenceTypeInspector : AbstractTypeInspector
         if (!ImGui.BeginPopupModal($"prefabref_picker_{_scopeId}", ref open, ImGuiWindowFlags.NoResize))
             return;
 
-        ImGui.TextColored(new Num.Vector4(0.8f, 0.5f, 1f, 1f), $"{_name}  (PrefabReference)");
+        ImGuiSafe.TextColoredSafe(new Num.Vector4(0.8f, 0.5f, 1f, 1f), $"{_name}  (PrefabReference)");
         ImGui.Separator();
 
         ImGui.SetNextItemWidth(-1);
@@ -112,7 +112,7 @@ public class PrefabReferenceTypeInspector : AbstractTypeInspector
             {
                 if (lastFolder != null)
                     ImGui.Separator();
-                ImGui.TextDisabled(entry.SubFolder ?? "Prefabs");
+                ImGuiSafe.TextDisabledSafe(entry.SubFolder ?? "Prefabs");
                 lastFolder = entry.SubFolder;
             }
 
@@ -129,7 +129,7 @@ public class PrefabReferenceTypeInspector : AbstractTypeInspector
             if (ImGui.IsItemHovered())
             {
                 ImGui.BeginTooltip();
-                ImGui.Text(entry.AbsolutePath);
+                ImGuiSafe.TextSafe(entry.AbsolutePath);
                 ImGui.EndTooltip();
             }
 

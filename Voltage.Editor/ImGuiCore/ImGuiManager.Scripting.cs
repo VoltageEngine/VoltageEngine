@@ -142,8 +142,8 @@ public partial class ImGuiManager
 
 			ImGui.TextColored(new Num.Vector4(0.2f, 0.8f, 1.0f, 1.0f), "Active Project");
 			ImGui.Separator();
-			ImGui.Text($"Project: {_projectManager.CurrentProject.ProjectName}");
-			ImGui.Text($"Scripts Folder: {_projectManager.CurrentProject.ScriptsFolder}");
+			ImGuiSafe.TextSafe($"Project: {_projectManager.CurrentProject.ProjectName}");
+			ImGuiSafe.TextSafe($"Scripts Folder: {_projectManager.CurrentProject.ScriptsFolder}");
 			
 			VoltageEditorUtils.MediumVerticalSpace();
 
@@ -233,14 +233,14 @@ public partial class ImGuiManager
 			var componentTypes = _scriptManager.GetScriptComponentTypes();
 			var entityTypes = _scriptManager.GetScriptEntityTypes();
 
-			ImGui.Text("Components: " + componentTypes.Length);
-			ImGui.Text("Entities: " + entityTypes.Length);
+			ImGuiSafe.TextSafe("Components: " + componentTypes.Length);
+			ImGuiSafe.TextSafe("Entities: " + entityTypes.Length);
 
 			if (ImGui.TreeNode("Component Types"))
 			{
 				foreach (var type in componentTypes)
 				{
-					ImGui.BulletText(type.Name);
+					ImGuiSafe.BulletTextSafe(type.Name);
 				}
 				ImGui.TreePop();
 			}
@@ -249,7 +249,7 @@ public partial class ImGuiManager
 			{
 				foreach (var type in entityTypes)
 				{
-					ImGui.BulletText(type.Name);
+					ImGuiSafe.BulletTextSafe(type.Name);
 				}
 				ImGui.TreePop();
 			}
@@ -261,7 +261,7 @@ public partial class ImGuiManager
 
 			if (ImGui.BeginChild("CompilationLog", new Num.Vector2(0, 150), true))
 			{
-				ImGui.TextWrapped(_compilationLog);
+				ImGuiSafe.TextWrappedSafe(_compilationLog);
 				ImGui.EndChild();
 			}
 

@@ -217,7 +217,7 @@ public class SceneGraphWindow
 			if (CopiedComponent != null)
 			{
 				VoltageEditorUtils.VeryBigVerticalSpace();
-				ImGui.TextWrapped($"Component Copied: {CopiedComponent.GetType().Name}");
+				ImGuiSafe.TextWrappedSafe($"Component Copied: {CopiedComponent.GetType().Name}");
 
 				VoltageEditorUtils.SmallVerticalSpace();
 				if (VoltageEditorUtils.CenteredButton("Clear Copied Component", 0.8f))
@@ -381,7 +381,7 @@ public class SceneGraphWindow
 			ImGui.Text("Delete SerializedPrefab");
 			ImGui.Separator();
 			
-			ImGui.TextWrapped($"Are you sure you want to delete the '{_prefabToDelete}' prefab completely?");
+			ImGuiSafe.TextWrappedSafe($"Are you sure you want to delete the '{_prefabToDelete}' prefab completely?");
 			ImGui.TextColored(new Num.Vector4(1.0f, 0.6f, 0.2f, 1.0f), "This action cannot be undone!");
 
 			VoltageEditorUtils.MediumVerticalSpace();

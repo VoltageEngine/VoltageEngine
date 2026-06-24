@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Voltage.Editor.Diagnostics;
 using Voltage.Utils;
 
 namespace Voltage.Editor;
@@ -15,6 +16,15 @@ public class Program
 		// Catches unhandled exceptions and logs them to a file & Editor Debug Window
 		AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
 		System.Threading.Tasks.TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+
+		// Preflight critical native runtime libraries (libGL, SDL2) BEFORE any graphics init.
+		// If they're missing, SDL/MonoGame would crash cryptically below; instead we print clear,
+		// distro-aware install instructions and exit cleanly. No-op / trivially passes off Linux.
+		if (!RuntimeDependencyPreflight.CheckCriticalOrExit())
+		{
+			Environment.Exit(1);
+			return;
+		}
 
 		using var game = new Editor();
 		game.Run();

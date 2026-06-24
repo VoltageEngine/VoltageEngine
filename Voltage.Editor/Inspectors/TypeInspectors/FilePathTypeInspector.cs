@@ -31,8 +31,20 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
         {
             var currentValue = GetValue<string>() ?? string.Empty;
 
+            // The stored value may have been saved on another OS using a different
+            // directory separator (e.g. a project authored on Windows stores
+            // "Content\Sprites\foo.png"). On Linux/macOS the backslash is a literal
+            // filename character, so normalize separators to the current platform
+            // before displaying/using the path. Persist the fix so it only happens once.
+            var normalizedValue = CrossPlatformPath.Normalize(currentValue);
+            if (!string.Equals(normalizedValue, currentValue, StringComparison.Ordinal))
+            {
+                SetValue(normalizedValue);
+                currentValue = normalizedValue;
+            }
+
             // Label column
-            ImGui.Text(_name);
+            ImGuiSafe.TextSafe(_name);
             ImGui.SameLine();
 
             // Show the current path as a selectable read-only input
@@ -74,7 +86,10 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
                     {
                         try
                         {
-                            relativePath = Path.GetRelativePath(project.ProjectPath, relativePath);
+                            // Store with forward slashes so the path stays portable across
+                            // Windows/macOS/Linux (see CrossPlatformPath.GetRelativePathForStorage).
+                            relativePath = CrossPlatformPath.GetRelativePathForStorage(
+                                project.ProjectPath, relativePath);
                         }
                         catch
                         {

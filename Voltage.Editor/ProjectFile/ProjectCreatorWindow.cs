@@ -144,7 +144,7 @@ namespace Voltage.Editor.ProjectFile
 			if (!string.IsNullOrWhiteSpace(_projectNameError))
 			{
 				ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(1.0f, 0.3f, 0.3f, 1.0f));
-				ImGui.TextWrapped(_projectNameError);
+				ImGuiSafe.TextWrappedSafe(_projectNameError);
 				ImGui.PopStyleColor();
 			}
 			
@@ -171,7 +171,7 @@ namespace Voltage.Editor.ProjectFile
 			{
 				var fullPath = Path.Combine(_projectPath, _projectName);
 				ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(0.7f, 0.7f, 0.7f, 1.0f));
-				ImGui.TextWrapped($"Full path: {fullPath}");
+				ImGuiSafe.TextWrappedSafe($"Full path: {fullPath}");
 				ImGui.PopStyleColor();
 			}
 		}
@@ -328,7 +328,7 @@ namespace Voltage.Editor.ProjectFile
 				ImGui.InputInt("Build", ref _buildVersion);
 				_buildVersion = Math.Max(0, _buildVersion);
 				
-				ImGui.TextColored(new Num.Vector4(0.7f, 0.7f, 0.7f, 1.0f), 
+				ImGuiSafe.TextColoredSafe(new Num.Vector4(0.7f, 0.7f, 0.7f, 1.0f),
 					$"Version: {_majorVersion}.{_minorVersion}.{_buildVersion}");
 				
 				ImGui.Unindent();
@@ -343,12 +343,12 @@ namespace Voltage.Editor.ProjectFile
 				
 				ImGui.TextColored(new Num.Vector4(0.7f, 1.0f, 0.7f, 1.0f), "Standard folders that will be created:");
 				
-				ImGui.BulletText($"{ScriptsFolder}/ - For game scripts and logic");
-				ImGui.BulletText($"{EffectsFolder}/ - For shader effects");
-				ImGui.BulletText($"{ContentsFolder}/ - For game assets");
-				ImGui.BulletText($"{DataFolder}/ - For game data and serialization");
-				ImGui.BulletText($"{DataFolder}/{ScenesFolder}/ - For scene files");
-				ImGui.BulletText($"{DataFolder}/{PrefabsFolder}/ - For entity prefabs");
+				ImGuiSafe.BulletTextSafe($"{ScriptsFolder}/ - For game scripts and logic");
+				ImGuiSafe.BulletTextSafe($"{EffectsFolder}/ - For shader effects");
+				ImGuiSafe.BulletTextSafe($"{ContentsFolder}/ - For game assets");
+				ImGuiSafe.BulletTextSafe($"{DataFolder}/ - For game data and serialization");
+				ImGuiSafe.BulletTextSafe($"{DataFolder}/{ScenesFolder}/ - For scene files");
+				ImGuiSafe.BulletTextSafe($"{DataFolder}/{PrefabsFolder}/ - For entity prefabs");
 				
 				ImGui.Unindent();
 			}

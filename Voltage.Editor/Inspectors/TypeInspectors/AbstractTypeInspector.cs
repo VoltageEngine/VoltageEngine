@@ -114,7 +114,7 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 			if (!string.IsNullOrEmpty(_tooltip) && ImGui.IsItemHovered())
 			{
 				ImGui.BeginTooltip();
-				ImGui.Text(_tooltip);
+				ImGuiSafe.TextSafe(_tooltip);
 				ImGui.EndTooltip();
 			}
 		}

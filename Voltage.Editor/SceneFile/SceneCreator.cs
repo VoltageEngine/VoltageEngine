@@ -81,7 +81,7 @@ namespace Voltage.Editor.SceneFile
 			if (!string.IsNullOrWhiteSpace(_sceneNameError))
 			{
 				ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(1.0f, 0.3f, 0.3f, 1.0f));
-				ImGui.TextWrapped(_sceneNameError);
+				ImGuiSafe.TextWrappedSafe(_sceneNameError);
 				ImGui.PopStyleColor();
 			}
 			

@@ -1,4 +1,12 @@
 <Project>
+	<!-- Default to Editor-Release when no configuration is specified (e.g. plain `dotnet run`).
+	     This MUST be set before the Sdk.props import, which is where the SDK defaults Configuration
+	     to 'Debug'. Without an Editor-* config, the referenced Voltage.Engine compiles without the
+	     EDITOR symbol, stripping all #if EDITOR sites (e.g. SpriteAnimator's edit-mode pause). -->
+	<PropertyGroup>
+		<Configuration Condition=" '$(Configuration)' == '' ">Editor-Release</Configuration>
+	</PropertyGroup>
+
 	<Import Sdk="Microsoft.NET.Sdk" Project="Sdk.props" />
 
 	<PropertyGroup>
@@ -16,12 +24,12 @@
 		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
 	</PropertyGroup>
 
-	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Editor-Debug|AnyCPU' ">
+	<PropertyGroup Condition=" '$(Configuration)' == 'Editor-Debug' ">
 		<DefineConstants>TRACE;DEBUG; EDITOR; EDITOR_DEBUG</DefineConstants>
 		<OutputType>Exe</OutputType>
 	</PropertyGroup>
 
-	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Editor-Release|AnyCPU' ">
+	<PropertyGroup Condition=" '$(Configuration)' == 'Editor-Release' ">
 		<DefineConstants>TRACE;EDITOR;</DefineConstants>
 	</PropertyGroup>
 

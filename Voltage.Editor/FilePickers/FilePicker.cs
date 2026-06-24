@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Voltage.Editor.Utils;
 using Num = System.Numerics;
 
 namespace Voltage.Editor.FilePickers
@@ -78,7 +79,7 @@ namespace Voltage.Editor.FilePickers
 
 		public bool Draw()
 		{
-			ImGui.Text("Current Folder: " + Path.GetFileName(RootFolder) + CurrentFolder.Replace(RootFolder, ""));
+			ImGuiSafe.TextSafe("Current Folder: " + Path.GetFileName(RootFolder) + CurrentFolder.Replace(RootFolder, ""));
 			bool result = false;
 
 			if (ImGui.BeginChildFrame(1, new Num.Vector2(500, 400)))
@@ -206,7 +207,7 @@ namespace Voltage.Editor.FilePickers
 	
 		public static void DrawFilePickerContent(FilePicker picker)
 		{
-			ImGui.Text("Current Folder: " + Path.GetFileName(picker.RootFolder) + picker.CurrentFolder.Replace(picker.RootFolder, ""));
+			ImGuiSafe.TextSafe("Current Folder: " + Path.GetFileName(picker.RootFolder) + picker.CurrentFolder.Replace(picker.RootFolder, ""));
 
 			if (ImGui.BeginChildFrame(1, new Num.Vector2(500, 400)))
 			{

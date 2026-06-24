@@ -165,7 +165,7 @@ namespace Voltage.Editor.Utils
 			var windowWidth = ImGui.GetWindowSize().X;
 			ImGui.SetCursorPosX((windowWidth - textSize.X) * 0.5f);
 			
-			ImGui.Text(title);
+			ImGuiSafe.TextSafe(title);
 			ImGui.PopStyleColor();
 		}
 
@@ -198,7 +198,7 @@ namespace Voltage.Editor.Utils
 						: new Num.Vector4(0.8f, 0.4f, 0.4f, 1.0f);
 
 					ImGui.PushStyleColor(ImGuiCol.Text, messageColor);
-					ImGui.TextWrapped(_currentProgress.CompletionMessage);
+					ImGuiSafe.TextWrappedSafe(_currentProgress.CompletionMessage);
 					ImGui.PopStyleColor();
 				}
 			}
@@ -206,7 +206,7 @@ namespace Voltage.Editor.Utils
 			{
 				ImGui.Text("Current:");
 				ImGui.SameLine();
-				ImGui.TextColored(new Num.Vector4(0.7f, 0.7f, 1.0f, 1.0f), _currentProgress.CurrentItem);
+				ImGuiSafe.TextColoredSafe(new Num.Vector4(0.7f, 0.7f, 1.0f, 1.0f), _currentProgress.CurrentItem);
 			}
 		}
 
@@ -217,7 +217,7 @@ namespace Voltage.Editor.Utils
 			// Success count
 			ImGui.TextColored(new Num.Vector4(0.4f, 0.8f, 0.4f, 1.0f), "[OK]");
 			ImGui.SameLine();
-			ImGui.Text($"Success: {_currentProgress.SuccessCount}");
+			ImGuiSafe.TextSafe($"Success: {_currentProgress.SuccessCount}");
 			
 			ImGui.SameLine(0, 30);
 			
@@ -226,13 +226,13 @@ namespace Voltage.Editor.Utils
 			{
 				ImGui.TextColored(new Num.Vector4(0.8f, 0.4f, 0.4f, 1.0f), "[X]");
 				ImGui.SameLine();
-				ImGui.Text($"Failed: {_currentProgress.FailureCount}");
+				ImGuiSafe.TextSafe($"Failed: {_currentProgress.FailureCount}");
 			}
 			else
 			{
 				ImGui.TextColored(new Num.Vector4(0.5f, 0.5f, 0.5f, 1.0f), "[X]");
 				ImGui.SameLine();
-				ImGui.TextDisabled($"Failed: {_currentProgress.FailureCount}");
+				ImGuiSafe.TextDisabledSafe($"Failed: {_currentProgress.FailureCount}");
 			}
 			
 			ImGui.EndGroup();
@@ -252,7 +252,7 @@ namespace Voltage.Editor.Utils
 				var windowWidth = ImGui.GetWindowSize().X;
 				ImGui.SetCursorPosX((windowWidth - textSize.X) * 0.5f);
 				
-				ImGui.TextDisabled(message);
+				ImGuiSafe.TextDisabledSafe(message);
 			}
 		}
 	}

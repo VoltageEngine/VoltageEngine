@@ -348,7 +348,7 @@ public class EntityPane
 			var names = _selectedEntities.Count == 1
 				? $"Move: {_selectedEntities[0].Name}"
 				: $"Move {_selectedEntities.Count} entities";
-			ImGui.Text(names);
+			ImGuiSafe.TextSafe(names);
 			ImGui.EndDragDropSource();
 		}
 
