@@ -208,7 +208,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 			if (sceneExists)
 			{
-				ImGui.TextColored(new Num.Vector4(1.0f, 0.6f, 0.2f, 1.0f),
+				ImGuiSafe.TextColoredSafe(new Num.Vector4(1.0f, 0.6f, 0.2f, 1.0f),
 					$"Warning: A scene with name '{_newSceneNameForSave}' already exists!");
 			}
 
@@ -406,6 +406,12 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			_isFirstFrame = false;
 			return;
 		}
+
+		// Surface a one-time warning for any OPTIONAL native runtime dep that was missing at startup
+		// (e.g. OpenAL → no audio). Critical deps already aborted launch before graphics init.
+		Diagnostics.RuntimeDependencyPreflight.SurfaceOptionalWarningsOnce(
+			warn: m => Debug.Warn(m, "Dependencies"),
+			notify: NotificationSystem.ShowTimedNotification);
 
 		if (ShowMenuBar)
 			DrawMainMenuBar();
@@ -608,6 +614,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	{
 		try
 		{
+			// User chose "Don't show again": never surface the prompt, regardless of effects state.
+			if (_dontShowEngineEffectsPrompt.Value)
+			{
+				_engineEffectsCheckComplete = true;
+				return;
+			}
+
 			var projectDir = FindProjectDir();
 			var effectsDir = Path.Combine(projectDir, "Content", "Voltage", "Effects");
 
@@ -886,7 +899,15 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		int zoomPercentage = (int)(currentZoom * 100f);
 		string zoomText = $"Zoom: {zoomPercentage}%";
 
-		ImGui.TextColored(new System.Numerics.Vector4(0.7f, 0.7f, 0.7f, 1.0f), zoomText);
+		// NOTE: do NOT use ImGui.TextColored here. TextColored forwards the string to the
+		// native printf-style igTextColored(col, fmt, ...), so the literal '%' in the zoom
+		// text is parsed as a format specifier and ImGui reads a non-existent vararg —
+		// over-reading adjacent memory and rendering garbage (log fragments, etc.), which
+		// also balloons the text width and pushes the mode/audio buttons off-screen.
+		// TextUnformatted renders the raw string verbatim; push the tint color manually.
+		ImGui.PushStyleColor(ImGuiCol.Text, new System.Numerics.Vector4(0.7f, 0.7f, 0.7f, 1.0f));
+		ImGui.TextUnformatted(zoomText);
+		ImGui.PopStyleColor();
 
 		if (ImGui.IsItemHovered())
 		{
@@ -1317,7 +1338,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			var pendingChanges = EditorChangeTracker.ChangedObjects;
 			if (pendingChanges.Count > 0)
 			{
-				ImGui.TextWrapped($"The following changes will be lost if you don't save before {actionContext}:");
+				ImGuiSafe.TextWrappedSafe($"The following changes will be lost if you don't save before {actionContext}:");
 				ImGui.Spacing();
 
 				float maxHeight = Math.Min(300f, pendingChanges.Count * 25f);
@@ -1326,11 +1347,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 				foreach (var (obj, description) in pendingChanges)
 				{
-					ImGui.BulletText(description);
+					ImGuiSafe.BulletTextSafe(description);
 
 					if (ImGui.IsItemHovered() && obj != null)
 					{
-						ImGui.SetTooltip($"Type: {obj.GetType().Name}");
+						ImGuiSafe.SetTooltipSafe($"Type: {obj.GetType().Name}");
 					}
 				}
 
@@ -1338,7 +1359,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				ImGui.Spacing();
 			}
 
-			ImGui.TextWrapped($"Do you want to save your changes before {actionContext}?");
+			ImGuiSafe.TextWrappedSafe($"Do you want to save your changes before {actionContext}?");
 
 			VoltageEditorUtils.MediumVerticalSpace();
 

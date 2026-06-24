@@ -170,7 +170,7 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 				ComponentReferenceTypeInspector.DraggedComponent = _component;
 				byte dummy = 1;
 				ImGui.SetDragDropPayload(ComponentReferenceTypeInspector.DragDropPayloadId, new IntPtr(&dummy), sizeof(byte));
-				ImGui.Text(_component.ToString());
+				ImGuiSafe.TextSafe(_component.ToString());
 				ImGui.EndDragDropSource();
 			}
 

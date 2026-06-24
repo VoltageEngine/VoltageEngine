@@ -340,8 +340,21 @@ public class VoltageContentManager : ContentManager
 	/// Resolves a relative content path to absolute using <see cref="ContentRoot"/>.
 	/// Absolute paths are returned unchanged.
 	/// </summary>
+	/// <remarks>
+	/// Separators are normalized to forward slashes BEFORE the path is combined with
+	/// <see cref="ContentRoot"/>. Asset paths stored in scene/asset data authored on
+	/// Windows use backslashes (e.g. "Content\Characters\foo.aseprite"). On Linux/macOS
+	/// a backslash is a literal filename character, so <see cref="Path.GetFullPath(string,string)"/>
+	/// would carry it through and the file would not be found.
+	/// </remarks>
 	private static string ResolveContentPath(string name)
-		=> Path.IsPathRooted(name) ? name : Path.GetFullPath(name, ContentRoot);
+	{
+		if (string.IsNullOrEmpty(name))
+			return name;
+
+		name = name.Replace('\\', '/');
+		return Path.IsPathRooted(name) ? name : Path.GetFullPath(name, ContentRoot);
+	}
 
 	#endregion
 

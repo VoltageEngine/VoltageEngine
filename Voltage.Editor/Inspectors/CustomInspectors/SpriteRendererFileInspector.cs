@@ -70,11 +70,11 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             {
                 if (ImGui.CollapsingHeader("Image Info", ImGuiTreeNodeFlags.DefaultOpen))
                 {
-                    ImGui.Text($"Path: {spriteRenderer.Sprite.Texture2D.Name ?? "Unknown"}");
+                    ImGuiSafe.TextSafe($"Path: {spriteRenderer.Sprite.Texture2D.Name ?? "Unknown"}");
 
                     if (spriteRenderer.Data is SpriteRenderer.SpriteRendererComponentData data)
                     {
-                        ImGui.Text($"Type: {data.FileType}");
+                        ImGuiSafe.TextSafe($"Type: {data.FileType}");
 
                         switch (data.FileType)
                         {
@@ -82,9 +82,9 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                                 if (data.AsepriteData.HasValue)
                                 {
                                     var aseData = data.AsepriteData.Value;
-                                    ImGui.Text($"Frame: {aseData.FrameNumber}");
+                                    ImGuiSafe.TextSafe($"Frame: {aseData.FrameNumber}");
                                     if (!string.IsNullOrEmpty(aseData.LayerName))
-                                        ImGui.Text($"Layer: {aseData.LayerName}");
+                                        ImGuiSafe.TextSafe($"Layer: {aseData.LayerName}");
                                 }
                                 break;
                             case SpriteRenderer.SpriteRendererComponentData.ImageFileType.Tiled:
@@ -92,7 +92,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                                 {
                                     var tiledData = data.TiledData.Value;
                                     if (!string.IsNullOrEmpty(tiledData.ImageLayerName))
-                                        ImGui.Text($"Tiled Layer: {tiledData.ImageLayerName}");
+                                        ImGuiSafe.TextSafe($"Tiled Layer: {tiledData.ImageLayerName}");
                                 }
                                 break;
                         }
@@ -145,7 +145,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             {
                 if (ImGui.CollapsingHeader("Normal Map Info", ImGuiTreeNodeFlags.DefaultOpen))
                 {
-                    ImGui.Text($"Path: {spriteRenderer.NormalMap.Texture2D.Name ?? "Unknown"}");
+                    ImGuiSafe.TextSafe($"Path: {spriteRenderer.NormalMap.Texture2D.Name ?? "Unknown"}");
                     ImGui.Spacing();
 
                     float regionWidth = ImGui.GetContentRegionAvail().X;
@@ -197,7 +197,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             if (!string.IsNullOrEmpty(_errorMessage))
             {
                 ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(1.0f, 0.6f, 0.6f, 1.0f));
-                ImGui.TextWrapped($"WARNING: {_errorMessage}");
+                ImGuiSafe.TextWrappedSafe($"WARNING: {_errorMessage}");
                 ImGui.PopStyleColor();
                 ImGui.Spacing();
             }
@@ -505,7 +505,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                             }
                             else
                             {
-                                ImGui.TextColored(new Num.Vector4(0.7f, 1.0f, 0.7f, 1), $"Selected: {_imageLayerName}");
+                                ImGuiSafe.TextColoredSafe(new Num.Vector4(0.7f, 1.0f, 0.7f, 1), $"Selected: {_imageLayerName}");
                             }
                         }
                         else if (!string.IsNullOrEmpty(selectedFile))

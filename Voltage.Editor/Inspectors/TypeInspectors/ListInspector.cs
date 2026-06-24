@@ -198,7 +198,7 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 
 			// Row: [index]  [reference button ───────────]  [X (lists only)]
 			ImGui.AlignTextToFramePadding();
-			ImGui.Text($"{index}");
+			ImGuiSafe.TextSafe($"{index}");
 			ImGui.SameLine();
 
 			float removeButtonWidth = !_isArray ? 26f : 0f;
@@ -285,7 +285,7 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 			if (!ImGui.BeginPopupModal($"reflist_epicker_{_scopeId}", ref open, ImGuiWindowFlags.NoResize))
 				return;
 
-			ImGui.TextColored(new Num.Vector4(0.4f, 1f, 0.6f, 1f),
+			ImGuiSafe.TextColoredSafe(new Num.Vector4(0.4f, 1f, 0.6f, 1f),
 				$"{_name}[{_activePickerIndex}]  ({_elementType.Name})");
 			ImGui.Separator();
 
@@ -347,7 +347,7 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 			if (!ImGui.BeginPopupModal($"reflist_cpicker_{_scopeId}", ref open, ImGuiWindowFlags.NoResize))
 				return;
 
-			ImGui.TextColored(new Num.Vector4(0.3f, 0.8f, 1f, 1f),
+			ImGuiSafe.TextColoredSafe(new Num.Vector4(0.3f, 0.8f, 1f, 1f),
 				$"{_name}[{_activePickerIndex}]  ({_elementType.Name})");
 			ImGui.Separator();
 

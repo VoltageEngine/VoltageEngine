@@ -25,12 +25,11 @@
 		<DefineConstants>TRACE</DefineConstants>
 	</PropertyGroup>
 
-	<!-- Editor configurations: EDITOR symbol defined -->
-	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Editor-Debug|AnyCPU' ">
+	<PropertyGroup Condition=" '$(Configuration)' == 'Editor-Debug' ">
 		<DefineConstants>TRACE;DEBUG;EDITOR;EDITOR_DEBUG</DefineConstants>
 	</PropertyGroup>
 
-	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Editor-Release|AnyCPU' ">
+	<PropertyGroup Condition=" '$(Configuration)' == 'Editor-Release' ">
 		<DefineConstants>TRACE;EDITOR</DefineConstants>
 	</PropertyGroup>
 

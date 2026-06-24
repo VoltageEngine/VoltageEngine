@@ -19,7 +19,7 @@ public class ComponentReferenceTypeInspector : AbstractTypeInspector
 		var current = _getter(_target) as Component;
 		var fieldType = _valueType; // e.g. SpriteAnimator
 
-		ImGui.Text(_name);
+		ImGuiSafe.TextSafe(_name);
 		ImGui.SameLine();
 
 		var label = current != null
@@ -95,7 +95,7 @@ public class ComponentReferenceTypeInspector : AbstractTypeInspector
 		if (!ImGui.BeginPopupModal($"compref_picker_{_scopeId}", ref open, ImGuiWindowFlags.NoResize))
 			return;
 
-		ImGui.TextColored(new Num.Vector4(0.3f, 0.8f, 1f, 1f), $"Select {fieldType.Name}");
+		ImGuiSafe.TextColoredSafe(new Num.Vector4(0.3f, 0.8f, 1f, 1f), $"Select {fieldType.Name}");
 		ImGui.Separator();
 
 		ImGui.SetNextItemWidth(-1);

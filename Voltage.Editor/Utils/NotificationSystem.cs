@@ -76,7 +76,7 @@ public static class NotificationSystem
 			ImGuiWindowFlags.AlwaysAutoResize |
 			ImGuiWindowFlags.NoSavedSettings))
 		{
-			ImGui.TextColored(
+			ImGuiSafe.TextColoredSafe(
 				new System.Numerics.Vector4(1, 1, 1, alpha),
 				_currentText
 			);
@@ -109,7 +109,7 @@ public static class NotificationSystem
 			ImGuiWindowFlags.AlwaysAutoResize |
 			ImGuiWindowFlags.NoSavedSettings))
 		{
-			ImGui.TextColored(
+			ImGuiSafe.TextColoredSafe(
 				new System.Numerics.Vector4(1, 1, 1, 0.5f),
 				nextText
 			);

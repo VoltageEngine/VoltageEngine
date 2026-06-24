@@ -36,9 +36,11 @@ public static class GameBuilder
 	/// <param name="platform">Target platform to publish for</param>
 	/// <param name="compileAssets">If true, assets would be compiled via MGCB (not yet implemented). If false, assets are copied raw.</param>
 	/// <param name="debugBuild">If true, publishes in Debug configuration; otherwise Release.</param>
+	/// <param name="useLinuxCompatContainer">If true, Linux AOT publishes are run inside an old-glibc
+	/// container so the binary runs on stock SteamOS / older distros. Ignored for non-Linux targets.</param>
 	/// <param name="cancellationToken">Token to cancel the build</param>
 	/// <returns>True if build succeeded</returns>
-	public static async Task<bool> BuildGameAsync(IGameProject project, BuildPlatform platform, bool compileAssets, bool debugBuild, CancellationToken cancellationToken)
+	public static async Task<bool> BuildGameAsync(IGameProject project, BuildPlatform platform, bool compileAssets, bool debugBuild, bool useLinuxCompatContainer, CancellationToken cancellationToken)
 	{
 		if (project == null)
 		{
@@ -89,9 +91,27 @@ public static class GameBuilder
 
 			cancellationToken.ThrowIfCancellationRequested();
 
+			// Safety gate for missing dependencies
+			var depResult = Voltage.Diagnostics.NativeDependencyChecker.Check(
+				Voltage.Diagnostics.NativeDependencyCatalog.BuildDependencies);
+			if (!depResult.AllPresent)
+			{
+				var missing = string.Join(", ", depResult.Missing.Select(s => s.Dependency.FriendlyName));
+				var manualCmd = Voltage.Diagnostics.LinuxPackageManager.BuildManualInstallCommand(
+					depResult.PackageManager, depResult.MissingPackages());
+				var hint = string.IsNullOrEmpty(manualCmd)
+					? "See the build documentation for your platform's toolchain requirements."
+					: $"Install them with: {manualCmd}";
+				Debug.Error(
+					$"Cannot publish: missing native build dependencies ({missing}). {hint}", "GameBuilder");
+				OnBuildFinished?.Invoke(false, $"Missing build dependencies: {missing}. {hint}");
+				EngineLibsSync.SyncToProject(project.ProjectPath);
+				return false;
+			}
+
 			// 2)  Publish the game project (self-contained + trimmed)
 			OnBuildStepStarted?.Invoke($"Publishing game executable ({platform.DisplayName}, {configuration}, AOT + Trimmed)...");
-			bool publishSuccess = await Task.Run(() => PublishProject(project, platform, configuration, buildDir, cancellationToken), cancellationToken);
+			bool publishSuccess = await Task.Run(() => PublishProject(project, platform, configuration, buildDir, useLinuxCompatContainer, cancellationToken), cancellationToken);
 			OnBuildStepCompleted?.Invoke("Publish game executable", publishSuccess);
 
 			// Restore editor-flavored DLLs immediately after publish so the Roslyn script
@@ -167,7 +187,7 @@ public static class GameBuilder
 	/// Publishes the game project using dotnet publish as an AOT, trimmed deployment.
 	/// Note: EngineLibs should already contain runtime (non-EDITOR) DLLs at this point.
 	/// </summary>
-	private static bool PublishProject(IGameProject project, BuildPlatform platform, string configuration, string buildDir, CancellationToken cancellationToken)
+	private static bool PublishProject(IGameProject project, BuildPlatform platform, string configuration, string buildDir, bool useLinuxCompatContainer, CancellationToken cancellationToken)
 	{
 		try
 		{
@@ -185,6 +205,36 @@ public static class GameBuilder
 			// Without it, NativeAOT strips type metadata needed by the JSON serializer.
 			EngineLibsSync.SyncTrimmerRoots(project.ProjectPath);
 			EnsureTrimmerRootsInCsproj(csprojPath);
+
+			// Linux NativeAOT binaries are linked against the build machine's glibc. The editor often
+			// runs inside a recent distrobox (newer glibc than the SteamOS host / older distros), so a
+			// direct publish produces a binary that only starts in that build environment. Routing the
+			// "publish" through an old-glibc container fixes the floor.
+			if (useLinuxCompatContainer && LinuxContainerBuild.IsLinux(platform))
+			{
+				var outcome = LinuxContainerBuild.Publish(
+					csprojPath, project.ProjectName, project.ProjectPath, platform.RuntimeIdentifier,
+					configuration, buildDir, cancellationToken, out var containerMessage);
+
+				switch (outcome)
+				{
+					case LinuxContainerBuild.Outcome.Succeeded:
+						EditorDebug.Log($"Linux publish: {containerMessage}.", "GameBuilder");
+						return true;
+
+					case LinuxContainerBuild.Outcome.Failed:
+						Debug.Error($"Linux container publish failed: {containerMessage}. Check console for details.");
+						return false;
+
+					case LinuxContainerBuild.Outcome.Unavailable:
+					default:
+						EditorDebug.Warn(
+							$"glibc-compat container unavailable ({containerMessage}). Falling back to a direct " +
+							"NativeAOT publish — the resulting binary may require this machine's glibc and may not " +
+							"run on stock SteamOS or older Linux systems.", "GameBuilder");
+						break; // Fall through to the direct publish below.
+				}
+			}
 
 			var arguments = $"publish \"{csprojPath}\" " +
 			                $"-c {configuration} " +

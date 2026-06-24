@@ -151,7 +151,7 @@ public class SceneComponentsPane
 			VoltageEditorUtils.SmallVerticalSpace();
 
 			var types = GetFilteredSceneComponentTypes();
-			ImGui.Text($"Available ({types.Count}):");
+			ImGuiSafe.TextSafe($"Available ({types.Count}):");
 			ImGui.Separator();
 
 			if (ImGui.BeginChild("SCList", new Num.Vector2(0, 350), true))
@@ -165,11 +165,11 @@ public class SceneComponentsPane
 					}
 
 					if (ImGui.IsItemHovered())
-						ImGui.SetTooltip(type.FullName);
+						ImGuiSafe.SetTooltipSafe(type.FullName);
 
 					ImGui.SameLine();
 					ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(0.6f, 0.6f, 0.6f, 1f));
-					ImGui.Text($"({type.Namespace})");
+					ImGuiSafe.TextSafe($"({type.Namespace})");
 					ImGui.PopStyleColor();
 				}
 			}

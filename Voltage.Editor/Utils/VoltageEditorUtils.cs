@@ -61,7 +61,7 @@ namespace Voltage.Editor.Utils
 			var wasClicked = ImGui.Button(buttonText);
 			ImGui.SameLine(0,
 				ImGui.GetWindowWidth() * 0.65f - ImGui.GetItemRectSize().X + ImGui.GetStyle().ItemInnerSpacing.X);
-			ImGui.Text(label);
+			ImGuiSafe.TextSafe(label);
 
 			return wasClicked;
 		}
@@ -128,7 +128,7 @@ namespace Voltage.Editor.Utils
 			{
 				result = false;
 
-				ImGui.TextWrapped(message);
+				ImGuiSafe.TextWrappedSafe(message);
 				MediumVerticalSpace();
 				ImGui.Separator();
 				SmallVerticalSpace();

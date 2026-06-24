@@ -112,7 +112,7 @@ namespace Voltage.Editor.FilePickers
 
                     if (ImGui.IsItemHovered())
                     {
-                        ImGui.SetTooltip("If TRUE, collider object layers from the TMX file will be loaded.\n" +
+                        ImGuiSafe.SetTooltipSafe("If TRUE, collider object layers from the TMX file will be loaded.\n" +
                                        "This includes both 'Colliders' and 'Ledges' object groups.");
                     }
 
@@ -121,7 +121,7 @@ namespace Voltage.Editor.FilePickers
                     ImGui.TextWrapped("Select Image Mode:");
                     if (ImGui.IsItemHovered())
                     {
-	                    ImGui.SetTooltip(
+	                    ImGuiSafe.SetTooltipSafe(
 		                    "Choose how image layers from the TMX file should be loaded:\n\n" +
 		                    " None: No image layers will be loaded\n" +
 		                    " Separate Layers: Each image layer becomes its own SpriteEntity\n" +

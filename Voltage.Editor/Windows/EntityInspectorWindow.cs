@@ -130,7 +130,7 @@ public class EntityInspectorWindow
 			ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(0.8f, 0.8f, 0.8f, 1.0f));
 			for (int i = 0; i < _imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities.Count; i++)
 			{
-				ImGui.Text($"{i + 1}. {_imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities[i].Name}");
+				ImGuiSafe.TextSafe($"{i + 1}. {_imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities[i].Name}");
 			}
 
 			ImGui.PopStyleColor();
@@ -149,7 +149,7 @@ public class EntityInspectorWindow
 		{
 			var entityName = Entity.Name;
 			ImGui.SetWindowFontScale(1.5f);
-			ImGui.Text(entityName);
+			ImGuiSafe.TextSafe(entityName);
 			ImGui.SetWindowFontScale(1.0f);
 
 			float spacing = 12f * _imGuiManager.FontSizeMultiplier;
@@ -699,7 +699,7 @@ public class EntityInspectorWindow
 
 			var componentTypes = GetFilteredComponentTypes();
 
-			ImGui.Text($"Available Components ({componentTypes.Count}):");
+			ImGuiSafe.TextSafe($"Available Components ({componentTypes.Count}):");
 			ImGui.Separator();
 
 			if (ImGui.BeginChild("ComponentList", new Num.Vector2(0, 350), true))
@@ -718,13 +718,13 @@ public class EntityInspectorWindow
 
 					if (ImGui.IsItemHovered())
 					{
-						ImGui.SetTooltip($"{componentType.FullName}");
+						ImGuiSafe.SetTooltipSafe($"{componentType.FullName}");
 					}
 
 					// Show namespace in smaller text
 					ImGui.SameLine();
 					ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(0.6f, 0.6f, 0.6f, 1.0f));
-					ImGui.Text(namespace_text);
+					ImGuiSafe.TextSafe(namespace_text);
 					ImGui.PopStyleColor();
 				}
 			}
@@ -844,7 +844,7 @@ public class EntityInspectorWindow
 			
 			if (prefabExists)
 			{
-				ImGui.TextColored(new Num.Vector4(1.0f, 0.2f, 0.2f, 1.0f), $"Warning: SerializedPrefab '{correctedName}' already exists!");
+				ImGuiSafe.TextColoredSafe(new Num.Vector4(1.0f, 0.2f, 0.2f, 1.0f), $"Warning: SerializedPrefab '{correctedName}' already exists!");
 			}
 
 			VoltageEditorUtils.MediumVerticalSpace();
@@ -1150,20 +1150,20 @@ public class EntityInspectorWindow
 			ImGui.Text("Apply Changes to SerializedPrefab Copies");
 			ImGui.Separator();
 			
-			ImGui.TextWrapped($"You are going to change prefab values for these entities:");
+			ImGuiSafe.TextWrappedSafe($"You are going to change prefab values for these entities:");
 			
 			VoltageEditorUtils.SmallVerticalSpace();
 			
 			// Show the list of entities that will be affected
-			ImGui.TextColored(new Num.Vector4(1.0f, 0.8f, 0.2f, 1.0f), $"SerializedPrefab: {Entity.OriginalPrefabName}");
-			ImGui.TextColored(new Num.Vector4(0.8f, 0.8f, 0.8f, 1.0f), $"Entities to be modified ({_prefabCopiesToModify.Count}):");
+			ImGuiSafe.TextColoredSafe(new Num.Vector4(1.0f, 0.8f, 0.2f, 1.0f), $"SerializedPrefab: {Entity.OriginalPrefabName}");
+			ImGuiSafe.TextColoredSafe(new Num.Vector4(0.8f, 0.8f, 0.8f, 1.0f), $"Entities to be modified ({_prefabCopiesToModify.Count}):");
 
 			// Create a scrollable region for the entity list
 			if (ImGui.BeginChild("EntityList", new Num.Vector2(0, Math.Min(200, _prefabCopiesToModify.Count * 80 + 20)), true))
 			{
 				foreach (var prefabCopy in _prefabCopiesToModify)
 				{
-					ImGui.BulletText($"{prefabCopy.Name}");
+					ImGuiSafe.BulletTextSafe($"{prefabCopy.Name}");
 					ImGui.Dummy(new Num.Vector2(0, 2)); // spacing between items
 				}
 			}
@@ -1223,7 +1223,7 @@ public class EntityInspectorWindow
 		bool open = true;
 		if (ImGui.BeginPopupModal("apply-to-original-prefab-confirmation", ref open, ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar))
 		{
-			ImGui.TextColored(new Num.Vector4(1.0f, 0.6f, 0.2f, 1.0f), $"Are you sure you want to override the data of '{Entity.OriginalPrefabName}'?");
+			ImGuiSafe.TextColoredSafe(new Num.Vector4(1.0f, 0.6f, 0.2f, 1.0f), $"Are you sure you want to override the data of '{Entity.OriginalPrefabName}'?");
 			ImGui.Separator();
 			ImGui.TextWrapped("This action will overwrite the original prefab file and cannot be undone outside of this session.");
 
@@ -1331,7 +1331,7 @@ public class EntityInspectorWindow
 
 		// Header with count.
 		ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(1f, 0.75f, 0.2f, 1f));
-		ImGui.Text($"Overrides: {totalOverrides} component(s)");
+		ImGuiSafe.TextSafe($"Overrides: {totalOverrides} component(s)");
 		ImGui.PopStyleColor();
 
 		VoltageEditorUtils.SmallVerticalSpace();
@@ -1346,7 +1346,7 @@ public class EntityInspectorWindow
 				ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(1f, 0.85f, 0.3f, 1f));
 				ImGui.Bullet();
 				ImGui.SameLine();
-				ImGui.Text(name);
+				ImGuiSafe.TextSafe(name);
 				ImGui.PopStyleColor();
 
 				ImGui.SameLine(ImGui.GetContentRegionAvail().X - 60f);
@@ -1354,7 +1354,7 @@ public class EntityInspectorWindow
 					_revertComponentName = name;
 
 				if (ImGui.IsItemHovered())
-					ImGui.SetTooltip($"Revert '{name}' to the prefab's version.");
+					ImGuiSafe.SetTooltipSafe($"Revert '{name}' to the prefab's version.");
 			}
 
 			// Removed components.
@@ -1365,7 +1365,7 @@ public class EntityInspectorWindow
 					ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(1f, 0.4f, 0.4f, 1f));
 					ImGui.Bullet();
 					ImGui.SameLine();
-					ImGui.Text($"{name}  (removed)");
+					ImGuiSafe.TextSafe($"{name}  (removed)");
 					ImGui.PopStyleColor();
 
 					ImGui.SameLine(ImGui.GetContentRegionAvail().X - 60f);
@@ -1373,7 +1373,7 @@ public class EntityInspectorWindow
 						_revertComponentName = name;
 
 					if (ImGui.IsItemHovered())
-						ImGui.SetTooltip($"Restore '{name}' from the prefab.");
+						ImGuiSafe.SetTooltipSafe($"Restore '{name}' from the prefab.");
 				}
 			}
 		}
@@ -1407,7 +1407,7 @@ public class EntityInspectorWindow
 			ImGui.TextColored(new Num.Vector4(1f, 0.6f, 0.2f, 1f),
 				"Revert all component overrides to prefab?");
 			ImGui.Separator();
-			ImGui.TextWrapped(
+			ImGuiSafe.TextWrappedSafe(
 				$"This will discard all overrides on '{Entity?.Name}' and restore it to the " +
 				$"current '{Entity?.OriginalPrefabName}' prefab state. The entity position and " +
 				"rotation are NOT affected.");
@@ -1451,10 +1451,10 @@ public class EntityInspectorWindow
 			ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar))
 		{
 			var compName = _revertComponentName ?? "(unknown)";
-			ImGui.TextColored(new Num.Vector4(1f, 0.6f, 0.2f, 1f),
+			ImGuiSafe.TextColoredSafe(new Num.Vector4(1f, 0.6f, 0.2f, 1f),
 				$"Revert '{compName}' to prefab version?");
 			ImGui.Separator();
-			ImGui.TextWrapped(
+			ImGuiSafe.TextWrappedSafe(
 				$"The component '{compName}' on '{Entity?.Name}' will be restored to the " +
 				$"'{Entity?.OriginalPrefabName}' prefab's version.  If the component was removed " +
 				"on this instance it will be re-added from the prefab.");

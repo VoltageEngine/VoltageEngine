@@ -37,7 +37,7 @@ public class TransformInspector
     {
         if (ImGui.CollapsingHeader("Transform", ImGuiTreeNodeFlags.DefaultOpen))
         {
-            ImGui.LabelText("Children", _transform.ChildCount.ToString());
+            ImGuiSafe.LabelTextSafe("Children", _transform.ChildCount.ToString());
 
             if (_transform.Parent == null)
             {

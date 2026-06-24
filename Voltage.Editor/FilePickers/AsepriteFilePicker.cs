@@ -9,7 +9,6 @@ using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Utils;
-using Voltage.Editor.Utils;
 using Num = System.Numerics;
 using Voltage.Project;
 
@@ -123,7 +122,7 @@ namespace Voltage.Editor.FilePickers
 
                 if (ImGui.IsItemHovered())
                 {
-                    ImGui.SetTooltip("If FALSE, then for each selected layer, a SpriteEntity will be created.\n " +
+                    ImGuiSafe.SetTooltipSafe("If FALSE, then for each selected layer, a SpriteEntity will be created.\n " +
                                      "If TRUE, all visible layers will be merged into a single SpriteEntity.");
                 }
 
@@ -145,7 +144,7 @@ namespace Voltage.Editor.FilePickers
 
                 if (ImGui.IsItemHovered())
                 {
-	                ImGui.SetTooltip("If FALSE, then for each selected layer, a SpriteEntity will be created.\n " +
+	                ImGuiSafe.SetTooltipSafe("If FALSE, then for each selected layer, a SpriteEntity will be created.\n " +
 	                                 "If TRUE, all visible layers will be merged into a single SpriteEntity.");
                 }
 
@@ -281,7 +280,7 @@ namespace Voltage.Editor.FilePickers
 
             if (_selectedLayers.Count > 0)
             {
-                ImGui.TextColored(new Num.Vector4(0.7f, 1.0f, 0.7f, 1.0f), 
+                ImGuiSafe.TextColoredSafe(new Num.Vector4(0.7f, 1.0f, 0.7f, 1.0f),
                     $"Selected {_selectedLayers.Count} layer(s): {string.Join(", ", _selectedLayers)}");
             }
             else
@@ -299,7 +298,7 @@ namespace Voltage.Editor.FilePickers
         private void DrawFrameSelection()
         {
             ImGui.TextColored(new Num.Vector4(0.8f, 0.9f, 1.0f, 1.0f), "Frame Selection:");
-            ImGui.TextWrapped($"Total frames: {_totalFrames}. Select a range or individual frames:");
+            ImGuiSafe.TextWrappedSafe($"Total frames: {_totalFrames}. Select a range or individual frames:");
             
             ImGui.Spacing();
             
@@ -342,7 +341,7 @@ namespace Voltage.Editor.FilePickers
             
             if (_selectedFrames.Count > 0) 
             {
-                ImGui.TextColored(new Num.Vector4(0.7f, 1.0f, 0.7f, 1.0f), 
+                ImGuiSafe.TextColoredSafe(new Num.Vector4(0.7f, 1.0f, 0.7f, 1.0f),
                     $"Selected frames ({_selectedFrames.Count}): {string.Join(", ", _selectedFrames)}");
             }
             else
