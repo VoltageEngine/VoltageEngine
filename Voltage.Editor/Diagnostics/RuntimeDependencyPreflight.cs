@@ -66,7 +66,7 @@ namespace Voltage.Editor.Diagnostics
 			sb.AppendLine();
 
 			var packages = result.MissingPackages();
-			var manual = LinuxPackageManager.BuildManualInstallCommand(result.PackageManager, packages);
+			var manual = HostPackageManager.BuildManualInstallCommand(result.PackageManager, packages);
 
 			if (result.ImmutableRoot)
 			{
@@ -117,7 +117,7 @@ namespace Voltage.Editor.Diagnostics
 
 			var names = string.Join(", ", optionalMissing);
 			var packages = LastResult.MissingPackages();
-			var manual = LinuxPackageManager.BuildManualInstallCommand(LastResult.PackageManager, packages);
+			var manual = HostPackageManager.BuildManualInstallCommand(LastResult.PackageManager, packages);
 
 			var msg = $"Optional native libraries are missing: {names}. " +
 			          "Some features (e.g. audio) may be unavailable.";

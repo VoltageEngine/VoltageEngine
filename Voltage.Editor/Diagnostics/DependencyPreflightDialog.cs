@@ -32,10 +32,24 @@ namespace Voltage.Editor.Diagnostics
 		private string _statusMessage;
 		private Num.Vector4 _statusColor = Colors.Info;
 
+		// When true, the proceed button stays available even while deps are missing ("Build anyway"): the
+		// preflight is advisory, and the real publish is the authority on whether the toolchain is usable.
+		private bool _allowProceedWhenMissing;
+
+		// When true, show a "Don't show this check again before building" checkbox.
+		private bool _showSuppressOption;
+		private bool _suppressChecked;
+
 		// Callbacks
 		private IReadOnlyList<NativeDependency> _dependencySet;
-		private Action _onProceed;   // user cleared/ignored deps and wants to continue (build only)
+		private Action _onProceed;   // user wants to continue to the build (build flow only)
 		private Action _onCancel;    // user backed out
+
+		/// <summary>
+		/// True when the user ticked "Don't show again" before closing. The caller reads this in its
+		/// proceed/cancel callbacks to persist the preference. Reset each time the dialog is opened.
+		/// </summary>
+		public bool SuppressFutureChecksRequested => _suppressChecked;
 
 		private static class Colors
 		{
@@ -56,15 +70,22 @@ namespace Voltage.Editor.Diagnostics
 		/// <param name="intro">A sentence explaining why this appeared (build vs runtime).</param>
 		/// <param name="result">The dependency check result to display.</param>
 		/// <param name="dependencySet">The dependency set, used for the "Recheck" button.</param>
-		/// <param name="onProceed">Invoked if the user chooses to proceed anyway (optional; build flow).</param>
+		/// <param name="onProceed">Invoked if the user chooses to proceed to the build (optional; build flow).</param>
 		/// <param name="onCancel">Invoked if the user cancels/closes.</param>
+		/// <param name="allowProceedWhenMissing">
+		/// When true the proceed button stays enabled even while deps are missing ("Build anyway"). Used by the
+		/// advisory pre-build check so a detection miss never blocks a build that would otherwise succeed.
+		/// </param>
+		/// <param name="showSuppressOption">When true, show a "Don't show again" checkbox (build flow only).</param>
 		public void Open(
 			string title,
 			string intro,
 			DependencyCheckResult result,
 			IReadOnlyList<NativeDependency> dependencySet,
 			Action onProceed,
-			Action onCancel)
+			Action onCancel,
+			bool allowProceedWhenMissing = false,
+			bool showSuppressOption = false)
 		{
 			_title = title;
 			_intro = intro;
@@ -72,6 +93,9 @@ namespace Voltage.Editor.Diagnostics
 			_dependencySet = dependencySet;
 			_onProceed = onProceed;
 			_onCancel = onCancel;
+			_allowProceedWhenMissing = allowProceedWhenMissing;
+			_showSuppressOption = showSuppressOption;
+			_suppressChecked = false;
 			_statusMessage = null;
 			_isInstalling = false;
 			_requestOpen = true;
@@ -135,6 +159,18 @@ namespace Voltage.Editor.Diagnostics
 					ImGui.Spacing();
 					ImGui.Separator();
 					ImGuiSafe.TextColoredSafe(_statusColor, _statusMessage);
+				}
+
+				if (_showSuppressOption)
+				{
+					ImGui.Spacing();
+					var suppress = _suppressChecked;
+					if (ImGui.Checkbox("Don't show this check again before building", ref suppress))
+						_suppressChecked = suppress;
+					if (ImGui.IsItemHovered())
+						ImGuiSafe.SetTooltipSafe(
+							"Skips this automatic check before each build. You can still verify the toolchain\n" +
+							"anytime with the \"Check Dependencies\" button in the build window.");
 				}
 
 				ImGui.Spacing();
@@ -203,7 +239,7 @@ namespace Voltage.Editor.Diagnostics
 				return;
 			}
 
-			var manual = LinuxPackageManager.BuildManualInstallCommand(_result.PackageManager, packages);
+			var manual = HostPackageManager.BuildManualInstallCommand(_result.PackageManager, packages);
 			if (!string.IsNullOrEmpty(manual))
 			{
 				ImGui.TextWrapped("Run this to install the missing dependencies:");
@@ -349,19 +385,35 @@ namespace Voltage.Editor.Diagnostics
 
 			ImGui.SameLine();
 
-			// If the user resolved everything, the primary action becomes "Continue".
-			if (_result.AllPresent && _onProceed != null)
+			// Proceed button. When everything is present it's the blue "Continue"; when deps are still missing
+			// but proceeding is allowed (advisory build flow) it's an amber "Build anyway" — the real publish
+			// is the authority, so a detection miss must not trap the user. Hidden when no build is pending.
+			bool canProceed = _onProceed != null && (_result.AllPresent || _allowProceedWhenMissing);
+			if (canProceed)
 			{
-				ImGui.PushStyleColor(ImGuiCol.Button, new Num.Vector4(0.15f, 0.45f, 0.7f, 1.0f));
-				if (ImGui.Button("Continue", new Num.Vector2(120, buttonHeight)))
+				bool present = _result.AllPresent;
+				var label = present ? "Continue" : "Build anyway";
+				var color = present
+					? new Num.Vector4(0.15f, 0.45f, 0.7f, 1.0f)   // blue
+					: new Num.Vector4(0.7f, 0.5f, 0.15f, 1.0f);   // amber
+
+				ImGui.PushStyleColor(ImGuiCol.Button, color);
+				bool clicked = ImGui.Button(label, new Num.Vector2(120, buttonHeight));
+				ImGui.PopStyleColor();
+
+				if (!present && ImGui.IsItemHovered())
+					ImGuiSafe.SetTooltipSafe(
+						"Some tools weren't detected, but detection isn't perfect. If you installed them in a\n" +
+						"non-standard way the build can still succeed; the publish will report a specific error\n" +
+						"if anything is genuinely missing.");
+
+				if (clicked)
 				{
-					ImGui.PopStyleColor();
 					if (busy) ImGui.EndDisabled();
 					Close();
 					_onProceed.Invoke();
 					return;
 				}
-				ImGui.PopStyleColor();
 				ImGui.SameLine();
 			}
 

@@ -17,12 +17,12 @@ namespace Voltage.Diagnostics
 		/// startup check trivially passes. libGL and SDL2 are CRITICAL; OpenAL is OPTIONAL (audio only).
 		/// </summary>
 		public static IReadOnlyList<NativeDependency> RuntimeDependencies =>
-			LinuxPackageManager.IsLinux ? LinuxRuntimeDependencies : Array.Empty<NativeDependency>();
+			HostPackageManager.IsLinux ? LinuxRuntimeDependencies : Array.Empty<NativeDependency>();
 
 		/// <summary>
 		/// Toolchain dependencies required by the NativeAOT publish, selected for the current host platform.
 		/// </summary>
-		public static IReadOnlyList<NativeDependency> BuildDependencies => LinuxPackageManager.Platform switch
+		public static IReadOnlyList<NativeDependency> BuildDependencies => HostPackageManager.Platform switch
 		{
 			HostPlatform.Linux => LinuxBuildDependencies,
 			HostPlatform.Windows => WindowsBuildDependencies,
@@ -151,6 +151,10 @@ namespace Voltage.Diagnostics
 				Kind = DependencyKind.Executable,
 				Probe = "cl",          // cl.exe — only on PATH inside a Developer/VS command prompt
 				AltProbes = new[] { "link" },
+				// cl.exe/link.exe are not on the machine PATH (only inside a VS Developer Command Prompt), so a
+				// PATH probe always reports them missing. Detect the toolset by its real install location via
+				// vswhere instead — exactly how the NativeAOT publish locates it.
+				DetectionOverride = WindowsToolchain.HasMsvcBuildTools,
 				Severity = DependencySeverity.Build,
 				PackageNames = new Dictionary<PackageManagerKind, string>
 				{
@@ -166,6 +170,9 @@ namespace Voltage.Diagnostics
 				Kind = DependencyKind.Executable,
 				Probe = "rc",          // rc.exe (Resource Compiler) ships with the Windows SDK
 				AltProbes = new[] { "mt" },
+				// Same story as the MSVC tools: the SDK's rc.exe lives under "Windows Kits\<ver>\bin" and is not
+				// on PATH outside a Developer Command Prompt. Detect it on disk instead of via PATH.
+				DetectionOverride = WindowsToolchain.HasWindowsSdk,
 				Severity = DependencySeverity.Build,
 				PackageNames = new Dictionary<PackageManagerKind, string>
 				{
@@ -191,6 +198,9 @@ namespace Voltage.Diagnostics
 				Kind = DependencyKind.Executable,
 				Probe = "clang",
 				AltProbes = new[] { "ld" },
+				// /usr/bin/clang is a shim that exists even without the tools installed, so a PATH probe is a
+				// false positive. Detect via xcode-select/xcrun instead (covers Intel and Apple Silicon alike).
+				DetectionOverride = MacToolchain.HasCommandLineTools,
 				Severity = DependencySeverity.Build,
 				// Homebrew is not the right tool for the CLT; the canonical install is xcode-select.
 				PackageNames = new Dictionary<PackageManagerKind, string>(),
