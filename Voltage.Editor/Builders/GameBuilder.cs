@@ -91,22 +91,22 @@ public static class GameBuilder
 
 			cancellationToken.ThrowIfCancellationRequested();
 
-			// Safety gate for missing dependencies
+			// Advisory toolchain check. Detection is best-effort, so a miss must NOT abort a build that would
+			// otherwise succeed (the user may have installed the tools in a way our probes don't recognize).
+			// We log a heads-up and let the publish below be the authority: if a dependency is genuinely
+			// missing, dotnet/the AOT linker fails with a specific, surfaced error.
 			var depResult = Voltage.Diagnostics.NativeDependencyChecker.Check(
 				Voltage.Diagnostics.NativeDependencyCatalog.BuildDependencies);
 			if (!depResult.AllPresent)
 			{
 				var missing = string.Join(", ", depResult.Missing.Select(s => s.Dependency.FriendlyName));
-				var manualCmd = Voltage.Diagnostics.LinuxPackageManager.BuildManualInstallCommand(
+				var manualCmd = Voltage.Diagnostics.HostPackageManager.BuildManualInstallCommand(
 					depResult.PackageManager, depResult.MissingPackages());
 				var hint = string.IsNullOrEmpty(manualCmd)
 					? "See the build documentation for your platform's toolchain requirements."
-					: $"Install them with: {manualCmd}";
-				Debug.Error(
-					$"Cannot publish: missing native build dependencies ({missing}). {hint}", "GameBuilder");
-				OnBuildFinished?.Invoke(false, $"Missing build dependencies: {missing}. {hint}");
-				EngineLibsSync.SyncToProject(project.ProjectPath);
-				return false;
+					: $"If the publish fails, install them with: {manualCmd}";
+				Debug.Warn(
+					$"Build toolchain not fully detected ({missing}). Proceeding anyway. {hint}", "GameBuilder");
 			}
 
 			// 2)  Publish the game project (self-contained + trimmed)

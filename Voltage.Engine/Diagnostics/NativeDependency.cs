@@ -105,6 +105,15 @@ namespace Voltage.Diagnostics
 		public string DownloadUrl { get; init; }
 
 		/// <summary>
+		/// Optional custom presence detector. When set it REPLACES the <see cref="Kind"/>-based probe entirely.
+		/// Used for dependencies that cannot be located on PATH or in the dynamic linker cache — e.g. the
+		/// Windows MSVC toolset and Windows SDK, which live in versioned install folders and are only added to
+		/// PATH inside a Visual Studio Developer Command Prompt (see <see cref="WindowsToolchain"/>). Returns
+		/// true when the dependency is present. Must be side-effect free and not throw.
+		/// </summary>
+		public Func<bool> DetectionOverride { get; init; }
+
+		/// <summary>
 		/// Returns the package name for the given package manager, or null if none is curated.
 		/// </summary>
 		public string PackageFor(PackageManagerKind pm) =>

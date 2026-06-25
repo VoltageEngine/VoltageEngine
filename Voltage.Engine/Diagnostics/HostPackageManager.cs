@@ -33,10 +33,11 @@ namespace Voltage.Diagnostics
 	}
 
 	/// <summary>
-	/// Detects the host Linux distribution and its package manager, and builds the install command
-	/// template used by the dependency preflight. All detection is best-effort and side-effect free.
+	/// Detects the host platform and its package manager (Linux apt/dnf/pacman/zypper, macOS Homebrew,
+	/// Windows winget) and builds the install command template used by the dependency preflight. All
+	/// detection is best-effort and side-effect free.
 	/// </summary>
-	public static class LinuxPackageManager
+	public static class HostPackageManager
 	{
 		private static PackageManagerKind? _cachedKind;
 		private static string _cachedDistroId;

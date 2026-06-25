@@ -58,12 +58,12 @@ namespace Voltage.Diagnostics
 				if (ImmutableRoot || MissingPackages().Count == 0)
 					return false;
 
-				return LinuxPackageManager.Platform switch
+				return HostPackageManager.Platform switch
 				{
 					HostPlatform.Linux =>
-						PackageManager != PackageManagerKind.None && LinuxPackageManager.ExecutableExists("pkexec"),
+						PackageManager != PackageManagerKind.None && HostPackageManager.ExecutableExists("pkexec"),
 					HostPlatform.Windows =>
-						PackageManager == PackageManagerKind.Winget && LinuxPackageManager.ExecutableExists("winget"),
+						PackageManager == PackageManagerKind.Winget && HostPackageManager.ExecutableExists("winget"),
 					_ => false
 				};
 			}
@@ -97,7 +97,7 @@ namespace Voltage.Diagnostics
 		/// </summary>
 		public static DependencyCheckResult Check(IReadOnlyList<NativeDependency> dependencies)
 		{
-			var pm = LinuxPackageManager.Detect();
+			var pm = HostPackageManager.Detect();
 			var statuses = new List<DependencyStatus>(dependencies.Count);
 
 			foreach (var dep in dependencies)
@@ -113,8 +113,8 @@ namespace Voltage.Diagnostics
 			{
 				Statuses = statuses,
 				PackageManager = pm,
-				DistroName = LinuxPackageManager.DistroPrettyName,
-				ImmutableRoot = LinuxPackageManager.IsImmutableRootFilesystem()
+				DistroName = HostPackageManager.DistroPrettyName,
+				ImmutableRoot = HostPackageManager.IsImmutableRootFilesystem()
 			};
 		}
 
@@ -128,6 +128,14 @@ namespace Voltage.Diagnostics
 
 		private static bool IsPresent(NativeDependency dep)
 		{
+			// A custom detector takes precedence over the Kind-based probe (e.g. the Windows MSVC/SDK toolset,
+			// which lives in versioned install dirs and is not on PATH outside a VS Developer Command Prompt).
+			if (dep.DetectionOverride != null)
+			{
+				try { return dep.DetectionOverride(); }
+				catch { return false; }
+			}
+
 			return dep.Kind switch
 			{
 				DependencyKind.Executable => ExecutablePresent(dep),
@@ -146,7 +154,7 @@ namespace Voltage.Diagnostics
 		/// </summary>
 		private static bool LinkLibraryPresent(NativeDependency dep)
 		{
-			if (!LinuxPackageManager.IsLinux)
+			if (!HostPackageManager.IsLinux)
 				return true; // On Windows/macOS link deps are modeled as executables / SDKs, not -l libs.
 
 			var name = dep.Probe; // e.g. "z", "SDL2"
@@ -228,7 +236,7 @@ namespace Voltage.Diagnostics
 		{
 			foreach (var cc in new[] { "cc", "gcc", "clang" })
 			{
-				if (!LinuxPackageManager.ExecutableExists(cc))
+				if (!HostPackageManager.ExecutableExists(cc))
 					continue;
 
 				var dirs = new List<string>();
@@ -278,9 +286,9 @@ namespace Voltage.Diagnostics
 
 		private static bool ExecutablePresent(NativeDependency dep)
 		{
-			if (LinuxPackageManager.ExecutableExists(dep.Probe))
+			if (HostPackageManager.ExecutableExists(dep.Probe))
 				return true;
-			return dep.AltProbes.Any(LinuxPackageManager.ExecutableExists);
+			return dep.AltProbes.Any(HostPackageManager.ExecutableExists);
 		}
 
 		private static bool SharedLibraryPresent(NativeDependency dep)
@@ -329,7 +337,7 @@ namespace Voltage.Diagnostics
 			if (_ldconfigCache != null)
 				return _ldconfigCache;
 
-			if (!LinuxPackageManager.IsLinux)
+			if (!HostPackageManager.IsLinux)
 				return _ldconfigCache = Array.Empty<string>();
 
 			try
@@ -385,7 +393,7 @@ namespace Voltage.Diagnostics
 			if (packages.Count == 0)
 				return Fail("No installable packages are known for this system. Please follow the manual instructions.");
 
-			return LinuxPackageManager.Platform switch
+			return HostPackageManager.Platform switch
 			{
 				HostPlatform.Linux => RunLinuxInstall(result, packages),
 				HostPlatform.Windows => RunWingetInstall(result, packages),
@@ -395,11 +403,11 @@ namespace Voltage.Diagnostics
 
 		private static InstallOutcome RunLinuxInstall(DependencyCheckResult result, IReadOnlyList<string> packages)
 		{
-			var pmCommand = LinuxPackageManager.BuildInstallCommand(result.PackageManager, packages);
+			var pmCommand = HostPackageManager.BuildInstallCommand(result.PackageManager, packages);
 			if (string.IsNullOrEmpty(pmCommand))
 				return Fail("Could not build an install command for this package manager. Please install manually.");
 
-			if (!LinuxPackageManager.ExecutableExists("pkexec"))
+			if (!HostPackageManager.ExecutableExists("pkexec"))
 				return Fail("'pkexec' is not available, so a graphical privilege prompt cannot be shown. Please install the dependencies manually in a terminal.");
 
 			// pkexec takes a program + argv (not a shell string), so pass the package-manager argv directly.
@@ -422,7 +430,7 @@ namespace Voltage.Diagnostics
 
 		private static InstallOutcome RunWingetInstall(DependencyCheckResult result, IReadOnlyList<string> packages)
 		{
-			if (result.PackageManager != PackageManagerKind.Winget || !LinuxPackageManager.ExecutableExists("winget"))
+			if (result.PackageManager != PackageManagerKind.Winget || !HostPackageManager.ExecutableExists("winget"))
 				return Fail("winget is not available. Please install the build tools from the download link in the instructions.");
 
 			// winget install <id> [--id <id2> ...]. winget handles its own UAC elevation prompt.

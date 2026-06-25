@@ -32,6 +32,10 @@ public class GameBuildWindow
 	private readonly PersistentBool _linuxCompatContainer = new("GameBuild.LinuxCompatContainer", true);
 	private readonly PersistentInt _selectedPlatformIndex = new("GameBuild.SelectedPlatformIndex", 0);
 
+	// When set, the advisory build-dependency check is skipped before a build (the user chose "Don't show
+	// again"). The check is purely informational — the real publish still verifies the toolchain.
+	private readonly PersistentBool _suppressBuildDepCheck = new("GameBuild.SuppressDepCheck", false);
+
 	private CancellationTokenSource _buildCancellationToken;
 
 	// Build-dependency preflight (clang / ld / zlib for NativeAOT). Shown BEFORE publish so the
@@ -321,6 +325,19 @@ public class GameBuildWindow
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
+			// On-demand toolchain check (explicit; never blocks a build).
+			if (ImGui.Button("Check Dependencies", new Num.Vector2(-1, 0)))
+				OpenDependencyCheck();
+			if (ImGui.IsItemHovered())
+			{
+				ImGui.SetTooltip(
+					"Verify the NativeAOT build toolchain for the current platform\n" +
+					"(clang/ld/zlib on Linux, MSVC + Windows SDK on Windows, Xcode tools on macOS).\n\n" +
+					"Informational only — this never blocks building.");
+			}
+
+			VoltageEditorUtils.MediumVerticalSpace();
+
 			// Action buttons
 			ImGui.Separator();
 
@@ -468,13 +485,21 @@ public class GameBuildWindow
 	}
 
 	/// <summary>
-	/// Entry point for a build. Runs the NativeAOT build-dependency preflight (clang / ld / zlib) first.
-	/// Only Linux can be missing these; on Windows/macOS the check trivially passes and the build starts
-	/// immediately. If a dep is missing on Linux, a blocking dialog is shown with manual instructions and
-	/// an opt-in auto-install, and the build only proceeds once the user has resolved them (or cancels).
+	/// Entry point for a build. Runs the NativeAOT build-dependency preflight (clang / ld / zlib, MSVC,
+	/// Xcode tools) first as an ADVISORY check: if something isn't detected, a non-blocking dialog offers
+	/// install guidance, an opt-in auto-install, and a "Build anyway" option. Detection is best-effort, so it
+	/// never hard-blocks a build that would otherwise succeed — the real publish is the authority. The check
+	/// is skipped entirely when the user previously chose "Don't show again".
 	/// </summary>
 	private void StartBuild(IGameProject project, BuildPlatform platform, bool runAfterBuild)
 	{
+		// User opted out of the advisory check — go straight to building.
+		if (_suppressBuildDepCheck.Value)
+		{
+			BeginBuildTask(project, platform, runAfterBuild);
+			return;
+		}
+
 		var result = NativeDependencyChecker.Check(NativeDependencyCatalog.BuildDependencies);
 
 		if (result.AllPresent)
@@ -483,19 +508,53 @@ public class GameBuildWindow
 			return;
 		}
 
-		// Block the build behind the preflight dialog. "Continue" is only enabled once all deps are present.
+		// Advisory only — surface a heads-up but always allow proceeding ("Build anyway").
 		var missingNames = string.Join(", ", result.Missing.Select(s => s.Dependency.FriendlyName));
-		Debug.Warn($"Cannot build yet: missing native build dependencies ({missingNames}).", "GameBuildWindow");
+		Debug.Warn($"Build dependency check: {missingNames} not detected. The build can still proceed; " +
+		           "the toolchain will report a specific error if they are genuinely missing.", "GameBuildWindow");
 
 		_depPreflightDialog.Open(
-			title: "Missing build dependencies",
-			intro: "Building a standalone game uses NativeAOT, which needs a few native toolchain " +
-			       "components. The following are required but were not found on this system. " +
-			       "Install them, then press Continue to start the build.",
+			title: "Build dependencies may be missing",
+			intro: "Building a standalone game uses NativeAOT, which needs a few native toolchain components. " +
+			       "The following were not detected on this system. Detection is best-effort — if you've " +
+			       "installed them in a non-standard way the build may still succeed. Install them and press " +
+			       "Recheck, or just Build anyway.",
 			result: result,
 			dependencySet: NativeDependencyCatalog.BuildDependencies,
-			onProceed: () => BeginBuildTask(project, platform, runAfterBuild),
-			onCancel: () => Debug.Log("Build cancelled: build dependencies not satisfied.", "GameBuildWindow"));
+			onProceed: () => { PersistSuppressIfRequested(); BeginBuildTask(project, platform, runAfterBuild); },
+			onCancel: () => { PersistSuppressIfRequested(); Debug.Log("Build cancelled by user.", "GameBuildWindow"); },
+			allowProceedWhenMissing: true,
+			showSuppressOption: true);
+	}
+
+	/// <summary>
+	/// Opens the build-dependency dialog on demand (the "Check Dependencies" button). Purely informational:
+	/// it re-runs detection and shows status/install guidance, but starts no build and offers no opt-out.
+	/// </summary>
+	private void OpenDependencyCheck()
+	{
+		var result = NativeDependencyChecker.ReCheck(NativeDependencyCatalog.BuildDependencies);
+
+		_depPreflightDialog.Open(
+			title: result.AllPresent
+				? "Build dependencies look good"
+				: "Some build dependencies were not detected",
+			intro: "These are the native toolchain components NativeAOT needs to publish a standalone game " +
+			       "for the selected platform. Detection is best-effort; a build may still succeed even if " +
+			       "something shows as missing here.",
+			result: result,
+			dependencySet: NativeDependencyCatalog.BuildDependencies,
+			onProceed: null,
+			onCancel: () => { },
+			allowProceedWhenMissing: false,
+			showSuppressOption: false);
+	}
+
+	/// <summary>Persists the "Don't show again" choice if the user ticked it in the preflight dialog.</summary>
+	private void PersistSuppressIfRequested()
+	{
+		if (_depPreflightDialog.SuppressFutureChecksRequested)
+			_suppressBuildDepCheck.Value = true;
 	}
 
 	private void BeginBuildTask(IGameProject project, BuildPlatform platform, bool runAfterBuild)
