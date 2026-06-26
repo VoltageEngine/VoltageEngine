@@ -367,7 +367,7 @@ public static class ComponentReferenceResolver
 			var entity = FindEntityById(scene, persistentId);
 			if (entity != null)
 			{
-				var comp = FindComponentOnEntityByName(entity, reference.ComponentTypeName, reference.ComponentName);
+				var comp = FindComponentOnEntityByName(entity, reference.ComponentId, reference.ComponentTypeName, reference.ComponentName);
 				if (comp != null)
 					return comp;
 			}
@@ -378,7 +378,7 @@ public static class ComponentReferenceResolver
 			var entity = FindEntityByName(scene, reference.EntityName);
 			if (entity != null)
 			{
-				var comp = FindComponentOnEntityByName(entity, reference.ComponentTypeName, reference.ComponentName);
+				var comp = FindComponentOnEntityByName(entity, reference.ComponentId, reference.ComponentTypeName, reference.ComponentName);
 				if (comp != null)
 					return comp;
 			}
@@ -404,13 +404,22 @@ public static class ComponentReferenceResolver
 	/// name so that <see cref="ComponentReference"/> fields survive a class/namespace rename.
 	/// </para>
 	/// </summary>
-	private static Component FindComponentOnEntityByName(Entity entity, string componentTypeName, string componentName)
+	private static Component FindComponentOnEntityByName(Entity entity, string componentId, string componentTypeName, string componentName)
 	{
+		// Resolve the target type by its stable [ComponentId] first — this survives a class or
+		// namespace rename with no registry of old names. Falls back to the stored type name.
+		string targetTypeName = componentTypeName;
+		if (!string.IsNullOrEmpty(componentId) &&
+		    ComponentIdRegistry.TryGetType(componentId, out var idType) && idType.FullName != null)
+		{
+			targetTypeName = idType.FullName;
+		}
+
 		// Direct match pass.
 		for (var i = 0; i < entity.Components.Count; i++)
 		{
 			var comp = entity.Components[i];
-			if (comp.GetType().FullName != componentTypeName)
+			if (comp.GetType().FullName != targetTypeName)
 				continue;
 			if (string.IsNullOrEmpty(componentName) || comp.Name == componentName)
 				return comp;
@@ -420,7 +429,7 @@ public static class ComponentReferenceResolver
 		for (var i = 0; i < pending.Count; i++)
 		{
 			var comp = pending[i];
-			if (comp.GetType().FullName != componentTypeName)
+			if (comp.GetType().FullName != targetTypeName)
 				continue;
 			if (string.IsNullOrEmpty(componentName) || comp.Name == componentName)
 				return comp;

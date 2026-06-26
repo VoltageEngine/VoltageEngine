@@ -18,21 +18,18 @@ public abstract class ComponentData
 	public bool Enabled = true;
 	public bool CanBeSelected = true;
 	public int UpdateOrder = 0;
-
-	/// <summary>
-	/// called by ComponentReferenceResolver instead of reflection.
-	/// Override (generated) should iterate every ComponentReference/EntityReference
-	/// field and invoke the provided callbacks to resolve them.
-	/// </summary>
-	// public virtual void ResolveReferences(
-	// 	Action<string, ComponentReference> resolveComponent,
-	// 	Action<string, EntityReference> resolveEntity) { }
 }
 
 // Helper struct to store component type and its data as JSON
 [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
 public struct ComponentDataEntry
 {
+	/// <summary>
+	/// Stable, rename-proof identity of the component type - the alias declared by its
+	/// <c>[ComponentId("…")]</c> attribute. This is the authoritative reference resolved at load
+	/// time; <see cref="ComponentTypeName"/> is kept only as a human-readable hint.
+	/// </summary>
+	public string ComponentId;
 	public string ComponentTypeName;
 	public string ComponentName; // In case there are multiple components of the same type on an Entity, this is used to differentiate them.
 	public string DataTypeName;
@@ -46,13 +43,14 @@ public struct ComponentDataEntry
 [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
 public struct SceneComponentDataEntry
 {
-	/// <summary>Full type name of the SceneComponent subclass (e.g. "Jolt.Scripts.LevelManager").</summary>
+	public string ComponentId;
+	// Full type name of the SceneComponent subclass (e.g. "Jolt.Scripts.LevelManager").</summary>
 	public string ComponentTypeName;
-	/// <summary>Display name / instance name. Matches <see cref="SceneComponent.Name"/>.</summary>
+	// Display name / instance name. Matches <see cref="SceneComponent.Name"/>.</summary>
 	public string ComponentName;
-	/// <summary>Full type name of the ComponentData subclass, or null when the component has no data.</summary>
+	// Full type name of the ComponentData subclass, or null when the component has no data.</summary>
 	public string DataTypeName;
-	/// <summary>JSON-serialized ComponentData, or null when the component has no data.</summary>
+	// JSON-serialized ComponentData, or null when the component has no data.</summary>
 	public string Json;
 }
 

@@ -1558,7 +1558,7 @@ public class EntityInspectorWindow
 			if (liveComp == null)
 			{
 				// Component was removed — re-add it from the prefab.
-				liveComp = SerializationManager.CreateComponentInstancePublic(prefabEntry.Value.ComponentTypeName);
+				liveComp = SerializationManager.CreateComponentInstancePublic(prefabEntry.Value.ComponentTypeName, prefabEntry.Value.ComponentId);
 				if (liveComp != null)
 				{
 					liveComp.Name = componentName;
@@ -1630,7 +1630,7 @@ public class EntityInspectorWindow
 			if (liveComp == null)
 			{
 				// Add component from prefab (was removed on instance).
-				liveComp = SerializationManager.CreateComponentInstancePublic(entry.ComponentTypeName);
+				liveComp = SerializationManager.CreateComponentInstancePublic(entry.ComponentTypeName, entry.ComponentId);
 				if (liveComp != null)
 				{
 					liveComp.Name = entry.ComponentName;

@@ -72,6 +72,14 @@ namespace Voltage.Editor.Scripting
 				)
 			);
 
+			// Stamp a stable [ComponentId] identity onto any component/scene-component that
+			// lacks one, so scenes can reference it by id instead of by (renameable) type
+			// name. Re-parse the touched files so the generator sees the new attribute and
+			// registers the id in its bootstrap.
+			var stampedFiles = ComponentIdStamper.StampMissing(compilation);
+			if (stampedFiles.Count > 0)
+				compilation = ReparseChangedTrees(compilation, stampedFiles);
+
 			// Run the Voltage.SourceGenerators source generator to produce ComponentData
 			// overrides for partial Component subclasses. This mirrors what MSBuild does
 			// during a normal project build via the <Analyzer> item.
@@ -235,6 +243,35 @@ namespace Voltage.Editor.Scripting
 			}
 
 			return references;
+		}
+
+		/// <summary>
+		/// Re-parses the given files (modified by <see cref="ComponentIdStamper"/>) and swaps the
+		/// updated syntax trees into the compilation so downstream generation sees the stamped
+		/// attributes.
+		/// </summary>
+		private static CSharpCompilation ReparseChangedTrees(
+			CSharpCompilation compilation, IReadOnlyList<string> changedFiles)
+		{
+			var changedSet = new HashSet<string>(changedFiles, StringComparer.OrdinalIgnoreCase);
+			foreach (var oldTree in compilation.SyntaxTrees.ToList())
+			{
+				if (string.IsNullOrEmpty(oldTree.FilePath) || !changedSet.Contains(oldTree.FilePath))
+					continue;
+
+				try
+				{
+					var code = File.ReadAllText(oldTree.FilePath);
+					var newTree = CSharpSyntaxTree.ParseText(code, path: oldTree.FilePath);
+					compilation = compilation.ReplaceSyntaxTree(oldTree, newTree);
+				}
+				catch (Exception ex)
+				{
+					EditorDebug.Error(
+						$"Failed to re-parse stamped file {oldTree.FilePath}: {ex.Message}", "ScriptCompilation");
+				}
+			}
+			return compilation;
 		}
 
 		/// <summary>

@@ -92,6 +92,29 @@ namespace Voltage
 		public static string PrefabsDirectory;
 
 		/// <summary>
+		/// Instantiates a prefab from a <see cref="ComponentReference"/>-style <see cref="PrefabReference"/>
+		/// (the inspector-assignable prefab field). Resolution is GUID-first via
+		/// <see cref="PrefabReference.ResolvePath"/> — so it survives renaming/moving the <c>.vprefab</c> —
+		/// then delegates to <see cref="LoadPrefab(string, Vector2)"/>. Returns <c>null</c> when the
+		/// reference is empty or cannot be resolved.
+		/// </summary>
+		public Entity LoadPrefab(PrefabReference reference, Vector2 position = default)
+		{
+			if (!reference.IsValid)
+				return null;
+
+			var path = reference.ResolvePath();
+			if (string.IsNullOrEmpty(path))
+			{
+				Debug.Warn($"[Scene.LoadPrefab] Could not resolve PrefabReference '{reference}'. " +
+				           "Open the project in the editor to (re)generate the asset manifest.");
+				return null;
+			}
+
+			return LoadPrefab(path, position);
+		}
+
+		/// <summary>
 		/// Loads a prefab from a <c>.vprefab</c> file, instantiates it as a new <see cref="Entity"/>,
 		/// adds it to this scene, and returns the entity.
 		/// <para>
@@ -409,6 +432,7 @@ namespace Voltage
 
 				var entry = new SceneComponentDataEntry
 				{
+					ComponentId        = ComponentIdRegistry.GetIdForType(sc.GetType()),
 					ComponentTypeName = sc.GetType().FullName,
 					ComponentName     = sc.Name
 				};
@@ -525,6 +549,7 @@ namespace Voltage
 						var json = Voltage.Persistence.Json.ToJson(component.Data, componentJsonSettings);
 						entData.ComponentDataList.Add(new ComponentDataEntry
 						{
+							ComponentId = ComponentIdRegistry.GetIdForType(component.GetType()),
 							ComponentTypeName = component.GetType().FullName,
 							ComponentName = component.Name,
 							DataTypeName = component.Data.GetType().FullName,
@@ -537,6 +562,7 @@ namespace Voltage
 						// so they are recreated when the scene is reloaded
 						entData.ComponentDataList.Add(new ComponentDataEntry
 						{
+							ComponentId = ComponentIdRegistry.GetIdForType(component.GetType()),
 							ComponentTypeName = component.GetType().FullName,
 							ComponentName = component.Name,
 							DataTypeName = null,
@@ -684,6 +710,15 @@ namespace Voltage
 			if (PrefabPathResolver != null)
 				resolvedPath = PrefabPathResolver(prefabGuid, prefabName);
 
+			// 1b. Runtime GUID lookup via the baked asset manifest (published builds, where the
+			// editor's PrefabPathResolver is not wired). Resolves the prefab by its stable GUID, so
+			// renaming/moving the .vprefab is transparent — the GUID never changes.
+			if (string.IsNullOrEmpty(resolvedPath) && prefabGuid != Guid.Empty &&
+			    Assets.AssetManifest.TryGetAbsolutePath(prefabGuid, out var byGuid))
+			{
+				resolvedPath = byGuid;
+			}
+
 			// 2. Name-based fallback under PrefabsDirectory (same as LoadPrefab).
 			if (string.IsNullOrEmpty(resolvedPath))
 			{
@@ -782,7 +817,8 @@ namespace Voltage
 						// Inherited from prefab — clone to avoid shared references.
 						merged.ComponentDataList.Add(new ComponentDataEntry
 						{
-							ComponentTypeName = prefabEntry.ComponentTypeName,
+							ComponentId        = prefabEntry.ComponentId,
+								ComponentTypeName = prefabEntry.ComponentTypeName,
 							ComponentName     = prefabEntry.ComponentName,
 							DataTypeName      = prefabEntry.DataTypeName,
 							Json              = prefabEntry.Json
@@ -938,7 +974,7 @@ namespace Voltage
 
 						try
 						{
-							var component = CreateComponentInstance(componentEntry.ComponentTypeName);
+							var component = CreateComponentInstance(componentEntry.ComponentTypeName, componentEntry.ComponentId);
 							if (component == null)
 							{
 								Debug.Error($"Could not create component: {componentEntry.ComponentTypeName}");
@@ -996,8 +1032,20 @@ namespace Voltage
 		/// Creates a component instance by type name.
 		/// Uses ComponentAotFactory first (NativeAOT-safe), then falls back to reflection in editor builds.
 		/// </summary>
-		private static Component CreateComponentInstance(string componentTypeName)
+		private static Component CreateComponentInstance(string componentTypeName, string componentId = null)
 		{
+			// GUID-first resolution: the stable [ComponentId] identity survives class/namespace
+			// renames, so it takes priority over the (possibly stale) stored type name. Falls
+			// through to name-based resolution for legacy entries that have no GUID.
+			if (!string.IsNullOrEmpty(componentId) &&
+			    Serialization.ComponentIdRegistry.TryGetType(componentId, out var guidType) &&
+			    guidType?.FullName != null)
+			{
+				if (ComponentAotFactory.IsRegistered(guidType.FullName))
+					return (Component)ComponentAotFactory.Create(guidType.FullName);
+				return (Component)Activator.CreateInstance(guidType);
+			}
+
 			if (string.IsNullOrEmpty(componentTypeName))
 				return null;
 
@@ -1024,8 +1072,18 @@ namespace Voltage
 		/// Creates a SceneComponent instance by type name.
 		/// Uses ComponentAotFactory first (NativeAOT-safe), then falls back to reflection in editor builds.
 		/// </summary>
-		private static SceneComponent CreateSceneComponentInstance(string typeName)
+		private static SceneComponent CreateSceneComponentInstance(string typeName, string componentId = null)
 		{
+			// GUID-first resolution — immune to class/namespace renames.
+			if (!string.IsNullOrEmpty(componentId) &&
+			    Serialization.ComponentIdRegistry.TryGetType(componentId, out var guidType) &&
+			    guidType?.FullName != null)
+			{
+				if (ComponentAotFactory.IsRegistered(guidType.FullName))
+					return (SceneComponent)ComponentAotFactory.Create(guidType.FullName);
+				return (SceneComponent)Activator.CreateInstance(guidType);
+			}
+
 			if (string.IsNullOrEmpty(typeName))
 				return null;
 
@@ -1082,6 +1140,19 @@ namespace Voltage
 						    Serialization.TypeRenameRegistry.TryResolve(aotDataTypeName, out var renamedDataType))
 						{
 							aotDataTypeName = renamedDataType.FullName ?? aotDataTypeName;
+						}
+
+						// GUID-resolved components may carry a stale DataTypeName after a rename.
+						// The live component's Data property always reports the current data type,
+						// so prefer it when the stored name no longer resolves.
+						if (!Serialization.ComponentDataAotDeserializer.IsRegistered(aotDataTypeName))
+						{
+							var liveDataType = component.Data?.GetType();
+							if (liveDataType?.FullName != null &&
+							    Serialization.ComponentDataAotDeserializer.IsRegistered(liveDataType.FullName))
+							{
+								aotDataTypeName = liveDataType.FullName;
+							}
 						}
 
 						if (Serialization.ComponentDataAotDeserializer.IsRegistered(aotDataTypeName))
@@ -1206,7 +1277,7 @@ namespace Voltage
 
 			foreach (var entry in SceneData.SceneComponents)
 			{
-				if (string.IsNullOrEmpty(entry.ComponentTypeName))
+				if (string.IsNullOrEmpty(entry.ComponentTypeName) && string.IsNullOrEmpty(entry.ComponentId))
 					continue;
 
 				try
@@ -1219,6 +1290,15 @@ namespace Voltage
 					{
 						var scFull = _sceneComponents.Buffer[i].GetType().FullName;
 						bool nameMatch = scFull == entry.ComponentTypeName;
+
+						// GUID match takes priority — survives renames without any registry of old names.
+						if (!nameMatch &&
+						    !string.IsNullOrEmpty(entry.ComponentId) &&
+						    Serialization.ComponentIdRegistry.TryGetType(entry.ComponentId, out var guidScType) &&
+						    scFull == guidScType.FullName)
+						{
+							nameMatch = true;
+						}
 
 						// Rename-registry check: the stored name is an old name whose current type
 						// matches the live SceneComponent's type.
@@ -1238,7 +1318,7 @@ namespace Voltage
 
 					if (existing == null)
 					{
-						existing = CreateSceneComponentInstance(entry.ComponentTypeName);
+						existing = CreateSceneComponentInstance(entry.ComponentTypeName, entry.ComponentId);
 						if (existing == null)
 						{
 							Debug.Error($"[Scene] Could not load SceneComponent '{entry.ComponentTypeName}': type not found.");
@@ -1261,6 +1341,18 @@ namespace Voltage
 						    Serialization.TypeRenameRegistry.TryResolve(scDataTypeName, out var renamedScDataType))
 						{
 							scDataTypeName = renamedScDataType.FullName ?? scDataTypeName;
+						}
+
+						// GUID-resolved scene components may carry a stale DataTypeName after a rename;
+						// the live component's Data type is always current.
+						if (!Serialization.ComponentDataAotDeserializer.IsRegistered(scDataTypeName))
+						{
+							var liveScDataType = existing.Data?.GetType();
+							if (liveScDataType?.FullName != null &&
+							    Serialization.ComponentDataAotDeserializer.IsRegistered(liveScDataType.FullName))
+							{
+								scDataTypeName = liveScDataType.FullName;
+							}
 						}
 
 						if (Serialization.ComponentDataAotDeserializer.IsRegistered(scDataTypeName))

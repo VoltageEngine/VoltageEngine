@@ -132,6 +132,7 @@ namespace Voltage.Serialization
 				{
 					case "ComponentTypeName": entry.ComponentTypeName = r.ReadString(); break;
 					case "ComponentName": entry.ComponentName = r.ReadString(); break;
+						case "ComponentId": entry.ComponentId = r.ReadString(); break;
 					case "DataTypeName": entry.DataTypeName = r.ReadString(); break;
 					case "Json": entry.Json = r.ReadString(); break;
 					default: r.SkipValue(); break;
@@ -155,6 +156,7 @@ namespace Voltage.Serialization
 				{
 					case "ComponentTypeName": entry.ComponentTypeName = r.ReadString(); break;
 					case "ComponentName":     entry.ComponentName     = r.ReadString(); break;
+						case "ComponentId":       entry.ComponentId       = r.ReadString(); break;
 					case "DataTypeName":      entry.DataTypeName      = r.ReadString(); break;
 					case "Json":              entry.Json              = r.ReadString(); break;
 					default: r.SkipValue(); break;
@@ -411,7 +413,8 @@ namespace Voltage.Serialization
 				{
 					case "EntityPersistentId": v.EntityPersistentId = r.ReadString(); break;
 					case "EntityName":         v.EntityName = r.ReadString(); break;
-					case "ComponentTypeName":  v.ComponentTypeName = r.ReadString(); break;
+					case "ComponentId":        v.ComponentId = r.ReadString(); break;
+						case "ComponentTypeName":  v.ComponentTypeName = r.ReadString(); break;
 					case "ComponentName":      v.ComponentName = r.ReadString(); break;
 					default: r.SkipValue(); break;
 				}

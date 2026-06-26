@@ -164,7 +164,7 @@ Entity enemy = Core.Scene.LoadPrefab("Enemies/Slime.vprefab", spawnPosition);
 
 **Important caveats:**
 - `Entity.Transform` (position/rotation/scale) is **not** part of the prefab delta. Position is supplied at instantiation via the `position` parameter of `LoadPrefab`.
-- `Entity.OriginalPrefabGuid` is always `Guid.Empty` at runtime because the GUID/.meta system is editor-only. Runtime prefab identity falls back to `Entity.OriginalPrefabName` (the file name without extension).
+- A prefab instance in a scene stores both its source prefab's stable GUID (`OriginalPrefabGuid`) and name (`OriginalPrefabName`). At runtime the source prefab is resolved **GUID-first** via the baked **asset manifest** (`Data/assets.manifest`) — so renaming or moving a `.vprefab` does not break the scenes that use it — falling back to name only when the GUID is absent. (`Entity.OriginalPrefabGuid` is still `Guid.Empty` for prefabs instantiated by *path* via `Scene.LoadPrefab`, which carry no GUID context.)
 
 ### 2.5 The Asset Browser and .meta GUIDs
 
@@ -509,7 +509,8 @@ Fields marked `[JsonExclude]` are skipped entirely. Private fields are skipped u
 |---|---|---|
 | `[JsonExclude]` | Field or property | Excluded from serialization. Applied to `Entity.Scene`, `Component.Entity`, `Component.Transform`, and similar back-references to prevent cycles. |
 | `[DecodeAlias("oldName")]` | Field in a `ComponentData` class | When loading JSON, a key matching `oldName` is mapped to this field. Use this when a field is renamed to keep old save files loading correctly. |
-| `[FormerlyKnownAs("Old.Namespace.ClassName")]` | Component class | When the class or its namespace is renamed, the source generator registers the old name in `TypeRenameRegistry` so scenes that reference the old name still load. Pass multiple old names to handle a chain of renames. |
+| `[ComponentId("alias")]` | Component / SceneComponent class | Stable, rename-proof identity — a human-readable alias (like a protobuf field number or an Orleans `[Alias]`). Scenes reference the component by this id instead of its type name, so renaming the class *or moving its namespace* no longer breaks the scenes that use it. **The editor stamps this automatically** on first compile (defaulting the id to the class's simple name), so you normally never write it by hand. The id is assigned once and **frozen** — renaming the class never changes it. The attribute is emitted by the source generator (not the engine DLL), so it always compiles even against a stale engine reference; the generator bakes the mapping into the NativeAOT build via `ComponentIdRegistry`. Don't change or reuse an id once a scene has referenced it. |
+| `[FormerlyKnownAs("Old.Namespace.ClassName")]` | Component class | Legacy, name-based rename mechanism — the compatibility floor for scenes saved before a component had a `[ComponentId]`. The source generator registers the old name in `TypeRenameRegistry` so scenes referencing the old name still load. Once a component has a `[ComponentId]` and the scene stores it, renames are handled automatically and this is no longer required. |
 | `[DynamicallyAccessedMembers(...)]` | Engine internals | Preserves reflection metadata for trim-sensitive code paths. You will rarely need this in game scripts. |
 
 ### FormerlyKnownAs Example
@@ -585,8 +586,8 @@ In a published build there is no `DynamicScripts` assembly. All game code is sta
 - **Do not save scene data in Play or Pause mode.**
   `Ctrl+S` is blocked. Changes made during Play mode are intended to be discarded when you return to Edit mode (or when `Core.ResetSceneAutomatically` reloads the scene).
 
-- **Do not rely on `Entity.OriginalPrefabGuid` at runtime.**
-  It is always `Guid.Empty` in a published game. Use `Entity.OriginalPrefabName` for runtime prefab identity.
+- **Asset references resolve by GUID at runtime via the baked manifest.**
+  The editor writes `Data/assets.manifest` (a `GUID → project-relative path` map) on every asset-database refresh; it ships with the build and `Voltage.Assets.AssetManifest` loads it at runtime. This is what lets a renamed/moved prefab still resolve in a published game. If the manifest is missing (e.g. a build that never opened in the editor), resolution falls back to name/path.
 
 - **Do not cache `Core.Scene.Content` across scene transitions.**
   The content manager is disposed when the scene ends. Cache the asset reference instead, not the manager.
@@ -637,7 +638,14 @@ In `EDITOR` builds the title bar is updated with FPS and memory each second, and
 
 `AotDeserializers.DeserializeSceneData` and `DeserializePrefabData` are the scene-load entry points in published builds. They call registered `ComponentDataAotDeserializer` functions that were registered by the source generator's `[ModuleInitializer]` methods.
 
-`TypeRenameRegistry` maps old fully-qualified type names to current `Type` objects. It is populated by the generated `ComponentDataAotBootstrap.AutoRegister` based on `[FormerlyKnownAs]` attributes.
+`ComponentIdRegistry` maps a stable `[ComponentId]` alias to the component `Type` that currently carries it (and back). It is populated by the generated `ComponentDataAotBootstrap.AutoRegister` and is the primary, rename-proof way scenes resolve components: load resolves the stored id to the current type, ignoring a stale type name — so class renames and namespace moves need no editor reconciliation. The same bootstrap runs both in the NativeAOT build and against the editor's dynamically-compiled scripts, so the mapping is identical in both — no reflection. Component identity is stamped into source by `ComponentIdStamper` during editor compilation, and the `[ComponentId]` attribute itself is emitted by the generator (so user scripts compile even against a stale engine reference). Scripts therefore use no `.meta` sidecar — only non-code assets do, since code is the one asset type that can carry its own identity in-source.
+
+`TypeRenameRegistry` maps old fully-qualified type names to current `Type` objects. It is populated by the generated `ComponentDataAotBootstrap.AutoRegister` based on `[FormerlyKnownAs]` attributes, and serves as the fallback for scenes saved before a component had a `[ComponentId]`.
+
+**Identity model — everything resolves by a stable id, names are hints.** The engine is consistent across reference kinds:
+- **Entities / Transforms** are referenced by `EntityReference.EntityPersistentId` (a `Guid`) — already rename-proof.
+- **Components** (cross-entity `ComponentReference`) are referenced by the entity's `PersistentId` **plus** the component's stable `[ComponentId]` (resolved via `ComponentIdRegistry`), with `ComponentTypeName` as the fallback hint — so renaming a component class keeps cross-entity references valid without `[FormerlyKnownAs]`.
+- **Assets** (prefabs, scenes, textures) are referenced by their `.meta` GUID, resolved in the editor via `AssetDatabase` and at runtime via the baked `Voltage.Assets.AssetManifest` (`Data/assets.manifest`). Renaming/moving an asset never changes its GUID, so references survive in editor *and* published builds.
 
 ### Entity Instance Types
 

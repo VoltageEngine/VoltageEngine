@@ -60,6 +60,13 @@ public class AssetBrowserWindow : IDisposable
     /// </summary>
     public static AssetReference DraggedReference;
 
+    /// <summary>
+    /// Absolute path of the file currently being dragged, used for folder-to-folder MOVES
+    /// (distinct from <see cref="DraggedReference"/>, which is for dropping into the scene).
+    /// Set on drag start; consumed by a folder node's drop target.
+    /// </summary>
+    public static string DraggedSourcePath;
+
     private const string WindowTitle     = "Asset Browser###AssetBrowserWindow";
     private const float  IconSize        = 20f;
     private const float  IconTextSpacing = 6f;
@@ -96,6 +103,18 @@ public class AssetBrowserWindow : IDisposable
     // Delete confirmation state.
     private bool _showDeleteConfirmation = false;
     private string _fileToDelete = null;
+
+    // Inline rename state. When _renamingFilePath is non-null, that row shows an editable
+    // text field instead of its label. Commit on Enter or click-away; Escape cancels; empty
+    // leaves the name unchanged.
+    private string _renamingFilePath = null;
+    private string _renameBuffer = string.Empty;
+    private bool _renameFocusPending = false;
+
+    // Set by in-tree operations (move/paste/duplicate/rename) instead of calling _db.Refresh()
+    // directly: Refresh() rebuilds _db.RootNodes, which DrawTree is enumerating at that moment,
+    // so the rebuild is deferred to the end of Draw() to avoid "collection was modified".
+    private bool _refreshRequested = false;
 
     public AssetBrowserWindow()
     {
@@ -184,6 +203,14 @@ public class AssetBrowserWindow : IDisposable
 
         // Must be outside Begin/End to be modal.
         DrawDeleteConfirmationPopup();
+
+        // Run any refresh requested by an in-tree operation now that enumeration of
+        // _db.RootNodes (in DrawTree) has completed — rebuilding it here is safe.
+        if (_refreshRequested)
+        {
+            _refreshRequested = false;
+            _db.Refresh();
+        }
     }
 
     /// <summary>
@@ -281,6 +308,22 @@ public class AssetBrowserWindow : IDisposable
         if (ImGui.IsItemHovered())
             _hoveredFolderPath = node.AbsolutePath;
 
+        // Accept an in-browser MOVE: dropping a dragged asset onto this folder relocates the
+        // file (and its .meta sidecar) here, preserving its GUID so references don't break.
+        if (ImGui.BeginDragDropTarget())
+        {
+            unsafe
+            {
+                var payload = ImGui.AcceptDragDropPayload(DragDropPayloadId);
+                if (payload.NativePtr != null && !string.IsNullOrEmpty(DraggedSourcePath))
+                {
+                    MoveAsset(DraggedSourcePath, node.AbsolutePath);
+                    DraggedSourcePath = null;
+                }
+            }
+            ImGui.EndDragDropTarget();
+        }
+
         // Toggle persistence whenever the user opens or closes the node.
         if (nodeOpen && isCollapsed)
         {
@@ -350,6 +393,13 @@ public class AssetBrowserWindow : IDisposable
             ImGui.SameLine(0, IconTextSpacing);
         }
 
+        // While this row is being renamed, show an editable field instead of the label.
+        if (string.Equals(_renamingFilePath, item.AbsolutePath, StringComparison.OrdinalIgnoreCase))
+        {
+            DrawRenameInput(item);
+            return;
+        }
+
         bool isSelected = string.Equals(_selectedFilePath, item.AbsolutePath, StringComparison.OrdinalIgnoreCase);
 
         bool clicked = ImGui.Selectable(item.FileName, isSelected,
@@ -365,10 +415,16 @@ public class AssetBrowserWindow : IDisposable
 
         if (clicked && ImGui.IsMouseDoubleClicked(ImGuiMouseButton.Left))
         {
+            // Scenes load on double-click (their only open path here); every other asset
+            // starts an inline rename. Scenes are still renamable via the context menu.
             if (item.Descriptor.Kind == AssetKind.Scene)
             {
                 var reference = _db.GetReference(item.AbsolutePath);
                 DropHandlers.DropScene(reference);
+            }
+            else
+            {
+                BeginRename(item.AbsolutePath);
             }
         }
 
@@ -409,6 +465,9 @@ public class AssetBrowserWindow : IDisposable
             if (ImGui.MenuItem("Duplicate"))
                 DuplicateFile(item.AbsolutePath);
 
+            if (ImGui.MenuItem("Rename"))
+                BeginRename(item.AbsolutePath);
+
             ImGui.Separator();
 
             if (ImGui.MenuItem("Delete"))
@@ -419,26 +478,135 @@ public class AssetBrowserWindow : IDisposable
 
         if (ImGui.BeginDragDropSource(ImGuiDragDropFlags.None))
         {
-            if (item.Descriptor.DropFactory != null)
+            // Every asset can be dragged to another folder to MOVE it; stash the source path.
+            DraggedSourcePath = item.AbsolutePath;
+
+            // Droppable types additionally carry an AssetReference so they can be dropped into
+            // the scene / inspector. Non-droppable types (scripts, etc.) are move-only.
+            bool isDroppable = item.Descriptor.DropFactory != null;
+            // default(AssetReference).IsEmpty == true, so scene/inspector drop targets ignore
+            // move-only (non-droppable) assets.
+            DraggedReference = isDroppable ? _db.GetReference(item.AbsolutePath) : default;
+
+            unsafe
             {
-                var reference = _db.GetReference(item.AbsolutePath);
-                DraggedReference = reference;
+                byte sentinel = 0;
+                ImGui.SetDragDropPayload(DragDropPayloadId, (IntPtr)(&sentinel), 1);
+            }
 
-                unsafe
-                {
-                    byte sentinel = 0;
-                    ImGui.SetDragDropPayload(DragDropPayloadId, (IntPtr)(&sentinel), 1);
-                }
-
+            if (isDroppable)
                 ImGuiSafe.TextSafe(item.FileName);
-            }
             else
-            {
-                ImGuiSafe.TextColoredSafe(new Num.Vector4(1f, 0.5f, 0.3f, 1f), item.FileName);
-                ImGui.SetTooltip("File type is not supported by Drag-N-Drop");
-            }
+                ImGuiSafe.TextColoredSafe(new Num.Vector4(0.8f, 0.85f, 1f, 1f), $"{item.FileName}  (move)");
 
             ImGui.EndDragDropSource();
+        }
+    }
+
+    /// <summary>Enters inline-rename mode for the given file, seeding the buffer with its
+    /// current name (without extension) and selecting it on the first frame.</summary>
+    private void BeginRename(string absolutePath)
+    {
+        _renamingFilePath = absolutePath;
+        _renameBuffer = Path.GetFileNameWithoutExtension(absolutePath);
+        _renameFocusPending = true;
+        _selectedFilePath = absolutePath;
+    }
+
+    /// <summary>
+    /// Draws the inline rename text field for the row currently being renamed.
+    /// Enter (or clicking away) commits; Escape cancels; an empty/whitespace name commits as a no-op.
+    /// </summary>
+    private void DrawRenameInput(AssetItem item)
+    {
+        if (_renameFocusPending)
+        {
+            ImGui.SetKeyboardFocusHere();
+            _renameFocusPending = false;
+        }
+
+        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
+        bool enter = ImGui.InputText($"##rename_{item.AbsolutePath}", ref _renameBuffer, 256,
+            ImGuiInputTextFlags.EnterReturnsTrue | ImGuiInputTextFlags.AutoSelectAll);
+
+        // Escape must be checked before deactivation: pressing Escape also deactivates the field.
+        bool escape = ImGui.IsKeyPressed(ImGuiKey.Escape, false);
+        bool deactivated = ImGui.IsItemDeactivated();
+
+        if (enter)
+        {
+            CommitRename(item.AbsolutePath, _renameBuffer);
+            _renamingFilePath = null;
+        }
+        else if (escape)
+        {
+            _renamingFilePath = null; // cancel — no change
+        }
+        else if (deactivated)
+        {
+            // Clicked away — commit like a file explorer.
+            CommitRename(item.AbsolutePath, _renameBuffer);
+            _renamingFilePath = null;
+        }
+    }
+
+    /// <summary>
+    /// Renames <paramref name="oldPath"/> to use <paramref name="newBaseName"/> (extension preserved),
+    /// carrying the <c>.meta</c> sidecar so the asset's GUID — and every reference to it — survives.
+    /// For a C# script it also renames the matching component class (and its constructors) inside the
+    /// file so the class name tracks the file name; the component's stable <c>[ComponentId]</c> keeps
+    /// scene references intact regardless. An empty/whitespace or unchanged name is a no-op, and an
+    /// existing target name is refused rather than overwritten.
+    /// </summary>
+    private void CommitRename(string oldPath, string newBaseName)
+    {
+        newBaseName = newBaseName?.Trim();
+        if (string.IsNullOrEmpty(newBaseName))
+            return; // empty -> leave the name unchanged
+
+        var dir     = Path.GetDirectoryName(oldPath);
+        var ext     = Path.GetExtension(oldPath);
+        var oldBase = Path.GetFileNameWithoutExtension(oldPath);
+
+        if (string.Equals(newBaseName, oldBase, StringComparison.Ordinal))
+            return; // unchanged
+
+        if (string.IsNullOrEmpty(dir) || newBaseName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            EditorDebug.Log($"AssetBrowser: invalid file name '{newBaseName}'.", "AssetBrowser");
+            return;
+        }
+
+        var newPath = Path.Combine(dir, newBaseName + ext);
+        if (File.Exists(newPath))
+        {
+            EditorDebug.Log($"AssetBrowser: cannot rename — '{newBaseName}{ext}' already exists.", "AssetBrowser");
+            return;
+        }
+
+        try
+        {
+            // For scripts, rename the matching class first (best-effort, in-file). The [ComponentId]
+            // attribute is left untouched, so scene references stay valid even though the class moved.
+            if (string.Equals(ext, ".cs", StringComparison.OrdinalIgnoreCase))
+                Scripting.ScriptClassRenamer.RenameClassInFile(oldPath, oldBase, newBaseName);
+
+            File.Move(oldPath, newPath);
+
+            // Carry the .meta sidecar (binary assets only — scripts have none) to preserve the GUID.
+            var oldMeta = oldPath + ".meta";
+            if (File.Exists(oldMeta))
+                File.Move(oldMeta, newPath + ".meta");
+
+            if (string.Equals(_selectedFilePath, oldPath, StringComparison.OrdinalIgnoreCase))
+                _selectedFilePath = newPath;
+
+            EditorDebug.Log($"AssetBrowser: renamed '{Path.GetFileName(oldPath)}' → '{newBaseName}{ext}'", "AssetBrowser");
+            _refreshRequested = true;
+        }
+        catch (Exception ex)
+        {
+            EditorDebug.Log($"AssetBrowser: rename failed for '{oldPath}': {ex.Message}", "AssetBrowser");
         }
     }
 
@@ -510,7 +678,7 @@ public class AssetBrowserWindow : IDisposable
         }
 
         if (anyPasted)
-            _db.Refresh();
+            _refreshRequested = true;
     }
 
     /// <summary>
@@ -529,7 +697,7 @@ public class AssetBrowserWindow : IDisposable
         {
             string dir = Path.GetDirectoryName(absolutePath)!;
             CopyFileCollisionSafe(absolutePath, dir);
-            _db.Refresh();
+            _refreshRequested = true;
         }
         catch (Exception ex)
         {
@@ -625,6 +793,61 @@ public class AssetBrowserWindow : IDisposable
         catch (Exception ex)
         {
             EditorDebug.Log($"AssetBrowser: delete failed for '{absolutePath}': {ex.Message}", "AssetBrowser");
+        }
+    }
+
+    /// <summary>
+    /// Moves an asset into <paramref name="targetDir"/>, carrying its companion <c>.meta</c>
+    /// sidecar along with it. Because the sidecar (which holds the stable GUID) travels with the
+    /// file, every reference that points at this asset by GUID keeps resolving — the move does not
+    /// break scenes or prefabs. Scripts have no sidecar (their identity lives in the
+    /// <c>[ComponentId]</c> source attribute, which moves with the file content), so they are safe too.
+    /// Same-folder drops are a no-op; name collisions get a " (1)" suffix without overwriting.
+    /// </summary>
+    private void MoveAsset(string sourcePath, string targetDir)
+    {
+        if (string.IsNullOrEmpty(sourcePath) || string.IsNullOrEmpty(targetDir))
+            return;
+        if (!File.Exists(sourcePath) || !Directory.Exists(targetDir))
+            return;
+
+        var sourceDir = Path.GetDirectoryName(sourcePath);
+        if (string.Equals(sourceDir, targetDir, StringComparison.OrdinalIgnoreCase))
+            return; // already in this folder
+
+        string baseName = Path.GetFileNameWithoutExtension(sourcePath);
+        string ext      = Path.GetExtension(sourcePath);
+        string destPath = Path.Combine(targetDir, baseName + ext);
+
+        if (File.Exists(destPath))
+        {
+            int n = 1;
+            do
+            {
+                destPath = Path.Combine(targetDir, $"{baseName} ({n}){ext}");
+                n++;
+            }
+            while (File.Exists(destPath));
+        }
+
+        try
+        {
+            File.Move(sourcePath, destPath);
+
+            // Keep the GUID linkage intact: move the .meta sidecar to match the new file name.
+            string srcMeta = sourcePath + ".meta";
+            if (File.Exists(srcMeta))
+                File.Move(srcMeta, destPath + ".meta");
+
+            if (string.Equals(_selectedFilePath, sourcePath, StringComparison.OrdinalIgnoreCase))
+                _selectedFilePath = destPath;
+
+            EditorDebug.Log($"AssetBrowser: moved '{Path.GetFileName(sourcePath)}' → '{targetDir}'", "AssetBrowser");
+            _refreshRequested = true;
+        }
+        catch (Exception ex)
+        {
+            EditorDebug.Log($"AssetBrowser: move failed for '{sourcePath}': {ex.Message}", "AssetBrowser");
         }
     }
 

@@ -8,11 +8,12 @@ public struct ComponentReference
 {
 	public string EntityPersistentId;
 	public string EntityName;
+	public string ComponentId;
 	public string ComponentTypeName;
 	public string ComponentName;
 
 	public readonly bool IsValid =>
-		!string.IsNullOrEmpty(ComponentTypeName) &&
+		(!string.IsNullOrEmpty(ComponentTypeName) || !string.IsNullOrEmpty(ComponentId)) &&
 		(!string.IsNullOrEmpty(EntityPersistentId) || !string.IsNullOrEmpty(EntityName));
 
 	/// <summary>Parses EntityPersistentId to a Guid for resolver use. Returns Guid.Empty if unparseable.</summary>
@@ -34,11 +35,12 @@ public struct ComponentReference
 		{
 			EntityPersistentId = component.Entity.PersistentId.ToString(),
 			EntityName = component.Entity.Name,
+			ComponentId = ComponentIdRegistry.GetIdForType(component.GetType()),
 			ComponentTypeName = component.GetType().FullName,
 			ComponentName = component.Name
 		};
 	}
 
 	public override readonly string ToString() =>
-		IsValid ? $"{EntityName}(id:{EntityPersistentId}).{ComponentName} ({ComponentTypeName})" : "(None)";
+		IsValid ? $"{EntityName}(id:{EntityPersistentId}).{ComponentName} ({ComponentId ?? ComponentTypeName})" : "(None)";
 }
