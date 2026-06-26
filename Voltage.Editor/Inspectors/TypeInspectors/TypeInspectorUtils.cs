@@ -44,14 +44,14 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 			var objType = obj.GetType();
 			var inspectors = new List<AbstractTypeInspector>();
 
-			var fields = ReflectionUtils.GetFields(objType);
+			var fields = GetAllInstanceFields(objType);
 			foreach (var field in fields)
 			{
-				// Check for [HideAttributeInInspector] first
+				// Check for [HideInInspector] first
 				if (field.IsDefined(notInspectableAttrType))
 					continue;
 
-				// Skip if not public and doesn't have [Inspectable] attribute
+				// Skip if not public and doesn't have [Serialize] (or a derived attribute)
 				if (!field.IsPublic && !field.IsDefined(inspectableAttrType))
 					continue;
 
@@ -71,7 +71,7 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 			var properties = ReflectionUtils.GetProperties(objType);
 			foreach (var prop in properties)
 			{
-				// Check for [HideAttributeInInspector] first
+				// Check for [HideInInspector] first
 				if (prop.IsDefined(notInspectableAttrType))
 					continue;
 
@@ -125,6 +125,28 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 			}
 
 			return inspectors;
+		}
+
+		/// <summary>
+		/// Returns every instance field on <paramref name="type"/> and its base types, most-derived
+		/// first, de-duplicated by name. Unlike <see cref="Type.GetFields(BindingFlags)"/>, this
+		/// includes <b>inherited non-public</b> fields (which reflection omits for non-public
+		/// inherited members), so a <c>[Serialize] protected</c> field declared in a base component
+		/// is surfaced in the inspector. This mirrors the source generator, which walks base types
+		/// when collecting serializable members — keeping inspector and serialization in agreement.
+		/// </summary>
+		static IEnumerable<FieldInfo> GetAllInstanceFields(Type type)
+		{
+			var seen = new HashSet<string>(StringComparer.Ordinal);
+			for (var t = type; t != null && t != objectType; t = t.BaseType)
+			{
+				foreach (var f in t.GetFields(BindingFlags.Instance | BindingFlags.Public |
+				                              BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+				{
+					if (seen.Add(f.Name))
+						yield return f;
+				}
+			}
 		}
 
 		public static IEnumerable<MethodInfo> GetAllMethodsWithAttribute<T>(Type type) where T : Attribute

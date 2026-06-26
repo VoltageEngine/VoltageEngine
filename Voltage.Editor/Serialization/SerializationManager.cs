@@ -249,6 +249,7 @@ public partial class SerializationManager : GlobalManager
 
 			var entry = new ComponentDataEntry
 			{
+				ComponentId = ComponentIdRegistry.GetIdForType(component.GetType()),
 				ComponentTypeName = component.GetType().FullName,
 				ComponentName = component.Name,
 				DataTypeName = data.GetType().FullName,
@@ -284,6 +285,7 @@ public partial class SerializationManager : GlobalManager
 
 		return new ComponentDataEntry
 		{
+			ComponentId = ComponentIdRegistry.GetIdForType(component.GetType()),
 			ComponentTypeName = component.GetType().FullName,
 			ComponentName = component.Name,
 			DataTypeName = null,
@@ -511,6 +513,7 @@ public partial class SerializationManager : GlobalManager
 
 			var scEntry = new SceneComponentDataEntry
 			{
+				ComponentId        = ComponentIdRegistry.GetIdForType(sc.GetType()),
 				ComponentTypeName = sc.GetType().FullName,
 				ComponentName     = sc.Name
 			};
@@ -631,8 +634,18 @@ public partial class SerializationManager : GlobalManager
 	/// Creates a component instance by type name.
 	/// Uses ComponentAotFactory first (NativeAOT-safe), then falls back to reflection in editor.
 	/// </summary>
-	private static Component CreateComponentInstance(string componentTypeName)
+	private static Component CreateComponentInstance(string componentTypeName, string componentId = null)
 	{
+		// GUID-first resolution: the stable [ComponentId] identity survives class/namespace renames.
+		if (!string.IsNullOrEmpty(componentId) &&
+		    ComponentIdRegistry.TryGetType(componentId, out var guidType) &&
+		    guidType?.FullName != null)
+		{
+			if (ComponentAotFactory.IsRegistered(guidType.FullName))
+				return (Component)ComponentAotFactory.Create(guidType.FullName);
+			return (Component)Activator.CreateInstance(guidType);
+		}
+
 		if (string.IsNullOrEmpty(componentTypeName))
 			return null;
 
@@ -657,8 +670,8 @@ public partial class SerializationManager : GlobalManager
 	/// Public façade for <see cref="CreateComponentInstance"/> used by the Phase 4b revert UI
 	/// (<see cref="Voltage.Editor.Windows.EntityInspectorWindow"/>).
 	/// </summary>
-	public static Component CreateComponentInstancePublic(string componentTypeName)
-		=> CreateComponentInstance(componentTypeName);
+	public static Component CreateComponentInstancePublic(string componentTypeName, string componentId = null)
+		=> CreateComponentInstance(componentTypeName, componentId);
 
 	/// <summary>
 	/// Applies a single <see cref="ComponentDataEntry"/> to a live <see cref="Component"/> by
@@ -804,7 +817,7 @@ public partial class SerializationManager : GlobalManager
 
 					try
 					{
-						var component = CreateComponentInstance(componentEntry.ComponentTypeName);
+						var component = CreateComponentInstance(componentEntry.ComponentTypeName, componentEntry.ComponentId);
 						if (component == null)
 						{
 							Debug.Error($"Could not create component: {componentEntry.ComponentTypeName}");
@@ -1410,7 +1423,7 @@ public partial class SerializationManager : GlobalManager
 
 					try
 					{
-						var component = CreateComponentInstance(componentEntry.ComponentTypeName);
+						var component = CreateComponentInstance(componentEntry.ComponentTypeName, componentEntry.ComponentId);
 						if (component == null)
 						{
 							Debug.Error($"Could not create component: {componentEntry.ComponentTypeName}");
@@ -1531,7 +1544,7 @@ public partial class SerializationManager : GlobalManager
 				{
 					try
 					{
-						var component = CreateComponentInstance(componentEntry.ComponentTypeName);
+						var component = CreateComponentInstance(componentEntry.ComponentTypeName, componentEntry.ComponentId);
 						if (component == null)
 						{
 							Debug.Error($"Could not create component: {componentEntry.ComponentTypeName}");

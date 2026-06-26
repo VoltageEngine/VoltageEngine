@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Timers;
 using Voltage.Editor.DebugUtils;
 using Voltage.Editor.ProjectFile;
@@ -129,7 +130,7 @@ namespace Voltage.Editor.Assets
         /// <summary>Extensions that are never shown in the Asset Browser.</summary>
         private static readonly HashSet<string> SkippedExtensions = new(StringComparer.OrdinalIgnoreCase)
         {
-            ".xnb", ".mgcb", ".meta",
+            ".xnb", ".mgcb", ".meta", ".manifest",
         };
 
         /// <summary>
@@ -149,6 +150,18 @@ namespace Voltage.Editor.Assets
 
             var ext = Path.GetExtension(path);
             return ext.Equals(".tmp", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// True for C# script files. Scripts no longer use an asset-GUID <c>.meta</c> sidecar —
+        /// their stable identity lives in the <c>[ComponentId]</c> source attribute (see
+        /// <see cref="Voltage.Editor.Scripting.ComponentIdStamper"/>), which the source generator
+        /// bakes into the build. Creating a sidecar for them would be redundant and misleading.
+        /// </summary>
+        private static bool IsScriptFile(string path)
+        {
+            var ext = Path.GetExtension(path);
+            return ext.Equals(".cs", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>Debounce window for FSW events, in ms. Mirrors <c>ScriptWatcher</c>.</summary>
@@ -251,6 +264,10 @@ namespace Voltage.Editor.Assets
 
             _isIndexed = true;
             EditorDebug.Log($"AssetDatabase: indexed {_items.Count} asset(s).", "AssetDatabase");
+
+            // Bake the GUID→path map so published builds can resolve assets by GUID at runtime
+            // (the runtime has no AssetDatabase). Written to Data/ so it ships with the game.
+            WriteManifest();
         }
 
         /// <summary>
@@ -266,6 +283,14 @@ namespace Voltage.Editor.Assets
 
             // Never create a sidecar for transient temp/backup files.
             if (IsTransientFile(absolutePath))
+                return Guid.Empty;
+
+            // Scripts carry their identity in source via [ComponentId]; no .meta sidecar.
+            if (IsScriptFile(absolutePath))
+                return Guid.Empty;
+
+            // Non-asset/build files (.meta, .manifest, .xnb, …) never get their own GUID sidecar.
+            if (SkippedExtensions.Contains(Path.GetExtension(absolutePath)))
                 return Guid.Empty;
 
             lock (_guidLock)
@@ -737,6 +762,56 @@ namespace Voltage.Editor.Assets
         /// Converts an absolute path to a project-relative forward-slash path for storage
         /// in <see cref="AssetReference.HintPath"/>.
         /// </summary>
+        /// <summary>
+        /// Writes <c>Data/assets.manifest</c> — a flat <c>{ "guid": "project-relative/path" }</c> JSON
+        /// map of every tracked asset — so a published build (which has no AssetDatabase) can resolve
+        /// assets by GUID at runtime via <see cref="Voltage.Assets.AssetManifest"/>. Called at the end
+        /// of every <see cref="Refresh"/> so it stays current. The <c>.manifest</c> extension is in
+        /// <see cref="SkippedExtensions"/>, so writing it does not retrigger the FileSystemWatcher.
+        /// </summary>
+        private void WriteManifest()
+        {
+            var project = ProjectManager.Instance?.CurrentProject;
+            if (project == null || string.IsNullOrEmpty(project.DataFolder))
+                return;
+
+            try
+            {
+                var sb = new StringBuilder();
+                sb.Append("{\n");
+
+                bool first = true;
+                lock (_guidLock)
+                {
+                    foreach (var kvp in _guidToPath)
+                    {
+                        var rel = ToProjectRelativePath(kvp.Value);
+                        if (string.IsNullOrEmpty(rel))
+                            continue;
+
+                        if (!first)
+                            sb.Append(",\n");
+                        first = false;
+
+                        sb.Append("  \"").Append(kvp.Key.ToString()).Append("\": \"")
+                          .Append(EscapeJsonString(rel)).Append('"');
+                    }
+                }
+
+                sb.Append("\n}\n");
+
+                Directory.CreateDirectory(project.DataFolder);
+                File.WriteAllText(Path.Combine(project.DataFolder, "assets.manifest"), sb.ToString());
+            }
+            catch (Exception ex)
+            {
+                EditorDebug.Log($"AssetDatabase: failed to write asset manifest: {ex.Message}", "AssetDatabase");
+            }
+        }
+
+        private static string EscapeJsonString(string s) =>
+            s.Replace("\\", "\\\\").Replace("\"", "\\\"");
+
         private static string ToProjectRelativePath(string absolutePath)
         {
             if (string.IsNullOrEmpty(absolutePath))
