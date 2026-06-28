@@ -27,6 +27,8 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 		int _pendingPickerIndex = -1;
 		// Which list index the currently-open picker is editing
 		int _activePickerIndex = -1;
+		// Search text for the entity hierarchy picker (shared popup, one per ListInspector)
+		string _pickerSearch = string.Empty;
 
 		public override void Initialize()
 		{
@@ -272,6 +274,7 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 				ImGui.OpenPopup($"reflist_epicker_{_scopeId}");
 				_activePickerIndex = _pendingPickerIndex;
 				_pendingPickerIndex = -1;
+				_pickerSearch = string.Empty;
 			}
 
 			if (_activePickerIndex < 0 || _activePickerIndex >= _list.Count)
@@ -285,35 +288,19 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 			if (!ImGui.BeginPopupModal($"reflist_epicker_{_scopeId}", ref open, ImGuiWindowFlags.NoResize))
 				return;
 
-			ImGuiSafe.TextColoredSafe(new Num.Vector4(0.4f, 1f, 0.6f, 1f),
-				$"{_name}[{_activePickerIndex}]  ({_elementType.Name})");
-			ImGui.Separator();
-
 			var currentEntity = ResolveEntityAt(_activePickerIndex);
 
-			if (ImGui.Selectable($"  None ({_elementType.Name})", currentEntity == null))
+			// Shared hierarchy picker — identical search + scene-tree UI as single Entity/Transform fields.
+			if (EntityHierarchyPicker.DrawBody($"{_name}[{_activePickerIndex}]", _elementType, currentEntity,
+				    ref _pickerSearch, out bool cleared, out var picked))
 			{
-				_list[_activePickerIndex] = null;
+				if (cleared)
+					_list[_activePickerIndex] = null;
+				else
+					AssignEntityAt(_activePickerIndex, picked);
+
 				_activePickerIndex = -1;
 				ImGui.CloseCurrentPopup();
-			}
-
-			ImGui.Separator();
-
-			var scene = Core.Scene;
-			if (scene != null)
-			{
-				for (var e = 0; e < scene.Entities.Count; e++)
-				{
-					var entity = scene.Entities[e];
-					bool isSelected = entity == currentEntity;
-					if (ImGui.Selectable($"  {entity.Name}", isSelected))
-					{
-						AssignEntityAt(_activePickerIndex, entity);
-						_activePickerIndex = -1;
-						ImGui.CloseCurrentPopup();
-					}
-				}
 			}
 
 			ImGui.Separator();

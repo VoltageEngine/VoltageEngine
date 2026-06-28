@@ -10,7 +10,9 @@ namespace Voltage.Editor.Inspectors.TypeInspectors;
 
 public class EntityReferenceTypeInspector : AbstractTypeInspector
 {
-	public const string DragDropPayloadId = "VOLTAGE_ENTITY_REF";
+	// Matches the payload the Scene Graph's EntityPane emits when dragging entities, so an entity
+	// can be dragged straight from the hierarchy onto an Entity/Transform field.
+	public const string DragDropPayloadId = "ENTITY_DRAG";
 
 	public static Entity DraggedEntity;
 
@@ -146,52 +148,16 @@ public class EntityReferenceTypeInspector : AbstractTypeInspector
 		if (!ImGui.BeginPopupModal($"entref_picker_{_scopeId}", ref open, ImGuiWindowFlags.NoResize))
 			return;
 
-		ImGuiSafe.TextColoredSafe(new Num.Vector4(0.4f, 1f, 0.6f, 1f), $"{_name}  ({_valueType.Name})");
-		ImGui.Separator();
-
-		ImGui.SetNextItemWidth(-1);
-		ImGui.InputTextWithHint("##refsearch", "Search...", ref _pickerSearch, 128);
-		ImGui.Separator();
-
-		if (ImGui.Selectable($"  None ({_valueType.Name})", current == null))
+		// Shared hierarchy picker — identical search + scene-tree UI as list-element Entity/Transform slots.
+		if (EntityHierarchyPicker.DrawBody(_name, _valueType, current, ref _pickerSearch,
+			    out bool cleared, out var picked))
 		{
-			SetValueWithUndo(null, $"Clear {_name}");
-			ImGui.CloseCurrentPopup();
-		}
-
-		ImGui.Separator();
-
-		var scene = Core.Scene;
-		if (scene != null)
-		{
-			bool filtering = !string.IsNullOrEmpty(_pickerSearch);
-			if (filtering)
-			{
-				string lower = _pickerSearch.ToLowerInvariant();
-				for (int e = 0; e < scene.Entities.Count; e++)
-				{
-					var entity = scene.Entities[e];
-					if (!entity.Name.ToLowerInvariant().Contains(lower))
-						continue;
-
-					ImGui.PushID((int)entity.Id);
-					if (ImGui.Selectable($"  {entity.Name}", entity == current))
-					{
-						AssignEntity(entity);
-						ImGui.CloseCurrentPopup();
-					}
-					ImGui.PopID();
-				}
-			}
+			if (cleared)
+				SetValueWithUndo(null, $"Clear {_name}");
 			else
-			{
-				for (int e = 0; e < scene.Entities.Count; e++)
-				{
-					var entity = scene.Entities[e];
-					if (entity.Transform.Parent == null)
-						DrawEntityTreeNode(entity, current);
-				}
-			}
+				AssignEntity(picked);
+
+			ImGui.CloseCurrentPopup();
 		}
 
 		ImGui.Separator();
@@ -200,50 +166,5 @@ public class EntityReferenceTypeInspector : AbstractTypeInspector
 			ImGui.CloseCurrentPopup();
 
 		ImGui.EndPopup();
-	}
-
-	private void DrawEntityTreeNode(Entity entity, Entity current)
-	{
-		bool isSelected = entity == current;
-		bool hasChildren = entity.Transform.ChildCount > 0;
-
-		ImGui.PushID((int)entity.Id);
-
-		if (hasChildren)
-		{
-			bool nodeOpen = ImGui.TreeNodeEx(entity.Name,
-				ImGuiTreeNodeFlags.OpenOnArrow | ImGuiTreeNodeFlags.SpanAvailWidth
-				| (isSelected ? ImGuiTreeNodeFlags.Selected : 0));
-
-			if (ImGui.IsItemClicked(ImGuiMouseButton.Left) &&
-			    ImGui.GetMousePos().X - ImGui.GetItemRectMin().X > ImGui.GetTreeNodeToLabelSpacing())
-			{
-				AssignEntity(entity);
-				ImGui.CloseCurrentPopup();
-			}
-
-			if (nodeOpen)
-			{
-				for (int i = 0; i < entity.Transform.ChildCount; i++)
-					DrawEntityTreeNode(entity.Transform.GetChild(i).Entity, current);
-
-				ImGui.TreePop();
-			}
-		}
-		else
-		{
-			ImGui.TreeNodeEx(entity.Name,
-				ImGuiTreeNodeFlags.Leaf | ImGuiTreeNodeFlags.NoTreePushOnOpen
-				| ImGuiTreeNodeFlags.SpanAvailWidth
-				| (isSelected ? ImGuiTreeNodeFlags.Selected : 0));
-
-			if (ImGui.IsItemClicked(ImGuiMouseButton.Left))
-			{
-				AssignEntity(entity);
-				ImGui.CloseCurrentPopup();
-			}
-		}
-
-		ImGui.PopID();
 	}
 }

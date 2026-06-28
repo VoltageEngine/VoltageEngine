@@ -173,6 +173,20 @@ public class SceneGraphWindow
 			// border: false — child is invisible; the window provides the border.
 			ImGui.BeginChild("##SceneGraphContent", childSize, false, ImGuiWindowFlags.None);
 
+			// Prefab edit scene: a "Go Back" control at the very top returns to the previous game scene.
+			if (_imGuiManager != null && _imGuiManager.IsInPrefabEditScene)
+			{
+				if (ImGui.Button("< Go Back", new Num.Vector2(100, 0)))
+					_imGuiManager.ExitPrefabEditScene();
+
+				ImGui.SameLine();
+				ImGuiSafe.TextColoredSafe(new Num.Vector4(0.8f, 0.6f, 1f, 1f),
+					$"Editing Prefab: {_imGuiManager.PrefabEditName}");
+
+				VoltageEditorUtils.SmallVerticalSpace();
+				ImGui.Separator();
+			}
+
 			VoltageEditorUtils.MediumVerticalSpace();
 			if (ImGui.CollapsingHeader("Post Processors"))
 				_postProcessorsPane.Draw();
@@ -188,8 +202,22 @@ public class SceneGraphWindow
 				_sceneComponentsPane.Draw();
 
 			VoltageEditorUtils.MediumVerticalSpace();
-			if (VoltageEditorUtils.CenteredButton("Save Scene", 0.7f))
-				SerializationManager.Instance.InvokeSaveSceneChanges();
+			if (_imGuiManager != null && _imGuiManager.IsInPrefabEditScene)
+			{
+				// A prefab edit scene works strictly on the prefab: save writes back to the .vprefab
+				// (never a scene file), and the copies button mirrors the inspector action.
+				if (VoltageEditorUtils.CenteredButton("Save Prefab", 0.7f))
+					_imGuiManager.SavePrefabEditToOriginal();
+
+				VoltageEditorUtils.SmallVerticalSpace();
+				if (VoltageEditorUtils.CenteredButton("Apply to SerializedPrefab Copies", 0.7f))
+					_imGuiManager.ApplyPrefabEditToCopies();
+			}
+			else
+			{
+				if (VoltageEditorUtils.CenteredButton("Save Scene", 0.7f))
+					SerializationManager.Instance.InvokeSaveSceneChanges();
+			}
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
@@ -257,7 +285,7 @@ public class SceneGraphWindow
 				if (accepted && !AssetBrowserWindow.DraggedReference.IsEmpty)
 				{
 					var reference = AssetBrowserWindow.DraggedReference;
-					AssetBrowserWindow.DraggedReference = AssetReference.Empty;
+					AssetBrowserWindow.DraggedReference = Voltage.Editor.Assets.AssetReference.Empty;
 
 					// Resolve the item descriptor via the hint-path extension so we can
 					// look up the correct DropFactory without re-scanning the database.
@@ -559,27 +587,28 @@ public class SceneGraphWindow
 	/// Used by the asset-drop path where the absolute file path is already resolved,
 	/// so we bypass the name-based scan entirely.
 	/// </summary>
-	internal void CreateEntityFromPrefabData(PrefabData prefabData, string prefabName, Guid prefabGuid = default, Vector2? worldPosition = null)
+	internal Entity CreateEntityFromPrefabData(PrefabData prefabData, string prefabName, Guid prefabGuid = default, Vector2? worldPosition = null)
 	{
 		try
 		{
-			InstantiateEntityFromPrefabData(prefabData, prefabName, prefabGuid, worldPosition);
+			return InstantiateEntityFromPrefabData(prefabData, prefabName, prefabGuid, worldPosition);
 		}
 		catch (Exception ex)
 		{
 			EditorDebug.Log($"Error instantiating prefab '{prefabName}' from preloaded data: {ex.Message}");
+			return null;
 		}
 	}
 
 	/// <summary>
-	/// Core instantiation logic shared by both overloads above.
+	/// Core instantiation logic shared by both overloads above. Returns the created entity (or null).
 	/// </summary>
-	private void InstantiateEntityFromPrefabData(PrefabData prefabData, string prefabName, Guid prefabGuid, Vector2? worldPosition)
+	private Entity InstantiateEntityFromPrefabData(PrefabData prefabData, string prefabName, Guid prefabGuid, Vector2? worldPosition)
 	{
 		if (prefabData.EntityData == null)
 		{
 			EditorDebug.Log($"Null SerializedPrefab EntityData for '{prefabName}'.");
-			return;
+			return null;
 		}
 
 		var entity = Core.Scene.SimpleCreateEntity(prefabData.Name, Entity.InstanceType.SerializedPrefab);
@@ -604,6 +633,7 @@ public class SceneGraphWindow
 		_imGuiManager.MainEntityInspectorWindow.DelayedSetEntity(entity);
 
 		EditorDebug.Log($"Created entity '{entity.Name}' from prefab '{prefabName}'.");
+		return entity;
 	}
 
 	#region Entity Selection Navigation

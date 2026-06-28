@@ -196,6 +196,8 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 			// must be checked before IsValueType
 			if (valueType == typeof(PrefabReference))
 				return new PrefabReferenceTypeInspector();
+			if (valueType == typeof(AssetReference))
+				return new AssetReferenceTypeInspector();
 			if (typeof(IComponentGroup).IsAssignableFrom(valueType) && !valueType.IsValueType)
 				return new TypeInspectors_ComponentGroupInspector();
 			if (valueType.GetTypeInfo().IsValueType)

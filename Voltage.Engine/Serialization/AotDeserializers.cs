@@ -444,6 +444,26 @@ namespace Voltage.Serialization
 		/// <summary>
 		/// AOT-safe reader for PrefabReference. Used by source-generated ComponentData deserializers.
 		/// </summary>
+		public static AssetReference ReadAssetReference(JsonTokenReader r)
+		{
+			var v = new AssetReference();
+			if (!r.BeginObject()) return v;
+			while (r.ReadNextKey(out var key))
+			{
+				switch (key)
+				{
+					case "AssetGuid":
+						var guidStr = r.ReadString();
+						if (System.Guid.TryParse(guidStr, out var g)) v.AssetGuid = g;
+						break;
+					case "AssetPath": v.AssetPath = r.ReadString(); break;
+					case "AssetName": v.AssetName = r.ReadString(); break;
+					default: r.SkipValue(); break;
+				}
+			}
+			return v;
+		}
+
 		public static PrefabReference ReadPrefabReference(JsonTokenReader r)
 		{
 			var v = new PrefabReference();

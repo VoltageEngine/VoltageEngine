@@ -118,11 +118,43 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private bool _pendingSceneChange = false;
 	private Type _requestedSceneType = null;
 	private string _requestedSceneName = null;
+	// Factory for an in-memory scene to switch to (used by "open prefab in isolation"); takes priority
+	// over name/type when set, and routes through the same unsaved-changes prompt as a normal scene change.
+	private Func<Scene> _requestedSceneFactory = null;
 	private bool _pendingResetScene = false;
 	private Type _requestedResetSceneType = null;
 	private Task _pendingSaveTask = null;
 	private bool _pendingProjectClose = false;
 	private ExitPromptType _pendingActionAfterSave;
+
+	private Scene _pendingPrefabScene = null;
+	private Voltage.Data.PrefabData _pendingPrefabData;
+	private string _pendingPrefabName = null;
+	private Guid _pendingPrefabGuid;
+	private string _pendingPrefabPrevScenePath = null;
+	private string _pendingPrefabPrevSceneName = null;
+
+	// Non-null while an isolated prefab edit scene is active (see OpenPrefabIsolated).
+	private PrefabEditSession _prefabEdit = null;
+
+	/// <summary>True while the active scene is an isolated prefab edit scene.</summary>
+	public bool IsInPrefabEditScene => _prefabEdit != null;
+
+	/// <summary>The name of the prefab currently being edited in isolation (or null).</summary>
+	public string PrefabEditName => _prefabEdit?.PrefabName;
+
+	/// <summary>
+	/// Tracks an active isolated prefab edit session: the single SerializedPrefab instance placed in the
+	/// temporary scene, the prefab identity, and the scene to return to when the user goes back.
+	/// </summary>
+	private sealed class PrefabEditSession
+	{
+		public Entity Instance;
+		public string PrefabName;
+		public Guid PrefabGuid;
+		public string PreviousScenePath;
+		public string PreviousSceneName;
+	}
 
 	private string _layoutFilePath;
 	private LayoutManager _layoutManager;
@@ -443,6 +475,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		// and asset browser draws so their drop targets get first chance at the payload.
 		HandleGameViewAssetDrop();
 
+		// Add the prefab instance once a freshly-opened isolated prefab scene has actually become active.
+		ProcessPendingPrefabInstantiation();
+
 		for (var i = _drawCommands.Count - 1; i >= 0; i--)
 			_drawCommands[i]();
 
@@ -743,6 +778,14 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (Core.Scene == null)
 		{
 			Debug.Error("No active scene to save!");
+			return;
+		}
+
+		// In a prefab edit scene, Ctrl+S saves the prefab (not a scene file) — this is what keeps the
+		// temporary prefab scene from ever being written to disk and restored on the next launch.
+		if (IsInPrefabEditScene)
+		{
+			SavePrefabEditToOriginal();
 			return;
 		}
 
@@ -1286,7 +1329,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		DrawSavePromptModal("Save Changes?##SceneChange", () =>
 		{
-			if (!string.IsNullOrEmpty(_requestedSceneName))
+			if (_requestedSceneFactory != null)
+			{
+				ActivateScene(_requestedSceneFactory());
+			}
+			else if (!string.IsNullOrEmpty(_requestedSceneName))
 			{
 				LoadSceneByName(_requestedSceneName);
 			}
@@ -1298,6 +1345,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			}
 			_requestedSceneName = null;
 			_requestedSceneType = null;
+			_requestedSceneFactory = null;
 		});
 
 		DrawSavePromptModal("Save Changes?##ResetScene", () =>
@@ -1396,6 +1444,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			{
 				_requestedSceneName = null;
 				_requestedSceneType = null;
+				_requestedSceneFactory = null;
 				_pendingProjectClose = false;
 				ImGui.CloseCurrentPopup();
 			}
@@ -1458,6 +1507,14 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private async Task SaveSceneAsyncAndThenAct()
 	{
+		// While editing a prefab in isolation the "scene" is the prefab — save it back to its .vprefab
+		// rather than trying (and failing) to write a scene file for the temporary in-memory scene.
+		if (IsInPrefabEditScene)
+		{
+			SavePrefabEditToOriginal();
+			return;
+		}
+
 		await _SerializationManager.SaveSceneChangesAsync();
 	}
 
@@ -1541,11 +1598,201 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_pendingSceneChange = true;
 		_requestedSceneName = sceneName;
 		_requestedSceneType = null;
+		_requestedSceneFactory = null;
 		_pendingExit = false;
+	}
+
+	/// <summary>
+	/// Opens a prefab in an isolated, in-memory edit scene: a fresh scene containing only a single
+	/// <see cref="Entity.InstanceType.SerializedPrefab"/> instance of the prefab, so it can be inspected
+	/// and tweaked without touching the real game scenes. Routes through the unsaved-changes prompt just
+	/// like a normal scene change. The scene is never written to disk; edits are pushed back to the
+	/// <c>.vprefab</c> via the inspector's existing "save / apply to prefab" actions.
+	/// </summary>
+	internal void OpenPrefabIsolated(Voltage.Data.PrefabData prefabData, string prefabName, Guid prefabGuid)
+	{
+		// Remember the scene to return to (the current real, file-backed scene). Captured now, before
+		// the swap, so "Go Back" can reload it.
+		string prevScenePath = SceneManager.Instance.CurrentScenePath;
+		string prevSceneName = SceneManager.Instance.CurrentSceneName;
+
+		Func<Scene> factory = () =>
+		{
+			var scene = new Scene();
+			scene.SceneData = new Voltage.Data.SceneData { Name = $"[Prefab] {prefabName}" };
+
+			// Core.Scene assignment is deferred to the next frame's swap when a scene already exists,
+			// so we cannot instantiate the prefab now (Core.Scene still points at the old scene). Queue
+			// it; ProcessPendingPrefabInstantiation adds the instance once the swap has actually landed.
+			_pendingPrefabScene = scene;
+			_pendingPrefabData = prefabData;
+			_pendingPrefabName = prefabName;
+			_pendingPrefabGuid = prefabGuid;
+			_pendingPrefabPrevScenePath = prevScenePath;
+			_pendingPrefabPrevSceneName = prevSceneName;
+			return scene;
+		};
+
+		if (EditorChangeTracker.IsDirty)
+		{
+			_pendingSceneChange = true;
+			_requestedSceneName = null;
+			_requestedSceneType = null;
+			_requestedSceneFactory = factory;
+			_pendingExit = false;
+		}
+		else
+		{
+			ActivateScene(factory());
+		}
+	}
+
+	/// <summary>
+	/// Adds the queued prefab instance to the isolated scene once the deferred Core.Scene swap has made
+	/// that scene active. Runs every frame from <see cref="LayoutGui"/>; a no-op until the swap lands.
+	/// </summary>
+	private void ProcessPendingPrefabInstantiation()
+	{
+		if (_pendingPrefabScene == null)
+			return;
+
+		// Wait for the deferred swap: Core.Scene only becomes our scene after Core.Update runs.
+		if (Core.Scene != _pendingPrefabScene)
+			return;
+
+		Entity instance = null;
+		try
+		{
+			instance = SceneGraphWindow.CreateEntityFromPrefabData(
+				_pendingPrefabData, _pendingPrefabName, _pendingPrefabGuid, Vector2.Zero);
+		}
+		catch (Exception ex)
+		{
+			Debug.Error($"OpenPrefabIsolated: failed to instantiate '{_pendingPrefabName}': {ex.Message}");
+		}
+
+		_prefabEdit = new PrefabEditSession
+		{
+			Instance = instance,
+			PrefabName = _pendingPrefabName,
+			PrefabGuid = _pendingPrefabGuid,
+			PreviousScenePath = _pendingPrefabPrevScenePath,
+			PreviousSceneName = _pendingPrefabPrevSceneName,
+		};
+
+		// CreateEntityFromPrefabData already selects the instance and routes it to the inspector.
+		// Focus the editor camera on the prefab instance, matching the Scene Graph's click-to-focus.
+		if (instance != null)
+			_cursorSelectionManager.SetCameraTargetPosition(instance.Transform.Position);
+
+		_pendingPrefabScene = null;
+		_pendingPrefabData = default;
+		_pendingPrefabName = null;
+		_pendingPrefabGuid = default;
+		_pendingPrefabPrevScenePath = null;
+		_pendingPrefabPrevSceneName = null;
+
+		EditorChangeTracker.Clear();
+		EditorDebug.Log($"Opened prefab '{_prefabEdit.PrefabName}' in isolated edit scene.");
+	}
+
+	/// <summary>
+	/// Saves the prefab being edited in isolation back to its source <c>.vprefab</c> (apply-to-original).
+	/// Invoked by the Scene Graph's "Save Prefab" button while in a prefab edit scene.
+	/// </summary>
+	public async void SavePrefabEditToOriginal()
+	{
+		if (_prefabEdit?.Instance == null)
+			return;
+
+		var instance = _prefabEdit.Instance;
+		if (instance.Type != Entity.InstanceType.SerializedPrefab || string.IsNullOrEmpty(instance.OriginalPrefabName))
+		{
+			EditorDebug.Error("Save Prefab: the edited entity is not a valid prefab instance.");
+			return;
+		}
+
+		bool saved = await SerializationManager.Instance.InvokePrefabCreated(instance, true);
+		if (saved)
+		{
+			EditorChangeTracker.Clear();
+			NotificationSystem.ShowTimedNotification($"Saved prefab '{instance.OriginalPrefabName}'");
+			EditorDebug.Log($"Saved prefab '{instance.OriginalPrefabName}' from edit scene.");
+		}
+		else
+		{
+			EditorDebug.Error($"Failed to save prefab '{instance.OriginalPrefabName}'.");
+		}
+	}
+
+	/// <summary>
+	/// Applies the edited prefab instance's component data to every other SerializedPrefab copy of the
+	/// same prefab present in the active scene (apply-to-copies). In an isolated edit scene there are
+	/// usually no other copies, so this is typically a no-op — the button exists for parity with the
+	/// inspector and for scenes that contain multiple instances.
+	/// </summary>
+	public void ApplyPrefabEditToCopies()
+	{
+		if (_prefabEdit?.Instance == null)
+			return;
+
+		MainEntityInspectorWindow.ApplyEntityToPrefabCopies(_prefabEdit.Instance);
+	}
+
+	/// <summary>
+	/// Leaves the isolated prefab edit scene and returns to the scene the user came from. Reloads that
+	/// scene from its file; if it had no file (unsaved), falls back to the last used scene.
+	/// </summary>
+	public void ExitPrefabEditScene()
+	{
+		if (_prefabEdit == null)
+			return;
+
+		var prevPath = _prefabEdit.PreviousScenePath;
+		_prefabEdit = null;
+
+		// Clear any queued instantiation that might still be pending.
+		_pendingPrefabScene = null;
+
+		if (!string.IsNullOrEmpty(prevPath) && File.Exists(prevPath))
+		{
+			SceneManager.Instance.LoadScene(prevPath);
+		}
+		else
+		{
+			SceneManager.Instance.LoadLastUsedScene();
+		}
+
+		EditorChangeTracker.Clear();
+	}
+
+	/// <summary>
+	/// Makes <paramref name="scene"/> the active scene, applying the project design resolution (mirroring
+	/// SceneManager.LoadScene) and clearing the SceneManager's file path so this temporary scene is never
+	/// mistaken for a saved one.
+	/// </summary>
+	private void ActivateScene(Scene scene)
+	{
+		if (scene == null)
+			return;
+
+		if (ProjectManager.Instance.HasActiveProject)
+		{
+			var designRes = ProjectManager.Instance.CurrentProject.Settings.DesignResolution;
+			scene.SetDesignResolution(designRes.Width, designRes.Height, designRes.ResolutionPolicy,
+				designRes.HorizontalBleed, designRes.VerticalBleed);
+		}
+
+		Core.Scene = scene;
+		SceneManager.Instance.ClearCurrentScene();
+		EditorChangeTracker.Clear();
 	}
 
 	private void LoadSceneByName(string sceneName)
 	{
+		// Switching to a normal scene ends any prefab edit session.
+		_prefabEdit = null;
+		_pendingPrefabScene = null;
 		SceneManager.Instance.LoadSceneByName(sceneName);
 	}
 

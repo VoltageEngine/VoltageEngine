@@ -148,7 +148,7 @@ public class PrefabReferenceTypeInspector : AbstractTypeInspector
     {
         var assetRef = AssetDatabase.Instance != null
             ? AssetDatabase.Instance.GetReference(entry.AbsolutePath)
-            : AssetReference.Empty;
+            : Voltage.Editor.Assets.AssetReference.Empty;
 
         var projectRoot = ProjectManager.Instance?.CurrentProject?.ProjectPath ?? string.Empty;
         string relPath = MakeProjectRelative(entry.AbsolutePath, projectRoot);

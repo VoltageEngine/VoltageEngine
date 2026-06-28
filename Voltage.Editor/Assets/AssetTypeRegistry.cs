@@ -278,6 +278,38 @@ namespace Voltage.Editor.Assets
         }
 
         /// <summary>
+        /// Opens a prefab in an isolated, in-memory edit scene (one SerializedPrefab instance, nothing else)
+        /// so it can be viewed/edited in isolation. Triggered by double-clicking a prefab in the browser.
+        /// </summary>
+        internal static void OpenPrefabIsolated(AssetReference reference)
+        {
+            var absolutePath = ResolveOrLog(reference, "OpenPrefabIsolated");
+            if (absolutePath == null) return;
+
+            var imgr = Core.GetGlobalManager<ImGuiManager>();
+            if (imgr == null)
+            {
+                EditorDebug.Log("OpenPrefabIsolated: ImGuiManager unavailable.", "AssetBrowser");
+                return;
+            }
+
+            PrefabData prefabData;
+            try
+            {
+                prefabData = SerializationManager.Instance.LoadPrefabDataFromPath(absolutePath)
+                             ?? throw new Exception("LoadPrefabDataFromPath returned null.");
+            }
+            catch (Exception ex)
+            {
+                EditorDebug.Log($"OpenPrefabIsolated: failed to load prefab from '{absolutePath}': {ex.Message}", "AssetBrowser");
+                return;
+            }
+
+            string prefabName = Path.GetFileNameWithoutExtension(absolutePath);
+            imgr.OpenPrefabIsolated(prefabData, prefabName, reference.Guid);
+        }
+
+        /// <summary>
         /// Resolves <paramref name="reference"/> via the <see cref="AssetDatabase"/> singleton
         /// and logs a warning if resolution fails.
         /// Returns the absolute path, or null on failure.

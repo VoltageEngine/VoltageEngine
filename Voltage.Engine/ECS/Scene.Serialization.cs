@@ -84,6 +84,67 @@ namespace Voltage
 		public static Func<Guid, string, string> PrefabPathResolver;
 
 		/// <summary>
+		/// Optional resolver for general asset GUIDs (used by <see cref="AssetReference"/>). Given an
+		/// asset GUID, returns its current absolute path, or null. In a published game this stays null
+		/// and <see cref="AssetReference"/> resolves via the baked <see cref="Voltage.Assets.AssetManifest"/>;
+		/// the editor wires this to <c>AssetDatabase.GetPath</c> so it works in play mode too.
+		/// </summary>
+		public static Func<Guid, string> AssetPathResolver;
+
+		/// <summary>
+		/// Loads a content asset referenced by an <see cref="AssetReference"/> through this scene's
+		/// <see cref="Content"/> manager. The reference is resolved <b>GUID-first</b> (so it survives
+		/// renaming/moving the file), then the resolved path is converted to a Content-relative name
+		/// (the part under the <c>Content</c> folder, without extension) and loaded via the pipeline.
+		/// Returns <c>default</c> when the reference is empty or cannot be resolved.
+		/// </summary>
+		public T LoadAsset<T>(AssetReference reference)
+		{
+			if (!reference.IsValid)
+				return default;
+
+			var path = reference.ResolvePath();
+			if (string.IsNullOrEmpty(path))
+			{
+				Debug.Warn($"[Scene.LoadAsset] Could not resolve AssetReference '{reference}'. " +
+				           "Open the project in the editor to (re)generate the asset manifest.");
+				return default;
+			}
+
+			// Dispatch to the strongly-typed loader registered for T (Texture2D, SoundEffect,
+			// SpriteAtlas, BitmapFont, AsepriteFile, TmxMap, …), falling back to the MonoGame
+			// content pipeline for anything unmapped. File.Exists distinguishes a raw source
+			// asset from a compiled-only .xnb for the dual-format types; the loader table is
+			// resolved once per T, so this stays allocation- and reflection-free per call.
+			return Content.LoadByType<T>(path, ToContentName(path), File.Exists(path));
+		}
+
+		/// <summary>
+		/// Converts an absolute (or project-relative) asset path to a ContentManager name: the portion
+		/// under the <c>Content</c> root, forward-slashed and without file extension
+		/// (e.g. <c>…/Content/Sprites/Player.png → Sprites/Player</c>).
+		/// </summary>
+		private static string ToContentName(string assetPath)
+		{
+			var norm = assetPath.Replace('\\', '/');
+
+			int idx = norm.LastIndexOf("/Content/", StringComparison.OrdinalIgnoreCase);
+			string rel;
+			if (idx >= 0)
+				rel = norm.Substring(idx + "/Content/".Length);
+			else if (norm.StartsWith("Content/", StringComparison.OrdinalIgnoreCase))
+				rel = norm.Substring("Content/".Length);
+			else
+				rel = norm; // assume already Content-relative
+
+			int dot = rel.LastIndexOf('.');
+			if (dot > rel.LastIndexOf('/'))
+				rel = rel.Substring(0, dot);
+
+			return rel;
+		}
+
+		/// <summary>
 		/// Optional override for the directory that <see cref="LoadPrefab"/> resolves relative paths against.
 		/// In a published game this stays null and paths resolve to <c>AppContext.BaseDirectory/Data/Prefabs</c>.
 		/// The Voltage Editor sets this to the open project's Prefabs folder so LoadPrefab works in play mode,
@@ -98,7 +159,7 @@ namespace Voltage
 		/// then delegates to <see cref="LoadPrefab(string, Vector2)"/>. Returns <c>null</c> when the
 		/// reference is empty or cannot be resolved.
 		/// </summary>
-		public Entity LoadPrefab(PrefabReference reference, Vector2 position = default)
+		public Entity LoadPrefab(PrefabReference reference, Vector2 position = default, Entity.InstanceType type = Entity.InstanceType.NonSerialized)
 		{
 			if (!reference.IsValid)
 				return null;
@@ -111,7 +172,7 @@ namespace Voltage
 				return null;
 			}
 
-			return LoadPrefab(path, position);
+			return LoadPrefab(path, position, type);
 		}
 
 		/// <summary>
@@ -140,7 +201,7 @@ namespace Voltage
 		/// </param>
 		/// <param name="position">World-space position for the instantiated entity. Defaults to origin.</param>
 		/// <returns>The newly added entity, or <c>null</c> on failure.</returns>
-		public Entity LoadPrefab(string prefabPath, Vector2 position = default)
+		public Entity LoadPrefab(string prefabPath, Vector2 position = default, Entity.InstanceType type = Entity.InstanceType.NonSerialized)
 		{
 			if (string.IsNullOrWhiteSpace(prefabPath))
 			{
@@ -167,7 +228,7 @@ namespace Voltage
 			try
 			{
 				var json = File.ReadAllText(resolvedPath);
-				prefabData = Serialization.AotDeserializers.DeserializePrefabData(json);
+				prefabData = AotDeserializers.DeserializePrefabData(json);
 
 				if (prefabData.Name == null)
 				{
@@ -183,25 +244,18 @@ namespace Voltage
 
 			try
 			{
-				// Derive the prefab identity from the file name (no extension).
-				// OriginalPrefabGuid is left Empty — GUID/.meta is editor-only.
+				
 				var prefabName = Path.GetFileNameWithoutExtension(resolvedPath);
 
 				// Convert to SceneEntityData so we can drive the shared LoadEntityData path.
-				// Position is set here; all other fields come from the PrefabData.
 				var sceneEntityData = prefabData.ToSceneEntityData(position);
 				sceneEntityData.OriginalPrefabName = prefabName;
 				sceneEntityData.OriginalPrefabGuid = null; // GUID is editor-only
 
-				// Create and register the root entity. AddEntity at runtime marks it NonSerialized;
-				// LoadEntityData below will restore the correct InstanceType (SerializedPrefab) and
-				// OriginalPrefabName immediately afterwards.
 				var entity = new Entity(prefabData.Name);
-				AddEntity(entity);
-
-				// Apply all prefab data through the exact same runtime path that scene loading uses.
-				// This sets Type, OriginalPrefabName, transform, components, and component data.
+				entity.Type = type;
 				LoadEntityData(entity, sceneEntityData);
+				AddEntity(entity);
 
 				// Instantiate child entities.
 				if (prefabData.ChildEntities != null)
@@ -210,12 +264,10 @@ namespace Voltage
 
 					foreach (var childData in prefabData.ChildEntities)
 					{
-						if (childData.InstanceType == Entity.InstanceType.NonSerialized)
-							continue;
-
 						var childEntity = new Entity(childData.Name);
-						AddEntity(childEntity);
 						LoadEntityData(childEntity, childData);
+						childEntity.Type = type;
+						AddEntity(childEntity);
 
 						// If the parent wasn't resolved during LoadEntityData (parent not yet in
 						// the scene at that point), track it for a deferred assignment pass.
@@ -228,6 +280,7 @@ namespace Voltage
 						AssignParentRelationships(childrenNeedingParents);
 				}
 
+				entity.Type = type;
 				return entity;
 			}
 			catch (Exception ex)

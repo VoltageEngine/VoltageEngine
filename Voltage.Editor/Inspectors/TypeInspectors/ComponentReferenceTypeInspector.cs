@@ -63,6 +63,33 @@ public class ComponentReferenceTypeInspector : AbstractTypeInspector
 				DraggedComponent = null;
 			}
 
+			// Also accept an entity dragged from the Scene Graph: assign that entity's component of
+			// the field's type (the first match), if it has one.
+			var entPayload = ImGui.AcceptDragDropPayload(EntityReferenceTypeInspector.DragDropPayloadId);
+			bool entAccepted;
+			unsafe { entAccepted = entPayload.NativePtr != null; }
+
+			if (entAccepted && EntityReferenceTypeInspector.DraggedEntity != null)
+			{
+				var dragged = EntityReferenceTypeInspector.DraggedEntity;
+				Component match = null;
+				for (int i = 0; i < dragged.Components.Count; i++)
+				{
+					if (fieldType.IsAssignableFrom(dragged.Components[i].GetType()))
+					{
+						match = dragged.Components[i];
+						break;
+					}
+				}
+
+				if (match != null)
+					SetValueWithUndo(match, $"Assign {_name} = {match}");
+				else
+					Debug.Warn($"[ComponentRef] Entity '{dragged.Name}' has no {fieldType.Name} component to assign.");
+
+				EntityReferenceTypeInspector.DraggedEntity = null;
+			}
+
 			ImGui.EndDragDropTarget();
 		}
 

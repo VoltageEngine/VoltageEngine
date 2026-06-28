@@ -87,29 +87,24 @@ public class AssetBrowserWindow : IDisposable
     private readonly HashSet<string> _collapsedNodes = new(StringComparer.OrdinalIgnoreCase);
     private readonly PersistentString _collapsedNodesSetting;
 
-    // Track which folder node the mouse is currently hovering over, per-frame.
-    // Used as the target for SDL file-drops and file-paste operations.
     private string _hoveredFolderPath = null;
 
     private readonly SdlFileDropWatcher _sdlDropWatcher;
 
 
-    // Internal clipboard: absolute paths of the files to be pasted.
     private readonly List<string> _copiedPaths = new();
 
-    // Currently selected file (single-select for now).
     private string _selectedFilePath = null;
 
-    // Delete confirmation state.
     private bool _showDeleteConfirmation = false;
     private string _fileToDelete = null;
 
-    // Inline rename state. When _renamingFilePath is non-null, that row shows an editable
-    // text field instead of its label. Commit on Enter or click-away; Escape cancels; empty
-    // leaves the name unchanged.
     private string _renamingFilePath = null;
     private string _renameBuffer = string.Empty;
     private bool _renameFocusPending = false;
+
+    private string _renameCandidatePath = null;
+    private double _renameCandidateTime;
 
     // Set by in-tree operations (move/paste/duplicate/rename) instead of calling _db.Refresh()
     // directly: Refresh() rebuilds _db.RootNodes, which DrawTree is enumerating at that moment,
@@ -119,18 +114,15 @@ public class AssetBrowserWindow : IDisposable
     public AssetBrowserWindow()
     {
         _db = new AssetDatabase();
-        // Register as the singleton so DropHandlers and other systems can access it.
         AssetDatabase.Instance = _db;
 
         // Restore persisted collapse state.
         _collapsedNodesSetting = new PersistentString(CollapsedNodeKey, string.Empty);
         LoadCollapsedState();
 
-        // Item 1 — install the SDL2 file-drop watcher (cross-platform).
         _sdlDropWatcher = new SdlFileDropWatcher();
     }
 
-    /// <summary>Called when a new project is loaded so the index reflects the current project.</summary>
     public void OnProjectLoaded()
     {
         // Reload persisted collapse state with the new project context.
@@ -138,7 +130,6 @@ public class AssetBrowserWindow : IDisposable
         _db.Refresh();
     }
 
-    /// <summary>Called when the active project is unloaded.</summary>
     public void OnProjectUnloaded()
     {
         _db.Refresh();
@@ -153,10 +144,6 @@ public class AssetBrowserWindow : IDisposable
             AssetDatabase.Instance = null;
     }
 
-    /// <summary>
-    /// Draws the Asset Browser ImGui window.
-    /// Call once per frame from the ImGui draw loop.
-    /// </summary>
     public void Draw()
     {
         if (!IsOpen)
@@ -165,7 +152,6 @@ public class AssetBrowserWindow : IDisposable
         if (!_db.IsIndexed)
             _db.Refresh();
 
-        // Must run on the main thread, which Draw() guarantees.
         DrainSdlFileDrops();
 
         var open = IsOpen;
@@ -198,6 +184,8 @@ public class AssetBrowserWindow : IDisposable
         }
 
         HandleKeyboardShortcuts();
+
+        PromotePendingRename();
 
         ImGui.End();
 
@@ -401,6 +389,7 @@ public class AssetBrowserWindow : IDisposable
         }
 
         bool isSelected = string.Equals(_selectedFilePath, item.AbsolutePath, StringComparison.OrdinalIgnoreCase);
+        bool wasSelected = isSelected;
 
         bool clicked = ImGui.Selectable(item.FileName, isSelected,
             ImGuiSelectableFlags.AllowDoubleClick,
@@ -410,21 +399,34 @@ public class AssetBrowserWindow : IDisposable
         if (ImGui.IsItemHovered())
             _hoveredFolderPath = parentFolderPath;
 
-        if (clicked)
-            _selectedFilePath = item.AbsolutePath;
-
         if (clicked && ImGui.IsMouseDoubleClicked(ImGuiMouseButton.Left))
         {
-            // Scenes load on double-click (their only open path here); every other asset
-            // starts an inline rename. Scenes are still renamable via the context menu.
+            // Double-click ACTIVATES the asset (and cancels any pending rename): scenes load, prefabs open
+            // in an isolated edit scene. Other kinds have no activation. Rename now happens via a slow
+            // second click (below) or the context menu, matching other editors.
+            _renameCandidatePath = null;
+            _selectedFilePath = item.AbsolutePath;
+
+            var reference = _db.GetReference(item.AbsolutePath);
             if (item.Descriptor.Kind == AssetKind.Scene)
-            {
-                var reference = _db.GetReference(item.AbsolutePath);
                 DropHandlers.DropScene(reference);
+            else if (item.Descriptor.Kind == AssetKind.Prefab)
+                DropHandlers.OpenPrefabIsolated(reference);
+        }
+        else if (clicked)
+        {
+            // Single click. A click on an ALREADY-selected row arms a delayed rename (committed below once
+            // the double-click window passes without a double-click). A click on a not-yet-selected row
+            // just selects it — first selection never renames.
+            if (wasSelected)
+            {
+                _renameCandidatePath = item.AbsolutePath;
+                _renameCandidateTime = ImGui.GetTime();
             }
             else
             {
-                BeginRename(item.AbsolutePath);
+                _selectedFilePath = item.AbsolutePath;
+                _renameCandidatePath = null;
             }
         }
 
@@ -478,6 +480,10 @@ public class AssetBrowserWindow : IDisposable
 
         if (ImGui.BeginDragDropSource(ImGuiDragDropFlags.None))
         {
+            // A drag is not a rename gesture — cancel any pending delayed rename so releasing the drag
+            // doesn't trip into rename mode.
+            _renameCandidatePath = null;
+
             // Every asset can be dragged to another folder to MOVE it; stash the source path.
             DraggedSourcePath = item.AbsolutePath;
 
@@ -501,6 +507,32 @@ public class AssetBrowserWindow : IDisposable
 
             ImGui.EndDragDropSource();
         }
+    }
+
+    /// <summary>
+    /// Promotes a pending rename candidate into an actual inline rename once the double-click window has
+    /// elapsed without a double-click (which would have activated the asset and cleared the candidate).
+    /// Waiting for the window — and for the mouse button to be released — is what distinguishes a slow
+    /// "click… click" rename from a fast double-click activation and from the start of a drag.
+    /// </summary>
+    private void PromotePendingRename()
+    {
+        if (_renameCandidatePath == null)
+            return;
+
+        // Still holding the button (or mid double-click): wait. A drag would have cleared the candidate.
+        if (ImGui.IsMouseDown(ImGuiMouseButton.Left))
+            return;
+
+        double window = ImGui.GetIO().MouseDoubleClickTime + 0.02; // small epsilon past the dbl-click window
+        if (ImGui.GetTime() - _renameCandidateTime < window)
+            return;
+
+        // Only rename if the candidate is still the selected row (selection may have moved on).
+        if (string.Equals(_selectedFilePath, _renameCandidatePath, StringComparison.OrdinalIgnoreCase))
+            BeginRename(_renameCandidatePath);
+
+        _renameCandidatePath = null;
     }
 
     /// <summary>Enters inline-rename mode for the given file, seeding the buffer with its

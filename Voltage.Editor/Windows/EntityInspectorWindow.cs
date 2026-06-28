@@ -978,10 +978,35 @@ public class EntityInspectorWindow
 	/// <summary>
 	/// Applies the current prefab entity's component data to all other entities in the scene 
 	/// that have the same OriginalPrefabName.
+	/// <para/>
+	/// Public entry point used by the Scene Graph's "Apply to SerializedPrefab Copies" button while a
+	/// prefab is being edited in isolation. Finds copies of the same prefab in the active scene and
+	/// applies <paramref name="sourceEntity"/>'s component data to them. No-op when no copies exist.
 	/// </summary>
-	private void ApplyToPrefabCopies()
+	public void ApplyEntityToPrefabCopies(Entity sourceEntity)
 	{
-		if (Entity == null || Entity.Type != Entity.InstanceType.SerializedPrefab || string.IsNullOrEmpty(Entity.OriginalPrefabName))
+		if (sourceEntity == null || sourceEntity.Type != Entity.InstanceType.SerializedPrefab ||
+			string.IsNullOrEmpty(sourceEntity.OriginalPrefabName))
+			return;
+
+		_prefabCopiesToModify = Core.Scene.Entities
+			.Where(e => e != sourceEntity &&
+						e.Type == Entity.InstanceType.SerializedPrefab &&
+						e.OriginalPrefabName == sourceEntity.OriginalPrefabName)
+			.ToList();
+
+		if (_prefabCopiesToModify.Count == 0)
+		{
+			EditorDebug.Log($"No other copies of prefab '{sourceEntity.OriginalPrefabName}' found in scene.");
+			return;
+		}
+
+		ApplyToPrefabCopies(sourceEntity);
+	}
+
+	private void ApplyToPrefabCopies(Entity sourceEntity)
+	{
+		if (sourceEntity == null || sourceEntity.Type != Entity.InstanceType.SerializedPrefab || string.IsNullOrEmpty(sourceEntity.OriginalPrefabName))
 			return;
 
 		// Use the pre-found list of prefab copies
@@ -989,7 +1014,7 @@ public class EntityInspectorWindow
 		
 		if (prefabCopies.Count == 0)
 		{
-			EditorDebug.Log($"No other copies of prefab '{Entity.OriginalPrefabName}' found in scene.");
+			EditorDebug.Log($"No other copies of prefab '{sourceEntity.OriginalPrefabName}' found in scene.");
 			return;
 		}
 
@@ -1027,7 +1052,7 @@ public class EntityInspectorWindow
 
 			// Apply component data from source entity to target entity
 			bool hasChanges = false;
-			foreach (var sourceComponent in Entity.Components)
+			foreach (var sourceComponent in sourceEntity.Components)
 			{
 				if (sourceComponent.Data == null)
 					continue;
@@ -1065,21 +1090,21 @@ public class EntityInspectorWindow
 			// Only create undo action if there were actual changes
 			if (hasChanges)
 			{
-				undoActions.Add(new PrefabCopyUndoAction(targetEntity, oldComponentData, Entity.OriginalPrefabName));
+				undoActions.Add(new PrefabCopyUndoAction(targetEntity, oldComponentData, sourceEntity.OriginalPrefabName));
 			}
 		}
 
 		// Create a composite undo action that can undo all changes at once
 		if (undoActions.Count > 0)
 		{
-			var compositeUndo = new CompositePrefabApplyUndoAction(undoActions, Entity.OriginalPrefabName);
+			var compositeUndo = new CompositePrefabApplyUndoAction(undoActions, sourceEntity.OriginalPrefabName);
 			EditorChangeTracker.PushUndo(
 				compositeUndo,
-				Entity,
-				$"Apply '{Entity.OriginalPrefabName}' to {undoActions.Count} copies"
+				sourceEntity,
+				$"Apply '{sourceEntity.OriginalPrefabName}' to {undoActions.Count} copies"
 			);
 
-			EditorDebug.Log($"Applied prefab '{Entity.OriginalPrefabName}' to {undoActions.Count} copies.");
+			EditorDebug.Log($"Applied prefab '{sourceEntity.OriginalPrefabName}' to {undoActions.Count} copies.");
 		}
 		else
 		{
@@ -1187,7 +1212,7 @@ public class EntityInspectorWindow
 			if (ImGui.Button("OK", new Num.Vector2(buttonWidth, 0)))
 			{
 				// Proceed with applying changes
-				ApplyToPrefabCopies();
+				ApplyToPrefabCopies(Entity);
 				ImGui.CloseCurrentPopup();
 			}
 			
