@@ -4,6 +4,7 @@ using System.Threading;
 using System.Text;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Xna.Framework.Content;
 using System.Threading.Tasks;
 using System.IO;
@@ -319,6 +320,110 @@ public class VoltageContentManager : ContentManager
 		_loadedEffects[effect.Name] = effect;
 
 		return effect;
+	}
+
+	#endregion
+
+	#region Reference-Based Loading
+
+	/// <summary>
+	/// Loads an asset for an already-resolved absolute <paramref name="resolvedPath"/> (extension
+	/// included) and its pre-computed extension-less <paramref name="contentName"/>, choosing the
+	/// matching strongly-typed loader for <typeparamref name="T"/> at runtime. For the dual-format
+	/// types (<see cref="Texture2D"/>, <see cref="SoundEffect"/>) <paramref name="rawExists"/>
+	/// selects between streaming the raw source file and loading a compiled <c>.xnb</c>; every other
+	/// supported type is a raw-file parser. Unmapped types fall through to the MonoGame content
+	/// pipeline. The per-type loader is cached, and the underlying loaders cache the loaded asset,
+	/// so this is allocation-, reflection- and lookup-free on the hot path.
+	/// </summary>
+	public T LoadByType<T>(string resolvedPath, string contentName, bool rawExists)
+	{
+		var loader = TypedAssetLoader<T>.Loader;
+		if (loader != null)
+			return (T)loader(this, resolvedPath, contentName, rawExists);
+
+		// No dedicated loader for T. It may still be a valid MonoGame content-pipeline asset
+		// (SpriteFont, Model, an .xnb-built type, …), so try that path — but if it fails, replace
+		// the pipeline's cryptic "content file not found" with a message that explains exactly
+		// what is wrong and how to load this type properly.
+		if (string.IsNullOrEmpty(contentName))
+		{
+			Debug.Error(UnsupportedAssetMessage<T>(resolvedPath, "its path could not be resolved to a content name"));
+			return default;
+		}
+
+		try
+		{
+			return Load<T>(contentName);
+		}
+		catch (Exception ex)
+		{
+			Debug.Error(UnsupportedAssetMessage<T>(resolvedPath, ex.Message));
+			return default;
+		}
+	}
+
+	// Builds a precise, actionable diagnostic for a LoadAsset/LoadByType call that could not be
+	// satisfied — distinguishing "this type is not loadable this way" from a plain missing file,
+	// and pointing at the correct API for the requested type.
+	private static string UnsupportedAssetMessage<T>(string resolvedPath, string reason)
+	{
+		var type = typeof(T);
+		var sb = new StringBuilder();
+		sb.Append($"LoadAsset<{type.Name}> failed for '{resolvedPath}': {reason}. ");
+
+		if (typeof(Effect).IsAssignableFrom(type))
+		{
+			sb.Append("Effects cannot be loaded through an AssetReference — they are not file-backed assets. Use ")
+			  .Append($"Core.Content.LoadMonoGameEffect<{type.Name}>() for a built-in MonoGame effect, ")
+			  .Append($"LoadVoltageEffect<{type.Name}>() for a built-in Voltage effect, or ")
+			  .Append("LoadEffect(name) for an effect file.");
+		}
+		else
+		{
+			sb.Append($"'{type.Name}' has no dedicated Voltage loader and is not a compiled content-pipeline asset. ")
+			  .Append($"AssetReference-loadable types are: {AssetLoaderTable.SupportedTypeNames}. ")
+			  .Append("To support a new type, add an entry to VoltageContentManager's asset loader table, ")
+			  .Append("or load it directly with the matching Core.Content.Load* method.");
+		}
+
+		return sb.ToString();
+	}
+
+	// Resolved once per closed generic type T (static field init), so every subsequent
+	// LoadByType<T> call is a direct static read plus a delegate invocation — no dictionary
+	// lookup, no reflection, and no boxing for these reference-type assets.
+	private static class TypedAssetLoader<T>
+	{
+		public static readonly Func<VoltageContentManager, string, string, bool, object> Loader =
+			AssetLoaderTable.Resolve(typeof(T));
+	}
+
+	// Single source of truth for "engine asset type -> loader". Add a line to support a new type.
+	private static class AssetLoaderTable
+	{
+		private static readonly Dictionary<Type, Func<VoltageContentManager, string, string, bool, object>> Map = new()
+		{
+			// Dual-format: raw source file when present, else the compiled .xnb (chosen by rawExists).
+			[typeof(Texture2D)]   = static (c, path, name, raw) => c.LoadTexture(raw ? path : name),
+			[typeof(SoundEffect)] = static (c, path, name, raw) => c.LoadSoundEffect(raw ? path : name),
+
+			// Raw-only parsers: always stream the resolved source file.
+			[typeof(SpriteAtlas)]                      = static (c, path, name, raw) => c.LoadSpriteAtlas(path),
+			[typeof(BitmapFont)]                       = static (c, path, name, raw) => c.LoadBitmapFont(path),
+			[typeof(AsepriteFile)]                     = static (c, path, name, raw) => c.LoadAsepriteFile(path),
+			[typeof(TmxMap)]                           = static (c, path, name, raw) => c.LoadTiledMap(path),
+			[typeof(Particles.ParticleEmitterConfig)]  = static (c, path, name, raw) => c.LoadParticleEmitterConfig(path),
+			[typeof(Effect)]                           = static (c, path, name, raw) => c.LoadEffect(path),
+			[typeof(string)]                           = static (c, path, name, raw) => c.LoadJson(path),
+		};
+
+		// Human-readable list of AssetReference-loadable types, surfaced in diagnostics.
+		public static readonly string SupportedTypeNames =
+			string.Join(", ", Map.Keys.Select(t => t == typeof(string) ? "string (JSON)" : t.Name));
+
+		public static Func<VoltageContentManager, string, string, bool, object> Resolve(Type t) =>
+			Map.TryGetValue(t, out var loader) ? loader : null;
 	}
 
 	#endregion

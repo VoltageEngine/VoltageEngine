@@ -37,6 +37,17 @@ public class EntityPane
 	// wait for mouse release without drag before collapsing the selection.
 	private Entity _pendingSelectEntity;
 
+	// Inline rename state. When _renamingEntity is set, that row shows an editable text field.
+	private Entity _renamingEntity;
+	private string _renameBuffer = string.Empty;
+	private string _renameStartValue = string.Empty;
+	private bool _renameFocusPending;
+
+	// Delayed click-to-rename (file-explorer / Unity style): clicking an already-selected entity arms a
+	// rename candidate; if no double-click or drag arrives within the double-click window, rename starts.
+	private Entity _renameCandidateEntity;
+	private double _renameCandidateTime;
+
 	public void SetSelectedEntity(Entity entity, bool ctrlDown, bool shiftDown = false)
 	{
 		if (entity == null && !ctrlDown && !shiftDown)
@@ -136,6 +147,102 @@ public class EntityPane
 
 		VoltageEditorUtils.MediumVerticalSpace();
 		EntityDuplicationAndDeletion();
+
+		PromotePendingRename();
+	}
+
+	/// <summary>
+	/// Promotes an armed rename candidate into an actual inline rename once the double-click window has
+	/// elapsed without a double-click (which would have cancelled it) or a drag. Waiting for the window —
+	/// and for the mouse button to be released — distinguishes a slow "click… click" rename from a fast
+	/// double-click and from the start of a drag.
+	/// </summary>
+	private void PromotePendingRename()
+	{
+		if (_renameCandidateEntity == null)
+			return;
+
+		if (ImGui.IsMouseDown(ImGuiMouseButton.Left))
+			return; // still holding (or mid double-click / drag) — wait
+
+		double window = ImGui.GetIO().MouseDoubleClickTime + 0.02; // small epsilon past the dbl-click window
+		if (ImGui.GetTime() - _renameCandidateTime < window)
+			return;
+
+		// Only rename if it is still the sole selection (selection may have moved on).
+		if (_selectedEntities.Count == 1 && _selectedEntities[0] == _renameCandidateEntity)
+			BeginEntityRename(_renameCandidateEntity);
+
+		_renameCandidateEntity = null;
+	}
+
+	/// <summary>Enters inline-rename mode for <paramref name="entity"/>, seeding the buffer with its name.</summary>
+	private void BeginEntityRename(Entity entity)
+	{
+		if (entity == null)
+			return;
+
+		_renamingEntity = entity;
+		_renameBuffer = entity.Name;
+		_renameStartValue = entity.Name;
+		_renameFocusPending = true;
+		_renameCandidateEntity = null;
+	}
+
+	/// <summary>
+	/// Draws the inline rename text field for the entity currently being renamed. Enter (or clicking away)
+	/// commits; Escape cancels; an empty/whitespace name commits as a no-op.
+	/// </summary>
+	private void DrawEntityRenameInput(Entity entity)
+	{
+		if (_renameFocusPending)
+		{
+			ImGui.SetKeyboardFocusHere();
+			_renameFocusPending = false;
+		}
+
+		ImGui.SetNextItemWidth(-1);
+		bool enter = ImGui.InputText($"##entrename_{entity.Id}", ref _renameBuffer, 64,
+			ImGuiInputTextFlags.EnterReturnsTrue | ImGuiInputTextFlags.AutoSelectAll);
+
+		// Escape must be checked before deactivation: pressing Escape also deactivates the field.
+		bool escape = ImGui.IsKeyPressed(ImGuiKey.Escape, false);
+		bool deactivated = ImGui.IsItemDeactivated();
+
+		if (enter || (deactivated && !escape))
+		{
+			CommitEntityRename(entity, _renameBuffer);
+			_renamingEntity = null;
+		}
+		else if (escape)
+		{
+			_renamingEntity = null; // cancel — no change
+		}
+	}
+
+	/// <summary>
+	/// Applies the new name to <paramref name="entity"/> (no-op for empty/unchanged), pushing an undo entry
+	/// that mirrors the EntityInspector's name-edit so rename is undoable from the hierarchy too.
+	/// </summary>
+	private void CommitEntityRename(Entity entity, string newName)
+	{
+		newName = newName?.Trim();
+		if (string.IsNullOrEmpty(newName) || newName == _renameStartValue)
+			return;
+
+		entity.Name = newName;
+
+		EditorChangeTracker.PushUndo(
+			new Voltage.Editor.Undo.PropertyActions.GenericValueChangeAction(
+				entity,
+				typeof(Entity).GetProperty(nameof(Entity.Name)),
+				_renameStartValue,
+				entity.Name,
+				$"{_renameStartValue}.Name"),
+			entity,
+			$"Rename {_renameStartValue} → {entity.Name}");
+
+		_imGuiManager?.RefreshMainEntityInspector();
 	}
 
 	/// <summary>
@@ -228,6 +335,16 @@ public class EntityPane
 
         bool isSelected = _selectedEntities.Contains(entity);
         ImGui.PushID((int)entity.Id);
+
+        // While this entity is being renamed, show an inline editable field in place of its tree row.
+        // (Its children are hidden for the brief duration of the rename; they reappear on commit/cancel.)
+        if (_renamingEntity == entity)
+        {
+            DrawEntityRenameInput(entity);
+            ImGui.PopID();
+            return;
+        }
+
         bool treeNodeOpened = false;
         var flags = isSelected ? ImGuiTreeNodeFlags.Selected : 0;
         bool isExpanded = _imGuiManager.SceneGraphWindow.ExpandedEntities.Contains(entity);
@@ -290,9 +407,10 @@ public class EntityPane
 			bool ctrlDown = Input.IsKeyDown(Keys.LeftControl) || Input.IsKeyDown(Keys.RightControl) || ImGui.GetIO().KeyCtrl || ImGui.GetIO().KeySuper;
 			bool shiftDown = Input.IsKeyDown(Keys.LeftShift) || Input.IsKeyDown(Keys.RightShift) || ImGui.GetIO().KeyShift;
 
-			if (!_selectedEntities.Contains(entity) || ctrlDown || shiftDown)
+			if (ctrlDown || shiftDown)
 			{
-				// Normal selection change — entity not yet selected, or modifier held
+				// Modifier-held multi-select applies immediately (this gesture never starts a reference
+				// drag, so there is no focus-steal to guard against).
 				SetSelectedEntity(entity, ctrlDown, shiftDown);
 				_imGuiManager.OpenMainEntityInspector(entity);
 				ImGui.SetWindowFocus();
@@ -300,20 +418,32 @@ public class EntityPane
 			}
 			else
 			{
-				// Entity already selected, no modifier — might be starting a drag.
-				// Defer collapsing the selection until mouse release (only if no drag occurred).
+				// Plain click — might be the start of a drag 
+				bool alreadySoleSelected = _selectedEntities.Count == 1 && _selectedEntities[0] == entity;
+
+				if (alreadySoleSelected)
+				{
+					_renameCandidateEntity = entity;
+					_renameCandidateTime = ImGui.GetTime();
+				}
+
 				_pendingSelectEntity = entity;
-				_imGuiManager.OpenMainEntityInspector(entity);
-				ImGui.SetWindowFocus();
 			}
+
+			// A fast double-click is an activation gesture, never a rename — cancel any armed candidate.
+			if (ImGui.IsMouseDoubleClicked(ImGuiMouseButton.Left))
+				_renameCandidateEntity = null;
 		}
 
-		// Resolve deferred single-select on mouse release if no drag happened
+		// Commit the deferred selection + inspector focus on mouse release, but only if this was a click
+		// and not a drag. If a drag started, the drag source cleared _pendingSelectEntity already.
 		if (_pendingSelectEntity == entity &&
 			ImGui.IsMouseReleased(ImGuiMouseButton.Left) &&
 			!ImGui.IsMouseDragging(ImGuiMouseButton.Left))
 		{
 			SetSelectedEntity(entity, false, false);
+			_imGuiManager.OpenMainEntityInspector(entity);
+			ImGui.SetWindowFocus();
 			_pendingSelectEntity = null;
 		}
 
@@ -334,12 +464,18 @@ public class EntityPane
 		{
 			// Clear any pending deferred single-select so the full multi-selection is intact when dropped
 			_pendingSelectEntity = null;
+			// A drag is not a rename gesture — cancel any armed delayed rename.
+			_renameCandidateEntity = null;
 
 			if (!_selectedEntities.Contains(entity))
 			{
 				_selectedEntities.Clear();
 				_selectedEntities.Add(entity);
 			}
+			// Publish the dragged entity so reference-field inspectors (Entity/Transform/Component)
+			// can accept this same ENTITY_DRAG payload and assign it.
+			Voltage.Editor.Inspectors.TypeInspectors.EntityReferenceTypeInspector.DraggedEntity = entity;
+
 			unsafe
 			{
 				uint id = entity.Id;
@@ -486,6 +622,9 @@ public class EntityPane
                     _imGuiManager.RefreshMainEntityInspector();
                 }
             }
+
+            if (ImGui.Selectable($"Rename {entity.Name}"))
+                BeginEntityRename(entity);
 
             if (ImGui.Selectable($"Open {entity.Name} in separate window"))
                 Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(entity);

@@ -220,6 +220,16 @@ public class ProjectManager : GlobalManager
 				return null;
 			};
 
+			// General asset GUID -> path resolver (for AssetReference), backed by the AssetDatabase so
+			// play mode resolves by GUID; published builds use the baked manifest instead.
+			Scene.AssetPathResolver = guid =>
+			{
+				if (guid == Guid.Empty || AssetDatabase.Instance == null)
+					return null;
+				var p = AssetDatabase.Instance.GetPath(guid);
+				return !string.IsNullOrEmpty(p) && File.Exists(p) ? p : null;
+			};
+
 			OnProjectLoaded?.Invoke(project);
 			if (oldProject != null)
 			{

@@ -56,6 +56,7 @@ public class ComponentDataGenerator : IIncrementalGenerator
 		"Voltage.Serialization.ComponentReference",
 		"Voltage.Serialization.EntityReference",
 		"Voltage.Serialization.PrefabReference",
+		"Voltage.Serialization.AssetReference",
 	};
 
 	// Maps a known engine struct full name to the static read call expression the
@@ -69,6 +70,7 @@ public class ComponentDataGenerator : IIncrementalGenerator
 			["Voltage.Serialization.ComponentReference"] = "global::Voltage.Serialization.AotDeserializers.ReadComponentReference(_r)",
 			["Voltage.Serialization.EntityReference"]    = "global::Voltage.Serialization.AotDeserializers.ReadEntityReference(_r)",
 			["Voltage.Serialization.PrefabReference"]    = "global::Voltage.Serialization.AotDeserializers.ReadPrefabReference(_r)",
+			["Voltage.Serialization.AssetReference"]     = "global::Voltage.Serialization.AotDeserializers.ReadAssetReference(_r)",
 		};
 
 	// The [ComponentId] marker attribute is emitted by the generator itself (post-initialization)
@@ -1094,6 +1096,7 @@ namespace Voltage
 			case "global::Microsoft.Xna.Framework.Color": return $"global::Voltage.Serialization.AotDeserializers.ReadColor({readerParam})";
 			case "global::Voltage.RectangleF": return $"global::Voltage.Serialization.AotDeserializers.ReadRectangleF({readerParam})";
 			case "global::Voltage.Serialization.PrefabReference": return $"global::Voltage.Serialization.AotDeserializers.ReadPrefabReference({readerParam})";
+			case "global::Voltage.Serialization.AssetReference": return $"global::Voltage.Serialization.AotDeserializers.ReadAssetReference({readerParam})";
 			case "global::Voltage.Serialization.ComponentReference": return $"global::Voltage.Serialization.AotDeserializers.ReadComponentReference({readerParam})";
 			case "global::Voltage.Serialization.EntityReference": return $"global::Voltage.Serialization.AotDeserializers.ReadEntityReference({readerParam})";
 		}
