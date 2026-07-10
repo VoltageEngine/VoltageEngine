@@ -38,16 +38,14 @@ namespace Voltage.Audio
 	}
 
 	/// <summary>
-	/// The engine's audio hub. Registered as a <see cref="GlobalManager"/> on <see cref="Core"/>, so it
-	/// ticks every frame independently of the scene — meaning music and UI sounds keep playing across
-	/// scene changes and while the scene is paused (per-entity <c>AudioSourceComponent</c>s freeze their
-	/// own updates during pause, which is the desired split).
+	/// The engine's audio hub, accessed via <see cref="Core.Audio"/>. Registered as a
+	/// <see cref="GlobalManager"/>, so it ticks every frame independently of the scene — music and UI
+	/// sounds keep playing across scene changes and while paused (per-entity sources freeze their own
+	/// updates during pause, which is the desired split).
 	///
-	/// <para>Owns the active <see cref="IAudioBackend"/> (default <see cref="MonoGameAudioBackend"/>),
-	/// the <see cref="AudioMixer"/> bus tree, the <see cref="MusicChannel"/>, listener state, and the
-	/// set of controlled <see cref="AudioVoice"/>s whose volume/pan it recomputes each frame.</para>
-	///
-	/// <para>Access it from game code via <see cref="Core.Audio"/>.</para>
+	/// <para>Owns the active <see cref="IAudioBackend"/>, the <see cref="AudioMixer"/> bus tree, the
+	/// <see cref="MusicChannel"/>, listener state, and the controlled <see cref="AudioVoice"/>s whose
+	/// volume/pan it recomputes each frame.</para>
 	/// </summary>
 	public sealed class AudioManager : GlobalManager
 	{
@@ -110,8 +108,8 @@ namespace Voltage.Audio
 		#region Playback
 
 		/// <summary>
-		/// Fire-and-forget one-shot. Bus gain is baked in at play time; ideal for UI clicks and brief SFX
-		/// that need no further control. Non-positional.
+		/// Fire-and-forget, non-positional one-shot with bus gain baked in at play time. Ideal for UI
+		/// clicks and brief SFX that need no further control.
 		/// </summary>
 		public void PlaySfx(SoundEffect clip, string bus = "SFX", float volume = 1f, float pitch = 0f, float pan = 0f)
 		{
@@ -131,9 +129,9 @@ namespace Voltage.Audio
 		}
 
 		/// <summary>
-		/// Starts a controlled voice (looping ambience, positional sound, or any sound the caller wants a
-		/// live handle on) and returns it. Volume/pan are recomputed each frame from bus gain and, when
-		/// <see cref="AudioPlaySettings.Is3D"/> is set, the distance to the listener.
+		/// Starts and returns a controlled voice (looping ambience, positional sound, or any sound the
+		/// caller wants a live handle on). Volume/pan are recomputed each frame from bus gain and, when
+		/// <see cref="AudioPlaySettings.Is3D"/> is set, distance to the listener.
 		/// </summary>
 		public AudioVoice PlayControlled(SoundEffect clip, AudioPlaySettings settings)
 		{
@@ -185,9 +183,9 @@ namespace Voltage.Audio
 		#region Ducking
 
 		/// <summary>
-		/// Momentarily attenuates <paramref name="bus"/> to <paramref name="targetMultiplier"/> (0..1) and
-		/// recovers back to full over <paramref name="recoverySeconds"/>. Typical use: duck Music/SFX
-		/// while dialogue plays on the Voice bus.
+		/// Momentarily attenuates <paramref name="bus"/> to <paramref name="targetMultiplier"/> (0..1),
+		/// recovering to full over <paramref name="recoverySeconds"/>. Typical use: duck Music/SFX while
+		/// dialogue plays on the Voice bus.
 		/// </summary>
 		public void Duck(string bus, float targetMultiplier, float recoverySeconds)
 		{
@@ -258,7 +256,7 @@ namespace Voltage.Audio
 			}
 		}
 
-		/// <summary>Recomputes and writes a voice's output volume/pan/pitch from base + bus + position.</summary>
+		// Recomputes and writes a voice's output volume/pan/pitch from base + bus + position.
 		private void ApplyVoice(AudioVoice voice)
 		{
 			float gain = Mixer.EffectiveGain(voice.Bus);
@@ -273,11 +271,9 @@ namespace Voltage.Audio
 			voice.Handle.Pitch = voice.BasePitch;
 		}
 
-		/// <summary>
-		/// 2D spatialization: linear distance attenuation between Min/Max distance, plus a horizontal pan
-		/// from the emitter's offset to the listener. Deliberately hand-computed (not XNA Apply3D) for
-		/// predictable 2D behavior and full Min/Max control.
-		/// </summary>
+		// 2D spatialization: linear distance attenuation between Min/Max, plus a horizontal pan from the
+		// emitter's offset to the listener. Hand-computed (not XNA Apply3D) for predictable 2D behavior
+		// and full Min/Max control.
 		private void ComputeSpatial(AudioVoice voice, out float attenuation, out float pan)
 		{
 			Vector2 delta = voice.Position - _listenerPosition;
@@ -290,16 +286,16 @@ namespace Voltage.Audio
 			else
 				attenuation = 1f - (distance - voice.MinDistance) / (voice.MaxDistance - voice.MinDistance);
 
-			// Pan by horizontal offset, normalized against MaxDistance. Combine with the voice's own base
-			// pan so an explicitly panned source still leans that way.
+			// Pan by horizontal offset (normalized against MaxDistance), added to the voice's base pan so
+			// an explicitly panned source still leans that way.
 			float spatialPan = MathHelper.Clamp(delta.X / voice.MaxDistance, -1f, 1f);
 			pan = MathHelper.Clamp(voice.BasePan + spatialPan, -1f, 1f);
 		}
 
 		private void OnEditModeChanged(bool isEditMode)
 		{
-			// Audio belongs to Play mode only. Returning to the editor's Edit mode silences everything —
-			// auto-played ambience, positional sounds, and music — centrally, so nothing leaks into editing.
+			// Audio is Play-mode only; returning to Edit mode silences everything centrally so nothing
+			// leaks into editing.
 			if (isEditMode)
 				StopAll();
 		}
@@ -322,9 +318,8 @@ namespace Voltage.Audio
 		private void OnPauseModeChanged(bool isPaused)
 		{
 #if EDITOR
-			// In the editor, Pause (F2) is used to inspect and tune while the game is frozen — keep audio
-			// playing so volume/pitch/etc. can be adjusted in real time. (The game build, compiled without
-			// EDITOR, still suspends gameplay audio on pause below.)
+			// In the editor, Pause (F2) freezes the game to inspect/tune, so keep audio playing for
+			// real-time adjustment. The game build (no EDITOR) still suspends gameplay audio below.
 			return;
 #else
 			if (!_pauseGameplayBusesOnPause)
@@ -347,7 +342,7 @@ namespace Voltage.Audio
 		{
 			foreach (var voice in _voices)
 			{
-				// Music runs on its own channel; only pause voices on non-Music/UI buses.
+				// Music runs on its own channel; pause only non-Music/UI voices.
 				if (voice.Bus == Mixer.Music || voice.Bus == Mixer.Ui)
 					continue;
 

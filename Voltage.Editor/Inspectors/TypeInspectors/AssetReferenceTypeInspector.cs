@@ -58,8 +58,8 @@ public class AssetReferenceTypeInspector : AbstractTypeInspector
 			if (accepted && !AssetBrowserWindow.DraggedReference.IsEmpty)
 			{
 				var dr = AssetBrowserWindow.DraggedReference;
-				// Consume the pending drag so the viewport poller (HandleGameViewAssetDrop) and the
-				// Scene Graph drop target don't ALSO handle this same drop and spawn a stray entity.
+				// Consume the pending drag so the viewport poller and Scene Graph drop target don't
+				// also handle this drop and spawn a stray entity.
 				AssetBrowserWindow.DraggedReference = Voltage.Editor.Assets.AssetReference.Empty;
 
 				var assetRef = new AssetReference

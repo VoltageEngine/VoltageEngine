@@ -5,9 +5,9 @@ namespace Voltage.Audio
 {
 	/// <summary>
 	/// The global bus tree: <c>Master → { Music, SFX, UI, Ambience, Voice }</c>. Resolves the effective
-	/// linear gain for any bus, folding in the parent chain, mute, ducking, solo rules, and the global
-	/// master mute (<see cref="Core.IsAudioOn"/>). This is the whole "mixing" layer MonoGame lacks —
-	/// deliberately volume-only (no DSP); see <see cref="IAudioEffect"/> for the future-effects seam.
+	/// linear gain for any bus, folding in the parent chain, mute, ducking, solo, and the global master
+	/// mute (<see cref="Core.IsAudioOn"/>). The whole "mixing" layer MonoGame lacks — deliberately
+	/// volume-only (no DSP); see <see cref="IAudioEffect"/> for the future-effects seam.
 	/// </summary>
 	public sealed class AudioMixer
 	{
@@ -40,13 +40,10 @@ namespace Voltage.Audio
 			};
 		}
 
-		/// <summary>All buses (Master first is not guaranteed; iterate for tooling only).</summary>
+		/// <summary>All buses (order not guaranteed; iterate for tooling only).</summary>
 		public IReadOnlyCollection<AudioBus> Buses => _byName.Values;
 
-		/// <summary>
-		/// Resolves a bus by name. Unknown names fall back to the SFX bus so a mistyped bus never
-		/// silently drops the sound.
-		/// </summary>
+		/// <summary>Resolves a bus by name; unknown names fall back to SFX so a typo never silently drops the sound.</summary>
 		public AudioBus GetBus(string name)
 		{
 			if (!string.IsNullOrEmpty(name) && _byName.TryGetValue(name, out var bus))
@@ -55,8 +52,8 @@ namespace Voltage.Audio
 		}
 
 		/// <summary>
-		/// Effective linear gain 0..1 for <paramref name="bus"/>, including its parent chain, the solo
-		/// rule (any soloed non-master bus silences its non-soloed siblings), and the global master mute.
+		/// Effective linear gain 0..1 for <paramref name="bus"/>: parent chain, the solo rule (any soloed
+		/// non-master bus silences its non-soloed siblings), and the global master mute.
 		/// </summary>
 		public float EffectiveGain(AudioBus bus)
 		{

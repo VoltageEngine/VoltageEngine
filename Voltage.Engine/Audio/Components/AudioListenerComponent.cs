@@ -1,9 +1,9 @@
 namespace Voltage.Audio
 {
 	/// <summary>
-	/// Marks its entity as the audio listener: the reference point positional
-	/// <see cref="AudioSourceComponent"/>s attenuate and pan against. Typically added to the player or
-	/// the camera. If several exist, the last one to update each frame wins.
+	/// Marks its entity as the audio listener — the reference point positional
+	/// <see cref="AudioSourceComponent"/>s attenuate and pan against (typically the player or camera).
+	/// If several exist, the last to update each frame wins.
 	/// </summary>
 	public partial class AudioListenerComponent : Component, IUpdatable
 	{
@@ -22,8 +22,8 @@ namespace Voltage.Audio
 
 		private ComponentData _data = new ListenerComponentData();
 
-		// A distinct, non-abstract ComponentData subtype so the component still round-trips (it has no
-		// tunable fields of its own beyond the base Enabled flag).
+		// Distinct non-abstract ComponentData subtype so the component still round-trips (it has no tunable
+		// fields beyond the base Enabled flag).
 		public class ListenerComponentData : ComponentData
 		{
 		}

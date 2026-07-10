@@ -5,15 +5,10 @@ using Microsoft.Xna.Framework.Audio;
 namespace Voltage.Audio
 {
 	/// <summary>
-	/// Decodes compressed audio files to a MonoGame <see cref="SoundEffect"/> using pure-managed
-	/// decoders, so <c>.ogg</c> and <c>.mp3</c> load on the same code path as <c>.wav</c> and flow
-	/// through the engine mixer. No native binaries, no content-pipeline step — AOT/trim-safe and
-	/// portable to every platform MonoGame targets.
-	///
-	/// <list type="bullet">
-	///   <item><c>.ogg</c> → <see href="https://github.com/NVorbis/NVorbis">NVorbis</see></item>
-	///   <item><c>.mp3</c> → <see href="https://github.com/naudio/NLayer">NLayer</see></item>
-	/// </list>
+	/// Decodes compressed audio to a MonoGame <see cref="SoundEffect"/> with pure-managed decoders
+	/// (NVorbis for <c>.ogg</c>, NLayer for <c>.mp3</c>), so they load on the same path as <c>.wav</c>
+	/// and flow through the mixer. No native binaries or content-pipeline step — AOT/trim-safe and
+	/// portable everywhere MonoGame targets.
 	/// </summary>
 	public static class AudioDecoders
 	{
@@ -66,7 +61,7 @@ namespace Voltage.Audio
 			return FloatSamplesToSoundEffect(samples, count, sampleRate, channels, path);
 		}
 
-		/// <summary>Reads all interleaved float samples via a decoder's ReadSamples(buffer, offset, count) delegate.</summary>
+		// Reads all interleaved float samples via a decoder's ReadSamples(buffer, offset, count) delegate.
 		private static (float[] buffer, int count) ReadAll(Func<float[], int, int, int> read)
 		{
 			var buffer = new float[ChunkSamples * 4];
@@ -88,7 +83,7 @@ namespace Voltage.Audio
 			return (buffer, total);
 		}
 
-		/// <summary>Converts interleaved float [-1,1] samples to 16-bit PCM and builds a SoundEffect.</summary>
+		// Converts interleaved float [-1,1] samples to 16-bit PCM and builds a SoundEffect.
 		private static SoundEffect FloatSamplesToSoundEffect(float[] samples, int count, int sampleRate, int channels, string path)
 		{
 			if (channels != 1 && channels != 2)
