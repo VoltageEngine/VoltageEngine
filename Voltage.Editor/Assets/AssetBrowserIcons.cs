@@ -19,10 +19,8 @@ namespace Voltage.Editor.Assets
             AssetKind.Prefab      => ImguiImageLoader.AssetIconPrefab,
             AssetKind.Scene       => ImguiImageLoader.AssetIconScene,
             AssetKind.Script      => ImguiImageLoader.AssetIconScript,
-            // Effect and Tiled have no dedicated icon yet — fall back to Unsupported.
-            AssetKind.Effect      => ImguiImageLoader.AssetIconUnsupported,
-            AssetKind.Tiled       => ImguiImageLoader.AssetIconUnsupported,
-            AssetKind.Unsupported => ImguiImageLoader.AssetIconUnsupported,
+			AssetKind.Audio       => ImguiImageLoader.AssetIconAudio,
+			AssetKind.Effect      => ImguiImageLoader.AssetIconUnsupported,
             _                     => ImguiImageLoader.AssetIconUnsupported,
         };
     }

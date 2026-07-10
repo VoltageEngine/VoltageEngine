@@ -28,6 +28,7 @@ namespace Voltage.Editor.Utils
 		public static IntPtr AssetIconScene;       // .vscene
 		public static IntPtr AssetIconScript;      // .cs
 		public static IntPtr AssetIconUnsupported; // fallback (also used for Effect, Tiled)
+		public static IntPtr AssetIconAudio;       // .wav / .ogg / .mp3
 
 		// Editor-mode controls (menu bar cluster): live in DefaultContent/UI/RemixIcon/EditorModes/.
 		public static IntPtr EditorModePlay;
@@ -59,6 +60,7 @@ namespace Voltage.Editor.Utils
 			AssetIconPrefab      = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/FileTypes/Voltage-Prefab.png"));
 			AssetIconScene       = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/FileTypes/Voltage-Scene.png"));
 			AssetIconScript      = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/FileTypes/Voltage-Script.png"));
+			AssetIconAudio       = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/FileTypes/Voltage-Audio.png"));
 			AssetIconUnsupported = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/FileTypes/Voltage-Unsupported-File.png"));
 
 			EditorModePlay  = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/EditorModes/Voltage-Play.png"));

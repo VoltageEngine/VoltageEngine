@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections;
 using System.Diagnostics;
+using Voltage.Audio;
 using Voltage.Console;
 using Voltage.Systems;
 using Voltage.Textures;
@@ -113,6 +114,12 @@ public class Core : Game
 	public static Core Instance => _instance;
 
 	/// <summary>
+	/// Global audio hub (mixer buses, music, SFX, positional playback). Registered as a
+	/// <see cref="GlobalManager"/> so it ticks every frame, including across scene changes and pause.
+	/// </summary>
+	public static AudioManager Audio => _instance?._audioManager;
+
+	/// <summary>
 	/// facilitates easy access to the global Content instance for internal classes
 	/// </summary>
 	internal static Core _instance;
@@ -137,6 +144,7 @@ public class Core : Game
 	private FastList<GlobalManager> _globalManagers = new();
 	private CoroutineManager _coroutineManager = new();
 	private TimerManager _timerManager = new();
+	private AudioManager _audioManager = new();
 
 	/// <summary>
 	/// The currently active Scene. Note that if set, the Scene will not actually change until the end of the Update
@@ -201,6 +209,7 @@ public class Core : Game
 		RegisterGlobalManager(_coroutineManager);
 		RegisterGlobalManager(new TweenManager());
 		RegisterGlobalManager(_timerManager);
+		RegisterGlobalManager(_audioManager);
 		RegisterGlobalManager(new RenderTarget());
 	}
 

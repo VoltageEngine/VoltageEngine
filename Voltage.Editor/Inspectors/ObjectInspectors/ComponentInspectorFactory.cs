@@ -14,7 +14,6 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
             
             if (customInspectorAttribute != null)
             {
-                // Create the custom inspector
                 var inspectorType = customInspectorAttribute.InspectorType;
                 if (typeof(IComponentInspector).IsAssignableFrom(inspectorType))
                 {
@@ -29,7 +28,6 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
                 }
             }
             
-            // Fall back to default ComponentInspector
             return new ComponentInspector(component);
         }
     }

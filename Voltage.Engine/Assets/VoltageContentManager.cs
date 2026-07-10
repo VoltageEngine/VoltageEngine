@@ -111,21 +111,38 @@ public class VoltageContentManager : ContentManager
 	/// </summary>
 	public SoundEffect LoadSoundEffect(string name)
 	{
+		var extension = Path.GetExtension(name);
+
 		// no file extension. Assumed to be an xnb so let ContentManager load it
-		if (string.IsNullOrEmpty(Path.GetExtension(name)))
+		if (string.IsNullOrEmpty(extension))
 			return Load<SoundEffect>(name);
 
 		if (LoadedAssets.TryGetValue(name, out var asset))
-			if (asset is SoundEffect sfx)
-				return sfx;
+			if (asset is SoundEffect cached)
+				return cached;
 
-		using (var stream = File.OpenRead(ResolveContentPath(name)))
+		var path = ResolveContentPath(name);
+
+		// Dispatch by format. WAV loads natively; compressed formats are decoded to PCM by pure-managed
+		// decoders so they end up as ordinary SoundEffects on the engine mixer path (see AudioDecoders).
+		SoundEffect sfx;
+		switch (extension.ToLowerInvariant())
 		{
-			var sfx = SoundEffect.FromStream(stream);
-			LoadedAssets[name] = sfx;
-			DisposableAssets.Add(sfx);
-			return sfx;
+			case ".ogg":
+				sfx = Voltage.Audio.AudioDecoders.DecodeOgg(path);
+				break;
+			case ".mp3":
+				sfx = Voltage.Audio.AudioDecoders.DecodeMp3(path);
+				break;
+			default: // .wav (and any other stream SoundEffect can parse natively)
+				using (var stream = File.OpenRead(path))
+					sfx = SoundEffect.FromStream(stream);
+				break;
 		}
+
+		LoadedAssets[name] = sfx;
+		DisposableAssets.Add(sfx);
+		return sfx;
 	}
 
 	/// <summary>

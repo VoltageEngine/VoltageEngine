@@ -188,6 +188,9 @@ public class SceneGraphWindow
 			}
 
 			VoltageEditorUtils.MediumVerticalSpace();
+			if (ImGui.CollapsingHeader("Scene Components"))
+				_sceneComponentsPane.Draw();
+
 			if (ImGui.CollapsingHeader("Post Processors"))
 				_postProcessorsPane.Draw();
 
@@ -196,10 +199,6 @@ public class SceneGraphWindow
 
 			if (ImGui.CollapsingHeader("Entities (double-click label to inspect)", ImGuiTreeNodeFlags.DefaultOpen))
 				_entityPane.Draw();
-
-			VoltageEditorUtils.SmallVerticalSpace();
-			if (ImGui.CollapsingHeader("Scene Components"))
-				_sceneComponentsPane.Draw();
 
 			VoltageEditorUtils.MediumVerticalSpace();
 			if (_imGuiManager != null && _imGuiManager.IsInPrefabEditScene)
