@@ -1,9 +1,6 @@
 namespace Voltage.Audio
 {
-	/// <summary>
-	/// Playback state of an <see cref="IAudioHandle"/>, backend-agnostic mirror of
-	/// MonoGame's <c>SoundState</c>.
-	/// </summary>
+	/// <summary>Playback state of an <see cref="IAudioHandle"/> (backend-agnostic mirror of MonoGame's <c>SoundState</c>).</summary>
 	public enum AudioPlayState
 	{
 		Stopped,
@@ -12,13 +9,13 @@ namespace Voltage.Audio
 	}
 
 	/// <summary>
-	/// A single controllable playing sound. This is the abstraction the <see cref="AudioManager"/>
-	/// and <see cref="AudioMixer"/> drive; the default backend wraps a MonoGame
-	/// <c>SoundEffectInstance</c>, and a future FMOD backend would wrap an FMOD event instance.
+	/// A single controllable playing sound — the abstraction <see cref="AudioManager"/> and
+	/// <see cref="AudioMixer"/> drive. The default backend wraps a MonoGame <c>SoundEffectInstance</c>;
+	/// an FMOD backend would wrap an FMOD event instance.
 	///
 	/// <para><b>Volume/Pan are the raw output values sent to hardware.</b> Bus gain and positional
-	/// attenuation are computed by the <see cref="AudioManager"/> and written here every frame for
-	/// controlled voices — callers should not treat <see cref="Volume"/> as a "base" volume.</para>
+	/// attenuation are computed by <see cref="AudioManager"/> and written here every frame for
+	/// controlled voices — don't treat <see cref="Volume"/> as a "base" volume.</para>
 	/// </summary>
 	public interface IAudioHandle
 	{

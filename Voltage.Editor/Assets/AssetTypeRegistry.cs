@@ -249,7 +249,7 @@ namespace Voltage.Editor.Assets
                 return;
             }
 
-            // Create an entity carrying an AudioSourceComponent bound to the dropped asset.
+            // Spawn an entity with an AudioSourceComponent bound to the dropped clip.
             string baseName = Path.GetFileNameWithoutExtension(absolutePath);
             string entityName = scene.GetUniqueEntityName(baseName, null);
             var entity = new Entity(entityName, Entity.InstanceType.Serialized);
@@ -258,8 +258,7 @@ namespace Voltage.Editor.Assets
             scene.AddEntity(entity);
 
             var audio = entity.AddComponent<AudioSourceComponent>();
-            // Convert the editor-side AssetReference (Guid + HintPath) to the engine's serializable
-            // Voltage.Serialization.AssetReference the component field expects (GUID-first).
+            // Convert the editor-side AssetReference to the engine's serializable one the field expects.
             audio.Clip = new Voltage.Serialization.AssetReference
             {
                 AssetGuid = reference.Guid,

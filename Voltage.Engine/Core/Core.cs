@@ -114,8 +114,8 @@ public class Core : Game
 	public static Core Instance => _instance;
 
 	/// <summary>
-	/// Global audio hub (mixer buses, music, SFX, positional playback). Registered as a
-	/// <see cref="GlobalManager"/> so it ticks every frame, including across scene changes and pause.
+	/// Global audio hub (mixer buses, music, SFX, positional playback). Ticks every frame as a
+	/// <see cref="GlobalManager"/>, across scene changes and pause.
 	/// </summary>
 	public static AudioManager Audio => _instance?._audioManager;
 

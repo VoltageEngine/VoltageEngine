@@ -4,26 +4,21 @@ using Microsoft.Xna.Framework.Audio;
 
 namespace Voltage.Audio
 {
-	/// <summary>
-	/// Streaming-music layer routed on the Music bus. Plays a single looping track at a time and
-	/// crossfades to a new one: starting a track fades any existing tracks out while the new one fades
-	/// in. Because it runs on the same <see cref="IAudioHandle"/> path as everything else, music obeys
-	/// the mixer (Music-bus volume, master mute) uniformly — unlike MonoGame's separate
-	/// <c>MediaPlayer</c>/<c>Song</c> API, which cannot be bus-mixed or crossfaded.
-	///
-	/// <para>Each track keeps its <see cref="MusicTrack.Base"/> volume (the caller's requested level)
-	/// separate from its <see cref="MusicTrack.FadeCurrent"/> crossfade envelope, so the base volume can
-	/// be changed live (<see cref="SetActiveVolume"/>) without disturbing an in-progress fade — enabling
-	/// real-time volume editing of a <see cref="MusicZoneComponent"/>.</para>
-	/// </summary>
+	// Streaming-music layer on the Music bus. Plays one looping track at a time and crossfades to a new
+	// one (existing tracks fade out as the new one fades in). Runs on the same IAudioHandle path as
+	// everything else, so music obeys the mixer uniformly — unlike MonoGame's MediaPlayer/Song, which
+	// can't be bus-mixed or crossfaded.
+	//
+	// Each track keeps its Base volume (caller's requested level) separate from its FadeCurrent crossfade
+	// envelope, so the base can be changed live (SetActiveVolume) without disturbing an in-progress fade.
 	internal sealed class MusicChannel
 	{
 		private sealed class MusicTrack
 		{
 			public IAudioHandle Handle;
-			public float Base;        // caller-requested volume 0..1 (live-editable)
-			public float FadeCurrent; // current crossfade envelope 0..1
-			public float FadeTarget;  // target crossfade envelope 0..1 (1 = in, 0 = out)
+			public float Base;        // caller-requested volume 0...1 (live-editable)
+			public float FadeCurrent; // current crossfade envelope 0...1
+			public float FadeTarget;  // target crossfade envelope 0...1 (1 = in, 0 = out)
 			public float FadeSpeed;   // envelope units per second
 		}
 
@@ -47,7 +42,6 @@ namespace Voltage.Audio
 
 			float speed = FadeSpeedFor(fadeSeconds);
 
-			// Existing tracks fade out.
 			foreach (var t in _tracks)
 			{
 				t.FadeTarget = 0f;
@@ -80,10 +74,8 @@ namespace Voltage.Audio
 			}
 		}
 
-		/// <summary>
-		/// Sets the base volume of the currently-active (fading-in / playing) track, live. Used for
-		/// real-time volume editing; does not disturb the crossfade envelope. No-op if nothing is playing.
-		/// </summary>
+		// Sets the active (fading-in / playing) track's base volume live, without disturbing the crossfade
+		// envelope. No-op if nothing is playing.
 		public void SetActiveVolume(float volume)
 		{
 			for (int i = _tracks.Count - 1; i >= 0; i--)
@@ -111,7 +103,7 @@ namespace Voltage.Audio
 				if (!t.Handle.IsDisposed)
 					t.Handle.Volume = t.FadeCurrent * t.Base * gain;
 
-				// Retire a track once it has fully faded out.
+				// Retire a track once fully faded out.
 				if (t.FadeTarget <= 0f && t.FadeCurrent <= 0.0001f)
 				{
 					t.Handle.Stop();

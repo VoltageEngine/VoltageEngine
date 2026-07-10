@@ -4,13 +4,12 @@ namespace Voltage.Audio
 {
 	/// <summary>
 	/// A controlled, manager-tracked sound: looping ambience, a positional effect, or any one-shot the
-	/// caller wants a handle on. The <see cref="AudioManager"/> recomputes its output volume/pan every
-	/// frame from its base values, its bus gain, and (when <see cref="Is3D"/>) its distance to the
-	/// active listener — so runtime bus-slider changes and movement are reflected live.
+	/// caller wants a handle on. <see cref="AudioManager"/> recomputes its output volume/pan each frame
+	/// from base values, bus gain, and (when <see cref="Is3D"/>) distance to the listener, so bus-slider
+	/// changes and movement are reflected live.
 	///
-	/// <para>Non-looping voices are cleaned up automatically once the underlying sound finishes.
-	/// Looping voices live until <see cref="Stop"/> is called (typically from the owning component's
-	/// <c>OnRemovedFromEntity</c>).</para>
+	/// <para>Non-looping voices are cleaned up automatically once the sound finishes; looping voices
+	/// live until <see cref="Stop"/> is called (usually from the owning component's removal).</para>
 	/// </summary>
 	public sealed class AudioVoice
 	{

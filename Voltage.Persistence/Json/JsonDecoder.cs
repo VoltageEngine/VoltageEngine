@@ -461,6 +461,11 @@ namespace Voltage.Persistence
 							DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
 					}
 
+					// Guid is serialized as a string; parse it back so fields like AssetReference.AssetGuid
+					// round-trip through the reflection deserializer (entity duplicate/clone, prefabs, etc...)
+					if (type == typeof(Guid))
+						return Guid.TryParse(str, out var guid) ? guid : Guid.Empty;
+
 					return type.IsEnum ? Enum.Parse(type, str) : str;
 				case Token.Number:
 					if (type == typeof(DateTime))

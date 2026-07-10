@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using ImGuiNET;
 using Voltage.Editor.Assets;
 using Voltage.Editor.DebugUtils;
@@ -13,40 +14,8 @@ using Num = System.Numerics;
 namespace Voltage.Editor.Windows;
 
 /// <summary>
-/// Asset Browser panel.
-///
 /// Shows project assets in a recursive directory tree that mirrors the on-disk
-/// folder hierarchy under each project root.  Each file node shows a type icon,
-/// supports drag-drop (VOLTAGE_ASSET_REF payload), double-click scene loading,
-/// and hover tooltips.
-///
-/// Drag-drop behaviour:
-///   - Assets whose <see cref="AssetTypeDescriptor.DropFactory"/> is non-null produce a
-///     "VOLTAGE_ASSET_REF" drag payload.  The resolved <see cref="AssetReference"/>
-///     (GUID + hint path) is stashed in <see cref="DraggedReference"/>.
-///   - Assets with a null DropFactory show a "not supported" tooltip during drag and
-///     produce no usable payload.
-///   - Double-clicking a .vscene row loads that scene.
-///
-/// OS file-drop (Item 1):
-///   Files dragged from the OS file manager are captured via SDL2 SDL_DROPFILE events
-///   through <see cref="SdlFileDropWatcher"/>.  Dropped paths are queued on the SDL pump
-///   thread and processed each frame in <see cref="Draw"/> on the main thread, targeting
-///   <see cref="_hoveredFolderPath"/> or <c>ContentsFolder</c> as the fallback.
-///
-/// File operations (Item 2):
-///   Right-click a file row for Copy / Paste / Duplicate / Delete.
-///   Keyboard: Ctrl+C / Ctrl+V / Ctrl+D / Delete while the browser is focused.
-///   - Copy remembers the source absolute path in an internal clipboard.
-///   - Paste copies into the currently hovered/selected folder (collision-safe).
-///   - Duplicate copies in-place with a " (1)" suffix.
-///   - Delete removes the file AND its .meta sidecar; shows a confirmation popup.
-///   Duplicated/pasted files always get a NEW GUID via Refresh() / GetOrCreateGuid().
-///
-/// Persistence:
-///   Expanded/collapsed tree node state is saved under the key
-///   <c>AssetBrowser.CollapsedNodes</c> as a pipe-separated list of
-///   project-relative node paths, restored on construction.
+/// folder hierarchy under each project root. 
 /// </summary>
 public class AssetBrowserWindow : IDisposable
 {
@@ -75,6 +44,10 @@ public class AssetBrowserWindow : IDisposable
     private const char CollapsedNodeSep = '|';
     private const string CollapsedNodeKey = "AssetBrowser.CollapsedNodes";
 
+    // Persistent user-defined shortcuts (project-relative paths to folders or files),
+    // shown in a "Shortcuts" section at the very top. Stored pipe-separated like collapsed nodes.
+    private const string ShortcutsKey = "AssetBrowser.Shortcuts";
+
     public bool IsOpen { get; set; } = true;
 
     private readonly AssetDatabase _db;
@@ -87,6 +60,10 @@ public class AssetBrowserWindow : IDisposable
     private readonly HashSet<string> _collapsedNodes = new(StringComparer.OrdinalIgnoreCase);
     private readonly PersistentString _collapsedNodesSetting;
 
+    // Ordered list of project-relative shortcut paths (folders or files). Order = insertion order.
+    private readonly List<string> _shortcuts = new();
+    private readonly PersistentString _shortcutsSetting;
+
     private string _hoveredFolderPath = null;
 
     private readonly SdlFileDropWatcher _sdlDropWatcher;
@@ -98,8 +75,12 @@ public class AssetBrowserWindow : IDisposable
 
     private bool _showDeleteConfirmation = false;
     private string _fileToDelete = null;
+    // When the pending delete targets a directory (recursive) rather than a single file.
+    private bool _deleteIsFolder = false;
 
     private string _renamingFilePath = null;
+    // Absolute path of the folder being inline-renamed (mutually exclusive with _renamingFilePath).
+    private string _renamingFolderPath = null;
     private string _renameBuffer = string.Empty;
     private bool _renameFocusPending = false;
 
@@ -120,13 +101,18 @@ public class AssetBrowserWindow : IDisposable
         _collapsedNodesSetting = new PersistentString(CollapsedNodeKey, string.Empty);
         LoadCollapsedState();
 
+        // Restore persisted shortcuts.
+        _shortcutsSetting = new PersistentString(ShortcutsKey, string.Empty);
+        LoadShortcuts();
+
         _sdlDropWatcher = new SdlFileDropWatcher();
     }
 
     public void OnProjectLoaded()
     {
-        // Reload persisted collapse state with the new project context.
+        // Reload persisted collapse + shortcut state with the new project context.
         LoadCollapsedState();
+        LoadShortcuts();
         _db.Refresh();
     }
 
@@ -180,6 +166,8 @@ public class AssetBrowserWindow : IDisposable
         }
         else
         {
+            // Shortcuts section (only rendered when at least one shortcut is defined).
+            DrawShortcuts();
             DrawTree();
         }
 
@@ -264,6 +252,11 @@ public class AssetBrowserWindow : IDisposable
     {
         foreach (var root in _db.RootNodes)
         {
+            // Skip a root nested inside another root (e.g. Data/Scenes shows under Data) — drawing it
+            // as a separate top-level root would duplicate the view.
+            if (IsNestedUnderAnotherRoot(root))
+                continue;
+
             ImGui.PushID(root.RelativePath);
             DrawFolderNode(root);
             ImGui.PopID();
@@ -271,10 +264,34 @@ public class AssetBrowserWindow : IDisposable
         }
     }
 
-    /// <summary>
-    /// Recursively renders a folder node and its children.
-    /// </summary>
-    private void DrawFolderNode(AssetFolderNode node)
+    // True when root's directory lives inside another root's directory (already reachable by expanding that one).
+    private bool IsNestedUnderAnotherRoot(AssetFolderNode root)
+    {
+        foreach (var other in _db.RootNodes)
+        {
+            if (ReferenceEquals(other, root))
+                continue;
+            if (IsPathUnder(root.AbsolutePath, other.AbsolutePath))
+                return true;
+        }
+        return false;
+    }
+
+    // True when childAbs is the same as, or nested under, ancestorAbs.
+    private static bool IsPathUnder(string childAbs, string ancestorAbs)
+    {
+        if (string.IsNullOrEmpty(childAbs) || string.IsNullOrEmpty(ancestorAbs))
+            return false;
+
+        var child    = Path.GetFullPath(childAbs).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var ancestor = Path.GetFullPath(ancestorAbs).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        return child.StartsWith(ancestor + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Recursively renders a folder node and its children. A non-null shortcutRelPath marks this as a
+    // Shortcuts-section root, adding "Remove Shortcut" to its context menu.
+    private void DrawFolderNode(AssetFolderNode node, string shortcutRelPath = null)
     {
         bool hasSearchFilter = !string.IsNullOrWhiteSpace(_searchFilter);
 
@@ -282,7 +299,15 @@ public class AssetBrowserWindow : IDisposable
         if (hasSearchFilter && !FolderHasMatchingItems(node))
             return;
 
+        // While this folder is being renamed, show an editable field in place of the tree node.
+        if (string.Equals(_renamingFolderPath, node.AbsolutePath, StringComparison.OrdinalIgnoreCase))
+        {
+            DrawFolderRenameInput(node);
+            return;
+        }
+
         bool isCollapsed = _collapsedNodes.Contains(node.RelativePath);
+        bool isProtected = IsProtectedFolder(node.AbsolutePath);
 
         // Build tree node flags: open by default unless explicitly collapsed.
         var flags = ImGuiTreeNodeFlags.OpenOnArrow
@@ -296,8 +321,25 @@ public class AssetBrowserWindow : IDisposable
         if (ImGui.IsItemHovered())
             _hoveredFolderPath = node.AbsolutePath;
 
-        // Accept an in-browser MOVE: dropping a dragged asset onto this folder relocates the
-        // file (and its .meta sidecar) here, preserving its GUID so references don't break.
+        // Right-click context menu: folder operations.
+        DrawFolderContextMenu(node, isProtected, shortcutRelPath);
+
+        // Drag SOURCE: only non-protected folders can be moved; protected roots/subfolders stay put.
+        if (!isProtected && ImGui.BeginDragDropSource(ImGuiDragDropFlags.None))
+        {
+            DraggedSourcePath = node.AbsolutePath;
+            DraggedReference  = default; // folders aren't scene/inspector droppable
+            unsafe
+            {
+                byte sentinel = 0;
+                ImGui.SetDragDropPayload(DragDropPayloadId, (IntPtr)(&sentinel), 1);
+            }
+            ImGuiSafe.TextColoredSafe(new Num.Vector4(0.8f, 0.85f, 1f, 1f), $"{node.Label}  (folder)");
+            ImGui.EndDragDropSource();
+        }
+
+        // Accept an in-browser MOVE: dropping an asset/folder here relocates it (carrying its .meta
+        // sidecar / whole subtree), preserving GUIDs so references don't break.
         if (ImGui.BeginDragDropTarget())
         {
             unsafe
@@ -305,7 +347,10 @@ public class AssetBrowserWindow : IDisposable
                 var payload = ImGui.AcceptDragDropPayload(DragDropPayloadId);
                 if (payload.NativePtr != null && !string.IsNullOrEmpty(DraggedSourcePath))
                 {
-                    MoveAsset(DraggedSourcePath, node.AbsolutePath);
+                    if (Directory.Exists(DraggedSourcePath))
+                        MoveFolder(DraggedSourcePath, node.AbsolutePath);
+                    else
+                        MoveAsset(DraggedSourcePath, node.AbsolutePath);
                     DraggedSourcePath = null;
                 }
             }
@@ -470,10 +515,13 @@ public class AssetBrowserWindow : IDisposable
             if (ImGui.MenuItem("Rename"))
                 BeginRename(item.AbsolutePath);
 
+            if (ImGui.MenuItem("Create Shortcut"))
+                AddShortcut(item.AbsolutePath);
+
             ImGui.Separator();
 
             if (ImGui.MenuItem("Delete"))
-                RequestDelete(item.AbsolutePath);
+                RequestDelete(item.AbsolutePath, isFolder: false);
 
             ImGui.EndPopup();
         }
@@ -669,7 +717,7 @@ public class AssetBrowserWindow : IDisposable
             DuplicateFile(_selectedFilePath);
 
         if (ImGui.IsKeyPressed(ImGuiKey.Delete, false) && _selectedFilePath != null)
-            RequestDelete(_selectedFilePath);
+            RequestDelete(_selectedFilePath, isFolder: false);
     }
 
     /// <summary>Copies the path to the internal clipboard (does NOT touch the OS clipboard).</summary>
@@ -737,10 +785,11 @@ public class AssetBrowserWindow : IDisposable
         }
     }
 
-    /// <summary>Triggers the delete confirmation popup for the given file.</summary>
-    private void RequestDelete(string absolutePath)
+    /// <summary>Triggers the delete confirmation popup for the given file or folder.</summary>
+    private void RequestDelete(string absolutePath, bool isFolder)
     {
         _fileToDelete = absolutePath;
+        _deleteIsFolder = isFolder;
         _showDeleteConfirmation = true;
     }
 
@@ -762,11 +811,13 @@ public class AssetBrowserWindow : IDisposable
         bool open = true;
         if (ImGui.BeginPopupModal("asset-delete-confirmation", ref open, ImGuiWindowFlags.AlwaysAutoResize))
         {
-            ImGui.Text("Delete Asset");
+            ImGui.Text(_deleteIsFolder ? "Delete Folder" : "Delete Asset");
             ImGui.Separator();
 
             string fileName = _fileToDelete != null ? Path.GetFileName(_fileToDelete) : string.Empty;
-            ImGuiSafe.TextWrappedSafe($"Are you sure you want to delete '{fileName}'?");
+            ImGuiSafe.TextWrappedSafe(_deleteIsFolder
+                ? $"Are you sure you want to delete the folder '{fileName}' and everything inside it?"
+                : $"Are you sure you want to delete '{fileName}'?");
             ImGui.TextColored(new Num.Vector4(1f, 0.6f, 0.2f, 1f), "This action cannot be undone!");
 
             VoltageEditorUtils.MediumVerticalSpace();
@@ -779,7 +830,10 @@ public class AssetBrowserWindow : IDisposable
 
             if (ImGui.Button("Yes", new Num.Vector2(buttonWidth, 0)))
             {
-                ExecuteDelete(_fileToDelete);
+                if (_deleteIsFolder)
+                    ExecuteDeleteFolder(_fileToDelete);
+                else
+                    ExecuteDelete(_fileToDelete);
                 _fileToDelete = null;
                 ImGui.CloseCurrentPopup();
             }
@@ -930,5 +984,499 @@ public class AssetBrowserWindow : IDisposable
     private void SaveCollapsedState()
     {
         _collapsedNodesSetting.Value = string.Join(CollapsedNodeSep, _collapsedNodes);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────────────────────
+    // Folder operations: context menu, create, rename, move, delete, protection.
+    // ─────────────────────────────────────────────────────────────────────────────────────────────
+
+    // Right-click menu for a folder. Rename/Delete only for non-protected folders; Add Folder and
+    // Create Shortcut are always available.
+    private void DrawFolderContextMenu(AssetFolderNode node, bool isProtected, string shortcutRelPath = null)
+    {
+        if (!ImGui.BeginPopupContextItem($"##folderctx_{node.RelativePath}"))
+            return;
+
+        // When this folder is the root of a Shortcuts entry, allow removing the shortcut here.
+        if (shortcutRelPath != null)
+        {
+            if (ImGui.MenuItem("Remove Shortcut"))
+                RemoveShortcut(shortcutRelPath);
+            ImGui.Separator();
+        }
+
+        if (ImGui.MenuItem("Add Folder"))
+            CreateFolder(node.AbsolutePath);
+
+        if (ImGui.MenuItem("Create Shortcut"))
+            AddShortcut(node.AbsolutePath);
+
+        if (isProtected)
+            ImGui.BeginDisabled();
+
+        if (ImGui.MenuItem("Rename"))
+            BeginRenameFolder(node.AbsolutePath);
+
+        ImGui.Separator();
+
+        if (ImGui.MenuItem("Delete"))
+            RequestDelete(node.AbsolutePath, isFolder: true);
+
+        if (isProtected)
+        {
+            ImGui.EndDisabled();
+            ImGui.Separator();
+            ImGui.TextColored(new Num.Vector4(0.6f, 0.6f, 0.6f, 1f), "(protected folder)");
+        }
+
+        ImGui.EndPopup();
+    }
+
+    // True for folders that must not be moved/renamed/deleted: project roots and their standard
+    // subfolders. User-created folders return false.
+    private bool IsProtectedFolder(string absolutePath)
+    {
+        var project = ProjectManager.Instance?.CurrentProject;
+        if (project == null)
+            return true;
+
+        string[] protectedPaths =
+        {
+            project.ProjectPath,
+            project.ContentsFolder, project.DataFolder, project.ScriptsFolder,
+            project.EffectsFolder, project.ScenesFolder, project.PrefabsFolder,
+        };
+
+        foreach (var p in protectedPaths)
+        {
+            if (!string.IsNullOrEmpty(p) && PathsEqual(p, absolutePath))
+                return true;
+        }
+        return false;
+    }
+
+    private static bool PathsEqual(string a, string b)
+    {
+        if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b))
+            return false;
+        return string.Equals(
+            Path.GetFullPath(a).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            Path.GetFullPath(b).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Creates a collision-safe "New Folder" under parentDir and enters inline-rename mode on it.
+    private void CreateFolder(string parentDir)
+    {
+        if (string.IsNullOrEmpty(parentDir) || !Directory.Exists(parentDir))
+            return;
+
+        string newPath = Path.Combine(parentDir, "New Folder");
+        int n = 1;
+        while (Directory.Exists(newPath))
+            newPath = Path.Combine(parentDir, $"New Folder ({n++})");
+
+        try
+        {
+            Directory.CreateDirectory(newPath);
+            EditorDebug.Log($"AssetBrowser: created folder '{newPath}'.", "AssetBrowser");
+            // Rename it on the next frame (the node exists once the tree rebuilds).
+            _renamingFolderPath = newPath;
+            _renameBuffer = Path.GetFileName(newPath);
+            _renameFocusPending = true;
+            _refreshRequested = true;
+        }
+        catch (Exception ex)
+        {
+            EditorDebug.Log($"AssetBrowser: failed to create folder under '{parentDir}': {ex.Message}", "AssetBrowser");
+        }
+    }
+
+    private void BeginRenameFolder(string absolutePath)
+    {
+        _renamingFolderPath = absolutePath;
+        _renamingFilePath = null;
+        _renameBuffer = Path.GetFileName(absolutePath);
+        _renameFocusPending = true;
+    }
+
+    // Draws the inline rename field for the folder currently being renamed.
+    private void DrawFolderRenameInput(AssetFolderNode node)
+    {
+        if (_renameFocusPending)
+        {
+            ImGui.SetKeyboardFocusHere();
+            _renameFocusPending = false;
+        }
+
+        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
+        bool enter = ImGui.InputText($"##folderrename_{node.AbsolutePath}", ref _renameBuffer, 256,
+            ImGuiInputTextFlags.EnterReturnsTrue | ImGuiInputTextFlags.AutoSelectAll);
+
+        bool escape = ImGui.IsKeyPressed(ImGuiKey.Escape, false);
+        bool deactivated = ImGui.IsItemDeactivated();
+
+        if (enter || deactivated)
+        {
+            CommitFolderRename(node.AbsolutePath, _renameBuffer);
+            _renamingFolderPath = null;
+        }
+        else if (escape)
+        {
+            _renamingFolderPath = null; // cancel
+        }
+    }
+
+    // Renames a folder on disk (the .meta sidecars inside travel with it, so GUIDs/references survive).
+    // Unchanged/empty/invalid name is a no-op; an existing target is refused.
+    private void CommitFolderRename(string oldPath, string newName)
+    {
+        newName = newName?.Trim();
+        if (string.IsNullOrEmpty(newName))
+            return;
+
+        var parent  = Path.GetDirectoryName(oldPath);
+        var oldName = Path.GetFileName(oldPath);
+        if (string.Equals(newName, oldName, StringComparison.Ordinal))
+            return;
+
+        if (string.IsNullOrEmpty(parent) || newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            EditorDebug.Log($"AssetBrowser: invalid folder name '{newName}'.", "AssetBrowser");
+            return;
+        }
+
+        var newPath = Path.Combine(parent, newName);
+        if (Directory.Exists(newPath))
+        {
+            EditorDebug.Log($"AssetBrowser: cannot rename — folder '{newName}' already exists.", "AssetBrowser");
+            return;
+        }
+
+        try
+        {
+            Directory.Move(oldPath, newPath);
+            RepointShortcutsAfterMove(oldPath, newPath);
+            EditorDebug.Log($"AssetBrowser: renamed folder '{oldName}' → '{newName}'.", "AssetBrowser");
+            _refreshRequested = true;
+        }
+        catch (Exception ex)
+        {
+            EditorDebug.Log($"AssetBrowser: folder rename failed for '{oldPath}': {ex.Message}", "AssetBrowser");
+        }
+    }
+
+    // Moves sourceDir into targetParentDir with its whole subtree (incl. .meta sidecars) so every GUID
+    // reference keeps resolving. Refuses moves into itself/a descendant; skips no-op same-parent moves.
+    private void MoveFolder(string sourceDir, string targetParentDir)
+    {
+        if (string.IsNullOrEmpty(sourceDir) || string.IsNullOrEmpty(targetParentDir))
+            return;
+        if (!Directory.Exists(sourceDir) || !Directory.Exists(targetParentDir))
+            return;
+
+        if (IsProtectedFolder(sourceDir))
+            return; // defensive: protected folders aren't draggable, but never move one anyway
+
+        // No-op if already directly inside the target.
+        if (PathsEqual(Path.GetDirectoryName(sourceDir), targetParentDir))
+            return;
+
+        // Cannot move a folder into itself or a descendant of itself.
+        if (PathsEqual(sourceDir, targetParentDir) || IsPathUnder(targetParentDir, sourceDir))
+        {
+            EditorDebug.Log("AssetBrowser: cannot move a folder into itself or its own subfolder.", "AssetBrowser");
+            return;
+        }
+
+        string name = Path.GetFileName(sourceDir);
+        string destPath = Path.Combine(targetParentDir, name);
+        int n = 1;
+        while (Directory.Exists(destPath))
+            destPath = Path.Combine(targetParentDir, $"{name} ({n++})");
+
+        try
+        {
+            Directory.Move(sourceDir, destPath);
+            RepointShortcutsAfterMove(sourceDir, destPath);
+            EditorDebug.Log($"AssetBrowser: moved folder '{name}' → '{targetParentDir}'.", "AssetBrowser");
+            _refreshRequested = true;
+        }
+        catch (Exception ex)
+        {
+            EditorDebug.Log($"AssetBrowser: folder move failed for '{sourceDir}': {ex.Message}", "AssetBrowser");
+        }
+    }
+
+    // Recursively deletes a folder (and every asset + .meta inside it), then refreshes.
+    private void ExecuteDeleteFolder(string absolutePath)
+    {
+        if (string.IsNullOrEmpty(absolutePath) || !Directory.Exists(absolutePath))
+            return;
+
+        if (IsProtectedFolder(absolutePath))
+        {
+            EditorDebug.Log($"AssetBrowser: refusing to delete protected folder '{absolutePath}'.", "AssetBrowser");
+            return;
+        }
+
+        try
+        {
+            Directory.Delete(absolutePath, recursive: true);
+            RemoveShortcutsUnder(absolutePath);
+            EditorDebug.Log($"AssetBrowser: deleted folder '{Path.GetFileName(absolutePath)}'.", "AssetBrowser");
+
+            if (_selectedFilePath != null && IsPathUnder(_selectedFilePath, absolutePath))
+                _selectedFilePath = null;
+
+            _db.Refresh();
+        }
+        catch (Exception ex)
+        {
+            EditorDebug.Log($"AssetBrowser: folder delete failed for '{absolutePath}': {ex.Message}", "AssetBrowser");
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────────────────────
+    // Shortcuts: a persistent quick-access list of folders/files, shown at the top of the browser.
+    // ─────────────────────────────────────────────────────────────────────────────────────────────
+
+    // Draws the "Shortcuts" section (only when at least one exists). Folder shortcuts act as drop
+    // targets; file shortcuts drag into the scene/inspector and activate on double-click. Each is
+    // removable via its right-click menu.
+    private void DrawShortcuts()
+    {
+        if (_shortcuts.Count == 0)
+            return;
+
+        if (!ImGui.CollapsingHeader("Shortcuts", ImGuiTreeNodeFlags.DefaultOpen))
+        {
+            VoltageEditorUtils.SmallVerticalSpace();
+            ImGui.Separator();
+            return;
+        }
+
+        // Iterate a copy so a Remove during the loop doesn't invalidate enumeration.
+        foreach (var relPath in new List<string>(_shortcuts))
+        {
+            string abs = ShortcutToAbsolute(relPath);
+            ImGui.PushID($"shortcut::{relPath}");
+
+            if (abs != null && Directory.Exists(abs))
+                DrawFolderShortcut(relPath, abs);
+            else if (abs != null && File.Exists(abs))
+                DrawFileShortcut(relPath, abs);
+            else
+                DrawMissingShortcut(relPath);
+
+            ImGui.PopID();
+        }
+
+        VoltageEditorUtils.SmallVerticalSpace();
+        ImGui.Separator();
+    }
+
+    private void DrawFolderShortcut(string relPath, string abs)
+    {
+        // Render the real indexed node so the shortcut behaves exactly like the folder in the main tree
+        // (expand/collapse, drag/drop, context menu + "Remove Shortcut" via shortcutRelPath).
+        var node = FindFolderNode(abs);
+        if (node != null)
+        {
+            DrawFolderNode(node, relPath);
+            return;
+        }
+
+        // Folder exists on disk but isn't in the index yet — show a minimal fallback with removal.
+        ImGui.TextColored(new Num.Vector4(0.7f, 0.7f, 0.7f, 1f), $"[ {Path.GetFileName(abs)} ]  (not indexed)");
+        DrawShortcutContextMenu(relPath, abs);
+    }
+
+    // Finds the indexed AssetFolderNode for an absolute folder path, or null.
+    private AssetFolderNode FindFolderNode(string absolutePath)
+    {
+        foreach (var root in _db.RootNodes)
+        {
+            var found = FindFolderNodeRecursive(root, absolutePath);
+            if (found != null)
+                return found;
+        }
+        return null;
+    }
+
+    private static AssetFolderNode FindFolderNodeRecursive(AssetFolderNode node, string absolutePath)
+    {
+        if (PathsEqual(node.AbsolutePath, absolutePath))
+            return node;
+
+        foreach (var child in node.ChildFolders)
+        {
+            var found = FindFolderNodeRecursive(child, absolutePath);
+            if (found != null)
+                return found;
+        }
+        return null;
+    }
+
+    private void DrawFileShortcut(string relPath, string abs)
+    {
+        var descriptor = AssetTypeRegistry.Resolve(Path.GetExtension(abs));
+        var iconId = AssetBrowserIcons.GetIconId(descriptor.Kind);
+        if (iconId != IntPtr.Zero)
+        {
+            ImGui.Image(iconId, new Num.Vector2(IconSize, IconSize));
+            ImGui.SameLine(0, IconTextSpacing);
+        }
+
+        bool clicked = ImGui.Selectable(Path.GetFileName(abs), false,
+            ImGuiSelectableFlags.AllowDoubleClick, new Num.Vector2(ImGui.GetContentRegionAvail().X, IconSize));
+
+        if (clicked && ImGui.IsMouseDoubleClicked(ImGuiMouseButton.Left))
+        {
+            var reference = _db.GetReference(abs);
+            if (descriptor.Kind == AssetKind.Scene)
+                DropHandlers.DropScene(reference);
+            else if (descriptor.Kind == AssetKind.Prefab)
+                DropHandlers.OpenPrefabIsolated(reference);
+        }
+
+        // Drag SOURCE: droppable file shortcuts carry an AssetReference for scene/inspector drops.
+        if (ImGui.BeginDragDropSource(ImGuiDragDropFlags.None))
+        {
+            DraggedSourcePath = abs;
+            bool isDroppable = descriptor.DropFactory != null;
+            DraggedReference = isDroppable ? _db.GetReference(abs) : default;
+            unsafe
+            {
+                byte sentinel = 0;
+                ImGui.SetDragDropPayload(DragDropPayloadId, (IntPtr)(&sentinel), 1);
+            }
+            ImGuiSafe.TextSafe(Path.GetFileName(abs));
+            ImGui.EndDragDropSource();
+        }
+
+        DrawShortcutContextMenu(relPath, abs);
+    }
+
+    private void DrawMissingShortcut(string relPath)
+    {
+        ImGui.TextColored(new Num.Vector4(0.8f, 0.4f, 0.4f, 1f), $"{Path.GetFileName(relPath)}  (missing)");
+        DrawShortcutContextMenu(relPath, null);
+    }
+
+    // Right-click menu for a shortcut row — currently just "Remove Shortcut".
+    private void DrawShortcutContextMenu(string relPath, string abs)
+    {
+        if (!ImGui.BeginPopupContextItem($"##shortcutctx_{relPath}"))
+            return;
+
+        if (ImGui.MenuItem("Remove Shortcut"))
+            RemoveShortcut(relPath);
+
+        ImGui.EndPopup();
+    }
+
+    // Adds a folder/file to the Shortcuts section (idempotent) and persists.
+    private void AddShortcut(string absolutePath)
+    {
+        if (string.IsNullOrEmpty(absolutePath))
+            return;
+
+        var project = ProjectManager.Instance?.CurrentProject;
+        if (project == null)
+            return;
+
+        string rel = CrossPlatformPath.GetRelativePathForStorage(project.ProjectPath, absolutePath);
+        if (string.IsNullOrEmpty(rel))
+            return;
+
+        if (!_shortcuts.Contains(rel, StringComparer.OrdinalIgnoreCase))
+        {
+            _shortcuts.Add(rel);
+            SaveShortcuts();
+            EditorDebug.Log($"AssetBrowser: added shortcut '{rel}'.", "AssetBrowser");
+        }
+    }
+
+    private void RemoveShortcut(string relPath)
+    {
+        int removed = _shortcuts.RemoveAll(s => string.Equals(s, relPath, StringComparison.OrdinalIgnoreCase));
+        if (removed > 0)
+            SaveShortcuts();
+    }
+
+    // Drops any shortcuts that pointed at (or inside) a folder that was just deleted.
+    private void RemoveShortcutsUnder(string deletedFolderAbs)
+    {
+        var project = ProjectManager.Instance?.CurrentProject;
+        if (project == null)
+            return;
+
+        int before = _shortcuts.Count;
+        _shortcuts.RemoveAll(rel =>
+        {
+            var abs = ShortcutToAbsolute(rel);
+            return abs != null && (PathsEqual(abs, deletedFolderAbs) || IsPathUnder(abs, deletedFolderAbs));
+        });
+        if (_shortcuts.Count != before)
+            SaveShortcuts();
+    }
+
+    // Rewrites shortcut paths after a folder rename/move so they keep pointing at the item.
+    private void RepointShortcutsAfterMove(string oldAbs, string newAbs)
+    {
+        var project = ProjectManager.Instance?.CurrentProject;
+        if (project == null)
+            return;
+
+        bool changed = false;
+        for (int i = 0; i < _shortcuts.Count; i++)
+        {
+            var abs = ShortcutToAbsolute(_shortcuts[i]);
+            if (abs == null)
+                continue;
+
+            string newTarget = null;
+            if (PathsEqual(abs, oldAbs))
+                newTarget = newAbs;
+            else if (IsPathUnder(abs, oldAbs))
+                newTarget = newAbs + abs.Substring(oldAbs.Length); // preserve the tail under the moved folder
+
+            if (newTarget != null)
+            {
+                _shortcuts[i] = CrossPlatformPath.GetRelativePathForStorage(project.ProjectPath, newTarget);
+                changed = true;
+            }
+        }
+        if (changed)
+            SaveShortcuts();
+    }
+
+    private static string ShortcutToAbsolute(string relPath)
+    {
+        var project = ProjectManager.Instance?.CurrentProject;
+        if (project == null || string.IsNullOrEmpty(relPath))
+            return null;
+        return Path.GetFullPath(Path.Combine(project.ProjectPath,
+            relPath.Replace('/', Path.DirectorySeparatorChar)));
+    }
+
+    private void LoadShortcuts()
+    {
+        _shortcuts.Clear();
+        var stored = _shortcutsSetting?.Value;
+        if (string.IsNullOrEmpty(stored))
+            return;
+
+        foreach (var part in stored.Split(CollapsedNodeSep, StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (!_shortcuts.Contains(part, StringComparer.OrdinalIgnoreCase))
+                _shortcuts.Add(part);
+        }
+    }
+
+    private void SaveShortcuts()
+    {
+        _shortcutsSetting.Value = string.Join(CollapsedNodeSep, _shortcuts);
     }
 }

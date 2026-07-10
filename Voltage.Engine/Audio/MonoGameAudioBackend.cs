@@ -3,9 +3,7 @@ using Microsoft.Xna.Framework.Audio;
 
 namespace Voltage.Audio
 {
-	/// <summary>
-	/// <see cref="IAudioHandle"/> backed by a MonoGame <see cref="SoundEffectInstance"/>.
-	/// </summary>
+	// IAudioHandle backed by a MonoGame SoundEffectInstance.
 	internal sealed class MonoGameAudioHandle : IAudioHandle
 	{
 		private readonly SoundEffectInstance _instance;
@@ -35,8 +33,7 @@ namespace Voltage.Audio
 
 		public bool IsLooped
 		{
-			// MonoGame throws if IsLooped is changed after the instance has started playing,
-			// so only set it while the instance is stopped (CreateHandle sets it before Play).
+			// MonoGame throws if IsLooped changes after playback starts, so only set it while stopped.
 			get => _instance.IsLooped;
 			set { if (_instance.State == SoundState.Stopped) _instance.IsLooped = value; }
 		}
@@ -63,9 +60,8 @@ namespace Voltage.Audio
 	}
 
 	/// <summary>
-	/// Default, always-available audio backend built on MonoGame's <see cref="SoundEffect"/> API.
-	/// Cross-platform "for free": MonoGame maps this to OpenAL on desktop and to each console's native
-	/// audio backend. Has no mixing/bus/DSP concepts of its own — those live in <see cref="AudioMixer"/>
+	/// Default audio backend built on MonoGame's <see cref="SoundEffect"/> API (OpenAL on desktop, each
+	/// console's native audio). Has no mixing/bus/DSP of its own — that lives in <see cref="AudioMixer"/>
 	/// and <see cref="AudioManager"/> above it.
 	/// </summary>
 	public sealed class MonoGameAudioBackend : IAudioBackend
