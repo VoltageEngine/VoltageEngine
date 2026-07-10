@@ -8,6 +8,7 @@ using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Undo.EntityActions;
 using Voltage.Editor.Utils;
 using Voltage.Sprites;
+using Voltage.Audio;
 using Voltage.Editor.Serialization;
 using PrefabData = Voltage.Data.PrefabData;
 
@@ -37,6 +38,7 @@ namespace Voltage.Editor.Assets
         Script,
         Effect,
         Tiled,
+        Audio,
         Unsupported,
     }
 
@@ -69,14 +71,15 @@ namespace Voltage.Editor.Assets
     public static class AssetTypeRegistry
     {
         private const string IconDir         = "DefaultContent/UI/RemixIcon/FileTypes/";
-        private const string IconTexture     = IconDir + "Voltage-Aseprite.png";   // shared for all texture types
+        private const string IconTexture     = IconDir + "Voltage-Aseprite.png"; 
         private const string IconPrefab      = IconDir + "Voltage-Prefab.png";
         private const string IconScene       = IconDir + "Voltage-Scene.png";
         private const string IconScript      = IconDir + "Voltage-Script.png";
         private const string IconUnsupported = IconDir + "Voltage-Unsupported-File.png";
+        private const string IconAudio       = IconDir + "Voltage-Audio.png";
 
-        // No dedicated Effect or Tiled icon confirmed in the directory — fall back to unsupported icon.
-        private const string IconEffect = IconUnsupported;
+		// No dedicated Effect or Tiled icon confirmed in the directory — fall back to unsupported icon.
+		private const string IconEffect = IconUnsupported;
         private const string IconTiled  = IconUnsupported;
 
         private static readonly AssetTypeDescriptor _fallback = new(
@@ -129,6 +132,13 @@ namespace Voltage.Editor.Assets
                 Extensions: new[] { ".tmx", ".tsx" },
                 IconPath: IconTiled,
                 Kind: AssetKind.Tiled
+            ));
+
+            Register(new AssetTypeDescriptor(
+                Extensions: new[] { ".wav", ".ogg", ".mp3" },
+                IconPath: IconAudio,
+                Kind: AssetKind.Audio,
+                DropFactory: DropHandlers.DropAudio
             ));
         }
 
@@ -222,6 +232,48 @@ namespace Voltage.Editor.Assets
             );
 
             // Select the new entity in the editor.
+            var imgr = Core.GetGlobalManager<ImGuiManager>();
+            imgr?.SceneGraphWindow.EntityPane.SetSelectedEntity(entity, false);
+            imgr?.MainEntityInspectorWindow.DelayedSetEntity(entity);
+        }
+
+        internal static void DropAudio(AssetReference reference, Microsoft.Xna.Framework.Vector2? worldPosition = null)
+        {
+            var absolutePath = ResolveOrLog(reference, "DropAudio");
+            if (absolutePath == null) return;
+
+            var scene = Core.Scene;
+            if (scene == null)
+            {
+                EditorDebug.Log("DropAudio: no active scene.", "AssetBrowser");
+                return;
+            }
+
+            // Create an entity carrying an AudioSourceComponent bound to the dropped asset.
+            string baseName = Path.GetFileNameWithoutExtension(absolutePath);
+            string entityName = scene.GetUniqueEntityName(baseName, null);
+            var entity = new Entity(entityName, Entity.InstanceType.Serialized);
+            entity.Transform.Position = worldPosition ?? scene.Camera.Transform.Position;
+
+            scene.AddEntity(entity);
+
+            var audio = entity.AddComponent<AudioSourceComponent>();
+            // Convert the editor-side AssetReference (Guid + HintPath) to the engine's serializable
+            // Voltage.Serialization.AssetReference the component field expects (GUID-first).
+            audio.Clip = new Voltage.Serialization.AssetReference
+            {
+                AssetGuid = reference.Guid,
+                AssetPath = reference.HintPath,
+                AssetName = Path.GetFileNameWithoutExtension(reference.HintPath),
+            };
+
+            EditorChangeTracker.PushUndo(
+                new EntityCreateDeleteUndoAction(scene, entity, wasCreated: true,
+                    $"Create Audio Entity '{entityName}'"),
+                entity,
+                $"Create Audio Entity '{entityName}'"
+            );
+
             var imgr = Core.GetGlobalManager<ImGuiManager>();
             imgr?.SceneGraphWindow.EntityPane.SetSelectedEntity(entity, false);
             imgr?.MainEntityInspectorWindow.DelayedSetEntity(entity);

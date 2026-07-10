@@ -42,6 +42,22 @@ namespace Voltage.Editor.Scripting
 			"Voltage.Persistence.dll",
 			"Voltage.FarseerPhysics.dll",
 			"MonoGame.Framework.dll",
+			// Managed audio decoders pulled in transitively by Voltage.dll (see AudioDecoders). They are
+			// referenced by the game .csproj so `dotnet publish` copies them into the shipped output, and
+			// synced into EngineLibs below. Pure-managed, no native binaries.
+			"NVorbis.dll",
+			"NLayer.dll",
+		};
+
+		/// <summary>
+		/// Managed dependencies of the engine that come from NuGet (not built from source and not named
+		/// "Voltage*"), so the assembly-scan sync would otherwise miss them. Copied into EngineLibs by
+		/// both sync paths so the game's HintPath references resolve and publish includes them.
+		/// </summary>
+		private static readonly string[] AdditionalManagedDependencyNames =
+		{
+			"NVorbis",
+			"NLayer",
 		};
 
 		/// <summary>
@@ -132,6 +148,7 @@ namespace Voltage.Editor.Scripting
 			}
 
 			SyncSourceGeneratorDll(engineLibsPath);
+			CopyAdditionalManagedDeps(engineLibsPath);
 			SyncTrimmerRoots(projectPath);
 
 			if (synced > 0)
@@ -239,6 +256,9 @@ namespace Voltage.Editor.Scripting
 
 				// Copy MonoGame/FNA framework DLLs from the running editor (these are config-agnostic)
 				CopyFrameworkAssemblies(engineLibsPath);
+
+				// Copy third-party managed deps (NVorbis/NLayer) — config-agnostic, from the editor's output
+				CopyAdditionalManagedDeps(engineLibsPath);
 
 				// Source generator is config-agnostic (netstandard2.0, no EDITOR references)
 				SyncSourceGeneratorDll(engineLibsPath);
@@ -352,6 +372,41 @@ namespace Voltage.Editor.Scripting
 					var pdb = Path.ChangeExtension(asm.Location, ".pdb");
 					if (File.Exists(pdb))
 						File.Copy(pdb, Path.Combine(destDir, Path.GetFileName(pdb)), overwrite: true);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Copies the third-party managed audio-decoder DLLs (<see cref="AdditionalManagedDependencyNames"/>)
+		/// from the running editor's output directory into <paramref name="destDir"/>. These are transitive
+		/// runtime dependencies of Voltage.dll (NuGet packages, not named "Voltage*"), so the assembly-scan
+		/// sync would otherwise miss them — and the game references them from EngineLibs so publish ships them.
+		/// They are configuration-agnostic (no EDITOR branches), so the editor's copy is correct for runtime.
+		/// </summary>
+		private static void CopyAdditionalManagedDeps(string destDir)
+		{
+			var baseDir = AppContext.BaseDirectory;
+			if (string.IsNullOrEmpty(baseDir))
+				return;
+
+			foreach (var name in AdditionalManagedDependencyNames)
+			{
+				var src = Path.Combine(baseDir, name + ".dll");
+				if (!File.Exists(src))
+				{
+					EditorDebug.Warn($"Managed dependency '{name}.dll' not found next to the editor at: {baseDir}", "EngineLibsSync");
+					continue;
+				}
+
+				var dest = Path.Combine(destDir, name + ".dll");
+				try
+				{
+					if (ShouldCopyFile(src, dest))
+						File.Copy(src, dest, overwrite: true);
+				}
+				catch (Exception ex)
+				{
+					EditorDebug.Error($"Failed to copy {name}.dll: {ex.Message}", "EngineLibsSync");
 				}
 			}
 		}

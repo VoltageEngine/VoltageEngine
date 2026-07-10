@@ -287,7 +287,6 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 				{
 					VoltageEditorUtils.SmallVerticalSpace();
 					
-					// Custom styling for the Read Only header
 					ImGui.PushStyleColor(ImGuiCol.Header, new Num.Vector4(0.3f, 0.3f, 0.4f, 0.6f));
 					ImGui.PushStyleColor(ImGuiCol.HeaderHovered, new Num.Vector4(0.35f, 0.35f, 0.45f, 0.7f));
 					ImGui.PushStyleColor(ImGuiCol.HeaderActive, new Num.Vector4(0.4f, 0.4f, 0.5f, 0.8f));

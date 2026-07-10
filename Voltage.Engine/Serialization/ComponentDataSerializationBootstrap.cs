@@ -40,6 +40,11 @@ public static class ComponentDataSerializationBootstrap
 		ComponentAotFactory.Register("Voltage.Camera", () => new Camera());
 		ComponentAotFactory.Register("Voltage.Sprites.SpriteRenderer", () => new SpriteRenderer());
 
+		// Audio components
+		ComponentAotFactory.Register("Voltage.Audio.AudioSourceComponent", () => new Audio.AudioSourceComponent());
+		ComponentAotFactory.Register("Voltage.Audio.AudioListenerComponent", () => new Audio.AudioListenerComponent());
+		ComponentAotFactory.Register("Voltage.Audio.MusicZoneComponent", () => new Audio.MusicZoneComponent());
+
 		// Engine component data AOT deserializers
 		// These use reflection-safe Voltage.Persistence.Json since engine ComponentData
 		// types are preserved by TrimmerRoots.xml (the Voltage assembly is fully preserved).
@@ -50,6 +55,18 @@ public static class ComponentDataSerializationBootstrap
 		ComponentDataAotDeserializer.Register(
 			"Voltage.Sprites.SpriteRenderer+SpriteRendererComponentData",
 			json => (ComponentData)Persistence.Json.FromJson<SpriteRenderer.SpriteRendererComponentData>(json));
+
+		ComponentDataAotDeserializer.Register(
+			"Voltage.Audio.AudioSourceComponent+AudioSourceComponentData",
+			json => (ComponentData)Persistence.Json.FromJson<Audio.AudioSourceComponent.AudioSourceComponentData>(json));
+
+		ComponentDataAotDeserializer.Register(
+			"Voltage.Audio.AudioListenerComponent+ListenerComponentData",
+			json => (ComponentData)Persistence.Json.FromJson<Audio.AudioListenerComponent.ListenerComponentData>(json));
+
+		ComponentDataAotDeserializer.Register(
+			"Voltage.Audio.MusicZoneComponent+MusicZoneComponentData",
+			json => (ComponentData)Persistence.Json.FromJson<Audio.MusicZoneComponent.MusicZoneComponentData>(json));
 
 		RegisterEngineComponents();
 	}
