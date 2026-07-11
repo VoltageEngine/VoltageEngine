@@ -1097,7 +1097,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				}
 			}
 		}
-		else if (!Core.IsEditMode)
+		else if (!Core.IsEditMode && !Core.IsPauseMode)
 		{
 			Core.Scene.Camera.Zoom = Camera.DefaultZoom;
 		}

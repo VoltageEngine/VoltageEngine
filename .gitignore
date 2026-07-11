@@ -65,7 +65,23 @@ Voltage.Portable/project.lock.json
 Voltage.Portable/Voltage.FNA.csproj.nuget.cache
 .idea
 /.idea
+# OS-generated junk (cross-platform)
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+.TemporaryItems
+.apdisk
+Icon?
+Thumbs.db
+ehthumbs.db
+ehthumbs_vista.db
+desktop.ini
+.directory
+*~
+
 .claude
 /.claude
 .claude/settings.local.json

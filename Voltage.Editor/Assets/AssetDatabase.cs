@@ -84,80 +84,50 @@ namespace Voltage.Editor.Assets
         }
     }
 
-    /// <summary>
-    /// Enumerates and caches all project asset files from the known project folders.
-    ///
-    /// Phase 3 additions:
-    /// <list type="bullet">
-    ///   <item>
-    ///     <description>
-    ///     <b>.meta sidecar system</b> — every tracked asset gets a companion
-    ///     <c>&lt;filename&gt;&lt;ext&gt;.meta</c> file that stores a stable
-    ///     <see cref="Guid"/>.  On first encounter the GUID is created; on
-    ///     subsequent encounters it is read back.
-    ///     </description>
-    ///   </item>
-    ///   <item>
-    ///     <description>
-    ///     <b>GUID maps</b> — bidirectional <c>Guid ↔ absolutePath</c> lookup via
-    ///     <see cref="GetOrCreateGuid"/> and <see cref="GetPath"/>.
-    ///     </description>
-    ///   </item>
-    ///   <item>
-    ///     <description>
-    ///     <b>FileSystemWatcher</b> — keeps the maps current on create / rename /
-    ///     move / delete without requiring a manual <see cref="Refresh"/>.
-    ///     </description>
-    ///   </item>
-    ///   <item>
-    ///     <description>
-    ///     <b><see cref="Resolve"/></b> — resolves an <see cref="AssetReference"/>
-    ///     to the current absolute path, preferring GUID then falling back to
-    ///     <c>HintPath</c>.
-    ///     </description>
-    ///   </item>
-    /// </list>
-    /// </summary>
     public sealed class AssetDatabase : IDisposable
     {
-        /// <summary>
-        /// Editor-wide singleton.  Created and owned by <see cref="AssetBrowserWindow"/>;
-        /// accessible to <see cref="DropHandlers"/> and other editor systems without
-        /// requiring an explicit dependency injection chain.
-        /// </summary>
+
         public static AssetDatabase Instance { get; internal set; }
 
-        /// <summary>Extensions that are never shown in the Asset Browser.</summary>
+        // Extensions that are never shown in the Asset Browser.
         private static readonly HashSet<string> SkippedExtensions = new(StringComparer.OrdinalIgnoreCase)
         {
             ".xnb", ".mgcb", ".meta", ".manifest",
         };
 
-        /// <summary>
-        /// True for atomic-write / editor temp &amp; backup files that briefly appear in watched
-        /// folders during a save or compile (e.g. <c>l3yaop11.3uj~</c>). These must never get a
-        /// <c>.meta</c> sidecar; doing so litters the project with orphaned junk metas.
-        /// </summary>
+    
+        private static readonly HashSet<string> OsJunkFileNames = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "Thumbs.db", "ehthumbs.db", "ehthumbs_vista.db", "desktop.ini", "Icon\r",
+        };
+
         private static bool IsTransientFile(string path)
         {
             var name = Path.GetFileName(path);
             if (string.IsNullOrEmpty(name))
                 return true;
 
+            // Hidden dotfiles (.DS_Store, .gitkeep, …) are never assets. This alone covers
+            // .DS_Store, but keep the explicit set below for Windows junk that isn't a dotfile.
+            if (name[0] == '.')
+                return true;
+
+            if (OsJunkFileNames.Contains(name))
+                return true;
+
             // Trailing '~' (backup) or leading '~' (e.g. '~$' Office lock files).
             if (name[name.Length - 1] == '~' || name[0] == '~')
+                return true;
+
+            // emacs autosave files are '#name#' (its lock file '.#name' is already caught above).
+            if (name.Length > 1 && name[0] == '#' && name[name.Length - 1] == '#')
                 return true;
 
             var ext = Path.GetExtension(path);
             return ext.Equals(".tmp", StringComparison.OrdinalIgnoreCase);
         }
 
-        /// <summary>
-        /// True for C# script files. Scripts no longer use an asset-GUID <c>.meta</c> sidecar —
-        /// their stable identity lives in the <c>[ComponentId]</c> source attribute (see
-        /// <see cref="Voltage.Editor.Scripting.ComponentIdStamper"/>), which the source generator
-        /// bakes into the build. Creating a sidecar for them would be redundant and misleading.
-        /// </summary>
+    
         private static bool IsScriptFile(string path)
         {
             var ext = Path.GetExtension(path);
@@ -189,8 +159,7 @@ namespace Voltage.Editor.Assets
         private readonly List<FileSystemWatcher> _watchers = new();
         private readonly Timer _debounceTimer;
         private readonly object _fswLock = new();
-        // Pending raw FSW events accumulated during the debounce window.
-        private readonly List<FileSystemEventArgs> _pendingEvents = new();
+        private readonly List<FileSystemEventArgs> _pendingEvents = new(); // Pending raw FSW events accumulated during the debounce window.
 
         public AssetDatabase()
         {

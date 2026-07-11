@@ -92,7 +92,7 @@ namespace Voltage
     /// </summary>
     [global::System.AttributeUsage(global::System.AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
     [global::System.CodeDom.Compiler.GeneratedCode(""Voltage.SourceGenerators"", ""1.0"")]
-    internal sealed class ComponentIdAttribute : global::System.Attribute
+    public sealed class ComponentIdAttribute : global::System.Attribute
     {
         public string Id { get; }
         public ComponentIdAttribute(string id) { Id = id; }
