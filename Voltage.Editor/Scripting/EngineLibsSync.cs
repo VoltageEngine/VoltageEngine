@@ -483,41 +483,71 @@ namespace Voltage.Editor.Scripting
 		}
 
 		/// <summary>
-		/// Searches for Voltage.SourceGenerators.dll in multiple locations.
+		/// Searches for Voltage.SourceGenerators.dll in multiple locations and returns the
+		/// <b>newest</b> match (by last-write time).
 		/// </summary>
 		private static string FindSourceGeneratorDll()
 		{
-			var searchPaths = new List<string>();
+			var searchDirs = new List<string>();
 
 			var editorDir = Path.GetDirectoryName(typeof(EngineLibsSync).Assembly.Location);
 			if (!string.IsNullOrEmpty(editorDir))
-				searchPaths.Add(editorDir);
+				searchDirs.Add(editorDir);
 
 			var baseDir = AppContext.BaseDirectory;
 			if (!string.IsNullOrEmpty(baseDir))
-				searchPaths.Add(baseDir);
+				searchDirs.Add(baseDir);
 
 			var solutionDir = FindSolutionDir();
 			if (solutionDir != null)
 			{
 				var generatorProjectDir = Path.Combine(
 					solutionDir, "Voltage.SourceGenerators", "Voltage.SourceGenerators");
-				searchPaths.Add(Path.Combine(generatorProjectDir, "bin", "Debug", "netstandard2.0"));
-				searchPaths.Add(Path.Combine(generatorProjectDir, "bin", "Release", "netstandard2.0"));
+
+				// Enumerate every build-config output folder (bin/<Config>/netstandard2.0/...)
+				// If the generator hasn't been built yet these dirs are absent.
+				var binDir = Path.Combine(generatorProjectDir, "bin");
+				if (Directory.Exists(binDir))
+				{
+					try
+					{
+						searchDirs.AddRange(Directory.GetDirectories(binDir, "netstandard2.0",
+							SearchOption.AllDirectories));
+					}
+					catch (Exception ex)
+					{
+						EditorDebug.Warn($"Could not enumerate generator bin dir '{binDir}': {ex.Message}",
+							"EngineLibsSync");
+					}
+				}
 			}
 
 			var searched = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-			foreach (var dir in searchPaths)
+			string newestPath = null;
+			DateTime newestTime = DateTime.MinValue;
+
+			foreach (var dir in searchDirs)
 			{
 				if (string.IsNullOrEmpty(dir) || !searched.Add(dir))
 					continue;
 
 				var candidate = Path.Combine(dir, SourceGeneratorDllName);
-				if (File.Exists(candidate))
+				if (!File.Exists(candidate))
+					continue;
+
+				var writeTime = File.GetLastWriteTimeUtc(candidate);
+				if (writeTime > newestTime)
 				{
-					EditorDebug.Log($"Found {SourceGeneratorDllName} at: {candidate}", "EngineLibsSync");
-					return candidate;
+					newestTime = writeTime;
+					newestPath = candidate;
 				}
+			}
+
+			if (newestPath != null)
+			{
+				EditorDebug.Log($"Found {SourceGeneratorDllName} (newest, {newestTime:u}) at: {newestPath}",
+					"EngineLibsSync");
+				return newestPath;
 			}
 
 			EditorDebug.Warn($"Searched {searched.Count} paths for {SourceGeneratorDllName}: " +
