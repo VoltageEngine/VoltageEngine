@@ -39,6 +39,7 @@ namespace Voltage.Editor.Assets
         Effect,
         Tiled,
         Audio,
+        Timeline,
         Unsupported,
     }
 
@@ -139,6 +140,16 @@ namespace Voltage.Editor.Assets
                 IconPath: IconAudio,
                 Kind: AssetKind.Audio,
                 DropFactory: DropHandlers.DropAudio
+            ));
+
+            // Cinematic timeline assets (.timeline). Cataloged so they get a stable GUID (AssetReference
+            // works) and appear in the Asset Browser. Dropping one into the scene spawns an entity with a
+            // TimelineDirector bound to it.
+            Register(new AssetTypeDescriptor(
+                Extensions: new[] { ".timeline" },
+                IconPath: IconScene,
+                Kind: AssetKind.Timeline,
+                DropFactory: DropHandlers.DropTimeline
             ));
         }
 
@@ -271,6 +282,46 @@ namespace Voltage.Editor.Assets
                     $"Create Audio Entity '{entityName}'"),
                 entity,
                 $"Create Audio Entity '{entityName}'"
+            );
+
+            var imgr = Core.GetGlobalManager<ImGuiManager>();
+            imgr?.SceneGraphWindow.EntityPane.SetSelectedEntity(entity, false);
+            imgr?.MainEntityInspectorWindow.DelayedSetEntity(entity);
+        }
+
+        internal static void DropTimeline(AssetReference reference, Microsoft.Xna.Framework.Vector2? worldPosition = null)
+        {
+            var absolutePath = ResolveOrLog(reference, "DropTimeline");
+            if (absolutePath == null) return;
+
+            var scene = Core.Scene;
+            if (scene == null)
+            {
+                EditorDebug.Log("DropTimeline: no active scene.", "AssetBrowser");
+                return;
+            }
+
+            // Spawn an entity with a TimelineDirector bound to the dropped .timeline asset.
+            string baseName = Path.GetFileNameWithoutExtension(absolutePath);
+            string entityName = scene.GetUniqueEntityName(baseName + "_Director", null);
+            var entity = new Entity(entityName, Entity.InstanceType.Serialized);
+            entity.Transform.Position = worldPosition ?? scene.Camera.Transform.Position;
+
+            scene.AddEntity(entity);
+
+            var director = entity.AddComponent<Voltage.Cinematics.TimelineDirector>();
+            director.Timeline = new Voltage.Serialization.AssetReference
+            {
+                AssetGuid = reference.Guid,
+                AssetPath = reference.HintPath,
+                AssetName = Path.GetFileNameWithoutExtension(reference.HintPath),
+            };
+
+            EditorChangeTracker.PushUndo(
+                new EntityCreateDeleteUndoAction(scene, entity, wasCreated: true,
+                    $"Create Timeline Director '{entityName}'"),
+                entity,
+                $"Create Timeline Director '{entityName}'"
             );
 
             var imgr = Core.GetGlobalManager<ImGuiManager>();

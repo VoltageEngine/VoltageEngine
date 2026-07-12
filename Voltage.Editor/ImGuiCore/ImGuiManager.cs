@@ -185,6 +185,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private ProjectSettingsWindow _projectSettingsWindow = new();
 	private AssetBrowserWindow _assetBrowserWindow = new();
 	private PluginManagerWindow _pluginManagerWindow = new();
+	private TimelineWindow _timelineWindow = new();
 
 	private List<(Entity entity, Collider collider)> _highlightedEntities = new();
 	private IReadOnlyList<Entity> _lastSelectedEntities = null;
@@ -543,6 +544,16 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		DrawScriptingWindow();
 		_editorSettingsWindow.Draw();
 		_pluginManagerWindow.Draw();
+
+		// Timeline window: toggled via View → Window (persistent). Two-way sync so closing it with the
+		// window's X also unticks the menu item.
+		if (ShowTimelineWindow)
+		{
+			_timelineWindow.IsOpen = true;
+			_timelineWindow.Draw();
+			ShowTimelineWindow = _timelineWindow.IsOpen;
+		}
+
 		Plugins.EditorPluginHost.DrawWindows();
 		_cursorSelectionManager.UpdateSelection();
 	}
@@ -755,7 +766,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (ImGui.IsKeyPressed(ImGuiKey.F2, false) && !Core.IsEditMode)
 			Core.InvokeSwitchPauseMode(!Core.IsPauseMode);
 
-		if (ImGui.GetIO().KeyCtrl && ImGui.IsKeyPressed(ImGuiKey.S, false))
+		// KeyCtrl is the physical Control key; on macOS the Command key comes through as KeySuper
+		// (Keys.LeftWindows/RightWindows). Accept either so Cmd+S works on Mac and Ctrl+S everywhere.
+		if ((ImGui.GetIO().KeyCtrl || ImGui.GetIO().KeySuper) && ImGui.IsKeyPressed(ImGuiKey.S, false))
 		{
 			InvokeSaveSceneChanges();
 		}
@@ -820,12 +833,15 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void ManageUndoAndRedo()
 	{
-		if (ImGui.GetIO().KeyCtrl && ImGui.IsKeyPressed(ImGuiKey.Z, false))
+		// Accept Command (KeySuper) as well as Control so undo/redo work on macOS.
+		var cmdOrCtrl = ImGui.GetIO().KeyCtrl || ImGui.GetIO().KeySuper;
+
+		if (cmdOrCtrl && ImGui.IsKeyPressed(ImGuiKey.Z, false))
 		{
 			EditorChangeTracker.Undo();
 		}
 
-		if (ImGui.GetIO().KeyCtrl && ImGui.IsKeyPressed(ImGuiKey.Y, false))
+		if (cmdOrCtrl && ImGui.IsKeyPressed(ImGuiKey.Y, false))
 		{
 			EditorChangeTracker.Redo();
 		}

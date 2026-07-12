@@ -92,6 +92,10 @@ public class AssetBrowserWindow : IDisposable
     // so the rebuild is deferred to the end of Draw() to avoid "collection was modified".
     private bool _refreshRequested = false;
 
+    private bool _showCreateTimelinePopup = false;
+    private string _createTimelineFolder = null;
+    private string _createTimelineName = "NewTimeline";
+
     public AssetBrowserWindow()
     {
         _db = new AssetDatabase();
@@ -179,9 +183,8 @@ public class AssetBrowserWindow : IDisposable
 
         // Must be outside Begin/End to be modal.
         DrawDeleteConfirmationPopup();
+        DrawCreateTimelinePopup();
 
-        // Run any refresh requested by an in-tree operation now that enumeration of
-        // _db.RootNodes (in DrawTree) has completed — rebuilding it here is safe.
         if (_refreshRequested)
         {
             _refreshRequested = false;
@@ -1008,6 +1011,13 @@ public class AssetBrowserWindow : IDisposable
         if (ImGui.MenuItem("Add Folder"))
             CreateFolder(node.AbsolutePath);
 
+        if (ImGui.BeginMenu("Create"))
+        {
+            if (ImGui.MenuItem("Timeline"))
+                BeginCreateTimeline(node.AbsolutePath);
+            ImGui.EndMenu();
+        }
+
         if (ImGui.MenuItem("Create Shortcut"))
             AddShortcut(node.AbsolutePath);
 
@@ -1089,6 +1099,135 @@ public class AssetBrowserWindow : IDisposable
         catch (Exception ex)
         {
             EditorDebug.Log($"AssetBrowser: failed to create folder under '{parentDir}': {ex.Message}", "AssetBrowser");
+        }
+    }
+
+    // Arms the create-timeline popup for the given target folder, seeding a default name.
+    private void BeginCreateTimeline(string targetFolder)
+    {
+        if (string.IsNullOrEmpty(targetFolder) || !Directory.Exists(targetFolder))
+            return;
+
+        _createTimelineFolder = targetFolder;
+        _createTimelineName = "NewTimeline";
+        _showCreateTimelinePopup = true;
+    }
+
+    // Modal name-entry popup (mirrors the layout-save / delete-confirmation popups). Enter or Create
+    // confirms; Escape or Cancel dismisses. An empty name disables Create.
+    private void DrawCreateTimelinePopup()
+    {
+        if (_showCreateTimelinePopup)
+        {
+            ImGui.OpenPopup("create-timeline");
+            _showCreateTimelinePopup = false;
+        }
+
+        var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.4f);
+        ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
+        ImGui.SetNextWindowSize(new Num.Vector2(400, 0), ImGuiCond.Appearing);
+
+        bool open = true;
+        if (!ImGui.BeginPopupModal("create-timeline", ref open, ImGuiWindowFlags.AlwaysAutoResize))
+            return;
+
+        ImGui.Text("New Timeline");
+        ImGui.Separator();
+
+        string folderLabel = _createTimelineFolder != null ? Path.GetFileName(_createTimelineFolder) : string.Empty;
+        ImGui.TextColored(new Num.Vector4(0.6f, 0.6f, 0.6f, 1f), $"In folder: {folderLabel}");
+
+        ImGui.Text("Enter name:");
+        ImGui.SetNextItemWidth(350);
+        bool enter = ImGui.InputText("##timelinename", ref _createTimelineName, 128,
+            ImGuiInputTextFlags.EnterReturnsTrue);
+
+        bool nameValid = !string.IsNullOrWhiteSpace(_createTimelineName)
+                       && _createTimelineName.Trim().IndexOfAny(Path.GetInvalidFileNameChars()) < 0;
+
+        if (!string.IsNullOrWhiteSpace(_createTimelineName) && !nameValid)
+            ImGuiSafe.TextColoredSafe(new Num.Vector4(1f, 0.6f, 0.2f, 1f), "Invalid file name.");
+
+        VoltageEditorUtils.MediumVerticalSpace();
+
+        float buttonWidth = 100f;
+        float spacing     = 10f;
+        float totalWidth  = (buttonWidth * 2) + spacing;
+        float centerStart = (ImGui.GetWindowSize().X - totalWidth) * 0.5f;
+        ImGui.SetCursorPosX(centerStart);
+
+        if (!nameValid)
+            ImGui.BeginDisabled();
+
+        bool confirm = ImGui.Button("Create", new Num.Vector2(buttonWidth, 0)) || (enter && nameValid);
+
+        if (!nameValid)
+            ImGui.EndDisabled();
+
+        if (confirm && nameValid)
+        {
+            CreateTimeline(_createTimelineFolder, _createTimelineName);
+            ImGui.CloseCurrentPopup();
+        }
+
+        ImGui.SameLine();
+
+        if (ImGui.Button("Cancel", new Num.Vector2(buttonWidth, 0)))
+            ImGui.CloseCurrentPopup();
+
+        ImGui.EndPopup();
+    }
+
+    // Writes a fresh default .timeline asset (via TimelineAssetIO.CreateAndSave) into targetFolder,
+    // appending the .timeline extension if absent and uniquifying the name to avoid overwriting an
+    // existing file, then requests a refresh so the AssetDatabase catalogs it (GUID / .meta sidecar).
+    private void CreateTimeline(string targetFolder, string name)
+    {
+        if (string.IsNullOrEmpty(targetFolder) || !Directory.Exists(targetFolder))
+            return;
+
+        name = name?.Trim();
+        if (string.IsNullOrEmpty(name))
+            return;
+
+        // Accept a name the user typed with the extension already on it.
+        string baseName = name;
+        if (baseName.EndsWith(Voltage.Cinematics.TimelineAssetIO.FileExtension, StringComparison.OrdinalIgnoreCase))
+            baseName = Path.GetFileNameWithoutExtension(baseName);
+
+        if (string.IsNullOrEmpty(baseName) || baseName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            EditorDebug.Log($"AssetBrowser: invalid timeline name '{name}'.", "AssetBrowser");
+            return;
+        }
+
+        string ext = Voltage.Cinematics.TimelineAssetIO.FileExtension;
+        string path = Path.Combine(targetFolder, baseName + ext);
+
+        // Uniquify rather than overwrite an existing file.
+        if (File.Exists(path))
+        {
+            int n = 1;
+            do
+            {
+                path = Path.Combine(targetFolder, $"{baseName} ({n}){ext}");
+                n++;
+            }
+            while (File.Exists(path));
+        }
+
+        try
+        {
+            Voltage.Cinematics.TimelineAssetIO.CreateAndSave(path);
+            EditorDebug.Log($"AssetBrowser: created timeline '{Path.GetFileName(path)}'.", "AssetBrowser");
+
+            // Re-index so the new file gets a GUID / .meta sidecar and shows up in the browser.
+            _selectedFilePath = path;
+            _refreshRequested = true;
+        }
+        catch (Exception ex)
+        {
+            EditorDebug.Log($"AssetBrowser: failed to create timeline at '{path}': {ex.Message}", "AssetBrowser");
         }
     }
 
