@@ -26,7 +26,8 @@ public class Editor : Core
 		var font = Content.LoadBitmapFont("DefaultContent/Fonts/VoltageDefaultBMFont.fnt");
 		Graphics.Instance = new Graphics(font);
 
-		LoadRequiredAssemblies();
+		// Component-bearing assemblies (e.g. Farseer) are no longer force-loaded here — they are
+		// plugins now, loaded per-project by PluginManager when the project's plugins.json asks for them.
 
 #if OS_MAC
         Directory.SetCurrentDirectory(AppContext
@@ -168,31 +169,4 @@ public class Editor : Core
 		}
 	}
 
-	/// <summary>
-	/// Explicitly loads assemblies that contain components but might not be loaded yet.
-	/// </summary>
-	private static void LoadRequiredAssemblies()
-	{
-		//IMPORTANT: Add your own custom assemblies through here if they contain Components that the Editor needs to be aware of.
-		var assembliesToLoad = new[]
-		{
-			"Voltage.FarseerPhysics",
-		};
-
-		foreach (var assemblyName in assembliesToLoad)
-		{
-			try
-			{
-				var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
-				if (loadedAssemblies.All(a => a.GetName().Name != assemblyName))
-				{
-					Assembly.Load(assemblyName);
-				}
-			}
-			catch (Exception ex)
-			{
-				Debug.Warn($"Could not load assembly {assemblyName}: {ex.Message}");
-			}
-		}
-	}
 }

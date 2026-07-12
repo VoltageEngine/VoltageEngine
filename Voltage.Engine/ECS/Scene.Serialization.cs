@@ -570,6 +570,13 @@ namespace Voltage
 			var entData = entity.GetEntityData();
 			if (entData != null)
 			{
+				// Capture entries whose component type is unknown in this process (plugin not
+				// installed, script missing) BEFORE clearing: they have no live component to rebuild
+				// from, so a rebuild-from-live save would permanently destroy that data — e.g. a
+				// teammate without a private plugin saving the scene. Unresolvable entries round-trip
+				// raw; they are only ever dropped by an explicit remove in the editor.
+				var preservedEntries = CollectUnresolvableEntries(entData.ComponentDataList);
+
 				entData.ComponentDataList.Clear();
 
 				// Include both live and pending-add components.
@@ -624,10 +631,47 @@ namespace Voltage
 					}
 				}
 
+				// Re-append the raw entries of components this process cannot resolve (see above).
+				entData.ComponentDataList.AddRange(preservedEntries);
+
 				entityData.EntityData = entData;
 			}
 
 			return entityData;
+		}
+
+		/// <summary>
+		/// True when neither the entry's stable ComponentId nor its type name resolves to a loaded
+		/// type — the component belongs to a plugin or script assembly that is not present in this
+		/// process. Such entries are preserved verbatim across saves instead of being dropped.
+		/// </summary>
+		public static bool IsUnresolvableComponentEntry(ComponentDataEntry entry)
+		{
+			if (!string.IsNullOrEmpty(entry.ComponentId) &&
+			    Serialization.ComponentIdRegistry.TryGetType(entry.ComponentId, out _))
+				return false;
+
+			if (!string.IsNullOrEmpty(entry.ComponentTypeName) && ResolveType(entry.ComponentTypeName) != null)
+				return false;
+
+			// An entry with no identity at all is garbage, not a missing plugin — don't preserve it.
+			return !string.IsNullOrEmpty(entry.ComponentId) || !string.IsNullOrEmpty(entry.ComponentTypeName);
+		}
+
+		/// <summary>Returns copies of the unresolvable entries in <paramref name="entries"/> (never null).</summary>
+		internal static List<ComponentDataEntry> CollectUnresolvableEntries(List<ComponentDataEntry> entries)
+		{
+			var preserved = new List<ComponentDataEntry>();
+			if (entries == null)
+				return preserved;
+
+			foreach (var entry in entries)
+			{
+				if (IsUnresolvableComponentEntry(entry))
+					preserved.Add(entry);
+			}
+
+			return preserved;
 		}
 
 		/// <summary>
@@ -1030,7 +1074,11 @@ namespace Voltage
 							var component = CreateComponentInstance(componentEntry.ComponentTypeName, componentEntry.ComponentId);
 							if (component == null)
 							{
-								Debug.Error($"Could not create component: {componentEntry.ComponentTypeName}");
+								// Not fatal: the entity loads without it, and the raw entry is preserved
+								// across saves (see CollectUnresolvableEntries) until explicitly removed.
+								Debug.Warn(
+									$"Could not create component '{componentEntry.ComponentTypeName}' (id: {componentEntry.ComponentId ?? "-"}) — " +
+									"it may come from a plugin that is not installed. The entity loads without it; its data is preserved.");
 								continue;
 							}
 

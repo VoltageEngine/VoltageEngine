@@ -83,15 +83,28 @@ namespace Voltage.Editor.FilePickers
                 picker.DontAllowTraverselBeyondRootFolder = true;
 
                 ImGui.Text("TMX File Selection:");
+
+                // OS-native file dialog shortcut; the in-editor browser below stays available too.
+                if (NativeFileDialogs.IsAvailable && ImGui.Button("Browse with OS..."))
+                {
+                    if (NativeFileDialogs.TryOpenFile("Select TMX file", _startingPath,
+                            new[] { "tmx" }, "Tiled maps", out var nativeFile)
+                        && !string.IsNullOrEmpty(nativeFile) && File.Exists(nativeFile)
+                        && nativeFile.EndsWith(".tmx", StringComparison.OrdinalIgnoreCase))
+                    {
+                        picker.SelectedFile = nativeFile;
+                        _isFileSelected = true;
+                    }
+                }
                 ImGui.Separator();
 
                 if (picker.Draw())
                 {
                     var file = picker.SelectedFile;
 
-                    if (!string.IsNullOrEmpty(file) && 
-                        File.Exists(file) && 
-                        !Directory.Exists(file) && 
+                    if (!string.IsNullOrEmpty(file) &&
+                        File.Exists(file) &&
+                        !Directory.Exists(file) &&
                         file.EndsWith(".tmx", StringComparison.OrdinalIgnoreCase))
                     {
                         _isFileSelected = true;

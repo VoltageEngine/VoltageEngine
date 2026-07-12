@@ -176,6 +176,13 @@ public class ProjectManager : GlobalManager
 			ProjectStructureGenerator.EnsureDefaultFontExists(project.ProjectPath);
 			ProjectSettings.Instance = project.Settings;
 
+			// Migrate pre-plugin-system projects (creates plugins.json with Farseer enabled, strips the
+			// legacy csproj reference), then restore plugins (plugins.json → cache → PluginLibs) before
+			// any scene loads so plugin components resolve. A failing plugin becomes Unavailable — it
+			// never blocks the open.
+			Plugins.PluginMigration.MigrateProjectIfNeeded(project);
+			Plugins.PluginManager.Instance.RestoreForProject(project);
+
 			// Point the content resolver at the game project root so that relative
 			// paths like "Content/..." resolve against the project, not the editor binary.
 			VoltageContentManager.ContentRoot = project.ProjectPath;
@@ -266,6 +273,8 @@ public class ProjectManager : GlobalManager
 
 		project.UnloadContent();
 		EditorDebug.Log($"Unloaded project: {project.ProjectName}");
+
+		Plugins.PluginManager.Instance.OnProjectUnloaded();
 
 		CurrentProject = null;
 

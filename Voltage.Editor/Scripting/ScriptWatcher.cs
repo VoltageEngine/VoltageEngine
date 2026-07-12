@@ -14,6 +14,7 @@ namespace Voltage.Editor.Scripting
 	{
 		private readonly string _scriptsDirectory;
 		private readonly FileSystemWatcher _fileWatcher;
+		private readonly List<FileSystemWatcher> _devPluginWatchers = new();
 		private readonly Timer _debounceTimer;
 		private readonly HashSet<string> _changedFiles = new();
 		private readonly object _lockObject = new();
@@ -60,6 +61,56 @@ namespace Voltage.Editor.Scripting
 			_debounceTimer = new Timer(DebounceDelay);
 			_debounceTimer.Elapsed += OnDebounceTimerElapsed;
 			_debounceTimer.AutoReset = false;
+
+			// Dev-mode plugin source folders hot-reload like project scripts. Cache-installed plugin
+			// payloads are immutable, so they compile with the scripts but are never watched.
+			foreach (var devRoot in Plugins.PluginManager.Instance.GetDevSourceRoots())
+			{
+				try
+				{
+					var watcher = new FileSystemWatcher(devRoot)
+					{
+						Filter = "*.cs",
+						NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.CreationTime,
+						IncludeSubdirectories = true,
+						EnableRaisingEvents = true
+					};
+
+					watcher.Changed += OnFileChanged;
+					watcher.Created += OnFileChanged;
+					watcher.Deleted += OnFileChanged;
+					watcher.Renamed += OnFileRenamed;
+					_devPluginWatchers.Add(watcher);
+
+					EditorDebug.Log($"Watching dev plugin sources: {devRoot}", "Plugins");
+				}
+				catch (Exception ex)
+				{
+					EditorDebug.Warn($"Could not watch dev plugin source root '{devRoot}': {ex.Message}", "Plugins");
+				}
+			}
+		}
+
+		/// <summary>
+		/// All .cs files that participate in a script compile: the project's Scripts folder plus every
+		/// restored plugin source root (dev plugins from their working folder). obj/bin are excluded.
+		/// </summary>
+		private List<string> CollectAllCompileFiles()
+		{
+			var files = Directory.GetFiles(_scriptsDirectory, "*.cs", SearchOption.AllDirectories)
+				.Where(f => !f.Contains("obj") && !f.Contains("bin"))
+				.ToList();
+
+			foreach (var root in Plugins.PluginManager.Instance.GetSourceRoots())
+			{
+				if (!Directory.Exists(root))
+					continue;
+
+				files.AddRange(Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories)
+					.Where(f => !f.Contains("obj") && !f.Contains("bin")));
+			}
+
+			return files;
 		}
 
 		private void OnFileChanged(object sender, FileSystemEventArgs e)
@@ -124,9 +175,7 @@ namespace Voltage.Editor.Scripting
 			{
 				EditorDebug.Log($"Hot reloading scripts: {string.Join(", ", changedFiles.Select(Path.GetFileName))}");
 
-				var allScriptFiles = Directory.GetFiles(_scriptsDirectory, "*.cs", SearchOption.AllDirectories)
-					.Where(f => !f.Contains("obj") && !f.Contains("bin"))
-					.ToList();
+				var allScriptFiles = CollectAllCompileFiles();
 
 				if (allScriptFiles.Count == 0)
 				{
@@ -174,9 +223,7 @@ namespace Voltage.Editor.Scripting
 		/// </summary>
 		public void CompileAllScripts(bool reloadScene)
 		{
-			var allScriptFiles = Directory.GetFiles(_scriptsDirectory, "*.cs", SearchOption.AllDirectories)
-				.Where(f => !f.Contains("obj") && !f.Contains("bin"))
-				.ToList();
+			var allScriptFiles = CollectAllCompileFiles();
 
 			if (allScriptFiles.Count > 0)
 			{
@@ -195,6 +242,9 @@ namespace Voltage.Editor.Scripting
 		public void Dispose()
 		{
 			_fileWatcher?.Dispose();
+			foreach (var watcher in _devPluginWatchers)
+				watcher.Dispose();
+			_devPluginWatchers.Clear();
 			_debounceTimer?.Dispose();
 		}
 	}

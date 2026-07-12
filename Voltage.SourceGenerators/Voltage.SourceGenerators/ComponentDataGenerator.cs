@@ -31,11 +31,6 @@ public class ComponentDataGenerator : IIncrementalGenerator
 {
 	private const string HideAttribute = "Voltage.HideAttributeInInspector";
 	private const string JsonExcludeAttribute = "Voltage.Persistence.JsonExcludeAttribute";
-	// The marker attribute that opts a non-public field/property into serialization.
-	// This is the same attribute the editor's TypeInspectorUtils keys off (typeof(SerializeAttribute)),
-	// and its subclasses ([Tooltip], [Range], ...) derive from it so they count too. Must stay in
-	// sync with the real type name in Voltage.Engine — an incorrect name here silently drops every
-	// protected/private [Serialize] field from serialization.
 	private const string SerializeAttributeFullName = "Voltage.SerializeAttribute";
 	private const string ComponentBaseFullName = "Voltage.Component";
 	private const string SceneComponentBaseFullName = "Voltage.SceneComponent";

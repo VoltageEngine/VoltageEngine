@@ -205,10 +205,23 @@ namespace Voltage.Editor.ProjectFile
 		private void OpenFolderPicker()
 		{
 			// Initialize the folder picker with the current path or a default
-			string startingPath = !string.IsNullOrWhiteSpace(_projectPath) 
-				? _projectPath 
+			string startingPath = !string.IsNullOrWhiteSpace(_projectPath)
+				? _projectPath
 				: Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-			
+
+			// Prefer the OS-native folder dialog. Being an OS-level modal, it sidesteps the ImGui
+			// modal-within-modal reopen dance below and returns the chosen folder synchronously.
+			if (NativeFileDialogs.IsAvailable)
+			{
+				if (NativeFileDialogs.TryPickFolder("Select Project Directory", startingPath, out var picked)
+				    && !string.IsNullOrEmpty(picked))
+				{
+					_projectPath = picked;
+					ValidateProjectName();
+				}
+				return;
+			}
+
 			_folderPicker = FilePicker.GetFolderPicker(this, startingPath);
 			_folderPicker.DontAllowTraverselBeyondRootFolder = false; // Allow navigation beyond root
 			_showFolderPicker = true;

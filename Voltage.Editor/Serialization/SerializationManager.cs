@@ -484,9 +484,18 @@ public partial class SerializationManager : GlobalManager
 			{
 				if (entityData != null)
 				{
+					// Components whose type is unknown in this editor session (plugin not installed,
+					// script missing) have no live instance to serialize — capture their raw entries
+					// BEFORE overwriting the list, or a teammate without the plugin would silently
+					// destroy them on every save. They round-trip byte-identical; only the explicit
+					// Remove on the inspector's missing-component card ever drops them.
+					var preservedEntries = Scene.CollectUnresolvableEntries(entityData.ComponentDataList);
+
 					var currentEntries = new List<ComponentDataEntry>();
 					foreach (var component in GetAllSerializedComponents(entity))
 						currentEntries.Add(SerializeComponent(component));
+
+					currentEntries.AddRange(preservedEntries);
 
 					// Prefab instances are saved self-contained (full component data) so a scene
 					// reload never depends on resolving the source .vprefab. OriginalPrefabName/Guid
@@ -537,6 +546,23 @@ public partial class SerializationManager : GlobalManager
 			}
 
 			newSceneData.SceneComponents.Add(scEntry);
+		}
+
+		// Preserve scene components whose type is unknown in this session (plugin/script missing) —
+		// same data-loss guard as entity components: they have no live instance, so the rebuild above
+		// would silently drop them from the saved scene.
+		if (oldSceneData?.SceneComponents != null)
+		{
+			foreach (var oldEntry in oldSceneData.SceneComponents)
+			{
+				var hasIdentity = !string.IsNullOrEmpty(oldEntry.ComponentId) || !string.IsNullOrEmpty(oldEntry.ComponentTypeName);
+				var resolvable =
+					(!string.IsNullOrEmpty(oldEntry.ComponentId) && ComponentIdRegistry.TryGetType(oldEntry.ComponentId, out _)) ||
+					(!string.IsNullOrEmpty(oldEntry.ComponentTypeName) && ResolveType(oldEntry.ComponentTypeName) != null);
+
+				if (hasIdentity && !resolvable)
+					newSceneData.SceneComponents.Add(oldEntry);
+			}
 		}
 
 		var settings = new JsonSettings

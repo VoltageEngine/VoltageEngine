@@ -906,7 +906,7 @@ public partial class ImGuiManager
 				ImGui.BeginDisabled();
 			}
 
-			if (ImGui.MenuItem("Build Game..."))
+			if (ImGui.MenuItem("Build Game"))
 			{
 				_gameBuildWindow.OpenBuildPopup();
 			}
@@ -941,6 +941,28 @@ public partial class ImGuiManager
 			{
 				ImGui.EndDisabled();
 			}
+
+			ImGui.EndMenu();
+		}
+	}
+
+	private void DrawPluginsMenu()
+	{
+		var hasProblems = Plugins.PluginManager.Instance.HasProblems;
+		var label = hasProblems ? "Plugins (!)" : "Plugins";
+
+		if (ImGui.BeginMenu(label))
+		{
+			if (ImGui.MenuItem("Plugin Manager"))
+			{
+				_pluginManagerWindow.IsOpen = true;
+			}
+
+			if (ImGui.IsItemHovered() && hasProblems)
+				ImGui.SetTooltip("Some plugins are unavailable or failed to load.");
+
+			// Entries registered by editor plugins via IEditorPluginContext.AddMenuItem.
+			Plugins.EditorPluginHost.DrawMenuItems();
 
 			ImGui.EndMenu();
 		}
