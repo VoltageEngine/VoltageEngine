@@ -39,8 +39,6 @@ public class SceneGraphWindow
 	public float SceneGraphPosY { get; set; }
 	public bool IsOpen { get; private set; }
 
-	private string _prefabFilterName;
-
 	private float _sceneGraphWidth = 420f;
 	private readonly float _minSceneGraphWidth = 1f;
 	private readonly float _maxSceneGraphWidth = Screen.MonitorWidth;
@@ -220,12 +218,6 @@ public class SceneGraphWindow
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
-			if (VoltageEditorUtils.CenteredButton("Add Entity", 0.6f))
-			{
-				_prefabFilterName = "";
-				ImGui.OpenPopup("entity-selector");
-			}
-
 			#region FilePickers
 
 			if (TmxFilePicker.IsOpen)
@@ -250,8 +242,6 @@ public class SceneGraphWindow
 				if (VoltageEditorUtils.CenteredButton("Clear Copied Component", 0.8f))
 					CopiedComponent = null;
 			}
-
-			DrawEntitySelectorPopup();
 
 			if (TmxFilePicker.IsOpen)
 			{
@@ -316,76 +306,6 @@ public class SceneGraphWindow
 		}
 
 		return isOpen;
-	}
-
-	private void DrawEntitySelectorPopup()
-	{
-		if (ImGui.BeginPopup("entity-selector"))
-		{
-			ImGui.InputText("###PrefabFilter", ref _prefabFilterName, 25);
-			ImGui.Separator();
-
-			RefreshPrefabCache();
-
-			ImGui.TextColored(new Num.Vector4(0.8f, 1.0f, 0.8f, 1.0f), "Create Empty Entity:");
-			ImGui.Separator();
-			
-			if (ImGui.Selectable("Empty Entity"))
-			{
-				CreateEmptyEntity();
-				ImGui.CloseCurrentPopup();
-			}
-
-			if (_cachedPrefabNames.Count > 0)
-			{
-				ImGui.Separator();
-				ImGui.TextColored(new Num.Vector4(1.0f, 0.6f, 0.2f, 1.0f), "Prefabs:");
-				ImGui.Separator();
-				
-				// Show flat list of prefabs (filtered if search text is entered)
-				foreach (var prefabName in _cachedPrefabNames.OrderBy(p => p))
-				{
-					if (!string.IsNullOrEmpty(_prefabFilterName) &&
-					    !prefabName.ToLower().Contains(_prefabFilterName.ToLower()))
-					{
-						continue;
-					}
-
-					if (ImGui.Selectable($"{prefabName}"))
-					{
-						CreateEntityFromPrefab(prefabName);
-						ImGui.CloseCurrentPopup();
-					}
-					
-					if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
-					{
-						ImGui.OpenPopup($"prefab-context-{prefabName}");
-					}
-					
-					if (ImGui.BeginPopup($"prefab-context-{prefabName}"))
-					{
-						if (ImGui.Selectable("Create SerializedPrefab Instance"))
-						{
-							CreateEntityFromPrefab(prefabName);
-							ImGui.CloseCurrentPopup();
-						}
-				
-						ImGui.Separator();
-				
-						if (ImGui.Selectable("Delete SerializedPrefab"))
-						{
-							_prefabToDelete = prefabName;
-							_showDeletePrefabConfirmation = true;
-							ImGui.CloseCurrentPopup();
-						}
-				
-						ImGui.EndPopup();
-					}
-				}
-			}
-
-			ImGui.EndPopup();
-		}
 	}
 
 	/// <summary>
@@ -496,29 +416,6 @@ public class SceneGraphWindow
 	public void RemovePrefabFromCache(string prefabName)
 	{
 		_cachedPrefabNames.Remove(prefabName);
-	}
-
-	/// <summary>
-	/// Creates a new empty entity in the scene.
-	/// </summary>
-	private void CreateEmptyEntity()
-	{
-		var entity = new Entity("Entity", Entity.InstanceType.Serialized);
-		entity.Type = Entity.InstanceType.Serialized;
-		entity.Name = Core.Scene.GetUniqueEntityName("Entity", entity);
-		entity.Transform.Position = GetCameraCenterWorld();
-
-		Core.Scene.AddEntity(entity);
-
-		EditorChangeTracker.PushUndo(
-			new EntityCreateDeleteUndoAction(Core.Scene, entity, wasCreated: true,
-				$"Create Entity {entity.Name}"),
-			entity,
-			$"Create Entity {entity.Name}"
-		);
-
-		_imGuiManager.SceneGraphWindow.EntityPane.SetSelectedEntity(entity, false);
-		_imGuiManager.MainEntityInspectorWindow.DelayedSetEntity(entity);
 	}
 
 	/// <summary>

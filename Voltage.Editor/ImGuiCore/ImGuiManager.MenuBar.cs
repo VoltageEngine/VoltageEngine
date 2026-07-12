@@ -99,6 +99,14 @@ public partial class ImGuiManager
 		set => _showAssetBrowser.Value = value;
 	}
 
+	private PersistentBool _showTimelineWindow = new("ImGui_ShowTimelineWindow", false);
+
+	public bool ShowTimelineWindow
+	{
+		get => _showTimelineWindow.Value;
+		set => _showTimelineWindow.Value = value;
+	}
+
 	private PersistentString _lastSelectedLayout = new("ImGui_LastSelectedLayout", "Default");
 	private PersistentString _lastSelectedTheme = new("ImGui_LastSelectedTheme", "DarkTheme1");
 	#endregion
@@ -172,6 +180,9 @@ public partial class ImGuiManager
 			if (ImGui.MenuItem("Open Sprite Atlas Editor"))
 				_spriteAtlasEditorWindow = _spriteAtlasEditorWindow ?? new SpriteAtlasEditorWindow();
 
+			if (ImGui.MenuItem("Open Timeline Editor"))
+				ShowTimelineWindow = true;
+
 			if (ImGui.MenuItem("Close ImGui Editor"))
 				SetEnabled(false);
 
@@ -239,7 +250,12 @@ public partial class ImGuiManager
 
 			ImGui.Separator();
 
-			if (ImGui.MenuItem("Save Scene", "Ctrl+S"))
+			string saveShortcut = "Ctrl+S";
+#if OS_MAC
+				saveShortcut = "Command+S";
+#endif
+			
+			if (ImGui.MenuItem("Save Scene", saveShortcut))
 			{
 				if (Core.Scene == null)
 				{
@@ -446,6 +462,10 @@ public partial class ImGuiManager
 				var showAssetBrowser = ShowAssetBrowser;
 				ImGui.MenuItem("Asset Browser", null, ref showAssetBrowser);
 				ShowAssetBrowser = showAssetBrowser;
+
+				var showTimeline = ShowTimelineWindow;
+				ImGui.MenuItem("Timeline Editor", null, ref showTimeline);
+				ShowTimelineWindow = showTimeline;
 
 				if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
 				{

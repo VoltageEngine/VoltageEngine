@@ -149,7 +149,94 @@ public class EntityPane
 		EntityDuplicationAndDeletion();
 
 		PromotePendingRename();
+
+		DrawPaneContextMenu();
+		HandleCreateEntityShortcut();
 	}
+
+	#region Entity Creation
+
+	/// <summary>
+	/// Right-click context menu for the entity pane's empty space. Offers a single "Add Entity"
+	/// item that immediately creates a new empty entity in the current scene (no dialog).
+	/// Scoped to the current window so it only appears when right-clicking inside the pane and
+	/// not over an entity row (which has its own context menu).
+	/// </summary>
+	private void DrawPaneContextMenu()
+	{
+		if (ImGui.BeginPopupContextWindow("entityPaneContextMenu",
+			ImGuiPopupFlags.MouseButtonRight | ImGuiPopupFlags.NoOpenOverItems))
+		{
+			if (ImGui.Selectable("Add Entity"))
+				CreateEntity();
+
+			ImGui.EndPopup();
+		}
+	}
+
+	/// <summary>
+	/// Shift+N (edge-triggered) creates a single new empty entity while the pane is focused/hovered.
+	/// Debounced via ImGui.IsKeyPressed so holding the keys does not spam entities, and suppressed
+	/// while a text field is capturing keyboard input (e.g. inline rename).
+	/// </summary>
+	private void HandleCreateEntityShortcut()
+	{
+		if (!Core.IsEditMode)
+			return;
+
+		// Only act when the pane's window is the interaction target.
+		if (!ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows) &&
+			!ImGui.IsWindowHovered(ImGuiHoveredFlags.RootAndChildWindows))
+			return;
+
+		// Never fire while typing (inline rename, prefab filter, etc.).
+		if (ImGui.GetIO().WantTextInput || ImGui.GetIO().WantCaptureKeyboard)
+			return;
+
+		bool shiftDown = ImGui.GetIO().KeyShift;
+		if (shiftDown && ImGui.IsKeyPressed(ImGuiKey.N, false))
+			CreateEntity();
+	}
+
+	/// <summary>
+	/// Creates a single new empty entity in the current scene at the camera centre, selects it,
+	/// opens it in the main inspector, and pushes an undoable <see cref="EntityCreateDeleteUndoAction"/>.
+	/// Shared by the pane context menu and the Shift+N shortcut so all creation paths are identical.
+	/// </summary>
+	private void CreateEntity()
+	{
+		if (Core.Scene == null)
+			return;
+
+		var entity = new Entity("Entity", Entity.InstanceType.Serialized);
+		entity.Type = Entity.InstanceType.Serialized;
+		entity.Name = Core.Scene.GetUniqueEntityName("Entity", entity);
+		entity.Transform.Position = GetCameraCenterWorld();
+
+		Core.Scene.AddEntity(entity);
+
+		EditorChangeTracker.PushUndo(
+			new EntityCreateDeleteUndoAction(Core.Scene, entity, wasCreated: true,
+				$"Create Entity {entity.Name}"),
+			entity,
+			$"Create Entity {entity.Name}"
+		);
+
+		SetSelectedEntity(entity, false);
+		_imGuiManager.MainEntityInspectorWindow.DelayedSetEntity(entity);
+	}
+
+	/// <summary>
+	/// World-space center of the current editor camera view, so new entities land in the
+	/// middle of the viewport rather than its top-left corner.
+	/// </summary>
+	private static Vector2 GetCameraCenterWorld()
+	{
+		var rt = Core.Scene.SceneRenderTargetSize;
+		return Core.Scene.Camera.ScreenToWorldPoint(new Vector2(rt.X * 0.5f, rt.Y * 0.5f));
+	}
+
+	#endregion
 
 	/// <summary>
 	/// Promotes an armed rename candidate into an actual inline rename once the double-click window has
