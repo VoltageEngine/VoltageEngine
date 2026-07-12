@@ -40,7 +40,8 @@ namespace Voltage.Editor.Scripting
 		{
 			"Voltage.dll",
 			"Voltage.Persistence.dll",
-			"Voltage.FarseerPhysics.dll",
+			// Voltage.FarseerPhysics is intentionally absent: it is a bundled PLUGIN, referenced by
+			// game projects via the generated PluginLibs/Plugins.g.props instead of EngineLibs.
 			"MonoGame.Framework.dll",
 			// Managed audio decoders pulled in transitively by Voltage.dll (see AudioDecoders). They are
 			// referenced by the game .csproj so `dotnet publish` copies them into the shipped output, and
@@ -68,7 +69,6 @@ namespace Voltage.Editor.Scripting
 		{
 			"Voltage.dll",
 			"Voltage.Persistence.dll",
-			"Voltage.FarseerPhysics.dll",
 		};
 
 		/// <summary>
@@ -208,7 +208,6 @@ namespace Voltage.Editor.Scripting
 				{
 					Path.Combine(solutionDir, "Voltage.Persistence", "Voltage.Persistence.csproj"),
 					Path.Combine(solutionDir, "Voltage.Engine", "Voltage.Engine.csproj"),
-					Path.Combine(solutionDir, "Voltage.FarseerPhysics", "Voltage.FarseerPhysics.csproj"),
 				};
 
 				foreach (var csproj in projectsToBuild)
@@ -572,6 +571,12 @@ namespace Voltage.Editor.Scripting
 
 				if (name.StartsWith("Voltage", StringComparison.OrdinalIgnoreCase))
 				{
+					// Plugin-provided assemblies (e.g. a bundled Voltage.* engine-module plugin) live in
+					// PluginLibs, not EngineLibs — syncing their editor-flavored DLLs here would leak them
+					// into the game's engine references.
+					if (Plugins.PluginManager.Instance.IsPluginAssembly(asm.Location))
+						continue;
+
 					if (seen.Add(name))
 						result.Add(asm);
 				}

@@ -1,0 +1,15 @@
+{
+	"SchemaVersion": 1,
+	"Id": "voltage.farseer",
+	"Name": "Farseer Physics",
+	"Version": "1.0.0",
+	"Description": "Full rigid-body physics engine (Box2D-lineage Farseer) with the FS* component family: FSRigidBody, FSCollisionBox/Circle/Polygon, joints, and FSWorld.",
+	"Kinds": ["gameplay"],
+	"EngineVersion": "*",
+	"Gameplay": {
+		"ManagedAssemblies": ["lib/Voltage.FarseerPhysics.dll"],
+		"EditorManagedAssemblies": ["editor-lib/Voltage.FarseerPhysics.dll"],
+		"RootTypes": ["Voltage.Farseer.FSRigidBody"],
+		"TrimmerRootAssemblies": ["Voltage.FarseerPhysics"]
+	}
+}

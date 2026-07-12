@@ -184,6 +184,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private EditorSettingsWindow _editorSettingsWindow = new();
 	private ProjectSettingsWindow _projectSettingsWindow = new();
 	private AssetBrowserWindow _assetBrowserWindow = new();
+	private PluginManagerWindow _pluginManagerWindow = new();
 
 	private List<(Entity entity, Collider collider)> _highlightedEntities = new();
 	private IReadOnlyList<Entity> _lastSelectedEntities = null;
@@ -541,6 +542,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		DrawScriptingWindow();
 		_editorSettingsWindow.Draw();
+		_pluginManagerWindow.Draw();
+		Plugins.EditorPluginHost.DrawWindows();
 		_cursorSelectionManager.UpdateSelection();
 	}
 
@@ -840,6 +843,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			DrawScriptingMenu();
 			DrawEffectsMenu();
 			DrawBuildMenu();
+			DrawPluginsMenu();
 			DrawHelpMenu();
 
 			// Project indicator — centered in the menu bar.

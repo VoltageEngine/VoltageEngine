@@ -36,8 +36,15 @@ namespace Voltage.Editor.Scripting
 		/// Scans every syntax tree in <paramref name="compilation"/> for concrete component classes
 		/// lacking a <c>[ComponentId]</c>, writes the attribute into the corresponding source files,
 		/// and returns the absolute paths of the files that were modified (empty when nothing changed).
+		///
+		/// <paramref name="allowStamp"/> (optional) gates which files may be mutated on disk: stamping is
+		/// only appropriate for sources the user owns (the project's Scripts folder, dev-mode plugin
+		/// folders). Cache-installed plugin packages are immutable — a component there that lacks an id is
+		/// reported into <paramref name="violations"/> instead and must be fixed by the plugin author
+		/// (published plugins must declare stable [ComponentId]s).
 		/// </summary>
-		public static IReadOnlyList<string> StampMissing(CSharpCompilation compilation)
+		public static IReadOnlyList<string> StampMissing(CSharpCompilation compilation,
+			Func<string, bool> allowStamp = null, List<string> violations = null)
 		{
 			var changedFiles = new List<string>();
 
@@ -88,6 +95,14 @@ namespace Voltage.Editor.Scripting
 
 				if (insertions.Count == 0)
 					continue;
+
+				if (allowStamp != null && !allowStamp(path))
+				{
+					violations?.Add(
+						$"{path}: component(s) missing a [ComponentId] attribute inside a read-only plugin package. " +
+						"Published plugins must declare stable [ComponentId]s on every component.");
+					continue;
+				}
 
 				try
 				{

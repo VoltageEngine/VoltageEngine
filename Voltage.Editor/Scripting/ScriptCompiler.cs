@@ -75,8 +75,21 @@ namespace Voltage.Editor.Scripting
 			// Stamp a stable [ComponentId] identity onto any component/scene-component that
 			// lacks one, so scenes can reference it by id instead of by (renameable) type
 			// name. Re-parse the touched files so the generator sees the new attribute and
-			// registers the id in its bootstrap.
-			var stampedFiles = ComponentIdStamper.StampMissing(compilation);
+			// registers the id in its bootstrap. Cache-installed plugin sources are read-only:
+			// stamping there is refused and reported as a compile error instead.
+			var stampViolations = new List<string>();
+			var stampedFiles = ComponentIdStamper.StampMissing(compilation,
+				allowStamp: path => !Plugins.PluginManager.Instance.IsReadOnlyPluginSource(path),
+				violations: stampViolations);
+			if (stampViolations.Count > 0)
+			{
+				return new CompilationResult
+				{
+					Success = false,
+					Errors = stampViolations,
+					Assembly = null
+				};
+			}
 			if (stampedFiles.Count > 0)
 				compilation = ReparseChangedTrees(compilation, stampedFiles);
 
@@ -219,6 +232,22 @@ namespace Voltage.Editor.Scripting
 					}
 				}
 			}
+
+			// Plugin managed assemblies — a parallel tier to EngineLibs so game scripts can use plugin
+			// types (e.g. FMOD components). Explicit manifest-listed DLLs only; never glob PluginLibs,
+			// which contains native binaries Roslyn cannot read.
+			int pluginRefs = 0;
+			foreach (var dllPath in Plugins.PluginManager.Instance.GetEditorReferenceAssemblyPaths())
+			{
+				if (File.Exists(dllPath) && addedPaths.Add(dllPath))
+				{
+					references.Add(MetadataReference.CreateFromFile(dllPath));
+					pluginRefs++;
+				}
+			}
+
+			if (pluginRefs > 0)
+				EditorDebug.Log($"Added {pluginRefs} plugin assembly reference(s).", "ScriptCompilation");
 
 			// Add runtime references
 			var runtimePath = Path.GetDirectoryName(typeof(object).Assembly.Location);

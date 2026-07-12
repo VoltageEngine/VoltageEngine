@@ -356,11 +356,35 @@ namespace Voltage.Editor.Tools
 				ImGui.EndMenuBar();
 			}
 
+			// Prefer OS-native dialogs; only fall back to the in-editor popups when unavailable.
 			if (newAtlas)
-				ImGui.OpenPopup("new-atlas");
+			{
+				var start = new DirectoryInfo(Environment.CurrentDirectory).Parent?.FullName;
+				if (NativeFileDialogs.IsAvailable)
+				{
+					if (NativeFileDialogs.TryPickFolder("Select sprites folder", start, out var folder) && !string.IsNullOrEmpty(folder))
+						GenerateSpriteAtlasFromFolder(folder);
+				}
+				else
+				{
+					ImGui.OpenPopup("new-atlas");
+				}
+			}
 
 			if (openFile)
-				ImGui.OpenPopup("open-file");
+			{
+				if (NativeFileDialogs.IsAvailable)
+				{
+					var start = Path.Combine(Environment.CurrentDirectory, "Content");
+					if (NativeFileDialogs.TryOpenFile("Open atlas or PNG", start, new[] { "png", "atlas" }, "Atlas / PNG", out var file)
+					    && !string.IsNullOrEmpty(file))
+						SetSourceFromPickedFile(file);
+				}
+				else
+				{
+					ImGui.OpenPopup("open-file");
+				}
+			}
 
 			NewAtlasPopup();
 			OpenFilePopup();
@@ -391,22 +415,27 @@ namespace Voltage.Editor.Tools
 				picker.DontAllowTraverselBeyondRootFolder = true;
 				if (picker.Draw())
 				{
-					var file = picker.SelectedFile;
-					if (file.EndsWith(".png"))
-					{
-						_sourceImageFile = file;
-						_sourceAtlasFile = file.Replace(".png", ".atlas");
-					}
-					else
-					{
-						_sourceImageFile = file.Replace(".atlas", ".png");
-						_sourceAtlasFile = file;
-					}
-					LoadTextureAndAtlasFiles();
+					SetSourceFromPickedFile(picker.SelectedFile);
 					FilePicker.RemoveFilePicker(this);
 				}
 				ImGui.EndPopup();
 			}
+		}
+
+		/// <summary>Sets the source image/atlas pair from a picked .png or .atlas and loads them.</summary>
+		void SetSourceFromPickedFile(string file)
+		{
+			if (file.EndsWith(".png"))
+			{
+				_sourceImageFile = file;
+				_sourceAtlasFile = file.Replace(".png", ".atlas");
+			}
+			else
+			{
+				_sourceImageFile = file.Replace(".atlas", ".png");
+				_sourceAtlasFile = file;
+			}
+			LoadTextureAndAtlasFiles();
 		}
 
 		int _width = 16, _height = 16, _padding = 1, _frames = 10;

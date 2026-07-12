@@ -99,6 +99,21 @@ namespace Voltage.Editor.FilePickers
                 picker.DontAllowTraverselBeyondRootFolder = true;
 
                 ImGui.Text("Aseprite File Selection:");
+
+                // OS-native file dialog shortcut; the in-editor browser below stays available too.
+                if (NativeFileDialogs.IsAvailable && ImGui.Button("Browse with OS..."))
+                {
+                    if (NativeFileDialogs.TryOpenFile("Select Aseprite file", _startingPath,
+                            new[] { "aseprite" }, "Aseprite", out var nativeFile) && !string.IsNullOrEmpty(nativeFile))
+                    {
+                        picker.SelectedFile = nativeFile;
+                        if (nativeFile != _lastLoadedFile && nativeFile.EndsWith(".aseprite"))
+                        {
+                            LoadAsepriteMetadata(nativeFile);
+                            _lastLoadedFile = nativeFile;
+                        }
+                    }
+                }
                 ImGui.Separator();
 
                 if (picker.Draw())

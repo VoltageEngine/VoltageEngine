@@ -103,6 +103,41 @@
 		</Content>
 	</ItemGroup>
 
+	<!-- Vendored tinyfiledialogs native (OS-native file/folder dialogs). Copy the current platform's
+	     prebuilt library next to the editor binary so NativeFileDialogs' P/Invoke resolves it. A missing
+	     native (e.g. win/linux not yet built via Native/tinyfiledialogs/build-native.*) is harmless —
+	     the editor falls back to the built-in ImGui picker. -->
+	<PropertyGroup>
+		<_TfdRuntimes>$(MSBuildThisFileDirectory)Native\tinyfiledialogs\runtimes\</_TfdRuntimes>
+	</PropertyGroup>
+	<ItemGroup>
+		<Content Include="$(_TfdRuntimes)win-x64\native\*.dll" Condition="'$(OS)' == 'Windows_NT'">
+			<Link>%(Filename)%(Extension)</Link>
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+		<Content Include="$(_TfdRuntimes)osx-arm64\native\*.dylib" Condition="'$(OS)' != 'Windows_NT' AND $(IsOSX) == 'true' AND $([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString()) == 'Arm64'">
+			<Link>%(Filename)%(Extension)</Link>
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+		<Content Include="$(_TfdRuntimes)osx-x64\native\*.dylib" Condition="'$(OS)' != 'Windows_NT' AND $(IsOSX) == 'true' AND $([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString()) != 'Arm64'">
+			<Link>%(Filename)%(Extension)</Link>
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+		<Content Include="$(_TfdRuntimes)linux-x64\native\*.so" Condition="'$(OS)' != 'Windows_NT' AND $(IsLinux) == 'true'">
+			<Link>%(Filename)%(Extension)</Link>
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
+	<!-- Include the tinyfiledialogs native in `dotnet publish` output (the Content copy above is bypassed
+	     during publish, mirroring CopyMonoGameNativeLibsToPublish below). -->
+	<Target Name="CopyTinyfdNativeToPublish" AfterTargets="ComputeFilesToPublish">
+		<ItemGroup>
+			<_TfdPublish Include="$(_TfdRuntimes)$(RuntimeIdentifier)\native\*.*" Condition="'$(RuntimeIdentifier)' != '' AND Exists('$(_TfdRuntimes)$(RuntimeIdentifier)\native')" />
+			<ResolvedFileToPublish Include="@(_TfdPublish)" RelativePath="%(_TfdPublish.Filename)%(_TfdPublish.Extension)" CopyToPublishDirectory="PreserveNewest" Condition="'@(_TfdPublish)' != ''" />
+		</ItemGroup>
+	</Target>
+
 	<ItemGroup>
 		<PackageReference Include="ImGui.NET" Version="1.89.5" />
 		<PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.5-preview.1" />
@@ -112,7 +147,11 @@
 
 	<ItemGroup>
 	  <ProjectReference Include="..\Voltage.Engine\Voltage.Engine.csproj" />
-	  <ProjectReference Include="..\Voltage.FarseerPhysics\Voltage.FarseerPhysics.csproj" />
+	  <!-- Farseer is a bundled PLUGIN, not an editor dependency: build-order only, no assembly
+	       reference and no copy into the editor output. The BuildBundledPlugins target below builds
+	       and stages it under BundledPlugins/, and the editor loads it per-project via plugins.json. -->
+	  <ProjectReference Include="..\Voltage.FarseerPhysics\Voltage.FarseerPhysics.csproj"
+	                    ReferenceOutputAssembly="false" Private="false" />
 	  <ProjectReference Include="..\Voltage.Persistence\Voltage.Persistence.csproj" />
 	  <!--
 	    Reference the source generator project as a normal dependency (NOT as an Analyzer).
@@ -135,6 +174,34 @@
 		      DestinationFolder="$(OutputPath)"
 		      SkipUnchangedFiles="true"
 		      Condition="Exists('$(_GeneratorBin)Voltage.SourceGenerators.dll')" />
+	</Target>
+
+	<!-- Build the bundled Farseer plugin into <output>/BundledPlugins/Voltage.FarseerPhysics/:
+	     lib/        = Release build (no EDITOR) — statically referenced into published games
+	     editor-lib/ = Editor-Release build (EDITOR defined) — loaded by the editor itself
+	     plugin.json = the checked-in manifest describing the package.
+	     MSBuild is incremental, so unchanged Farseer sources make this a near-no-op. -->
+	<Target Name="BuildBundledPlugins" AfterTargets="Build">
+		<PropertyGroup>
+			<_FarseerProj>$(MSBuildThisFileDirectory)..\Voltage.FarseerPhysics\Voltage.FarseerPhysics.csproj</_FarseerProj>
+			<_FarseerBundleDir>$(OutputPath)BundledPlugins\Voltage.FarseerPhysics\</_FarseerBundleDir>
+		</PropertyGroup>
+
+		<MSBuild Projects="$(_FarseerProj)" Targets="Build"
+		         Properties="Configuration=Release"
+		         RemoveProperties="RuntimeIdentifier;OutputPath;OutputType;SelfContained">
+			<Output TaskParameter="TargetOutputs" ItemName="_FarseerRuntimeDll" />
+		</MSBuild>
+		<MSBuild Projects="$(_FarseerProj)" Targets="Build"
+		         Properties="Configuration=Editor-Release"
+		         RemoveProperties="RuntimeIdentifier;OutputPath;OutputType;SelfContained">
+			<Output TaskParameter="TargetOutputs" ItemName="_FarseerEditorDll" />
+		</MSBuild>
+
+		<Copy SourceFiles="@(_FarseerRuntimeDll)" DestinationFolder="$(_FarseerBundleDir)lib" SkipUnchangedFiles="true" />
+		<Copy SourceFiles="@(_FarseerEditorDll)" DestinationFolder="$(_FarseerBundleDir)editor-lib" SkipUnchangedFiles="true" />
+		<Copy SourceFiles="$(MSBuildThisFileDirectory)BundledPlugins\Voltage.FarseerPhysics\plugin.json"
+		      DestinationFolder="$(_FarseerBundleDir)" SkipUnchangedFiles="true" />
 	</Target>
 
 	<!-- Copy DefaultContent to output, but exclude the Effects folder (since we compile them) -->

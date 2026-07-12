@@ -442,6 +442,8 @@ public class EntityInspectorWindow
 					VoltageEditorUtils.MediumVerticalSpace();
 				}
 
+				DrawMissingComponentCards();
+
 				// Add Component button
 				if (VoltageEditorUtils.CenteredButton("Add Component", 0.6f))
 				{
@@ -669,6 +671,71 @@ public class EntityInspectorWindow
 		}
 	}
 
+
+	/// <summary>
+	/// Cards for serialized component entries whose type cannot be resolved in this editor session
+	/// (plugin not installed, script missing). Their raw data is preserved across saves; the Remove
+	/// button here is the ONLY code path that ever drops such an entry.
+	/// </summary>
+	private void DrawMissingComponentCards()
+	{
+		var entityData = Entity?.GetEntityData();
+		if (entityData?.ComponentDataList == null)
+			return;
+
+		List<ComponentDataEntry> missing = null;
+		foreach (var entry in entityData.ComponentDataList)
+		{
+			if (Scene.IsUnresolvableComponentEntry(entry))
+				(missing ??= new List<ComponentDataEntry>()).Add(entry);
+		}
+
+		if (missing == null)
+			return;
+
+		var warnColor = new System.Numerics.Vector4(1f, 0.8f, 0.2f, 1f);
+
+		foreach (var entry in missing)
+		{
+			var shortName = entry.ComponentTypeName?.Split('.').LastOrDefault() ?? entry.ComponentId ?? "(unknown)";
+			ImGui.PushID($"missing_{entry.ComponentId}_{entry.ComponentName}");
+
+			ImGui.PushStyleColor(ImGuiCol.Border, warnColor);
+			ImGui.BeginChild("missingcard",
+				new System.Numerics.Vector2(0, ImGui.GetFrameHeightWithSpacing() * 2.2f), true);
+
+			ImGui.TextColored(warnColor, $"Missing Component: {shortName}");
+			if (ImGui.IsItemHovered())
+				ImGui.SetTooltip($"Type: {entry.ComponentTypeName ?? "-"}\nComponentId: {entry.ComponentId ?? "-"}\n\n" +
+					"This component's type is not loaded — it likely comes from a plugin that is not installed " +
+					"or a script that no longer compiles. Its data is preserved when saving.");
+
+			ImGui.TextDisabled($"id: {entry.ComponentId ?? "-"}");
+			ImGui.SameLine();
+			if (ImGui.SmallButton("Remove"))
+				ImGui.OpenPopup("confirm-remove-missing");
+
+			if (ImGui.BeginPopup("confirm-remove-missing"))
+			{
+				ImGui.TextWrapped($"Permanently remove the preserved data of '{shortName}'? If the missing plugin is installed later, this component will be gone.");
+				if (ImGui.Button("Remove permanently"))
+				{
+					entityData.ComponentDataList.Remove(entry);
+					ImGui.CloseCurrentPopup();
+				}
+				ImGui.SameLine();
+				if (ImGui.Button("Cancel"))
+					ImGui.CloseCurrentPopup();
+				ImGui.EndPopup();
+			}
+
+			ImGui.EndChild();
+			ImGui.PopStyleColor();
+			ImGui.PopID();
+
+			VoltageEditorUtils.MediumVerticalSpace();
+		}
+	}
 
 	/// <summary>
 	/// Draws the Add Component popup with search and selection.
