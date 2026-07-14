@@ -703,8 +703,12 @@ namespace Voltage.Editor.Plugins
 				return true;
 			}
 
+			// Bundled payloads are built locally, so their hash differs per machine — recording it would
+			// churn the lockfile on every clone. They pin on editor-provided Version instead.
+			var contentHash = resolved.IsPinnable ? resolved.ContentHash : null;
+
 			if (existing != null
-			    && existing.ContentHash == resolved.ContentHash
+			    && existing.ContentHash == contentHash
 			    && existing.Version == resolved.Manifest.Version
 			    && existing.Commit == resolved.Commit
 			    && existing.Source.Matches(entry.Source))
@@ -716,7 +720,7 @@ namespace Voltage.Editor.Plugins
 				Version = resolved.Manifest.Version,
 				Source = entry.Source,
 				Commit = resolved.Commit,
-				ContentHash = resolved.ContentHash,
+				ContentHash = contentHash,
 			});
 			return true;
 		}

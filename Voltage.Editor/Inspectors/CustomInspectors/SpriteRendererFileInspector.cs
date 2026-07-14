@@ -22,9 +22,15 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
     public class SpriteRendererFileInspector : AbstractTypeInspector
     {
         private static int _frameNumber = 0;
-        private static string _layerName = "";
         private static string _imageLayerName = "";
         private string _errorMessage = "";
+
+        // Shared with the Tileset Editor: browse for the file, then choose layers + frame.
+        private readonly AssetFileBrowser _asepriteBrowser =
+            new("sprite-aseprite-browser", new[] { ".aseprite", ".ase" }, "Aseprite files");
+
+        private readonly AsepriteLayerPopup _asepriteLayers = new("sprite-aseprite-layers");
+        private ImageLoadMode _asepriteLoadMode = ImageLoadMode.MainImage;
 
         // TMX picker state variables
         private static int tmxLayerIndex = 0;
@@ -211,7 +217,10 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                 }
                 if (ImGui.Selectable("Aseprite"))
                 {
-                    _pendingFilePickerPopup = ("file-picker-aseprite", _nextImageLoadMode);
+                    _asepriteLoadMode = _nextImageLoadMode;
+                    _asepriteBrowser.Open("Select an Aseprite file",
+                        ProjectManager.Instance?.CurrentProject?.ContentsFolder, this);
+
                     ImGui.CloseCurrentPopup();
                 }
                 if (ImGui.Selectable("TMX"))
@@ -224,8 +233,45 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
 
             // File picker popups (shared for both image and normal map)
             DrawFilePickerPopup((sr, path) => LoadFileFromPicker(sr, path, _nextImageLoadMode, SpriteRenderer.SpriteRendererComponentData.ImageFileType.Png));
-            DrawAsepriteFilePickerPopup(spriteRenderer, _nextImageLoadMode);
+            PumpAsepritePickers(spriteRenderer);
             DrawTmxFilePickerPopup(spriteRenderer, _nextImageLoadMode);
+        }
+
+        /// <summary>
+        /// Browse for a file, then pick layers + frame in the shared popup. The Content-folder rule,
+        /// project-relative paths, undo and image-vs-normal-map mode stay here; the popup knows none of it.
+        /// </summary>
+        private void PumpAsepritePickers(SpriteRenderer spriteRenderer)
+        {
+            _asepriteBrowser.Draw("Select an Aseprite file");
+
+            if (_asepriteBrowser.TryTakeResult(out var file) && !string.IsNullOrEmpty(file))
+            {
+                var contentRoot = ProjectManager.Instance?.CurrentProject?.ContentsFolder;
+
+                if (contentRoot != null && !CrossPlatformPath.IsPathUnder(contentRoot, file))
+                {
+                    _errorMessage = "File must be in Content folder!";
+                }
+                else if (!_asepriteLayers.Open(file))
+                {
+                    _errorMessage = "Could not read that Aseprite file.";
+                }
+                else
+                {
+                    _errorMessage = "";
+                }
+            }
+
+            if (_asepriteLayers.Draw())
+            {
+                var relativePath = ToProjectRelativePath(_asepriteLayers.FilePath);
+
+                LoadAsepriteFileFromPicker(spriteRenderer, relativePath,
+                    _asepriteLayers.Frame,
+                    _asepriteLayers.SelectedLayers.ToArray(),
+                    _asepriteLoadMode);
+            }
         }
 
         /// <summary>
@@ -363,79 +409,6 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
 				_activeFilePickerMode = null;
             }
         }
-
-        private void DrawAsepriteFilePickerPopup(SpriteRenderer spriteRenderer, ImageLoadMode mode)
-        {
-            bool isOpen = true;
-            if (ImGui.BeginPopupModal("file-picker-aseprite", ref isOpen, ImGuiWindowFlags.AlwaysAutoResize))
-            {
-                var picker = FilePicker.GetFilePicker(this, ProjectManager.Instance.CurrentProject.ContentsFolder, ".aseprite");
-                picker.DontAllowTraverselBeyondRootFolder = true;
-
-                ImGui.Text("Aseprite Options:");
-                ImGui.Separator();
-
-                ImGui.DragInt("Frame Number", ref _frameNumber, 1, 0, 999);
-                _frameNumber = Math.Max(0, _frameNumber);
-
-                ImGui.InputText("Layer Name (optional)", ref _layerName, 256);
-                ImGui.TextColored(new Num.Vector4(0.7f, 0.7f, 0.7f, 1), "Leave empty for all visible layers");
-
-                ImGui.Separator();
-
-                FilePicker.DrawFilePickerContent(picker);
-
-                ImGui.Separator();
-				
-				float buttonWidth = 100f;
-				float totalWidth = ImGui.GetContentRegionAvail().X;
-				float rightButtonStart = totalWidth - buttonWidth;
-
-				if (ImGui.Button("Cancel", new Num.Vector2(buttonWidth, 0)))
-				{
-					ImGui.CloseCurrentPopup();
-					FilePicker.RemoveFilePicker(picker);
-				}
-
-				ImGui.SameLine(rightButtonStart);
-
-				bool canConfirm = !string.IsNullOrEmpty(picker.SelectedFile);
-				if (!canConfirm)
-				{
-					ImGui.PushStyleVar(ImGuiStyleVar.Alpha, 0.5f);
-				}
-
-				if (ImGui.Button("Load", new Num.Vector2(buttonWidth, 0)) && canConfirm)
-				{
-					string contentRoot = ProjectManager.Instance.CurrentProject.ContentsFolder;
-				if (CrossPlatformPath.IsPathUnder(contentRoot, picker.SelectedFile))
-					{
-						// Convert to project-relative for portability
-						string relativePath = ToProjectRelativePath(picker.SelectedFile);
-						LoadAsepriteFileFromPicker(spriteRenderer, relativePath, _frameNumber, string.IsNullOrEmpty(_layerName) ? null : _layerName, mode);
-						ImGui.CloseCurrentPopup();
-						FilePicker.RemoveFilePicker(picker);
-					}
-					else
-					{
-						_errorMessage = "File must be in Content folder!";
-					}
-				}
-
-				if (!canConfirm)
-				{
-					ImGui.PopStyleVar();
-				}
-
-                ImGui.EndPopup();
-            }
-
-            if (!isOpen)
-            {
-	            FilePicker.RemoveFilePicker(this);
-				_activeFilePickerMode = null;
-            }
-		}
 
         private void DrawTmxFilePickerPopup(SpriteRenderer spriteRenderer, ImageLoadMode mode)
         {
@@ -850,8 +823,12 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             }
         }
 
-        private void LoadAsepriteFileFromPicker(SpriteRenderer spriteRenderer, string relativePath, int frameNumber, string layerName, ImageLoadMode mode)
+        private void LoadAsepriteFileFromPicker(SpriteRenderer spriteRenderer, string relativePath, int frameNumber, string[] layerNames, ImageLoadMode mode)
         {
+            // Empty means "all visible layers" — the same convention AsepriteUtils and the tileset use.
+            layerNames ??= System.Array.Empty<string>();
+            var layerLabel = layerNames.Length == 0 ? "all" : string.Join(", ", layerNames);
+
             var data = spriteRenderer.Data as SpriteRenderer.SpriteRendererComponentData;
             if (data == null)
                 throw new Exception("SpriteRendererData is null");
@@ -868,7 +845,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                             new SpriteRenderer.SpriteRendererComponentData(spriteRenderer) :
                             new SpriteRenderer.SpriteRendererComponentData();
 
-                        spriteRenderer.LoadAsepriteFile(relativePath, layerName, frameNumber);
+                        spriteRenderer.LoadAsepriteFile(relativePath, layerNames, frameNumber);
 
                         var newSprite = spriteRenderer.Sprite;
                         var newData = new SpriteRenderer.SpriteRendererComponentData(spriteRenderer);
@@ -880,13 +857,13 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                                 oldData,
                                 newSprite,
                                 newData,
-                                $"Load Aseprite: {Path.GetFileName(relativePath)} (frame {frameNumber}, layer: {layerName ?? "all"})"
+                                $"Load Aseprite: {Path.GetFileName(relativePath)} (frame {frameNumber}, layers: {layerLabel})"
                             ),
                             spriteRenderer.Entity,
                             $"Load Aseprite: {Path.GetFileName(relativePath)}"
                         );
 
-                        Debug.Log($"Loaded Aseprite from editor: {relativePath} (frame {frameNumber}, layer: {layerName ?? "all"})");
+                        Debug.Log($"Loaded Aseprite from editor: {relativePath} (frame {frameNumber}, layers: {layerLabel})");
                         _errorMessage = "";
                     }
                     else
@@ -911,9 +888,9 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                     var aseFile = contentManager.LoadAsepriteFile(relativePath);
                     if (aseFile != null)
                     {
-                        if (!string.IsNullOrEmpty(layerName))
+                        if (layerNames.Length > 0)
                         {
-                            normalMapSprite = AsepriteUtils.LoadAsepriteFrameFromLayer(relativePath, frameNumber, layerName);
+                            normalMapSprite = AsepriteUtils.LoadAsepriteFrame(relativePath, frameNumber, true, false, layerNames);
                         }
                         else
                         {
@@ -954,7 +931,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                         oldData,
                         spriteRenderer.Sprite,
                         newData,
-                        $"Load Normal Map (Aseprite): {Path.GetFileName(relativePath)} (frame {frameNumber}, layer: {layerName ?? "all"})"
+                        $"Load Normal Map (Aseprite): {Path.GetFileName(relativePath)} (frame {frameNumber}, layers: {layerLabel})"
                     ),
                     spriteRenderer.Entity,
                     $"Load Normal Map (Aseprite): {Path.GetFileName(relativePath)}"
@@ -968,7 +945,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                 else
                 {
                     _errorMessage = "";
-                    Debug.Log($"Normal map (Aseprite) loaded: {relativePath} (frame {frameNumber}, layer: {layerName ?? "all"})");
+                    Debug.Log($"Normal map (Aseprite) loaded: {relativePath} (frame {frameNumber}, layers: {layerLabel})");
                 }
             }
         }

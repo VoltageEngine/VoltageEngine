@@ -107,6 +107,14 @@ public partial class ImGuiManager
 		set => _showTimelineWindow.Value = value;
 	}
 
+	private PersistentBool _showTilePaletteWindow = new("ImGui_ShowTilePaletteWindow", false);
+
+	public bool ShowTilePaletteWindow
+	{
+		get => _showTilePaletteWindow.Value;
+		set => _showTilePaletteWindow.Value = value;
+	}
+
 	private PersistentBool _showAudioProfilerWindow = new("ImGui_ShowAudioProfilerWindow", false);
 
 	public bool ShowAudioProfilerWindow
@@ -482,6 +490,13 @@ public partial class ImGuiManager
 				var showTimeline = ShowTimelineWindow;
 				ImGui.MenuItem("Timeline Editor", null, ref showTimeline);
 				ShowTimelineWindow = showTimeline;
+
+				var showTilePalette = ShowTilePaletteWindow;
+				ImGui.MenuItem("Tile Palette", null, ref showTilePalette);
+				ShowTilePaletteWindow = showTilePalette;
+
+				if (ImGui.MenuItem("Tileset Editor"))
+					TilesetEditorWindow.IsOpen = true;
 
 				if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
 				{

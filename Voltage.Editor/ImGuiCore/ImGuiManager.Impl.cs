@@ -89,6 +89,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		Unload();
 		SceneGraphWindow.OnSceneChanged();
 
+		// The tile tool outlives the scene; drop the layer so the new scene doesn't inherit it.
+		TilePaintTool.OnSceneChanged();
+
 		if (Enabled)
 			OnEnabled();
 

@@ -10,6 +10,7 @@ namespace Voltage.Editor.Utils
 		public static IntPtr ResizeCursorIconID;
 		public static IntPtr RotateCursorIconID;
 		public static IntPtr ColliderResizeCursorIconID;
+		public static IntPtr TileBrushCursorIconID;
 
 		public static IntPtr LockedInspectorIconId;
 		public static IntPtr UnlockedInspectorIconId;
@@ -29,6 +30,7 @@ namespace Voltage.Editor.Utils
 		public static IntPtr AssetIconScript;      // .cs
 		public static IntPtr AssetIconUnsupported; // fallback (also used for Effect, Tiled)
 		public static IntPtr AssetIconAudio;       // .wav / .ogg / .mp3
+		public static IntPtr AssetIconTileset;     // .vtileset
 
 		// Editor-mode controls (menu bar cluster): live in DefaultContent/UI/RemixIcon/EditorModes/.
 		public static IntPtr EditorModePlay;
@@ -46,6 +48,7 @@ namespace Voltage.Editor.Utils
 			ResizeCursorIconID = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/Custom/CursorSelection-UI-Resize.png"));
 			RotateCursorIconID = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/Custom/CursorSelection-UI-Rotate.png"));
 			ColliderResizeCursorIconID = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/Custom/CursorSelection-UI-ColliderResize.png"));
+			TileBrushCursorIconID = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/Custom/CursorSelection-UI-TileBrush.png"));
 
 			LockedInspectorIconId = renderer.BindTexture(Core.Content.LoadAsepriteFile("DefaultContent/UI/Custom/Inspector-LockMode.aseprite").GetTextureFromLayers(1, true, false, "Locked"));
 			UnlockedInspectorIconId = renderer.BindTexture(Core.Content.LoadAsepriteFile("DefaultContent/UI/Custom/Inspector-LockMode.aseprite").GetTextureFromLayers(1, true, false, "Unlocked"));
@@ -62,6 +65,9 @@ namespace Voltage.Editor.Utils
 			AssetIconScript      = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/FileTypes/Voltage-Script.png"));
 			AssetIconAudio       = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/FileTypes/Voltage-Audio.png"));
 			AssetIconUnsupported = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/FileTypes/Voltage-Unsupported-File.png"));
+
+			// No dedicated .vtileset icon yet; reuse the tile-brush art.
+			AssetIconTileset = TileBrushCursorIconID;
 
 			EditorModePlay  = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/EditorModes/Voltage-Play.png"));
 			EditorModeStop  = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/EditorModes/Voltage-Stop.png"));
