@@ -1178,8 +1178,8 @@ public class AssetBrowserWindow : IDisposable
         ImGui.EndPopup();
     }
 
-    // Writes a fresh default .timeline asset (via TimelineAssetIO.CreateAndSave) into targetFolder,
-    // appending the .timeline extension if absent and uniquifying the name to avoid overwriting an
+    // Writes a fresh default .vtimeline asset (via TimelineAssetIO.CreateAndSave) into targetFolder,
+    // appending the .vtimeline extension if absent and uniquifying the name to avoid overwriting an
     // existing file, then requests a refresh so the AssetDatabase catalogs it (GUID / .meta sidecar).
     private void CreateTimeline(string targetFolder, string name)
     {

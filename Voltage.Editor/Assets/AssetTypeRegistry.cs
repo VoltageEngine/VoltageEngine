@@ -142,11 +142,10 @@ namespace Voltage.Editor.Assets
                 DropFactory: DropHandlers.DropAudio
             ));
 
-            // Cinematic timeline assets (.timeline). Cataloged so they get a stable GUID (AssetReference
-            // works) and appear in the Asset Browser. Dropping one into the scene spawns an entity with a
-            // TimelineDirector bound to it.
+            // Dropping a ".vtimeline" asset into the scene spawns an entity with a
+            // TimelineDirector component bound to it.
             Register(new AssetTypeDescriptor(
-                Extensions: new[] { ".timeline" },
+                Extensions: new[] { ".vtimeline" },
                 IconPath: IconScene,
                 Kind: AssetKind.Timeline,
                 DropFactory: DropHandlers.DropTimeline
@@ -168,7 +167,6 @@ namespace Voltage.Editor.Assets
             if (string.IsNullOrEmpty(extension))
                 return _fallback;
 
-            // Normalise: ensure leading dot, lower-case.
             if (extension[0] != '.')
                 extension = '.' + extension;
 
@@ -301,7 +299,7 @@ namespace Voltage.Editor.Assets
                 return;
             }
 
-            // Spawn an entity with a TimelineDirector bound to the dropped .timeline asset.
+            // Spawn an entity with a TimelineDirector bound to the dropped .vtimeline asset.
             string baseName = Path.GetFileNameWithoutExtension(absolutePath);
             string entityName = scene.GetUniqueEntityName(baseName + "_Director", null);
             var entity = new Entity(entityName, Entity.InstanceType.Serialized);

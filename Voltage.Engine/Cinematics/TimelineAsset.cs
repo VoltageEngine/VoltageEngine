@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace Voltage.Cinematics
 {
 	/// <summary>
-	/// A reusable, scene-agnostic cinematic sequence — the data behind a <c>.timeline</c> asset. It binds
+	/// A reusable, scene-agnostic cinematic sequence — the data behind a <c>.vtimeline</c> asset. It binds
 	/// to abstract <see cref="Roles"/> (e.g. "Hero", "Camera"), never concrete entities; a
 	/// <see cref="TimelineDirector"/> maps those roles to real entities per scene. This separation is what
 	/// makes a cutscene reusable across levels.

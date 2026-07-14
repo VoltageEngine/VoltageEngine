@@ -1,15 +1,12 @@
-using Microsoft.Xna.Framework.Audio;
+using Voltage.Serialization;
 
 namespace Voltage.Audio
 {
 	/// <summary>
-	/// Swappable audio backend. The seam that lets an optional, separately-licensed backend (e.g. an
-	/// FMOD plugin) replace the default <see cref="MonoGameAudioBackend"/> later without touching any
-	/// component or mixer code — <see cref="AudioManager"/> only ever talks to this contract.
-	///
-	/// <para>Clips are MonoGame <see cref="SoundEffect"/>s loaded through the normal content pipeline.
-	/// A backend with a different clip representation would extend this with its own play path; the
-	/// handle lifecycle below stays common.</para>
+	/// Swappable audio backend — the seam that lets an alternate backend (software-mixing PCM or FMOD) replace
+	/// the default <see cref="MonoGameAudioBackend"/> without touching component or mixer code;
+	/// <see cref="AudioManager"/> only ever talks to this contract. Each backend owns its clip representation
+	/// behind the abstract <see cref="AudioClip"/> (MonoGame <c>SoundEffect</c> vs. decoded PCM).
 	/// </summary>
 	public interface IAudioBackend
 	{
@@ -20,15 +17,21 @@ namespace Voltage.Audio
 		void Shutdown();
 
 		/// <summary>
-		/// Creates a controllable, non-started voice for <paramref name="clip"/> (looping ambience, music,
-		/// positional sounds). The caller owns the handle and must <see cref="IAudioHandle.Dispose"/> it.
+		/// Loads (or resolves from cache) the clip into this backend's <see cref="AudioClip"/> representation.
+		/// Returns <c>null</c> if it cannot be loaded.
 		/// </summary>
-		IAudioHandle CreateHandle(SoundEffect clip, bool looped);
+		AudioClip LoadClip(AssetReference reference);
 
 		/// <summary>
-		/// Fire-and-forget one-shot with volume/pitch/pan baked in at play time. Returns <c>false</c> when
-		/// the platform has no free voice (MonoGame/OpenAL caps at 32 simultaneous sources).
+		/// Creates a controllable, non-started voice for <paramref name="clip"/>. The caller owns the handle and
+		/// must <see cref="IAudioHandle.Dispose"/> it. Returns <c>null</c> if this backend can't play the clip.
 		/// </summary>
-		bool PlayOneShot(SoundEffect clip, float volume, float pitch, float pan);
+		IAudioHandle CreateHandle(AudioClip clip, bool looped);
+
+		/// <summary>
+		/// Fire-and-forget one-shot with volume/pitch/pan baked in. Returns <c>false</c> when the platform has
+		/// no free voice (MonoGame/OpenAL caps at 32 simultaneous sources).
+		/// </summary>
+		bool PlayOneShot(AudioClip clip, float volume, float pitch, float pan);
 	}
 }

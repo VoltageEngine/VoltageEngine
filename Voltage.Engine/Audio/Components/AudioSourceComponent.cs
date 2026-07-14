@@ -1,6 +1,5 @@
 using System;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Audio;
 using Voltage.Serialization;
 using Voltage.Utils;
 
@@ -12,8 +11,7 @@ namespace Voltage.Audio
 	/// <see cref="AudioListenerComponent"/>). Routed through a named mixer <see cref="AudioBus"/>, so bus
 	/// volume/mute changes apply live to looping/positional voices.
 	/// </summary>
-	// IUpdatableInPauseMode: keep syncing live inspector edits to the playing voice while paused, so audio
-	// can be tuned in real time in the editor (which pauses to inspect).
+	// IUpdatableInPauseMode: keep syncing live inspector edits to the playing voice while the editor is paused.
 	[ComponentId("AudioSourceComponent")]
 	public partial class AudioSourceComponent : Component, IUpdatable, IUpdatableInPauseMode
 	{
@@ -56,45 +54,71 @@ namespace Voltage.Audio
 		/// <summary>If &gt; 0, each one-shot randomizes pitch by ±this amount (footstep/hit variation).</summary>
 		public float RandomPitchRange = 0f;
 
-		private SoundEffect _clip;
+		/// <summary>Voice-management priority: higher survives when the voice pool is full. Default 128 (mid).</summary>
+		public int Priority = 128;
+
+		/// <summary>Max simultaneous voices of this clip across the whole mix (0 = unlimited).</summary>
+		public int MaxInstances = 0;
+
+		/// <summary>Low-pass cutoff in Hz for occlusion/muffling (0 = open/no filter). Software backend only.</summary>
+		public float LowPassCutoffHz = 0f;
+
+		/// <summary>How much this source feeds the global reverb, 0..1. Software backend only.</summary>
+		[Range(0f, 1f)]
+		public float ReverbSend = 0f;
+
+		private AudioClip _clip;
 		private AudioVoice _voice;
 		private bool _clipLoadAttempted;
 
-		// Volume sent to the voice: forced to 0 when muted or non-positive, so Volume <= 0 (or Muted) is
-		// truly silent rather than playing quietly.
+		// Muted or non-positive Volume forces silence rather than quiet playback.
 		private float EffectiveVolume => (Muted || Volume <= 0f) ? 0f : MathHelper.Clamp(Volume, 0f, 1f);
 
 		public override void OnAddedToEntity()
 		{
-			// Audio belongs to Play mode. The editor doesn't reload the scene on Edit→Play, so OnStart
-			// won't re-run then — start auto-play from this transition instead (and never play in Edit mode).
+			// The editor doesn't reload the scene on Edit→Play, so OnStart won't re-run then — start auto-play
+			// from this transition instead.
 			Core.OnSwitchEditMode += OnEditModeChanged;
 		}
 
 		public override void OnStart()
 		{
 			EnsureClipLoaded();
-			// Never auto-play in Edit mode; IsEditMode is always false in a running game.
-			if (PlayOnStart && !Core.IsEditMode)
+			if (PlayOnStart && Enabled && !Core.IsEditMode)
 				Play();
 		}
 
 		private void OnEditModeChanged(bool isEditMode)
 		{
-			// Static event: a scene reload swaps in a new Scene without tearing down old components, so a
-			// stale component can stay subscribed and spawn an orphan, untracked voice on the next Play
-			// (audio that won't fully mute). Ignore components no longer in the live scene and self-heal
-			// by unsubscribing.
+			// This static event outlives scene reloads; a stale component left subscribed would spawn an
+			// orphan, untracked voice on the next Play. Ignore components no longer in the live scene and
+			// self-heal by unsubscribing.
 			if (Entity == null || Entity.Scene != Core.Scene)
 			{
 				Core.OnSwitchEditMode -= OnEditModeChanged;
 				return;
 			}
 
-			// Entering Play: (re)start auto-play. Entering Edit: the AudioManager stops all audio centrally,
-			// so there is nothing to do here.
-			if (!isEditMode && PlayOnStart)
+			// Entering Edit stops all audio centrally in AudioManager, so only entering Play needs handling.
+			if (!isEditMode && PlayOnStart && Enabled)
 				Play();
+		}
+
+		public override void OnDisabled()
+		{
+			Stop();
+		}
+
+		/// <summary>Editor gizmo: draws the 3D reach — inner circle = full volume (MinDistance), outer = silence (MaxDistance).</summary>
+		public override void DebugRender(Batcher batcher)
+		{
+			if (!Is3D)
+				return;
+
+			var pos = Transform.Position;
+			float thickness = Debug.Size.LineSizeMultiplier;
+			batcher.DrawCircle(pos, MinDistance, Color.LimeGreen * 0.7f, thickness, 48);
+			batcher.DrawCircle(pos, Math.Max(MaxDistance, MinDistance + 1f), Color.OrangeRed * 0.5f, thickness, 48);
 		}
 
 		public virtual void Update()
@@ -102,20 +126,22 @@ namespace Voltage.Audio
 			if (_voice == null)
 				return;
 
-			if (!_voice.IsPlaying)
+			if (!_voice.IsAlive)
 			{
-				// Finished/stopped — drop the reference so we don't keep syncing a dead voice.
+				// Finished/stopped — drop the reference. (A merely virtual voice — culled by distance or
+				// capacity — is still Alive and kept, so it keeps syncing for revival.)
 				_voice = null;
 				return;
 			}
 
-			// Live-sync inspector-editable params into the playing voice each frame, so editor edits are
-			// heard immediately — no save/reload. (Loop is structural — set when the voice is created — so
-			// changing it needs a replay.)
+			// Live-sync inspector-editable params each frame. (Loop is structural — set at voice creation —
+			// so changing it needs a replay.)
 			_voice.BaseVolume = EffectiveVolume;
 			_voice.BasePitch = MathHelper.Clamp(Pitch, -1f, 1f);
 			_voice.BasePan = MathHelper.Clamp(Pan, -1f, 1f);
 			_voice.Bus = Core.Audio.Bus(Bus);
+			_voice.LowPassCutoffHz = LowPassCutoffHz;
+			_voice.ReverbSend = ReverbSend;
 			_voice.Is3D = Is3D;
 			_voice.MinDistance = MinDistance;
 			_voice.MaxDistance = Math.Max(MaxDistance, MinDistance + 1f);
@@ -125,7 +151,13 @@ namespace Voltage.Audio
 		}
 
 		/// <summary>Plays the clip. Looping/positional sounds are tracked as a controllable voice.</summary>
-		public void Play()
+		public void Play() => Play(0f);
+
+		/// <summary>
+		/// Plays the clip, optionally fading in over <paramref name="fadeInSeconds"/> (0 = instant).
+		/// Looping/positional sounds are tracked as a controllable voice.
+		/// </summary>
+		public void Play(float fadeInSeconds)
 		{
 			EnsureClipLoaded();
 			if (_clip == null)
@@ -136,15 +168,21 @@ namespace Voltage.Audio
 			if (Core.Audio == null)
 				return;
 
+			// One component owns one controllable (live-tunable) voice at a time, replacing any existing one
+			// (Unity's AudioSource.Play semantic). For overlapping fire-and-forget SFX, call Core.Audio.PlaySfx.
+			_voice?.Stop();
+
+			var settings = BuildSettings();
+			settings.FadeInSeconds = fadeInSeconds;
+			_voice = Core.Audio.PlayControlled(_clip, settings);
+		}
+
+		// Builds play settings from the current inspector values (applying per-shot pitch randomization).
+		private AudioPlaySettings BuildSettings()
+		{
 			float pitch = Pitch;
 			if (RandomPitchRange > 0f)
 				pitch = MathHelper.Clamp(Pitch + Random.Range(-RandomPitchRange, RandomPitchRange), -1f, 1f);
-
-			// Always play through one controllable voice so it can be live-tuned from the inspector, and
-			// replace any existing voice — one component owns one voice at a time (Unity's AudioSource.Play
-			// semantic). This also stops an untracked leftover voice (from a repeated Play) sounding while
-			// the tracked one is muted. For overlapping fire-and-forget SFX, call Core.Audio.PlaySfx directly.
-			_voice?.Stop();
 
 			var settings = AudioPlaySettings.Default;
 			settings.Bus = Bus;
@@ -152,11 +190,56 @@ namespace Voltage.Audio
 			settings.Pitch = pitch;
 			settings.Pan = Pan;
 			settings.Loop = Loop;
+			settings.Priority = Priority;
+			settings.MaxInstances = MaxInstances;
+			settings.LowPassCutoffHz = LowPassCutoffHz;
+			settings.ReverbSend = ReverbSend;
 			settings.Is3D = Is3D;
 			settings.Position = Transform.Position;
 			settings.MinDistance = MinDistance;
 			settings.MaxDistance = MaxDistance;
+			return settings;
+		}
 
+		/// <summary>Starts the source fading in over <paramref name="seconds"/> (or fades a playing voice back to full).</summary>
+		public void FadeIn(float seconds)
+		{
+			if (_voice != null && _voice.IsPlaying)
+			{
+				_voice.FadeTo(1f, seconds);
+				return;
+			}
+			Play(seconds);
+		}
+
+		/// <summary>Fades the current voice to silence over <paramref name="seconds"/>, then stops it.</summary>
+		public void FadeOut(float seconds)
+		{
+			_voice?.FadeOutAndStop(seconds);
+			_voice = null;
+		}
+
+		/// <summary>Fades the current voice toward <paramref name="level"/> (0..1 fraction of this source's Volume) over <paramref name="seconds"/>.</summary>
+		public void FadeTo(float level, float seconds) => _voice?.FadeTo(level, seconds);
+
+		/// <summary>
+		/// Smoothly swaps to <paramref name="newClip"/>: the current voice fades out and stops while the new
+		/// clip fades in over <paramref name="seconds"/> — e.g. blending one looping ambience into another.
+		/// </summary>
+		public void CrossfadeTo(AssetReference newClip, float seconds)
+		{
+			_voice?.FadeOutAndStop(seconds);
+			_voice = null;
+
+			Clip = newClip;
+			_clip = null;
+			_clipLoadAttempted = false;
+			EnsureClipLoaded();
+			if (_clip == null || Core.Audio == null)
+				return;
+
+			var settings = BuildSettings();
+			settings.FadeInSeconds = seconds;
 			_voice = Core.Audio.PlayControlled(_clip, settings);
 		}
 
@@ -181,12 +264,11 @@ namespace Voltage.Audio
 				return;
 
 			_clipLoadAttempted = true;
-			if (Clip.IsValid && Core.Scene != null)
-				_clip = Core.Scene.LoadAsset<SoundEffect>(Clip);
+			if (Clip.IsValid)
+				_clip = Core.Audio?.LoadClip(Clip);
 		}
 
-		// Serialization is emitted by Voltage.SourceGenerators for this partial class: the public fields
-		// above (including AssetReference Clip) round-trip automatically. Runtime state (_clip, _voice,
-		// _clipLoadAttempted) stays private and is not serialized.
+		// Voltage.SourceGenerators emits serialization for this partial class: public fields round-trip;
+		// private runtime state (_clip, _voice, _clipLoadAttempted) is not serialized.
 	}
 }

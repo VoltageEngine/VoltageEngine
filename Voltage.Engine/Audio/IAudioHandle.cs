@@ -9,13 +9,9 @@ namespace Voltage.Audio
 	}
 
 	/// <summary>
-	/// A single controllable playing sound — the abstraction <see cref="AudioManager"/> and
-	/// <see cref="AudioMixer"/> drive. The default backend wraps a MonoGame <c>SoundEffectInstance</c>;
-	/// an FMOD backend would wrap an FMOD event instance.
-	///
-	/// <para><b>Volume/Pan are the raw output values sent to hardware.</b> Bus gain and positional
-	/// attenuation are computed by <see cref="AudioManager"/> and written here every frame for
-	/// controlled voices — don't treat <see cref="Volume"/> as a "base" volume.</para>
+	/// A single controllable playing sound. The default backend wraps a MonoGame <c>SoundEffectInstance</c>.
+	/// <b>Volume/Pan are the raw output values sent to hardware</b> — <see cref="AudioManager"/> writes bus
+	/// gain and positional attenuation here every frame, so don't treat <see cref="Volume"/> as a base volume.
 	/// </summary>
 	public interface IAudioHandle
 	{
@@ -30,6 +26,18 @@ namespace Voltage.Audio
 
 		/// <summary>Whether the sound loops. Set before <see cref="Play"/> — some backends forbid changing it mid-play.</summary>
 		bool IsLooped { get; set; }
+
+		/// <summary>
+		/// Per-voice low-pass cutoff in Hz for occlusion/muffling. 0 (or ≥ Nyquist) = open. Only the software
+		/// mixing backend applies this; others store and ignore it.
+		/// </summary>
+		float LowPassCutoffHz { get; set; }
+
+		/// <summary>
+		/// Per-voice contribution to the global reverb send (0..1). Only the software mixing backend applies
+		/// this; others store and ignore it.
+		/// </summary>
+		float ReverbSend { get; set; }
 
 		AudioPlayState State { get; }
 

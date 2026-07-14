@@ -28,7 +28,7 @@ public class Editor : Core
 
 		// Component-bearing assemblies (e.g. Farseer) are no longer force-loaded here — they are
 		// plugins now, loaded per-project by PluginManager when the project's plugins.json asks for them.
-
+		
 #if OS_MAC
         Directory.SetCurrentDirectory(AppContext
             .BaseDirectory); //For some reason, on Mac directory needs to be set manually, or it won't find the Content folder
