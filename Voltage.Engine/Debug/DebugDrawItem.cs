@@ -41,15 +41,19 @@ namespace Voltage
 		public Color Color;
 		public float Duration;
 
+		/// <summary>Line thickness in world units.</summary>
+		public float Thickness = 1f;
+
 		internal DebugDrawType drawType;
 
 
-		public DebugDrawItem(Vector2 start, Vector2 end, Color color, float duration)
+		public DebugDrawItem(Vector2 start, Vector2 end, Color color, float duration, float thickness = 1f)
 		{
 			Start = start;
 			End = end;
 			Color = color;
 			Duration = duration;
+			Thickness = thickness;
 			drawType = DebugDrawType.Line;
 		}
 
@@ -119,7 +123,7 @@ namespace Voltage
 			switch (drawType)
 			{
 				case DebugDrawType.Line:
-					batcher.DrawLine(Start, End, Color);
+					batcher.DrawLine(Start, End, Color, Thickness);
 					break;
 				case DebugDrawType.HollowRectangle:
 					batcher.DrawHollowRect(Rectangle, Color);

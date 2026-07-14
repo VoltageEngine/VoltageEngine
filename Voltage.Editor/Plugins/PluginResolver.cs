@@ -25,6 +25,15 @@ namespace Voltage.Editor.Plugins
 
 		/// <summary>Dev-mode path plugin: unpinned, re-synced every open.</summary>
 		public bool IsDev;
+
+		/// <summary>
+		/// Whether <see cref="ContentHash"/> may be recorded in plugins.lock.json. False for bundled plugins:
+		/// their payload is compiled locally by the editor build, and .NET assemblies embed absolute source
+		/// paths, so the bytes — and therefore the hash — differ per machine. Committing that hash makes the
+		/// lockfile churn on every clone. Bundled plugins are pinned by editor version instead; the hash is
+		/// still computed and used locally as PluginSync's skip-marker (inside gitignored PluginLibs).
+		/// </summary>
+		public bool IsPinnable = true;
 	}
 
 	/// <summary>Thrown when a plugin cannot be acquired or fails pin verification. Message is user-facing.</summary>
@@ -73,6 +82,8 @@ namespace Voltage.Editor.Plugins
 		/// Bundled plugins live under the editor install ("&lt;editor&gt;/BundledPlugins/&lt;folder&gt;/") and are
 		/// versioned by the editor itself, so a content-hash change after an editor update is expected —
 		/// the lock is refreshed with a log line instead of failing.
+		/// Their payload is compiled by the editor build on each machine, so the hash is not reproducible
+		/// across machines and is never written to the lockfile (see <see cref="ResolvedPlugin.IsPinnable"/>).
 		/// </summary>
 		private static ResolvedPlugin ResolveBundled(ProjectPluginEntry entry, PluginLockEntry lockEntry)
 		{
@@ -83,15 +94,15 @@ namespace Voltage.Editor.Plugins
 			var manifest = PluginManifest.LoadFrom(packageRoot);
 			EnsureManifestIdMatches(entry, manifest);
 
-			var hash = PluginCache.ComputeContentHash(packageRoot);
-			if (lockEntry?.ContentHash != null && lockEntry.ContentHash != hash)
+			if (lockEntry != null && lockEntry.Version != manifest.Version)
 				EditorDebug.Log($"Bundled plugin '{entry.Id}' changed with the editor ({lockEntry.Version} → {manifest.Version}); lock updated.", "Plugins");
 
 			return new ResolvedPlugin
 			{
 				Manifest = manifest,
 				PayloadDir = packageRoot,
-				ContentHash = hash,
+				ContentHash = PluginCache.ComputeContentHash(packageRoot),
+				IsPinnable = false,
 			};
 		}
 

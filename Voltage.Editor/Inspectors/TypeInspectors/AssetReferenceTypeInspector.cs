@@ -38,8 +38,14 @@ public class AssetReferenceTypeInspector : AbstractTypeInspector
 		ImGui.PushStyleColor(ImGuiCol.Button, buttonColor);
 		ImGui.PushStyleColor(ImGuiCol.ButtonHovered, buttonColor with { W = 1f });
 
-		if (ImGui.Button($"{label}##assetref_{_scopeId}", new Num.Vector2(-1, 0)))
-			_showPicker = !_showPicker;
+		// Single click reveals in the Asset Browser; double click opens the picker.
+		var pressed = ImGui.Button($"{label}##assetref_{_scopeId}", new Num.Vector2(-1, 0));
+		var doubleClicked = ImGui.IsItemHovered() && ImGui.IsMouseDoubleClicked(ImGuiMouseButton.Left);
+
+		if (doubleClicked || (pressed && !current.IsValid))
+			_showPicker = true;
+		else if (pressed)
+			AssetBrowserWindow.PingAsset(current.ResolvePath());
 
 		ImGui.PopStyleColor(2);
 
@@ -48,6 +54,7 @@ public class AssetReferenceTypeInspector : AbstractTypeInspector
 			ImGui.BeginTooltip();
 			ImGuiSafe.TextSafe($"Path: {current.AssetPath}");
 			ImGuiSafe.TextSafe($"GUID: {current.AssetGuid}");
+			ImGuiSafe.TextSafe("Click to reveal in the Asset Browser — double-click to change.");
 			ImGui.EndTooltip();
 		}
 		else

@@ -6,6 +6,7 @@ using ImGuiNET;
 using Voltage.Editor.Assets;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Utils;
+using Voltage.Editor.Windows;
 using Voltage.Serialization;
 using Voltage.Utils;
 using Num = System.Numerics;
@@ -37,8 +38,14 @@ public class PrefabReferenceTypeInspector : AbstractTypeInspector
         ImGui.PushStyleColor(ImGuiCol.Button, buttonColor);
         ImGui.PushStyleColor(ImGuiCol.ButtonHovered, buttonColor with { W = 1f });
 
-        if (ImGui.Button($"{label}##prefabref_{_scopeId}", new Num.Vector2(-1, 0)))
-            _showPicker = !_showPicker;
+        // Single click reveals the prefab in the Asset Browser; double click opens the picker.
+        var pressed = ImGui.Button($"{label}##prefabref_{_scopeId}", new Num.Vector2(-1, 0));
+        var doubleClicked = ImGui.IsItemHovered() && ImGui.IsMouseDoubleClicked(ImGuiMouseButton.Left);
+
+        if (doubleClicked || (pressed && !current.IsValid))
+            _showPicker = true;
+        else if (pressed)
+            AssetBrowserWindow.PingAsset(ResolvePrefabPath(current));
 
         ImGui.PopStyleColor(2);
 
@@ -47,6 +54,7 @@ public class PrefabReferenceTypeInspector : AbstractTypeInspector
             ImGui.BeginTooltip();
             ImGuiSafe.TextSafe($"Path: {current.PrefabPath}");
             ImGuiSafe.TextSafe($"GUID: {current.PrefabGuid}");
+            ImGuiSafe.TextSafe("Click to reveal in the Asset Browser — double-click to change.");
             ImGui.EndTooltip();
         }
         else
@@ -70,6 +78,30 @@ public class PrefabReferenceTypeInspector : AbstractTypeInspector
         }
 
         DrawPickerPopup(current);
+    }
+
+    /// <summary>Resolves the prefab's file, GUID first so a renamed or moved prefab still resolves.</summary>
+    private static string ResolvePrefabPath(PrefabReference reference)
+    {
+        var db = AssetDatabase.Instance;
+
+        if (reference.PrefabGuid != Guid.Empty && db != null)
+        {
+            var byGuid = db.GetPath(reference.PrefabGuid);
+            if (!string.IsNullOrEmpty(byGuid))
+                return byGuid;
+        }
+
+        if (string.IsNullOrEmpty(reference.PrefabPath))
+            return null;
+
+        if (Path.IsPathRooted(reference.PrefabPath))
+            return reference.PrefabPath;
+
+        var project = ProjectManager.Instance?.CurrentProject;
+        return project == null
+            ? reference.PrefabPath
+            : Path.Combine(project.ProjectPath, reference.PrefabPath);
     }
 
     private void DrawPickerPopup(PrefabReference current)

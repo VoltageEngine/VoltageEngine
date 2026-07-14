@@ -40,6 +40,7 @@ namespace Voltage.Editor.Assets
         Tiled,
         Audio,
         Timeline,
+        Tileset,
         Unsupported,
     }
 
@@ -82,6 +83,8 @@ namespace Voltage.Editor.Assets
 		// No dedicated Effect or Tiled icon confirmed in the directory — fall back to unsupported icon.
 		private const string IconEffect = IconUnsupported;
         private const string IconTiled  = IconUnsupported;
+
+        private const string IconTileset = "DefaultContent/UI/Custom/CursorSelection-UI-TileBrush.png";
 
         private static readonly AssetTypeDescriptor _fallback = new(
             Extensions: Array.Empty<string>(),
@@ -149,6 +152,13 @@ namespace Voltage.Editor.Assets
                 IconPath: IconScene,
                 Kind: AssetKind.Timeline,
                 DropFactory: DropHandlers.DropTimeline
+            ));
+
+            Register(new AssetTypeDescriptor(
+                Extensions: new[] { Voltage.Tilesets.TilesetAssetIO.FileExtension },
+                IconPath: IconTileset,
+                Kind: AssetKind.Tileset,
+                DropFactory: DropHandlers.DropTileset
             ));
         }
 
@@ -220,6 +230,10 @@ namespace Voltage.Editor.Assets
             // Add a SpriteRenderer and load the texture.
             var sr = entity.AddComponent<SpriteRenderer>();
 
+            // AddComponent leaves IsSerialized false and the scene save skips those, so without this the
+            // dropped sprite comes back as an empty entity.
+            sr.SetSerialized(true);
+
             var ext = Path.GetExtension(absolutePath).ToLowerInvariant();
             try
             {
@@ -267,6 +281,8 @@ namespace Voltage.Editor.Assets
             scene.AddEntity(entity);
 
             var audio = entity.AddComponent<AudioSourceComponent>();
+            audio.SetSerialized(true);
+
             // Convert the editor-side AssetReference to the engine's serializable one the field expects.
             audio.Clip = new Voltage.Serialization.AssetReference
             {
@@ -308,6 +324,8 @@ namespace Voltage.Editor.Assets
             scene.AddEntity(entity);
 
             var director = entity.AddComponent<Voltage.Cinematics.TimelineDirector>();
+            director.SetSerialized(true);
+
             director.Timeline = new Voltage.Serialization.AssetReference
             {
                 AssetGuid = reference.Guid,
@@ -325,6 +343,40 @@ namespace Voltage.Editor.Assets
             var imgr = Core.GetGlobalManager<ImGuiManager>();
             imgr?.SceneGraphWindow.EntityPane.SetSelectedEntity(entity, false);
             imgr?.MainEntityInspectorWindow.DelayedSetEntity(entity);
+        }
+
+        /// <summary>Creates a tilemap layer bound to the dropped tileset, then arms the tile brush.</summary>
+        internal static void DropTileset(AssetReference reference, Microsoft.Xna.Framework.Vector2? worldPosition = null)
+        {
+            var absolutePath = ResolveOrLog(reference, "DropTileset");
+            if (absolutePath == null) return;
+
+            if (Core.Scene == null)
+            {
+                EditorDebug.Log("DropTileset: no active scene.", "AssetBrowser");
+                return;
+            }
+
+            var engineReference = new Voltage.Serialization.AssetReference
+            {
+                AssetGuid = reference.Guid,
+                AssetPath = reference.HintPath,
+                AssetName = Path.GetFileNameWithoutExtension(reference.HintPath),
+            };
+
+            var map = Voltage.Editor.Tools.Tilemap.TilemapSceneUtils
+                .CreateTilemapLayer(engineReference, worldPosition);
+
+            if (map == null)
+                return;
+
+            var imgr = Core.GetGlobalManager<ImGuiManager>();
+            if (imgr == null)
+                return;
+
+            imgr.TilePaintTool.Target = map;
+            imgr.CursorSelectionManager.SelectionMode = Voltage.Editor.Gizmos.CursorSelectionMode.TilePaint;
+            imgr.ShowTilePaletteWindow = true;
         }
 
         internal static void DropPrefab(AssetReference reference, Microsoft.Xna.Framework.Vector2? worldPosition = null)
