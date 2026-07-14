@@ -1,10 +1,14 @@
 using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Voltage;
 using Voltage.Editor.Utils;
+using Voltage.Editor.Windows;
+using Voltage.Serialization;
 using Voltage.Utils;
 using Num = System.Numerics;
 
@@ -16,19 +20,18 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 		public static Type[] KSupportedTypes =
 			{typeof(int), typeof(uint), typeof(long), typeof(ulong), typeof(float), typeof(string), typeof(Vector2)};
 
-		enum ElementKind { Primitive, Entity, Transform, Component }
+		enum ElementKind { Primitive, Entity, Transform, Component, AssetRef, PrefabRef }
 
 		IList _list;
 		Type _elementType;
 		bool _isArray;
 		ElementKind _elementKind;
 
-		// Picker state: which list index is waiting for a picker popup this frame
+		// Which list index is waiting for a picker popup this frame
 		int _pendingPickerIndex = -1;
-		// Which list index the currently-open picker is editing
 		int _activePickerIndex = -1;
-		// Search text for the entity hierarchy picker (shared popup, one per ListInspector)
 		string _pickerSearch = string.Empty;
+
 
 		public override void Initialize()
 		{
@@ -43,6 +46,10 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 				_elementKind = ElementKind.Transform;
 			else if (typeof(Component).IsAssignableFrom(_elementType))
 				_elementKind = ElementKind.Component;
+			else if (_elementType == typeof(AssetReference))
+				_elementKind = ElementKind.AssetRef;
+			else if (_elementType == typeof(PrefabReference))
+				_elementKind = ElementKind.PrefabRef;
 			else
 				_elementKind = ElementKind.Primitive;
 
@@ -72,7 +79,11 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 					// List: Add / Clear
 					if (ImGui.Button("Add Element"))
 					{
-						if (_elementKind != ElementKind.Primitive)
+						if (_elementKind == ElementKind.AssetRef)
+							_list.Add(default(Voltage.Serialization.AssetReference));
+						else if (_elementKind == ElementKind.PrefabRef)
+							_list.Add(default(PrefabReference));
+						else if (_elementKind != ElementKind.Primitive)
 							_list.Add(null);
 						else if (_elementType == typeof(string))
 							_list.Add("");
@@ -100,6 +111,10 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 				{
 					if (_elementKind == ElementKind.Primitive)
 						DrawPrimitiveSlot(i);
+					else if (_elementKind == ElementKind.AssetRef)
+						DrawAssetReferenceSlot(i, ref removeAt);
+					else if (_elementKind == ElementKind.PrefabRef)
+						DrawPrefabReferenceSlot(i, ref removeAt);
 					else
 						DrawReferenceSlot(i, ref removeAt);
 				}
@@ -114,6 +129,10 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 					DrawEntityPickerPopup();
 				else if (_elementKind == ElementKind.Component)
 					DrawComponentPickerPopup();
+				else if (_elementKind == ElementKind.AssetRef)
+					DrawAssetReferencePickerPopup();
+				else if (_elementKind == ElementKind.PrefabRef)
+					DrawPrefabRefPickerPopup();
 
 				ImGui.Unindent();
 			}
@@ -198,7 +217,7 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 					: new Num.Vector4(0.22f, 0.22f, 0.22f, 0.9f);
 			}
 
-			// Row: [index]  [reference button ───────────]  [X (lists only)]
+			// Row Visual: [index]  [reference button -------------] [X]
 			ImGui.AlignTextToFramePadding();
 			ImGuiSafe.TextSafe($"{index}");
 			ImGui.SameLine();
@@ -383,6 +402,320 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 			ImGui.EndPopup();
 		}
 
+		void DrawAssetReferenceSlot(int index, ref int removeAt)
+		{
+			ImGui.PushID(index);
+
+			var current = (Voltage.Serialization.AssetReference)_list[index];
+			var label   = current.IsValid ? (current.AssetName ?? current.AssetPath) : "None (AssetReference)";
+			var btnColor = current.IsValid
+				? new Num.Vector4(0.25f, 0.45f, 0.55f, 0.9f)
+				: new Num.Vector4(0.22f, 0.22f, 0.22f, 0.9f);
+
+			ImGui.AlignTextToFramePadding();
+			ImGuiSafe.TextSafe($"{index}");
+			ImGui.SameLine();
+
+			float removeButtonWidth = !_isArray ? 26f : 0f;
+			float spacing           = !_isArray ? ImGui.GetStyle().ItemSpacing.X : 0f;
+			float availableWidth    = ImGui.GetContentRegionAvail().X - removeButtonWidth - spacing;
+
+			ImGui.PushStyleColor(ImGuiCol.Button, btnColor);
+			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, btnColor with { W = 1f });
+
+			if (ImGui.Button($"{label}##asref_{index}", new Num.Vector2(availableWidth, 0)))
+				_pendingPickerIndex = index;
+
+			ImGui.PopStyleColor(2);
+
+			if (current.IsValid && ImGui.IsItemHovered())
+			{
+				ImGui.BeginTooltip();
+				ImGuiSafe.TextSafe($"Path: {current.AssetPath}");
+				ImGuiSafe.TextSafe($"GUID: {current.AssetGuid}");
+				ImGui.EndTooltip();
+			}
+
+			// Drag-drop from Asset Browser
+			if (ImGui.BeginDragDropTarget())
+			{
+				var payload = ImGui.AcceptDragDropPayload(AssetBrowserWindow.DragDropPayloadId);
+				bool accepted;
+				unsafe { accepted = payload.NativePtr != null; }
+				if (accepted && !AssetBrowserWindow.DraggedReference.IsEmpty)
+					_list[index] = AssetReferenceTypeInspector.BuildFromDrag();
+				ImGui.EndDragDropTarget();
+			}
+
+			// Right-click: clear
+			if (ImGui.BeginPopupContextItem($"asreflist_ctx_{index}"))
+			{
+				if (ImGui.Selectable("Clear"))
+					_list[index] = default(Voltage.Serialization.AssetReference);
+				ImGui.EndPopup();
+			}
+
+			if (!_isArray)
+			{
+				ImGui.SameLine();
+				if (ImGui.Button($"X##asrefrem_{index}", new Num.Vector2(removeButtonWidth, 0)))
+					removeAt = index;
+			}
+
+			ImGui.PopID();
+		}
+
+		void DrawAssetReferencePickerPopup()
+		{
+			if (_pendingPickerIndex >= 0)
+			{
+				ImGui.OpenPopup($"reflist_aspicker_{_scopeId}");
+				_activePickerIndex  = _pendingPickerIndex;
+				_pendingPickerIndex = -1;
+				_pickerSearch       = string.Empty;
+			}
+
+			if (_activePickerIndex < 0 || _activePickerIndex >= _list.Count)
+				return;
+
+			var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.5f);
+			ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
+			ImGui.SetNextWindowSize(new Num.Vector2(420, 460), ImGuiCond.Appearing);
+
+			bool open = true;
+			if (!ImGui.BeginPopupModal($"reflist_aspicker_{_scopeId}", ref open, ImGuiWindowFlags.NoResize))
+				return;
+
+			var current = (AssetReference)_list[_activePickerIndex];
+			ImGuiSafe.TextColoredSafe(new Num.Vector4(0.3f, 0.8f, 1f, 1f), $"{_name}[{_activePickerIndex}]  (AssetReference)");
+			ImGui.Separator();
+
+			ImGui.SetNextItemWidth(-1);
+			ImGui.InputTextWithHint("##asreflistsearch", "Search...", ref _pickerSearch, 128);
+			ImGui.Separator();
+
+			if (ImGui.Selectable("  None (AssetReference)", !current.IsValid))
+			{
+				_list[_activePickerIndex] = default(AssetReference);
+				_activePickerIndex = -1;
+				ImGui.CloseCurrentPopup();
+			}
+
+			ImGui.Separator();
+
+			var db = Assets.AssetDatabase.Instance;
+			if (db != null)
+			{
+				string lower    = _pickerSearch.ToLowerInvariant();
+				bool filtering  = !string.IsNullOrEmpty(_pickerSearch);
+				DrawAssetPickerNodes(db.RootNodes, current, lower, filtering);
+			}
+
+			ImGui.Separator();
+			VoltageEditorUtils.SmallVerticalSpace();
+			if (VoltageEditorUtils.CenteredButton("Cancel", 0.5f))
+			{
+				_activePickerIndex = -1;
+				ImGui.CloseCurrentPopup();
+			}
+
+			ImGui.EndPopup();
+		}
+
+		void DrawAssetPickerNodes(
+			IReadOnlyList<Assets.AssetFolderNode> nodes,
+			AssetReference current,
+			string lower,
+			bool filtering)
+		{
+			foreach (var folder in nodes)
+			{
+				if (filtering)
+				{
+					foreach (var item in folder.Files)
+						if (item.FileName.ToLowerInvariant().Contains(lower))
+							DrawAssetPickerItem(item, current);
+					DrawAssetPickerNodes(folder.ChildFolders, current, lower, filtering);
+					continue;
+				}
+
+				bool anyFile = AssetReferenceTypeInspector.FolderHasFilesInternal(folder);
+				if (!anyFile) continue;
+
+				if (ImGui.TreeNodeEx(folder.Label, ImGuiTreeNodeFlags.DefaultOpen | ImGuiTreeNodeFlags.SpanAvailWidth))
+				{
+					foreach (var item in folder.Files)
+						DrawAssetPickerItem(item, current);
+					DrawAssetPickerNodes(folder.ChildFolders, current, lower, filtering);
+					ImGui.TreePop();
+				}
+			}
+		}
+
+		void DrawAssetPickerItem(Assets.AssetItem item, AssetReference current)
+		{
+			var db    = Assets.AssetDatabase.Instance;
+			var edRef = db?.GetReference(item.AbsolutePath) ?? Assets.AssetReference.Empty;
+			bool isCurrent = current.IsValid && current.AssetGuid != Guid.Empty && current.AssetGuid == edRef.Guid;
+
+			if (ImGui.Selectable($"  {item.FileName}", isCurrent))
+			{
+				_list[_activePickerIndex] = new AssetReference
+				{
+					AssetGuid = edRef.Guid,
+					AssetPath = edRef.HintPath,
+					AssetName = Path.GetFileNameWithoutExtension(item.FileName),
+				};
+				_activePickerIndex = -1;
+				ImGui.CloseCurrentPopup();
+			}
+
+			if (ImGui.IsItemHovered())
+			{
+				ImGui.BeginTooltip();
+				ImGuiSafe.TextSafe(item.AbsolutePath);
+				ImGui.EndTooltip();
+			}
+		}
+
+		void DrawPrefabReferenceSlot(int index, ref int removeAt)
+		{
+			ImGui.PushID(index);
+
+			var current  = (PrefabReference)_list[index];
+			var label    = current.IsValid ? (current.PrefabName ?? current.PrefabPath) : "None (PrefabReference)";
+			var btnColor = current.IsValid
+				? new Num.Vector4(0.45f, 0.25f, 0.55f, 0.9f)
+				: new Num.Vector4(0.22f, 0.22f, 0.22f, 0.9f);
+
+			ImGui.AlignTextToFramePadding();
+			ImGuiSafe.TextSafe($"{index}");
+			ImGui.SameLine();
+
+			float removeButtonWidth = !_isArray ? 26f : 0f;
+			float spacing           = !_isArray ? ImGui.GetStyle().ItemSpacing.X : 0f;
+			float availableWidth    = ImGui.GetContentRegionAvail().X - removeButtonWidth - spacing;
+
+			ImGui.PushStyleColor(ImGuiCol.Button, btnColor);
+			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, btnColor with { W = 1f });
+
+			if (ImGui.Button($"{label}##prref_{index}", new Num.Vector2(availableWidth, 0)))
+				_pendingPickerIndex = index;
+
+			ImGui.PopStyleColor(2);
+
+			if (current.IsValid && ImGui.IsItemHovered())
+			{
+				ImGui.BeginTooltip();
+				ImGuiSafe.TextSafe($"Path: {current.PrefabPath}");
+				ImGuiSafe.TextSafe($"GUID: {current.PrefabGuid}");
+				ImGui.EndTooltip();
+			}
+
+			// Right-click: clear
+			if (ImGui.BeginPopupContextItem($"prreflist_ctx_{index}"))
+			{
+				if (ImGui.Selectable("Clear"))
+					_list[index] = default(PrefabReference);
+				ImGui.EndPopup();
+			}
+
+			if (!_isArray)
+			{
+				ImGui.SameLine();
+				if (ImGui.Button($"X##prrefrem_{index}", new Num.Vector2(removeButtonWidth, 0)))
+					removeAt = index;
+			}
+
+			ImGui.PopID();
+		}
+
+		void DrawPrefabRefPickerPopup()
+		{
+			if (_pendingPickerIndex >= 0)
+			{
+				ImGui.OpenPopup($"reflist_prpicker_{_scopeId}");
+				_activePickerIndex  = _pendingPickerIndex;
+				_pendingPickerIndex = -1;
+				_pickerSearch       = string.Empty;
+			}
+
+			if (_activePickerIndex < 0 || _activePickerIndex >= _list.Count)
+				return;
+
+			var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.5f);
+			ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
+			ImGui.SetNextWindowSize(new Num.Vector2(420, 460), ImGuiCond.Appearing);
+
+			bool open = true;
+			if (!ImGui.BeginPopupModal($"reflist_prpicker_{_scopeId}", ref open, ImGuiWindowFlags.NoResize))
+				return;
+
+			var current = (PrefabReference)_list[_activePickerIndex];
+			ImGuiSafe.TextColoredSafe(new Num.Vector4(0.8f, 0.5f, 1f, 1f), $"{_name}[{_activePickerIndex}]  (PrefabReference)");
+			ImGui.Separator();
+
+			ImGui.SetNextItemWidth(-1);
+			ImGui.InputTextWithHint("##prreflistsearch", "Search...", ref _pickerSearch, 128);
+			ImGui.Separator();
+
+			if (ImGui.Selectable("  None (PrefabReference)", !current.IsValid))
+			{
+				_list[_activePickerIndex] = default(PrefabReference);
+				_activePickerIndex = -1;
+				ImGui.CloseCurrentPopup();
+			}
+
+			ImGui.Separator();
+
+			var entries = PrefabReferenceTypeInspector.CollectPrefabEntriesInternal();
+			string lower   = _pickerSearch.ToLowerInvariant();
+			bool filtering = !string.IsNullOrEmpty(_pickerSearch);
+			string lastFolder = null;
+
+			for (int i = 0; i < entries.Count; i++)
+			{
+				var entry = entries[i];
+				if (filtering && !entry.Name.ToLowerInvariant().Contains(lower))
+					continue;
+
+				if (!filtering && entry.SubFolder != lastFolder)
+				{
+					if (lastFolder != null) ImGui.Separator();
+					ImGuiSafe.TextDisabledSafe(entry.SubFolder ?? "Prefabs");
+					lastFolder = entry.SubFolder;
+				}
+
+				bool isCurrent = current.IsValid &&
+					string.Equals(current.PrefabName, entry.Name, StringComparison.OrdinalIgnoreCase);
+
+				ImGui.PushID(i);
+				if (ImGui.Selectable($"  {entry.Name}", isCurrent))
+				{
+					_list[_activePickerIndex] = PrefabReferenceTypeInspector.BuildPrefabRef(entry.AbsolutePath, entry.Name);
+					_activePickerIndex = -1;
+					ImGui.CloseCurrentPopup();
+				}
+
+				if (ImGui.IsItemHovered())
+				{
+					ImGui.BeginTooltip();
+					ImGuiSafe.TextSafe(entry.AbsolutePath);
+					ImGui.EndTooltip();
+				}
+				ImGui.PopID();
+			}
+
+			ImGui.Separator();
+			VoltageEditorUtils.SmallVerticalSpace();
+			if (VoltageEditorUtils.CenteredButton("Cancel", 0.5f))
+			{
+				_activePickerIndex = -1;
+				ImGui.CloseCurrentPopup();
+			}
+
+			ImGui.EndPopup();
+		}
 
 		Entity ResolveEntityAt(int index)
 		{
