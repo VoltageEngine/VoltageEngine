@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Microsoft.Xna.Framework.Audio;
 
 namespace Voltage.Audio
 {
@@ -35,7 +34,7 @@ namespace Voltage.Audio
 		public bool IsPlaying => _tracks.Count > 0;
 
 		/// <summary>Crossfades to <paramref name="clip"/> over <paramref name="fadeSeconds"/> (0 = instant).</summary>
-		public void Play(SoundEffect clip, float volume, float fadeSeconds)
+		public void Play(AudioClip clip, float volume, float fadeSeconds)
 		{
 			if (clip == null)
 				return;

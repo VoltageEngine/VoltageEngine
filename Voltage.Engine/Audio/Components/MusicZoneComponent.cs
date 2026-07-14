@@ -1,6 +1,5 @@
 using System;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Audio;
 using Voltage.Serialization;
 
 namespace Voltage.Audio
@@ -10,8 +9,7 @@ namespace Voltage.Audio
 	/// location-based music. Requires a trigger <see cref="Collider"/> on the same entity. Music plays via
 	/// <see cref="AudioManager.PlayMusic"/>, which crossfades from whatever was playing.
 	/// </summary>
-	// IUpdatableInPauseMode: keep pushing live Volume edits to the current music while paused, so it can be
-	// tuned in real time in the editor (which pauses to inspect).
+	// IUpdatableInPauseMode: keep pushing live Volume edits to the current music while the editor is paused.
 	[ComponentId("MusicZoneComponent")]
 	public partial class MusicZoneComponent : Component, ITriggerListener, IUpdatable, IUpdatableInPauseMode
 	{
@@ -31,11 +29,11 @@ namespace Voltage.Audio
 		/// <summary>Stop the music when leaving the zone (otherwise it keeps playing until another zone takes over).</summary>
 		public bool StopOnExit = false;
 
-		private SoundEffect _track;
+		private AudioClip _track;
 		private bool _trackLoadAttempted;
 		private bool _inside;
 
-		// Music volume applied: forced to 0 when muted or non-positive, so Volume <= 0 (or Muted) is truly silent.
+		// Muted or non-positive Volume forces silence.
 		private float EffectiveVolume => (Muted || Volume <= 0f) ? 0f : MathHelper.Clamp(Volume, 0f, 1f);
 
 		public override void OnStart()
@@ -46,8 +44,7 @@ namespace Voltage.Audio
 
 		public void OnTriggerEnter(Collider other, Collider local)
 		{
-			// Never start music in Edit mode.
-			if (Core.IsEditMode)
+			if (Core.IsEditMode || !Enabled)
 				return;
 
 			EnsureTrackLoaded();
@@ -67,8 +64,7 @@ namespace Voltage.Audio
 
 		public virtual void Update()
 		{
-			// While inside the zone, keep the live music volume synced to the inspector Volume so edits are
-			// heard immediately — no re-trigger. (The Music-bus volume is separately live via the mixer.)
+			// Keep the live music volume synced to the inspector while inside the zone.
 			if (_inside)
 				Core.Audio?.SetMusicVolume(EffectiveVolume);
 		}
@@ -79,8 +75,8 @@ namespace Voltage.Audio
 				return;
 
 			_trackLoadAttempted = true;
-			if (Track.IsValid && Core.Scene != null)
-				_track = Core.Scene.LoadAsset<SoundEffect>(Track);
+			if (Track.IsValid)
+				_track = Core.Audio?.LoadClip(Track);
 		}
 
 		public override void OnRemovedFromEntity()
@@ -89,8 +85,7 @@ namespace Voltage.Audio
 			_trackLoadAttempted = false;
 		}
 
-		// Serialization is emitted by Voltage.SourceGenerators for this partial class: the public
-		// AssetReference Track and tunable fields round-trip automatically. Runtime state (_track,
-		// _trackLoadAttempted, _inside) stays private and is not serialized.
+		// Voltage.SourceGenerators emits serialization for this partial class: public fields round-trip;
+		// private runtime state (_track, _trackLoadAttempted, _inside) is not serialized.
 	}
 }

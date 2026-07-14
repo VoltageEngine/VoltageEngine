@@ -107,6 +107,22 @@ public partial class ImGuiManager
 		set => _showTimelineWindow.Value = value;
 	}
 
+	private PersistentBool _showAudioProfilerWindow = new("ImGui_ShowAudioProfilerWindow", false);
+
+	public bool ShowAudioProfilerWindow
+	{
+		get => _showAudioProfilerWindow.Value;
+		set => _showAudioProfilerWindow.Value = value;
+	}
+
+	private PersistentBool _showPerformanceProfilerWindow = new("ImGui_ShowPerformanceProfilerWindow", false);
+
+	public bool ShowPerformanceProfilerWindow
+	{
+		get => _showPerformanceProfilerWindow.Value;
+		set => _showPerformanceProfilerWindow.Value = value;
+	}
+
 	private PersistentString _lastSelectedLayout = new("ImGui_LastSelectedLayout", "Default");
 	private PersistentString _lastSelectedTheme = new("ImGui_LastSelectedTheme", "DarkTheme1");
 	#endregion
@@ -252,7 +268,7 @@ public partial class ImGuiManager
 
 			string saveShortcut = "Ctrl+S";
 #if OS_MAC
-				saveShortcut = "Command+S";
+				saveShortcut = "Cmd+S";
 #endif
 			
 			if (ImGui.MenuItem("Save Scene", saveShortcut))
@@ -629,6 +645,26 @@ public partial class ImGuiManager
 		{
 			_showEngineEffectsPrompt = false;
 			_engineEffectsCheckComplete = true;
+		}
+	}
+
+	/// <summary>
+	/// Top-level "Profiler" menu: toggles for the live profiling windows (audio DSP load, runtime
+	/// performance). Each item is a checkable toggle backed by a persistent bool, mirroring the View menu.
+	/// </summary>
+	private void DrawProfilerMenu()
+	{
+		if (ImGui.BeginMenu("Profiler"))
+		{
+			var showAudioProfiler = ShowAudioProfilerWindow;
+			ImGui.MenuItem("Audio Profiler", null, ref showAudioProfiler);
+			ShowAudioProfilerWindow = showAudioProfiler;
+
+			var showPerformanceProfiler = ShowPerformanceProfilerWindow;
+			ImGui.MenuItem("Performance Profiler", null, ref showPerformanceProfiler);
+			ShowPerformanceProfilerWindow = showPerformanceProfiler;
+
+			ImGui.EndMenu();
 		}
 	}
 
