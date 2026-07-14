@@ -1,0 +1,595 @@
+using System;
+using System.Collections.Generic;
+using ImGuiNET;
+using Microsoft.Xna.Framework;
+using Voltage.Editor.Undo.ComponentActions;
+using Voltage.Editor.Undo.Core;
+using EngineAssetReference = Voltage.Serialization.AssetReference;
+
+namespace Voltage.Editor.Tools.Tilemap
+{
+	public enum TileTool
+	{
+		Brush,
+		Eraser,
+		Rectangle,
+		Fill,
+		Picker,
+	}
+
+	/// <summary>Turns mouse input in the game view into tilemap edits, and draws the grid/cursor overlays.</summary>
+	public class TilePaintTool
+	{
+		public TilemapRenderer Target;
+
+		/// <summary>Tileset staged in the palette; the first stroke creates a layer bound to it if there is no Target.</summary>
+		public EngineAssetReference StagedTileset;
+
+		public int FallbackTileWidth = 16;
+		public int FallbackTileHeight = 16;
+
+		public TileTool Tool = TileTool.Brush;
+
+		/// <summary>On: a drag lets stamps overlap. Off: a drag steps by the stamp size. A single click is always free-form.</summary>
+		public bool StackWhileDragging;
+
+		public bool ShowGrid = true;
+		public bool AlwaysShowGrid;
+
+		public Color GridColor = new(0x24, 0x24, 0x24, 0x21);
+		public Color HighlightColor = new(0.2f, 0.7f, 1f, 1f);
+
+		// Grid/cursor thickness are in SCREEN pixels; divided by camera zoom before drawing (Debug lines are world-space).
+		public float GridThickness = 1f;
+		public float HighlightThickness = 2f;
+
+		/// <summary>Rectangular block of tile indices picked in the palette (-1 = erase), anchored at the hovered cell.</summary>
+		public int[] Selection = Array.Empty<int>();
+		public int SelectionWidth;
+		public int SelectionHeight;
+
+		public bool HasSelection => Selection.Length > 0 && SelectionWidth > 0 && SelectionHeight > 0;
+
+		public Point HoveredCell { get; private set; }
+		public bool IsHovering { get; private set; }
+
+		private const int MaxFillCells = 20000;
+
+		private static readonly Point[] _neighbourOffsets =
+		{
+			new(1, 0), new(-1, 0), new(0, 1), new(0, -1),
+		};
+
+		private readonly List<TilePaintUndoAction.CellChange> _strokeChanges = new();
+		private bool _isStroking;
+		private bool _strokeErases;
+
+		private bool _isDraggingRect;
+		private Point _rectAnchor;
+
+		private Point _strokeAnchor;
+
+		public void SetSelection(int[] tiles, int width, int height)
+		{
+			Selection = tiles ?? Array.Empty<int>();
+			SelectionWidth = width;
+			SelectionHeight = height;
+		}
+
+		public void SetSingleSelection(int tileIndex) => SetSelection(new[] { tileIndex }, 1, 1);
+
+		/// <summary>
+		/// Drops the target if its entity no longer belongs to a live scene. The tool lives on the ImGuiManager and
+		/// outlives a scene, so a layer from the scene we just left must not linger.
+		/// </summary>
+		public void DropDeadTarget()
+		{
+			if (Target == null)
+				return;
+
+			if (Target.Entity != null && Target.Entity.Scene != null)
+				return;
+
+			Target = null;
+			AbandonStroke();
+		}
+
+		/// <summary>Clears scene-scoped state on scene load. The staged tileset and selection are asset-scoped and survive.</summary>
+		public void OnSceneChanged()
+		{
+			Target = null;
+			AbandonStroke();
+		}
+
+		private void AbandonStroke()
+		{
+			_strokeChanges.Clear();
+			_isStroking = false;
+			_isDraggingRect = false;
+		}
+
+		public void ValidateTarget(Entity selectedEntity)
+		{
+			DropDeadTarget();
+
+			if (Target == null && selectedEntity != null)
+				Target = selectedEntity.GetComponent<TilemapRenderer>();
+
+			if (Target == null)
+			{
+				var maps = TilemapSceneUtils.FindTilemaps();
+				if (maps.Count > 0)
+					Target = maps[0];
+			}
+		}
+
+		private bool EnsurePaintTarget()
+		{
+			if (Target?.Entity != null)
+				return true;
+
+			if (!StagedTileset.IsValid)
+				return false;
+
+			Target = TilemapSceneUtils.CreateTilemapLayer(StagedTileset, Vector2.Zero);
+			return Target != null;
+		}
+
+		public void Update(Vector2 worldMouse, Camera camera)
+		{
+			IsHovering = false;
+
+			var cell = WorldToCell(worldMouse);
+			HoveredCell = cell;
+			IsHovering = true;
+
+			var eraseModifier = Input.RightMouseButtonDown || ImGui.GetIO().KeyShift;
+
+			switch (Tool)
+			{
+				case TileTool.Picker:
+					DrawCellOutline(cell.X, cell.Y, 1, 1, HighlightColor);
+					if (Input.LeftMouseButtonPressed)
+						PickTile(cell);
+					break;
+
+				case TileTool.Fill:
+					DrawCellOutline(cell.X, cell.Y, 1, 1, HighlightColor);
+					if (Input.LeftMouseButtonPressed)
+						FloodFill(cell);
+					break;
+
+				case TileTool.Rectangle:
+					UpdateRectangle(cell, eraseModifier);
+					break;
+
+				case TileTool.Eraser:
+					UpdateFreehand(cell, forceErase: true);
+					break;
+
+				default:
+					UpdateFreehand(cell, forceErase: eraseModifier);
+					break;
+			}
+		}
+
+		/// <summary>
+		/// Commits an in-flight stroke when the cursor leaves the game view: Update stops running out there, so a drag
+		/// released outside would never reach the undo stack.
+		/// </summary>
+		public void CommitPendingStroke()
+		{
+			_isDraggingRect = false;
+
+			if (_isStroking)
+				CommitStroke();
+		}
+
+		/// <summary>Cancels an in-progress stroke without committing it, rolling its cells back.</summary>
+		public void Reset()
+		{
+			if (_isStroking)
+			{
+				for (var i = _strokeChanges.Count - 1; i >= 0; i--)
+				{
+					var change = _strokeChanges[i];
+					Target?.SetCellStack(change.X, change.Y, change.OldStack);
+				}
+			}
+
+			_strokeChanges.Clear();
+			_isStroking = false;
+			_isDraggingRect = false;
+		}
+
+		#region Tools
+
+		private void UpdateFreehand(Point cell, bool forceErase)
+		{
+			var footprintW = forceErase ? Math.Max(1, SelectionWidth) : SelectionWidth;
+			var footprintH = forceErase ? Math.Max(1, SelectionHeight) : SelectionHeight;
+
+			if (!forceErase && !HasSelection)
+			{
+				DrawCellOutline(cell.X, cell.Y, 1, 1, HighlightColor);
+				return;
+			}
+
+			// A drag snaps to a stamp-sized lattice so blocks tile edge-to-edge instead of smearing a copy at every
+			// cell crossed; a fresh click is free-form. StackWhileDragging opts out and lets stamps overlap.
+			var paintCell = _isStroking && !StackWhileDragging ? SnapToStrokeLattice(cell) : cell;
+
+			DrawCellOutline(paintCell.X, paintCell.Y, footprintW, footprintH,
+				forceErase ? new Color(1f, 0.35f, 0.35f, 0.9f) : HighlightColor);
+
+			var pressed = Input.LeftMouseButtonPressed || (forceErase && Input.RightMouseButtonPressed);
+			var down = Input.LeftMouseButtonDown || (forceErase && Input.RightMouseButtonDown);
+			var released = Input.LeftMouseButtonReleased || Input.RightMouseButtonReleased;
+
+			if (pressed)
+			{
+				if (Target?.Entity == null && (forceErase || !EnsurePaintTarget()))
+					return;
+
+				BeginStroke(forceErase);
+				_strokeAnchor = cell;
+				StampAt(cell, forceErase);
+			}
+			else if (down && _isStroking)
+			{
+				StampAt(paintCell, forceErase);
+			}
+
+			if (released && _isStroking)
+				CommitStroke();
+		}
+
+		private Point SnapToStrokeLattice(Point cell)
+		{
+			var strideX = Math.Max(1, SelectionWidth);
+			var strideY = Math.Max(1, SelectionHeight);
+
+			var stepsX = (int)Math.Floor((cell.X - _strokeAnchor.X) / (float)strideX);
+			var stepsY = (int)Math.Floor((cell.Y - _strokeAnchor.Y) / (float)strideY);
+
+			return new Point(
+				_strokeAnchor.X + stepsX * strideX,
+				_strokeAnchor.Y + stepsY * strideY);
+		}
+
+		private void UpdateRectangle(Point cell, bool erase)
+		{
+			if (!_isDraggingRect)
+			{
+				DrawCellOutline(cell.X, cell.Y, 1, 1, HighlightColor);
+
+				if (Input.LeftMouseButtonPressed || Input.RightMouseButtonPressed)
+				{
+					_isDraggingRect = true;
+					_rectAnchor = cell;
+					_strokeErases = erase || Input.RightMouseButtonPressed;
+				}
+
+				return;
+			}
+
+			var minX = Math.Min(_rectAnchor.X, cell.X);
+			var minY = Math.Min(_rectAnchor.Y, cell.Y);
+			var width = Math.Abs(cell.X - _rectAnchor.X) + 1;
+			var height = Math.Abs(cell.Y - _rectAnchor.Y) + 1;
+
+			DrawCellOutline(minX, minY, width, height,
+				_strokeErases ? new Color(1f, 0.35f, 0.35f, 0.9f) : HighlightColor);
+
+			if (!Input.LeftMouseButtonReleased && !Input.RightMouseButtonReleased)
+				return;
+
+			_isDraggingRect = false;
+
+			if (!_strokeErases && !HasSelection)
+				return;
+
+			if (Target?.Entity == null && (_strokeErases || !EnsurePaintTarget()))
+				return;
+
+			BeginStroke(_strokeErases);
+
+			for (var y = 0; y < height; y++)
+			{
+				for (var x = 0; x < width; x++)
+				{
+					// Tile the selection across the rect rather than stretching it.
+					var tile = _strokeErases
+						? -1
+						: Selection[y % SelectionHeight * SelectionWidth + x % SelectionWidth];
+
+					ApplyCell(minX + x, minY + y, tile);
+				}
+			}
+
+			CommitStroke();
+		}
+
+		private void PickTile(Point cell)
+		{
+			if (Target?.Entity == null)
+				return;
+
+			var tile = Target.GetTile(cell.X, cell.Y);
+			if (tile < 0)
+				return;
+
+			SetSingleSelection(tile);
+			Tool = TileTool.Brush;
+		}
+
+		/// <summary>
+		/// Flood fills the contiguous run matching the clicked cell. Bounded to the painted extents plus a margin, and
+		/// capped at <see cref="MaxFillCells"/>, since a sparse map has no natural edge to stop at.
+		/// </summary>
+		private void FloodFill(Point origin)
+		{
+			if (!HasSelection)
+				return;
+
+			if (Target?.Entity == null && !EnsurePaintTarget())
+				return;
+
+			var replacement = Selection[0];
+			var targetTile = Target.GetTile(origin.X, origin.Y);
+			if (targetTile == replacement)
+				return;
+
+			var extents = Target.TileExtents;
+			var bounds = extents.IsEmpty
+				? new Rectangle(origin.X - 32, origin.Y - 32, 64, 64)
+				: new Rectangle(extents.X - 32, extents.Y - 32, extents.Width + 64, extents.Height + 64);
+
+			if (!bounds.Contains(origin))
+				return;
+
+			BeginStroke(false);
+
+			var visited = new HashSet<long>();
+			var queue = new Queue<Point>();
+			queue.Enqueue(origin);
+			visited.Add((long)origin.X << 32 ^ (uint)origin.Y);
+
+			var filled = 0;
+			while (queue.Count > 0 && filled < MaxFillCells)
+			{
+				var cell = queue.Dequeue();
+
+				if (Target.GetTile(cell.X, cell.Y) != targetTile)
+					continue;
+
+				ApplyCell(cell.X, cell.Y, replacement);
+				filled++;
+
+				foreach (var offset in _neighbourOffsets)
+				{
+					var next = new Point(cell.X + offset.X, cell.Y + offset.Y);
+					if (!bounds.Contains(next))
+						continue;
+
+					var key = (long)next.X << 32 ^ (uint)next.Y;
+					if (visited.Add(key))
+						queue.Enqueue(next);
+				}
+			}
+
+			if (filled >= MaxFillCells)
+				Debug.Warn($"Tile fill stopped at the {MaxFillCells}-cell safety limit.");
+
+			CommitStroke();
+		}
+
+		#endregion
+
+		#region Stroke bookkeeping
+
+		private void BeginStroke(bool erases)
+		{
+			_isStroking = true;
+			_strokeErases = erases;
+			_strokeChanges.Clear();
+		}
+
+		private void StampAt(Point cell, bool erase)
+		{
+			if (erase)
+			{
+				var w = Math.Max(1, SelectionWidth);
+				var h = Math.Max(1, SelectionHeight);
+
+				for (var y = 0; y < h; y++)
+				for (var x = 0; x < w; x++)
+					ApplyCell(cell.X + x, cell.Y + y, -1);
+
+				return;
+			}
+
+			for (var y = 0; y < SelectionHeight; y++)
+			{
+				for (var x = 0; x < SelectionWidth; x++)
+					ApplyCell(cell.X + x, cell.Y + y, Selection[y * SelectionWidth + x]);
+			}
+		}
+
+		/// <summary>
+		/// Writes one cell. Fully transparent tile = a hole in the stamp, skip it. Fully opaque = replace the cell.
+		/// Partially transparent = stack on top of what is there. Only the eraser clears a cell.
+		/// </summary>
+		private void ApplyCell(int x, int y, int newTile)
+		{
+			var tileset = Target.ResolvedTileset;
+
+			if (newTile >= 0 && tileset?.IsBlank(newTile) == true)
+				return;
+
+			var oldStack = Target.GetCellStack(x, y);
+
+			if (newTile < 0)
+			{
+				if (oldStack.Length == 0)
+					return;
+
+				Target.SetTile(x, y, -1);
+			}
+			else if (oldStack.Length == 0 || tileset == null || tileset.IsOpaque(newTile))
+			{
+				if (oldStack.Length == 1 && oldStack[0] == newTile)
+					return;
+
+				Target.SetTile(x, y, newTile);
+			}
+			else
+			{
+				Target.PushTile(x, y, newTile);
+			}
+
+			var newStack = Target.GetCellStack(x, y);
+			if (StacksEqual(oldStack, newStack))
+				return;
+
+			_strokeChanges.Add(new TilePaintUndoAction.CellChange(x, y, oldStack, newStack));
+		}
+
+		private static bool StacksEqual(int[] a, int[] b)
+		{
+			if (a.Length != b.Length)
+				return false;
+
+			for (var i = 0; i < a.Length; i++)
+			{
+				if (a[i] != b[i])
+					return false;
+			}
+
+			return true;
+		}
+
+		private void CommitStroke()
+		{
+			_isStroking = false;
+
+			if (_strokeChanges.Count == 0)
+				return;
+
+			var verb = _strokeErases ? "Erase" : "Paint";
+			var description = $"{verb} {_strokeChanges.Count} tile{(_strokeChanges.Count == 1 ? "" : "s")}";
+
+			EditorChangeTracker.PushUndo(
+				new TilePaintUndoAction(Target, _strokeChanges, description),
+				Target.Entity,
+				description);
+
+			_strokeChanges.Clear();
+		}
+
+		#endregion
+
+		#region Overlays
+
+		/// <summary>Draws the tile grid across the visible camera area. Works before a layer exists, using the staged tile size.</summary>
+		public void DrawGrid(Camera camera)
+		{
+			var tw = GridTileWidth;
+			var th = GridTileHeight;
+			if (tw <= 0 || th <= 0)
+				return;
+
+			// Below a few screen pixels per cell the grid is a grey wash, not a guide.
+			var zoom = camera.RawZoom;
+			if (tw * zoom < 4f || th * zoom < 4f)
+				return;
+
+			var view = camera.Bounds;
+			var min = WorldToCell(new Vector2(view.X, view.Y));
+			var max = WorldToCell(new Vector2(view.Right, view.Bottom));
+
+			// Under rotation the view corners do not map to an axis-aligned tile range; pad generously.
+			if (Rotation != 0f)
+			{
+				var pad = Math.Max(max.X - min.X, max.Y - min.Y) + 1;
+				min = new Point(min.X - pad, min.Y - pad);
+				max = new Point(max.X + pad, max.Y + pad);
+			}
+
+			if (max.X < min.X || max.Y < min.Y)
+				return;
+
+			var thickness = WorldThickness(GridThickness, zoom);
+
+			for (var x = min.X; x <= max.X + 1; x++)
+				Debug.DrawLine(CellToWorld(x, min.Y), CellToWorld(x, max.Y + 1), GridColor, thickness, 0f);
+
+			for (var y = min.Y; y <= max.Y + 1; y++)
+				Debug.DrawLine(CellToWorld(min.X, y), CellToWorld(max.X + 1, y), GridColor, thickness, 0f);
+		}
+
+		/// <summary>
+		/// Outlines a block of cells in world space. The outline is inset inside the cell because Debug.Render iterates
+		/// its queue backwards: the grid, queued first, is drawn OVER the outline and erases any edge on a grid line.
+		/// </summary>
+		private void DrawCellOutline(int tileX, int tileY, int width, int height, Color color)
+		{
+			width = Math.Max(1, width);
+			height = Math.Max(1, height);
+
+			var camera = Core.Scene?.Camera;
+			var zoom = camera?.RawZoom ?? 1f;
+
+			var thickness = WorldThickness(HighlightThickness, zoom);
+
+			var insetX = thickness * 0.5f / Math.Max(1, GridTileWidth);
+			var insetY = thickness * 0.5f / Math.Max(1, GridTileHeight);
+
+			var topLeft = CellToWorldF(tileX + insetX, tileY + insetY);
+			var topRight = CellToWorldF(tileX + width - insetX, tileY + insetY);
+			var bottomRight = CellToWorldF(tileX + width - insetX, tileY + height - insetY);
+			var bottomLeft = CellToWorldF(tileX + insetX, tileY + height - insetY);
+
+			Debug.DrawLine(topLeft, topRight, color, thickness, 0f);
+			Debug.DrawLine(topRight, bottomRight, color, thickness, 0f);
+			Debug.DrawLine(bottomRight, bottomLeft, color, thickness, 0f);
+			Debug.DrawLine(bottomLeft, topLeft, color, thickness, 0f);
+		}
+
+		/// <summary>Screen-pixel width converted to world units, so lines keep a constant on-screen thickness.</summary>
+		private static float WorldThickness(float screenPixels, float zoom) =>
+			Math.Max(0.01f, screenPixels / Math.Max(0.0001f, zoom));
+
+		#endregion
+
+		#region Cell <-> world
+
+		private int GridTileWidth => Target?.Entity != null ? Target.TileWidth : FallbackTileWidth;
+		private int GridTileHeight => Target?.Entity != null ? Target.TileHeight : FallbackTileHeight;
+		private float Rotation => Target?.Entity?.Transform.Rotation ?? 0f;
+
+		private Vector2 CellToWorld(int tileX, int tileY) => CellToWorldF(tileX, tileY);
+
+		private Vector2 CellToWorldF(float tileX, float tileY)
+		{
+			var local = new Vector2(tileX * GridTileWidth, tileY * GridTileHeight);
+
+			if (Target?.Entity == null)
+				return local;
+
+			return Target.LocalTileSpaceToWorld(local);
+		}
+
+		private Point WorldToCell(Vector2 world)
+		{
+			if (Target?.Entity != null)
+				return Target.WorldToTile(world);
+
+			return new Point(
+				(int)Math.Floor(world.X / Math.Max(1, GridTileWidth)),
+				(int)Math.Floor(world.Y / Math.Max(1, GridTileHeight)));
+		}
+
+		#endregion
+	}
+}

@@ -14,7 +14,8 @@ namespace Voltage.Editor.Gizmos
 		Normal,
 		Resize,
 		Rotate,
-		ColliderResize
+		ColliderResize,
+		TilePaint
 	}
 
 	/// <summary>
@@ -74,6 +75,8 @@ namespace Voltage.Editor.Gizmos
 				SelectionMode = CursorSelectionMode.Rotate;
 			else if (ImGui.IsKeyPressed(ImGuiKey._4) || ImGui.IsKeyPressed(ImGuiKey.T))
 				SelectionMode = CursorSelectionMode.ColliderResize;
+			else if (ImGui.IsKeyPressed(ImGuiKey._5) || ImGui.IsKeyPressed(ImGuiKey.B))
+				SelectionMode = CursorSelectionMode.TilePaint;
 
 			if (ImGui.IsKeyPressed(ImGuiKey.Escape))
 			{
@@ -82,6 +85,7 @@ namespace Voltage.Editor.Gizmos
 				_scaleGizmoHandler.Reset();
 				_polygonGizmoHandler.Reset();
 				_rectangleGizmoHandler.Reset();
+				_imGuiManager.TilePaintTool.Reset();
 				_isBoxSelecting = false;
 
 				ResetCyclingSelection();
@@ -99,11 +103,45 @@ namespace Voltage.Editor.Gizmos
 				}
 			}
 
-			if (_imGuiManager.IsGameWindowFocused && IsCursorWithinGameWindow())
+			var cursorInGameWindow = _imGuiManager.IsGameWindowFocused && IsCursorWithinGameWindow();
+			var tilePaintTool = _imGuiManager.TilePaintTool;
+
+			// Drawn regardless of cursor position: tying it to viewport hover made it vanish whenever the mouse
+			// moved onto the Tile Palette (including to change its colour).
+			if (Core.IsEditMode && Core.Scene != null && tilePaintTool.ShowGrid &&
+				(SelectionMode == CursorSelectionMode.TilePaint || tilePaintTool.AlwaysShowGrid))
+			{
+				// Resolve the layer first so the grid aligns to it, not the world-origin fallback.
+				var selected = _imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities;
+				tilePaintTool.ValidateTarget(selected.Count > 0 ? selected[0] : null);
+
+				tilePaintTool.DrawGrid(Core.Scene.Camera);
+			}
+
+			// Update() stops running outside the viewport, so close any stroke released out there.
+			if (!cursorInGameWindow && SelectionMode == CursorSelectionMode.TilePaint)
+				tilePaintTool.CommitPendingStroke();
+
+			if (cursorInGameWindow)
 			{
 				var camera = Core.Scene.Camera;
 				var worldMouse = camera.ScreenToWorldPoint(Input.MousePosition);
 				var selectedEntities = _imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities;
+
+				// The tile cursor owns the mouse: no gizmos, box-select or picking, or every stroke would
+				// also drag a selection box.
+				if (SelectionMode == CursorSelectionMode.TilePaint)
+				{
+					IsMouseOverGizmo = false;
+
+					if (Core.IsEditMode)
+					{
+						tilePaintTool.ValidateTarget(selectedEntities.Count > 0 ? selectedEntities[0] : null);
+						tilePaintTool.Update(worldMouse, camera);
+					}
+
+					return;
+				}
 
 				if (Core.IsEditMode)
 				{
