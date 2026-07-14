@@ -19,7 +19,7 @@ namespace Voltage.Cinematics
 		public AssetReference Timeline;
 
 		/// <summary>Role → scene entity for pre-existing actors. Spawnables bind themselves at runtime.</summary>
-		public List<RoleBinding> Bindings = new();
+		public readonly List<RoleBinding> Bindings = new();
 
 		public WrapMode Wrap = WrapMode.Hold;
 

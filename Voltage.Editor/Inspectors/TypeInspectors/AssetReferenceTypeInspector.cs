@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using ImGuiNET;
 using Voltage.Editor.Utils;
@@ -10,11 +11,15 @@ namespace Voltage.Editor.Inspectors.TypeInspectors;
 
 /// <summary>
 /// Inspector for a <see cref="AssetReference"/> field. Renders a drop slot; drag any asset from the
-/// Asset Browser onto it to assign it. The reference stores the asset's stable <c>.meta</c> GUID
-/// (plus a project-relative hint path), so it survives renaming/moving the file.
+/// Asset Browser onto it to assign it, or click the button to open a searchable picker popup.
+/// The reference stores the asset's stable <c>.meta</c> GUID (plus a project-relative hint path),
+/// so it survives renaming/moving the file.
 /// </summary>
 public class AssetReferenceTypeInspector : AbstractTypeInspector
 {
+	private bool _showPicker;
+	private string _pickerSearch = string.Empty;
+
 	public override void DrawMutable()
 	{
 		var current = (AssetReference)_getter(_target);
@@ -32,7 +37,10 @@ public class AssetReferenceTypeInspector : AbstractTypeInspector
 
 		ImGui.PushStyleColor(ImGuiCol.Button, buttonColor);
 		ImGui.PushStyleColor(ImGuiCol.ButtonHovered, buttonColor with { W = 1f });
-		ImGui.Button($"{label}##assetref_{_scopeId}", new Num.Vector2(-1, 0));
+
+		if (ImGui.Button($"{label}##assetref_{_scopeId}", new Num.Vector2(-1, 0)))
+			_showPicker = !_showPicker;
+
 		ImGui.PopStyleColor(2);
 
 		if (current.IsValid && ImGui.IsItemHovered())
@@ -58,8 +66,6 @@ public class AssetReferenceTypeInspector : AbstractTypeInspector
 			if (accepted && !AssetBrowserWindow.DraggedReference.IsEmpty)
 			{
 				var dr = AssetBrowserWindow.DraggedReference;
-				// Consume the pending drag so the viewport poller and Scene Graph drop target don't
-				// also handle this drop and spawn a stray entity.
 				AssetBrowserWindow.DraggedReference = Voltage.Editor.Assets.AssetReference.Empty;
 
 				var assetRef = new AssetReference
@@ -81,5 +87,150 @@ public class AssetReferenceTypeInspector : AbstractTypeInspector
 				SetValueWithUndo(default(AssetReference), $"Clear {_name}");
 			ImGui.EndPopup();
 		}
+
+		if (_showPicker)
+		{
+			ImGui.OpenPopup($"assetref_picker_{_scopeId}");
+			_pickerSearch = string.Empty;
+			_showPicker = false;
+		}
+
+		DrawPickerPopup(current);
+	}
+
+	private void DrawPickerPopup(AssetReference current)
+	{
+		var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.5f);
+		ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
+		ImGui.SetNextWindowSize(new Num.Vector2(420, 460), ImGuiCond.Appearing);
+
+		bool open = true;
+		if (!ImGui.BeginPopupModal($"assetref_picker_{_scopeId}", ref open, ImGuiWindowFlags.NoResize))
+			return;
+
+		ImGuiSafe.TextColoredSafe(new Num.Vector4(0.3f, 0.8f, 1f, 1f), $"{_name}  (AssetReference)");
+		ImGui.Separator();
+
+		ImGui.SetNextItemWidth(-1);
+		ImGui.InputTextWithHint("##assetsearch", "Search...", ref _pickerSearch, 128);
+		ImGui.Separator();
+
+		if (ImGui.Selectable("  None (AssetReference)", !current.IsValid))
+		{
+			SetValueWithUndo(default(AssetReference), $"Clear {_name}");
+			ImGui.CloseCurrentPopup();
+		}
+
+		ImGui.Separator();
+
+		var db = Voltage.Editor.Assets.AssetDatabase.Instance;
+		if (db != null)
+		{
+			string lower = _pickerSearch.ToLowerInvariant();
+			bool filtering = !string.IsNullOrEmpty(_pickerSearch);
+			DrawAssetNodes(db.RootNodes, current, lower, filtering);
+		}
+
+		ImGui.Separator();
+		VoltageEditorUtils.SmallVerticalSpace();
+		if (VoltageEditorUtils.CenteredButton("Cancel", 0.5f))
+			ImGui.CloseCurrentPopup();
+
+		ImGui.EndPopup();
+	}
+
+	private void DrawAssetNodes(
+		System.Collections.Generic.IReadOnlyList<Voltage.Editor.Assets.AssetFolderNode> nodes,
+		AssetReference current,
+		string lower,
+		bool filtering)
+	{
+		foreach (var folder in nodes)
+		{
+			// When filtering, recurse without drawing folder headers so matching files surface at top level.
+			if (filtering)
+			{
+				DrawFilteredFiles(folder, current, lower);
+				DrawAssetNodes(folder.ChildFolders, current, lower, filtering);
+				continue;
+			}
+
+			bool hasVisibleContent = FolderHasFiles(folder);
+			if (!hasVisibleContent)
+				continue;
+
+			bool open = ImGui.TreeNodeEx(folder.Label, ImGuiTreeNodeFlags.DefaultOpen | ImGuiTreeNodeFlags.SpanAvailWidth);
+			if (open)
+			{
+				foreach (var item in folder.Files)
+					DrawAssetItem(item, current);
+
+				DrawAssetNodes(folder.ChildFolders, current, lower, filtering);
+				ImGui.TreePop();
+			}
+		}
+	}
+
+	private void DrawFilteredFiles(Voltage.Editor.Assets.AssetFolderNode folder, AssetReference current, string lower)
+	{
+		foreach (var item in folder.Files)
+		{
+			if (item.FileName.ToLowerInvariant().Contains(lower))
+				DrawAssetItem(item, current);
+		}
+	}
+
+	private void DrawAssetItem(Voltage.Editor.Assets.AssetItem item, AssetReference current)
+	{
+		var db    = Voltage.Editor.Assets.AssetDatabase.Instance;
+		var edRef = db?.GetReference(item.AbsolutePath) ?? Assets.AssetReference.Empty;
+		bool isCurrent = current.IsValid && current.AssetGuid != Guid.Empty && current.AssetGuid == edRef.Guid;
+
+		if (ImGui.Selectable($"  {item.FileName}", isCurrent))
+		{
+			var assetRef = new AssetReference
+			{
+				AssetGuid = edRef.Guid,
+				AssetPath = edRef.HintPath,
+				AssetName = Path.GetFileNameWithoutExtension(item.FileName),
+			};
+			SetValueWithUndo(assetRef, $"Assign {_name} = {item.FileName}");
+			ImGui.CloseCurrentPopup();
+		}
+
+		if (ImGui.IsItemHovered())
+		{
+			ImGui.BeginTooltip();
+			ImGuiSafe.TextSafe(item.AbsolutePath);
+			ImGui.EndTooltip();
+		}
+	}
+
+	internal static bool FolderHasFilesInternal(Voltage.Editor.Assets.AssetFolderNode folder) => FolderHasFiles(folder);
+
+	private static bool FolderHasFiles(Voltage.Editor.Assets.AssetFolderNode folder)
+	{
+		if (folder.Files.Count > 0) return true;
+		foreach (var child in folder.ChildFolders)
+			if (FolderHasFiles(child)) return true;
+		return false;
+	}
+
+
+	/// <summary>
+	/// Shared helper used by <see cref="ListInspector"/> to build an <see cref="AssetReference"/>
+	/// from a drag-drop payload already accepted by the caller.
+	/// </summary>
+	internal static AssetReference BuildFromDrag()
+	{
+		var dr = AssetBrowserWindow.DraggedReference;
+		AssetBrowserWindow.DraggedReference = Voltage.Editor.Assets.AssetReference.Empty;
+
+		return new AssetReference
+		{
+			AssetGuid = dr.Guid,
+			AssetPath = dr.HintPath,
+			AssetName = Path.GetFileNameWithoutExtension(dr.HintPath),
+		};
 	}
 }

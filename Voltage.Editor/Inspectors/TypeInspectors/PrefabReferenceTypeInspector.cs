@@ -190,6 +190,30 @@ public class PrefabReferenceTypeInspector : AbstractTypeInspector
         return result;
     }
 
+    // Shared entry-point for ListInspector
+    internal static List<(string AbsolutePath, string Name, string SubFolder)> CollectPrefabEntriesInternal()
+    {
+        var raw = CollectPrefabEntries();
+        var result = new List<(string, string, string)>(raw.Count);
+        foreach (var e in raw)
+            result.Add((e.AbsolutePath, e.Name, e.SubFolder));
+        return result;
+    }
+
+    // Builds a PrefabReference from an absolute path + name. Used by ListInspector
+    internal static PrefabReference BuildPrefabRef(string absolutePath, string name)
+    {
+        var assetRef   = AssetDatabase.Instance?.GetReference(absolutePath) ?? Assets.AssetReference.Empty;
+        var projectRoot = ProjectManager.Instance?.CurrentProject?.ProjectPath ?? string.Empty;
+        string relPath  = MakeProjectRelative(absolutePath, projectRoot);
+        return new PrefabReference
+        {
+            PrefabGuid = assetRef.Guid,
+            PrefabPath = relPath,
+            PrefabName = name,
+        };
+    }
+
     private static string MakeProjectRelative(string absolutePath, string projectRoot)
     {
         if (string.IsNullOrEmpty(projectRoot))
