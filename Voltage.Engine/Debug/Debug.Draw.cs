@@ -71,6 +71,15 @@ namespace Voltage
 			_debugDrawItems.Add(new DebugDrawItem(start, end, color, duration));
 		}
 
+		/// <summary>Draws a line of the given thickness in world units (divide by camera zoom for constant screen width).</summary>
+		public static void DrawLine(Vector2 start, Vector2 end, Color color, float thickness, float duration)
+		{
+			if (!Core.DebugRenderEnabled)
+				return;
+
+			_debugDrawItems.Add(new DebugDrawItem(start, end, color, duration, thickness));
+		}
+
 		public static void DrawPixel(float x, float y, int size, Color color, float duration = 0f)
 		{
 			if (!Core.DebugRenderEnabled)

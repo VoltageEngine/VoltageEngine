@@ -16,6 +16,7 @@ using Voltage.ParticleDesigner;
 using Voltage.Sprites;
 using Voltage.Textures;
 using Voltage.Tiled;
+using Voltage.Tilesets;
 using Voltage.Utils;
 
 
@@ -240,6 +241,18 @@ public class VoltageContentManager : ContentManager
 		return asepriteFile;
 	}
 
+	/// <summary>Loads a <c>.vtileset</c> asset.</summary>
+	public TilesetAsset LoadTileset(string name)
+	{
+		if (LoadedAssets.TryGetValue(name, out var asset))
+			if (asset is TilesetAsset tileset)
+				return tileset;
+
+		var loaded = TilesetAssetIO.Load(ResolveContentPath(name));
+		LoadedAssets.Add(name, loaded);
+		return loaded;
+	}
+
 	/// <summary>
 	/// loads a json file into a string.
 	/// </summary>
@@ -430,6 +443,7 @@ public class VoltageContentManager : ContentManager
 			[typeof(BitmapFont)]                       = static (c, path, name, raw) => c.LoadBitmapFont(path),
 			[typeof(AsepriteFile)]                     = static (c, path, name, raw) => c.LoadAsepriteFile(path),
 			[typeof(TmxMap)]                           = static (c, path, name, raw) => c.LoadTiledMap(path),
+			[typeof(TilesetAsset)]                     = static (c, path, name, raw) => c.LoadTileset(path),
 			[typeof(Particles.ParticleEmitterConfig)]  = static (c, path, name, raw) => c.LoadParticleEmitterConfig(path),
 			[typeof(Effect)]                           = static (c, path, name, raw) => c.LoadEffect(path),
 			[typeof(string)]                           = static (c, path, name, raw) => c.LoadJson(path),

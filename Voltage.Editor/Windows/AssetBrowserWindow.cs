@@ -5,6 +5,7 @@ using System.Linq;
 using ImGuiNET;
 using Voltage.Editor.Assets;
 using Voltage.Editor.DebugUtils;
+using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Utils;
@@ -92,9 +93,108 @@ public class AssetBrowserWindow : IDisposable
     // so the rebuild is deferred to the end of Draw() to avoid "collection was modified".
     private bool _refreshRequested = false;
 
-    private bool _showCreateTimelinePopup = false;
-    private string _createTimelineFolder = null;
-    private string _createTimelineName = "NewTimeline";
+    #region Ping (reveal + highlight)
+
+    private const double PingDuration = 1.6;
+
+    // Set by the AssetReference / PrefabReference inspectors; consumed on the next Draw.
+    private static string _pendingPingPath;
+
+    private string _pingPath;
+    private double _pingStartedAt;
+    private bool _pingScrollPending;
+
+    /// <summary>Reveals an asset: opens the window, expands its folders, selects it, scrolls to it, flashes it.</summary>
+    public static void PingAsset(string absolutePath)
+    {
+        if (string.IsNullOrEmpty(absolutePath))
+            return;
+
+        _pendingPingPath = absolutePath;
+
+        var manager = Core.GetGlobalManager<ImGuiManager>();
+        if (manager != null)
+            manager.ShowAssetBrowser = true;
+    }
+
+    private void ConsumePingRequest()
+    {
+        if (_pendingPingPath == null)
+            return;
+
+        var path = _pendingPingPath;
+        _pendingPingPath = null;
+
+        if (!File.Exists(path))
+        {
+            EditorDebug.Log($"AssetBrowser: cannot reveal '{path}' — the file does not exist.", "AssetBrowser");
+            return;
+        }
+
+        RevealFolders(path);
+
+        _selectedFilePath = path;
+        _pingPath = path;
+        _pingStartedAt = ImGui.GetTime();
+        _pingScrollPending = true;
+
+        // The search filter would hide the asset we are revealing.
+        _searchFilter = string.Empty;
+    }
+
+    /// <summary>Expands every folder on the way to the file so its row is actually drawn.</summary>
+    private void RevealFolders(string absolutePath)
+    {
+        foreach (var root in _db.RootNodes)
+            RevealFolders(root, absolutePath);
+    }
+
+    private bool RevealFolders(AssetFolderNode node, string absolutePath)
+    {
+        var found = node.Files.Any(f =>
+            string.Equals(f.AbsolutePath, absolutePath, StringComparison.OrdinalIgnoreCase));
+
+        if (!found)
+        {
+            foreach (var child in node.ChildFolders)
+            {
+                if (RevealFolders(child, absolutePath))
+                {
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        if (found)
+            _collapsedNodes.Remove(node.RelativePath);
+
+        return found;
+    }
+
+    private bool IsPinging(string absolutePath) =>
+        _pingPath != null
+        && string.Equals(_pingPath, absolutePath, StringComparison.OrdinalIgnoreCase)
+        && ImGui.GetTime() - _pingStartedAt < PingDuration;
+
+    private Num.Vector4 PingColor()
+    {
+        var elapsed = ImGui.GetTime() - _pingStartedAt;
+        var fade = (float)Math.Max(0.0, 1.0 - elapsed / PingDuration);
+        var pulse = 0.55f + 0.45f * (float)Math.Abs(Math.Sin(elapsed * 8.0));
+
+        return new Num.Vector4(1f, 0.72f, 0.2f, fade * pulse);
+    }
+
+    #endregion
+
+    // Generic "create asset of kind X" modal: each kind supplies a label, extension and writer.
+    private bool _showCreateAssetPopup = false;
+    private string _createAssetFolder = null;
+    private string _createAssetName = "NewTimeline";
+    private string _createAssetLabel = "Timeline";
+    private string _createAssetExtension = Voltage.Cinematics.TimelineAssetIO.FileExtension;
+    private Action<string> _createAssetWriter = path => Voltage.Cinematics.TimelineAssetIO.CreateAndSave(path);
 
     public AssetBrowserWindow()
     {
@@ -143,6 +243,7 @@ public class AssetBrowserWindow : IDisposable
             _db.Refresh();
 
         DrainSdlFileDrops();
+        ConsumePingRequest();
 
         var open = IsOpen;
         ImGui.Begin(WindowTitle, ref open);
@@ -183,7 +284,7 @@ public class AssetBrowserWindow : IDisposable
 
         // Must be outside Begin/End to be modal.
         DrawDeleteConfirmationPopup();
-        DrawCreateTimelinePopup();
+        DrawCreateAssetPopup();
 
         if (_refreshRequested)
         {
@@ -439,9 +540,29 @@ public class AssetBrowserWindow : IDisposable
         bool isSelected = string.Equals(_selectedFilePath, item.AbsolutePath, StringComparison.OrdinalIgnoreCase);
         bool wasSelected = isSelected;
 
-        bool clicked = ImGui.Selectable(item.FileName, isSelected,
+        bool isPinging = IsPinging(item.AbsolutePath);
+        if (isPinging)
+        {
+            var ping = PingColor();
+            ImGui.PushStyleColor(ImGuiCol.Header, ping);
+            ImGui.PushStyleColor(ImGuiCol.HeaderHovered, ping);
+            ImGui.PushStyleColor(ImGuiCol.HeaderActive, ping);
+        }
+
+        bool clicked = ImGui.Selectable(item.FileName, isSelected || isPinging,
             ImGuiSelectableFlags.AllowDoubleClick,
             new Num.Vector2(ImGui.GetContentRegionAvail().X, IconSize));
+
+        if (isPinging)
+        {
+            ImGui.PopStyleColor(3);
+
+            if (_pingScrollPending)
+            {
+                ImGui.SetScrollHereY(0.5f);
+                _pingScrollPending = false;
+            }
+        }
 
         // Track hover on file rows — the parent folder is still the drop destination.
         if (ImGui.IsItemHovered())
@@ -460,6 +581,8 @@ public class AssetBrowserWindow : IDisposable
                 DropHandlers.DropScene(reference);
             else if (item.Descriptor.Kind == AssetKind.Prefab)
                 DropHandlers.OpenPrefabIsolated(reference);
+            else if (item.Descriptor.Kind == AssetKind.Tileset)
+                Core.GetGlobalManager<ImGuiManager>()?.TilesetEditorWindow.Open(item.AbsolutePath);
         }
         else if (clicked)
         {
@@ -1015,6 +1138,8 @@ public class AssetBrowserWindow : IDisposable
         {
             if (ImGui.MenuItem("Timeline"))
                 BeginCreateTimeline(node.AbsolutePath);
+            if (ImGui.MenuItem("Tileset"))
+                BeginCreateTileset(node.AbsolutePath);
             ImGui.EndMenu();
         }
 
@@ -1102,25 +1227,39 @@ public class AssetBrowserWindow : IDisposable
         }
     }
 
-    // Arms the create-timeline popup for the given target folder, seeding a default name.
-    private void BeginCreateTimeline(string targetFolder)
+    private void BeginCreateTimeline(string targetFolder) =>
+        BeginCreateAsset(targetFolder, "Timeline", "NewTimeline",
+            Voltage.Cinematics.TimelineAssetIO.FileExtension,
+            path => Voltage.Cinematics.TimelineAssetIO.CreateAndSave(path));
+
+    private void BeginCreateTileset(string targetFolder) =>
+        BeginCreateAsset(targetFolder, "Tileset", "NewTileset",
+            Voltage.Tilesets.TilesetAssetIO.FileExtension,
+            path => Voltage.Tilesets.TilesetAssetIO.CreateAndSave(path));
+
+    // Arms the create-asset popup for the given target folder, seeding a default name.
+    private void BeginCreateAsset(string targetFolder, string label, string defaultName, string extension,
+        Action<string> writer)
     {
         if (string.IsNullOrEmpty(targetFolder) || !Directory.Exists(targetFolder))
             return;
 
-        _createTimelineFolder = targetFolder;
-        _createTimelineName = "NewTimeline";
-        _showCreateTimelinePopup = true;
+        _createAssetFolder = targetFolder;
+        _createAssetLabel = label;
+        _createAssetName = defaultName;
+        _createAssetExtension = extension;
+        _createAssetWriter = writer;
+        _showCreateAssetPopup = true;
     }
 
     // Modal name-entry popup (mirrors the layout-save / delete-confirmation popups). Enter or Create
     // confirms; Escape or Cancel dismisses. An empty name disables Create.
-    private void DrawCreateTimelinePopup()
+    private void DrawCreateAssetPopup()
     {
-        if (_showCreateTimelinePopup)
+        if (_showCreateAssetPopup)
         {
-            ImGui.OpenPopup("create-timeline");
-            _showCreateTimelinePopup = false;
+            ImGui.OpenPopup("create-asset");
+            _showCreateAssetPopup = false;
         }
 
         var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.4f);
@@ -1128,24 +1267,24 @@ public class AssetBrowserWindow : IDisposable
         ImGui.SetNextWindowSize(new Num.Vector2(400, 0), ImGuiCond.Appearing);
 
         bool open = true;
-        if (!ImGui.BeginPopupModal("create-timeline", ref open, ImGuiWindowFlags.AlwaysAutoResize))
+        if (!ImGui.BeginPopupModal("create-asset", ref open, ImGuiWindowFlags.AlwaysAutoResize))
             return;
 
-        ImGui.Text("New Timeline");
+        ImGui.Text($"New {_createAssetLabel}");
         ImGui.Separator();
 
-        string folderLabel = _createTimelineFolder != null ? Path.GetFileName(_createTimelineFolder) : string.Empty;
+        string folderLabel = _createAssetFolder != null ? Path.GetFileName(_createAssetFolder) : string.Empty;
         ImGui.TextColored(new Num.Vector4(0.6f, 0.6f, 0.6f, 1f), $"In folder: {folderLabel}");
 
         ImGui.Text("Enter name:");
         ImGui.SetNextItemWidth(350);
-        bool enter = ImGui.InputText("##timelinename", ref _createTimelineName, 128,
+        bool enter = ImGui.InputText("##createassetname", ref _createAssetName, 128,
             ImGuiInputTextFlags.EnterReturnsTrue);
 
-        bool nameValid = !string.IsNullOrWhiteSpace(_createTimelineName)
-                       && _createTimelineName.Trim().IndexOfAny(Path.GetInvalidFileNameChars()) < 0;
+        bool nameValid = !string.IsNullOrWhiteSpace(_createAssetName)
+                       && _createAssetName.Trim().IndexOfAny(Path.GetInvalidFileNameChars()) < 0;
 
-        if (!string.IsNullOrWhiteSpace(_createTimelineName) && !nameValid)
+        if (!string.IsNullOrWhiteSpace(_createAssetName) && !nameValid)
             ImGuiSafe.TextColoredSafe(new Num.Vector4(1f, 0.6f, 0.2f, 1f), "Invalid file name.");
 
         VoltageEditorUtils.MediumVerticalSpace();
@@ -1166,7 +1305,7 @@ public class AssetBrowserWindow : IDisposable
 
         if (confirm && nameValid)
         {
-            CreateTimeline(_createTimelineFolder, _createTimelineName);
+            CreateAsset(_createAssetFolder, _createAssetName);
             ImGui.CloseCurrentPopup();
         }
 
@@ -1178,10 +1317,10 @@ public class AssetBrowserWindow : IDisposable
         ImGui.EndPopup();
     }
 
-    // Writes a fresh default .vtimeline asset (via TimelineAssetIO.CreateAndSave) into targetFolder,
-    // appending the .vtimeline extension if absent and uniquifying the name to avoid overwriting an
-    // existing file, then requests a refresh so the AssetDatabase catalogs it (GUID / .meta sidecar).
-    private void CreateTimeline(string targetFolder, string name)
+    // Writes a fresh default asset of the armed kind into targetFolder, appending the extension if absent
+    // and uniquifying the name to avoid overwriting an existing file, then requests a refresh so the
+    // AssetDatabase catalogs it (GUID / .meta sidecar).
+    private void CreateAsset(string targetFolder, string name)
     {
         if (string.IsNullOrEmpty(targetFolder) || !Directory.Exists(targetFolder))
             return;
@@ -1190,18 +1329,20 @@ public class AssetBrowserWindow : IDisposable
         if (string.IsNullOrEmpty(name))
             return;
 
+        string ext = _createAssetExtension;
+        string kind = _createAssetLabel.ToLowerInvariant();
+
         // Accept a name the user typed with the extension already on it.
         string baseName = name;
-        if (baseName.EndsWith(Voltage.Cinematics.TimelineAssetIO.FileExtension, StringComparison.OrdinalIgnoreCase))
+        if (baseName.EndsWith(ext, StringComparison.OrdinalIgnoreCase))
             baseName = Path.GetFileNameWithoutExtension(baseName);
 
         if (string.IsNullOrEmpty(baseName) || baseName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
         {
-            EditorDebug.Log($"AssetBrowser: invalid timeline name '{name}'.", "AssetBrowser");
+            EditorDebug.Log($"AssetBrowser: invalid {kind} name '{name}'.", "AssetBrowser");
             return;
         }
 
-        string ext = Voltage.Cinematics.TimelineAssetIO.FileExtension;
         string path = Path.Combine(targetFolder, baseName + ext);
 
         // Uniquify rather than overwrite an existing file.
@@ -1218,8 +1359,8 @@ public class AssetBrowserWindow : IDisposable
 
         try
         {
-            Voltage.Cinematics.TimelineAssetIO.CreateAndSave(path);
-            EditorDebug.Log($"AssetBrowser: created timeline '{Path.GetFileName(path)}'.", "AssetBrowser");
+            _createAssetWriter(path);
+            EditorDebug.Log($"AssetBrowser: created {kind} '{Path.GetFileName(path)}'.", "AssetBrowser");
 
             // Re-index so the new file gets a GUID / .meta sidecar and shows up in the browser.
             _selectedFilePath = path;
@@ -1227,7 +1368,7 @@ public class AssetBrowserWindow : IDisposable
         }
         catch (Exception ex)
         {
-            EditorDebug.Log($"AssetBrowser: failed to create timeline at '{path}': {ex.Message}", "AssetBrowser");
+            EditorDebug.Log($"AssetBrowser: failed to create {kind} at '{path}': {ex.Message}", "AssetBrowser");
         }
     }
 

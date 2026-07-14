@@ -17,6 +17,7 @@ using Voltage.Editor.SceneFile;
 using Voltage.Editor.Scripting;
 using Voltage.Editor.Serialization;
 using Voltage.Editor.Tools;
+using Voltage.Editor.Tools.Tilemap;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Utils;
 using Voltage.Sprites;
@@ -49,6 +50,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	public GizmoSelectionManager CursorSelectionManager => _cursorSelectionManager;
 	public SceneGraphWindow SceneGraphWindow { get; private set; }
 
+	/// <summary>Shared tile-painting state: the palette configures it, the game view acts on it.</summary>
+	public TilePaintTool TilePaintTool { get; } = new();
+
+	public TilesetEditorWindow TilesetEditorWindow { get; } = new();
+
 	private List<EntityInspectorWindow> _entityInspectors = new();
 	public EntityInspectorWindow MainEntityInspectorWindow { get; private set; }
 	public bool IsInspectorTabLocked = false;
@@ -68,6 +74,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private System.Reflection.MethodInfo[] _themes;
 	private CoreWindow _coreWindow = new();
 	private DebugWindow _debugWindow = new();
+	private TilePaletteWindow _tilePaletteWindow = new();
 	private ProjectCreatorWindow _projectCreatorWindow = new();
 	private SceneCreator _sceneCreator = new();
 	private ProjectManager _projectManager;
@@ -574,6 +581,15 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			ShowPerformanceProfilerWindow = _performanceProfilerWindow.IsOpen;
 		}
 
+		if (ShowTilePaletteWindow)
+		{
+			_tilePaletteWindow.IsOpen = true;
+			_tilePaletteWindow.Draw(TilePaintTool, TilesetEditorWindow, _cursorSelectionManager);
+			ShowTilePaletteWindow = _tilePaletteWindow.IsOpen;
+		}
+
+		TilesetEditorWindow.Draw();
+
 		Plugins.EditorPluginHost.DrawWindows();
 		_cursorSelectionManager.UpdateSelection();
 	}
@@ -975,6 +991,30 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (ImGui.IsItemHovered())
 		{
 			ImGui.SetTooltip("Resize Colliders (Press T or 4)");
+		}
+
+		ImGui.SameLine(0, spacing);
+
+		System.Numerics.Vector4 tilePaintButtonColor;
+		if (_cursorSelectionManager.SelectionMode == CursorSelectionMode.TilePaint)
+			tilePaintButtonColor = new System.Numerics.Vector4(0.2f, 0.5f, 1f, 1f);
+		else
+			tilePaintButtonColor = ImGui.GetStyle().Colors[(int)ImGuiCol.Button];
+
+		ImGui.PushStyleColor(ImGuiCol.Button, tilePaintButtonColor);
+		bool tilePaintHovered = ImGui.ImageButton("Tile Brush", ImguiImageLoader.TileBrushCursorIconID,
+			new Num.Vector2(iconSize, iconSize));
+		if (tilePaintHovered)
+		{
+			_cursorSelectionManager.SelectionMode = CursorSelectionMode.TilePaint;
+			ShowTilePaletteWindow = true;
+		}
+
+		ImGui.PopStyleColor();
+
+		if (ImGui.IsItemHovered())
+		{
+			ImGui.SetTooltip("Paint Tiles (Press B or 5)");
 		}
 
 		// Zoom indicator

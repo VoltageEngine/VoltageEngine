@@ -63,7 +63,12 @@ namespace Voltage.Sprites
 
 			public struct AsepriteImageData
 			{
+				/// <summary>Legacy single-layer field; folded into <see cref="LayerNames"/> by <see cref="EffectiveLayers"/>.</summary>
 				public string LayerName;
+
+				/// <summary>Layers to composite together. Empty means "all visible layers".</summary>
+				public string[] LayerNames;
+
 				public int FrameNumber;
 				public bool OnlyVisibleLayers;
 				public bool IncludeBackgroundLayer;
@@ -71,9 +76,33 @@ namespace Voltage.Sprites
 				public AsepriteImageData(string layerName = null, int frameNumber = 0, bool onlyVisibleLayers = true, bool includeBackgroundLayer = false)
 				{
 					LayerName = layerName ?? "";
+					LayerNames = string.IsNullOrEmpty(layerName) ? Array.Empty<string>() : new[] { layerName };
 					FrameNumber = frameNumber;
 					OnlyVisibleLayers = onlyVisibleLayers;
 					IncludeBackgroundLayer = includeBackgroundLayer;
+				}
+
+				public AsepriteImageData(string[] layerNames, int frameNumber = 0, bool onlyVisibleLayers = true, bool includeBackgroundLayer = false)
+				{
+					LayerNames = layerNames ?? Array.Empty<string>();
+					LayerName = LayerNames.Length == 1 ? LayerNames[0] : "";
+					FrameNumber = frameNumber;
+					OnlyVisibleLayers = onlyVisibleLayers;
+					IncludeBackgroundLayer = includeBackgroundLayer;
+				}
+
+				/// <summary>Layers to flatten, migrating the legacy single-layer field. Empty = all visible layers.</summary>
+				public string[] EffectiveLayers
+				{
+					get
+					{
+						if (LayerNames != null && LayerNames.Length > 0)
+							return LayerNames;
+
+						return string.IsNullOrEmpty(LayerName)
+							? Array.Empty<string>()
+							: new[] { LayerName };
+					}
 				}
 			}
 
@@ -171,6 +200,14 @@ namespace Voltage.Sprites
 			{
 				FileType = ImageFileType.Aseprite;
 				AsepriteData = new AsepriteImageData(layerName, frameNumber, onlyVisibleLayers, includeBackgroundLayer);
+				TiledData = null; // Clear other data
+			}
+
+			/// <summary>Aseprite loading parameters for several layers. Empty = all visible layers.</summary>
+			public void SetAsepriteData(string[] layerNames, int frameNumber = 0, bool onlyVisibleLayers = true, bool includeBackgroundLayer = false)
+			{
+				FileType = ImageFileType.Aseprite;
+				AsepriteData = new AsepriteImageData(layerNames, frameNumber, onlyVisibleLayers, includeBackgroundLayer);
 				TiledData = null; // Clear other data
 			}
 
@@ -579,11 +616,11 @@ namespace Voltage.Sprites
 					if (_data.AsepriteData.HasValue)
 					{
 						var aseData = _data.AsepriteData.Value;
-						LoadAsepriteFile(_data.TextureFilePath, aseData.LayerName, aseData.FrameNumber);
+						LoadAsepriteFile(_data.TextureFilePath, aseData.EffectiveLayers, aseData.FrameNumber);
 					}
 					else
 					{
-						LoadAsepriteFile(_data.TextureFilePath);
+						LoadAsepriteFile(_data.TextureFilePath, Array.Empty<string>());
 					}
 					break;
 
@@ -779,6 +816,49 @@ namespace Voltage.Sprites
 		/// <param name="layerName">Optional specific layer name to include. If null, all visible layers will be included</param>
 		/// <param name="frameNumber">The frame number to load (0-based index). Defaults to 0</param>
 		/// <returns>The SpriteRenderer for method chaining</returns>
+		/// <summary>Loads an Aseprite frame, compositing the named layers. Empty = all visible layers.</summary>
+		public SpriteRenderer LoadAsepriteFile(string filepath, string[] layerNames, int frameNumber = 0)
+		{
+			var contentManager = Entity?.Scene?.Content ?? Core.Content;
+			if (contentManager == null)
+				throw new Exception($"No content manager available to load image file: {filepath}.");
+
+			try
+			{
+				var asepriteFile = contentManager.LoadAsepriteFile(filepath);
+				if (asepriteFile == null)
+				{
+					Debug.Error($"Failed to load Aseprite file: {filepath}");
+					return this;
+				}
+
+				if (frameNumber < 0 || frameNumber >= asepriteFile.Frames.Count)
+				{
+					Debug.Error($"Frame number {frameNumber} is out of range. File has {asepriteFile.Frames.Count} frames. Using frame 0 instead.");
+					frameNumber = 0;
+				}
+
+				var layers = layerNames ?? Array.Empty<string>();
+				var sprite = AsepriteUtils.LoadAsepriteFrame(filepath, frameNumber, true, false, layers);
+
+				if (sprite == null)
+				{
+					Debug.Error($"Failed to create sprite from Aseprite file: {filepath}");
+					return this;
+				}
+
+				SetSprite(sprite);
+				_data.SetAsepriteData(layers, frameNumber);
+				_data.TextureFilePath = filepath;
+			}
+			catch (Exception e)
+			{
+				Debug.Error($"Error loading Aseprite file {filepath}: {e.Message}");
+			}
+
+			return this;
+		}
+
 		public SpriteRenderer LoadAsepriteFile(string filepath, string layerName = null, int frameNumber = 0)
 		{
 			var contentManager = Entity?.Scene?.Content ?? Core.Content;

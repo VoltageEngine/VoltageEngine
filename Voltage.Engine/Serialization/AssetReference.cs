@@ -33,7 +33,7 @@ namespace Voltage.Serialization;
 public struct AssetReference
 {
 	public Guid AssetGuid;
-	/// Project-relative path. Fallback only - prefer the GUID.</summary>
+	/// Project-relative path. Fallback only - prefer the GUID.
 	public string AssetPath;
 	public string AssetName;
 
