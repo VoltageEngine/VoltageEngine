@@ -15,7 +15,7 @@ namespace Voltage.Cinematics
 	[ComponentId("timeline_director")]
 	public partial class TimelineDirector : Component, IUpdatable, ITimelineContext
 	{
-		/// <summary>The reusable .timeline asset this director plays.</summary>
+		/// <summary>The reusable .vtimeline asset this director plays.</summary>
 		public AssetReference Timeline;
 
 		/// <summary>Role → scene entity for pre-existing actors. Spawnables bind themselves at runtime.</summary>
@@ -485,7 +485,7 @@ namespace Voltage.Cinematics
 		}
 
 		/// <summary>
-		/// Best-effort load of the .timeline JSON from the resolved asset path. The full content-pipeline
+		/// Best-effort load of the .vtimeline JSON from the resolved asset path. The full content-pipeline
 		/// integration (baked manifest, polymorphic track deserialization) lands in a later milestone; for
 		/// now this covers editor + direct-path cases.
 		/// </summary>

@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Audio;
+using Voltage.Serialization;
 
 namespace Voltage.Audio
 {
@@ -38,6 +39,10 @@ namespace Voltage.Audio
 			set { if (_instance.State == SoundState.Stopped) _instance.IsLooped = value; }
 		}
 
+		// Stored but ignored — SoundEffectInstance has no low-pass/reverb.
+		public float LowPassCutoffHz { get; set; }
+		public float ReverbSend { get; set; }
+
 		public AudioPlayState State => _instance.State switch
 		{
 			SoundState.Playing => AudioPlayState.Playing,
@@ -60,9 +65,8 @@ namespace Voltage.Audio
 	}
 
 	/// <summary>
-	/// Default audio backend built on MonoGame's <see cref="SoundEffect"/> API (OpenAL on desktop, each
-	/// console's native audio). Has no mixing/bus/DSP of its own — that lives in <see cref="AudioMixer"/>
-	/// and <see cref="AudioManager"/> above it.
+	/// Default audio backend built on MonoGame's <see cref="SoundEffect"/> API (OpenAL on desktop, native
+	/// audio on consoles). Mixing/bus/DSP lives above it in <see cref="AudioMixer"/> and <see cref="AudioManager"/>.
 	/// </summary>
 	public sealed class MonoGameAudioBackend : IAudioBackend
 	{
@@ -70,16 +74,30 @@ namespace Voltage.Audio
 
 		public void Shutdown() { }
 
-		public IAudioHandle CreateHandle(SoundEffect clip, bool looped)
+		public AudioClip LoadClip(AssetReference reference)
 		{
-			var instance = clip.CreateInstance();
+			// Loads through the scene's content pipeline; null scene / unresolved reference degrades to null.
+			if (!reference.IsValid || Core.Scene == null)
+				return null;
+			return AudioClip.FromSoundEffect(Core.Scene.LoadAsset<SoundEffect>(reference));
+		}
+
+		public IAudioHandle CreateHandle(AudioClip clip, bool looped)
+		{
+			if (clip is not SoundEffectAudioClip seClip || seClip.Sound == null)
+				return null;
+
+			var instance = seClip.Sound.CreateInstance();
 			instance.IsLooped = looped;
 			return new MonoGameAudioHandle(instance);
 		}
 
-		public bool PlayOneShot(SoundEffect clip, float volume, float pitch, float pan)
+		public bool PlayOneShot(AudioClip clip, float volume, float pitch, float pan)
 		{
-			return clip.Play(
+			if (clip is not SoundEffectAudioClip seClip || seClip.Sound == null)
+				return false;
+
+			return seClip.Sound.Play(
 				MathHelper.Clamp(volume, 0f, 1f),
 				MathHelper.Clamp(pitch, -1f, 1f),
 				MathHelper.Clamp(pan, -1f, 1f));

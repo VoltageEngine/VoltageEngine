@@ -186,6 +186,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private AssetBrowserWindow _assetBrowserWindow = new();
 	private PluginManagerWindow _pluginManagerWindow = new();
 	private TimelineWindow _timelineWindow = new();
+	private AudioProfilerWindow _audioProfilerWindow = new();
+	private PerformanceProfilerWindow _performanceProfilerWindow = new();
 
 	private List<(Entity entity, Collider collider)> _highlightedEntities = new();
 	private IReadOnlyList<Entity> _lastSelectedEntities = null;
@@ -554,6 +556,24 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			ShowTimelineWindow = _timelineWindow.IsOpen;
 		}
 
+		// Audio Profiler: toggled via the Profiler menu (persistent). Two-way sync so closing it with the
+		// window's X also unticks the menu item.
+		if (ShowAudioProfilerWindow)
+		{
+			_audioProfilerWindow.IsOpen = true;
+			_audioProfilerWindow.Draw();
+			ShowAudioProfilerWindow = _audioProfilerWindow.IsOpen;
+		}
+
+		// Performance Profiler: toggled via the Profiler menu (persistent). Two-way sync so closing it with
+		// the window's X also unticks the menu item.
+		if (ShowPerformanceProfilerWindow)
+		{
+			_performanceProfilerWindow.IsOpen = true;
+			_performanceProfilerWindow.Draw();
+			ShowPerformanceProfilerWindow = _performanceProfilerWindow.IsOpen;
+		}
+
 		Plugins.EditorPluginHost.DrawWindows();
 		_cursorSelectionManager.UpdateSelection();
 	}
@@ -856,6 +876,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			DrawFileMenu();
 			DrawProjectMenu();
 			DrawViewMenu();
+			DrawProfilerMenu();
 			DrawScriptingMenu();
 			DrawEffectsMenu();
 			DrawBuildMenu();

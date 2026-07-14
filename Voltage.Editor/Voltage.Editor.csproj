@@ -103,10 +103,10 @@
 		</Content>
 	</ItemGroup>
 
-	<!-- Vendored tinyfiledialogs native (OS-native file/folder dialogs). Copy the current platform's
-	     prebuilt library next to the editor binary so NativeFileDialogs' P/Invoke resolves it. A missing
-	     native (e.g. win/linux not yet built via Native/tinyfiledialogs/build-native.*) is harmless —
-	     the editor falls back to the built-in ImGui picker. -->
+	<!-- Vendored tinyfiledialogs native (OS-native file/folder dialogs). Prebuilt libraries for win-x64,
+	     linux-x64, and osx-{x64,arm64} live under Native/tinyfiledialogs/runtimes/; copy the current
+	     platform's next to the editor binary so NativeFileDialogs' P/Invoke resolves it. If a platform's
+	     native is ever missing it's harmless — the editor falls back to the built-in ImGui picker. -->
 	<PropertyGroup>
 		<_TfdRuntimes>$(MSBuildThisFileDirectory)Native\tinyfiledialogs\runtimes\</_TfdRuntimes>
 	</PropertyGroup>

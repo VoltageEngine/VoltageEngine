@@ -3,18 +3,16 @@ using System.Collections.Generic;
 namespace Voltage.Audio
 {
 	/// <summary>
-	/// Placeholder for a future per-bus DSP effect (reverb, EQ, filter). The native system does not
-	/// implement effects — this hook exists so the bus API won't change if an effect-capable backend
-	/// (e.g. FMOD) is added later. Declared, unused by design.
+	/// Placeholder for a future per-bus DSP effect (reverb, EQ, filter). Declared but unused by design — the
+	/// hook exists so the bus API won't change if an effect-capable backend (e.g. FMOD) is added later.
 	/// </summary>
 	public interface IAudioEffect
 	{
 	}
 
 	/// <summary>
-	/// A named mixer group. Sounds routed to a bus have their output scaled by the bus gain (times its
-	/// parent chain). Pure arithmetic — no threads, no DSP — so it is AOT-safe and portable everywhere
-	/// MonoGame targets, consoles included.
+	/// A named mixer group. Sounds routed to a bus have their output scaled by the bus gain times its parent
+	/// chain. Pure arithmetic (no threads, no DSP), so it is AOT-safe and portable to every MonoGame target.
 	/// </summary>
 	public sealed class AudioBus
 	{
@@ -35,8 +33,12 @@ namespace Voltage.Audio
 		// Future-DSP hook. Never populated by the native system.
 		internal readonly List<IAudioEffect> Effects = new();
 
-		// Transient ducking multiplier 0..1, driven by AudioManager.Duck. Recovers toward 1.
-		internal float DuckMultiplier = 1f;
+		// Transient ducking 0..1, driven by AudioManager.Duck — an immediate dip that recovers toward 1.
+		internal float TransientDuck = 1f;
+
+		// Sustained ducking 0..1, driven by auto-duck-on-dialogue — held down while dialogue plays. Multiplies
+		// with TransientDuck.
+		internal float SustainedDuck = 1f;
 
 		public AudioBus(string name, AudioBus parent = null)
 		{
@@ -44,7 +46,7 @@ namespace Voltage.Audio
 			Parent = parent;
 		}
 
-		// This bus's own gain contribution (volume, mute, duck) — excludes parents and solo.
-		internal float LocalGain => (Mute ? 0f : Volume) * DuckMultiplier;
+		// This bus's own gain contribution (volume, mute, both ducks) — excludes parents and solo.
+		internal float LocalGain => (Mute ? 0f : Volume) * TransientDuck * SustainedDuck;
 	}
 }
