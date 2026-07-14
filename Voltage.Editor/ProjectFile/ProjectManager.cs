@@ -175,12 +175,6 @@ public class ProjectManager : GlobalManager
 			EngineLibsSync.SyncToProject(project.ProjectPath);
 			ProjectStructureGenerator.EnsureDefaultFontExists(project.ProjectPath);
 			ProjectSettings.Instance = project.Settings;
-
-			// Migrate pre-plugin-system projects (creates plugins.json with Farseer enabled, strips the
-			// legacy csproj reference), then restore plugins (plugins.json → cache → PluginLibs) before
-			// any scene loads so plugin components resolve. A failing plugin becomes Unavailable — it
-			// never blocks the open.
-			Plugins.PluginMigration.MigrateProjectIfNeeded(project);
 			Plugins.PluginManager.Instance.RestoreForProject(project);
 
 			// Point the content resolver at the game project root so that relative

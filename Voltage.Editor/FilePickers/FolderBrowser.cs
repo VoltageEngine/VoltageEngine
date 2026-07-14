@@ -30,9 +30,6 @@ namespace Voltage.Editor.FilePickers
 			_popupId = popupId;
 		}
 
-		/// <summary>True while the ImGui fallback popup is showing (native mode is never "open" — it blocks).</summary>
-		public bool IsOpen => _imguiPicker != null;
-
 		public void Open(string title, string startPath, object imguiOwner)
 		{
 			_result = null;

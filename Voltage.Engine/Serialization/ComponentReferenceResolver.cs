@@ -140,16 +140,16 @@ public static class ComponentReferenceResolver
 					if (remapped.EntityPersistentId != r.EntityPersistentId)
 						field.SetValue(target, remapped);
 				}
-				else if (field.FieldType == typeof(System.Collections.Generic.List<EntityReference>))
+				else if (field.FieldType == typeof(List<EntityReference>))
 				{
-					var list = (System.Collections.Generic.List<EntityReference>)field.GetValue(target);
+					var list = (List<EntityReference>)field.GetValue(target);
 					if (list != null)
 						for (int i = 0; i < list.Count; i++)
 							list[i] = RemapEntityReference(list[i], remap);
 				}
-				else if (field.FieldType == typeof(System.Collections.Generic.List<ComponentReference>))
+				else if (field.FieldType == typeof(List<ComponentReference>))
 				{
-					var list = (System.Collections.Generic.List<ComponentReference>)field.GetValue(target);
+					var list = (List<ComponentReference>)field.GetValue(target);
 					if (list != null)
 						for (int i = 0; i < list.Count; i++)
 							list[i] = RemapComponentReference(list[i], remap);

@@ -5,7 +5,7 @@ using System.IO;
 namespace Voltage.Serialization;
 
 /// <summary>
-/// A serializable, inspector-assignable reference to a project asset (texture, audio, data file, …)
+/// A serializable, inspector-assignable reference to a project asset (texture, audio, data file, etc...)
 /// — the general-asset analogue of <see cref="PrefabReference"/>. Declare a public field of this type
 /// on a component to get a drag/drop asset slot in the inspector, then load it from code with
 /// <see cref="Voltage.Scene.LoadAsset{T}(AssetReference)"/>.

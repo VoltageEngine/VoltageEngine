@@ -295,7 +295,7 @@ namespace Voltage.Editor.Windows
 			{
 				var result = PluginManager.Instance.AddPlugin(entry);
 				// A successful add is the only message that starts with "Added"; everything else
-				// (missing plugin.json, invalid source, duplicate, unavailable, …) is an error.
+				// (missing plugin.json, invalid source, duplicate, unavailable, ...) is an error.
 				var success = result != null && result.StartsWith("Added");
 				_addStatusMessage = result;
 				_addStatusIsError = !success;
@@ -495,7 +495,6 @@ namespace Voltage.Editor.Windows
 			try
 			{
 				var rel = Path.GetRelativePath(projectPath, absolutePath);
-				// GetRelativePath returns an absolute (or rooted/other-volume) path when it can't relativize.
 				return Path.IsPathRooted(rel) ? absolutePath : rel;
 			}
 			catch
@@ -541,7 +540,7 @@ namespace Voltage.Editor.Windows
 			}
 		}
 
-		/// <summary>SDK path configuration for plugins that declare external (non-redistributable) SDKs.</summary>
+		// SDK path configuration for plugins that declare external (non-redistributable) SDKs.
 		private void DrawExternalSdkSection(IReadOnlyList<PluginInstance> plugins)
 		{
 			var sdks = plugins
@@ -601,7 +600,7 @@ namespace Voltage.Editor.Windows
 			}
 		}
 
-		/// <summary>Records a table-action status message and classifies whether it reads as an error (red).</summary>
+		// Records a table-action status message and classifies whether it reads as an error (red).
 		private void SetStatus(string message)
 		{
 			_statusMessage = message;
