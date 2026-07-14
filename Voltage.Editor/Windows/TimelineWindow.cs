@@ -18,7 +18,7 @@ namespace Voltage.Editor.Windows
 	/// Authoring UI for cinematic timelines. Follows the "edit through a director" model: it edits the
 	/// <see cref="TimelineAsset"/> of the currently-selected entity's <see cref="TimelineDirector"/>, so the
 	/// director's per-scene role bindings drive a live preview (scrub/play evaluate against real entities),
-	/// while the data saves to the reusable <c>.timeline</c> asset.
+	/// while the data saves to the reusable <c>.vtimeline</c> asset.
 	/// </summary>
 	public class TimelineWindow
 	{
@@ -85,7 +85,7 @@ namespace Voltage.Editor.Windows
 			{
 				ImGui.TextColored(Muted, "Select an entity with a Timeline Director to edit its timeline.");
 				ImGui.Spacing();
-				ImGui.TextWrapped("Drag a .timeline asset into the scene (or add a Timeline Director component) to get started.");
+				ImGui.TextWrapped("Drag a .vtimeline asset into the scene (or add a Timeline Director component) to get started.");
 				ImGui.End();
 				return;
 			}
@@ -234,7 +234,7 @@ namespace Voltage.Editor.Windows
 				LoadTimeline();
 		}
 
-		/// <summary>New / Load buttons — create a fresh .timeline file or open an existing one for this director.</summary>
+		/// <summary>New / Load buttons — create a fresh .vtimeline file or open an existing one for this director.</summary>
 		private void DrawFileButtons()
 		{
 			if (ImGui.Button("New Timeline..."))
@@ -253,7 +253,7 @@ namespace Voltage.Editor.Windows
 		private void NewTimeline()
 		{
 			var start = DefaultTimelineFolder();
-			if (!NativeFileDialogs.TrySaveFile("New Timeline", Path.Combine(start, "NewTimeline.timeline"),
+			if (!NativeFileDialogs.TrySaveFile("New Timeline", Path.Combine(start, "NewTimeline" + TimelineAssetIO.FileExtension),
 				    new[] { "*" + TimelineAssetIO.FileExtension }, "Voltage Timeline", out var path) || string.IsNullOrEmpty(path))
 				return;
 
@@ -338,7 +338,7 @@ namespace Voltage.Editor.Windows
 			var path = _director.Timeline.ResolvePath();
 			if (string.IsNullOrEmpty(path))
 			{
-				_status = "No .timeline file path — assign the director's Timeline asset first.";
+				_status = "No .vtimeline file path — assign the director's Timeline asset first.";
 				return;
 			}
 			try

@@ -26,6 +26,12 @@ public class Program
 			return;
 		}
 
+		// Audio backend: uncomment to route ALL audio through the software mixing backend — real DSP
+		// (per-voice occlusion low-pass + global reverb). It probes the platform and falls back to the
+		// MonoGame backend automatically if unsupported, so this is safe to leave on for testing. Must be set
+		// before the Editor (and its AudioManager) is constructed. Watch the console for a "[Audio] Using…" line.
+		Audio.AudioManager.PreferSoftwareBackend = true;
+
 		using var game = new Editor();
 		game.Run();
 	}

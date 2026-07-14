@@ -4,14 +4,14 @@ using Voltage.Persistence;
 namespace Voltage.Cinematics
 {
 	/// <summary>
-	/// Load/save for <c>.timeline</c> assets. Uses <see cref="TypeNameHandling.Auto"/> so the polymorphic
+	/// Load/save for <c>.vtimeline</c> assets. Uses <see cref="TypeNameHandling.Auto"/> so the polymorphic
 	/// <see cref="TimelineAsset.ParameterTracks"/> list round-trips its concrete track types (e.g.
 	/// <see cref="TimelineTransformTrack"/>). Engine track types live in <c>Voltage.dll</c>, which is fully
 	/// preserved by TrimmerRoots, so this resolves correctly in NativeAOT game builds too.
 	/// </summary>
 	public static class TimelineAssetIO
 	{
-		public const string FileExtension = ".timeline";
+		public const string FileExtension = ".vtimeline";
 
 		private static JsonSettings Settings() => new()
 		{
