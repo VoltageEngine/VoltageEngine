@@ -248,6 +248,8 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 			if (elementType == typeof(Entity)) return true;
 			if (elementType == transformType) return true;
 			if (componentType.IsAssignableFrom(elementType) && elementType != objectType) return true;
+			if (elementType == typeof(AssetReference)) return true;
+			if (elementType == typeof(PrefabReference)) return true;
 			return false;
 		}
 
