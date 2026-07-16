@@ -131,6 +131,15 @@ public partial class ImGuiManager
 		set => _showPerformanceProfilerWindow.Value = value;
 	}
 
+	private PersistentBool _showPlacementGrid = new("ImGui_ShowPlacementGrid", false);
+
+	/// <summary>When true (and Snap to Grid is enabled), the placement grid is drawn in the game view.</summary>
+	public bool ShowPlacementGrid
+	{
+		get => _showPlacementGrid.Value;
+		set => _showPlacementGrid.Value = value;
+	}
+
 	private PersistentString _lastSelectedLayout = new("ImGui_LastSelectedLayout", "Default");
 	private PersistentString _lastSelectedTheme = new("ImGui_LastSelectedTheme", "DarkTheme1");
 	#endregion
@@ -789,6 +798,61 @@ public partial class ImGuiManager
 
 			ImGui.EndMenu();
 		}
+	}
+
+	/// <summary>
+	/// "Snap to Grid" toggle in the Editor Tools bar, positioned just left of the audio toggle. When snapping
+	/// is on, a "Show Grid" toggle appears next to it to draw the placement grid in the game view.
+	/// </summary>
+	private void DrawGridControlsRightAligned()
+	{
+		var style = ImGui.GetStyle();
+		float framePad = style.FramePadding.X * 2f;
+		float spacing = style.ItemSpacing.X;
+
+		bool snap = EditorSettingsWindow.SnapToGrid;
+
+		const string snapLabel = "Snap to Grid";
+		const string showLabel = "Show Grid";
+
+		float snapWidth = ImGui.CalcTextSize(snapLabel).X + framePad;
+		float showWidth = ImGui.CalcTextSize(showLabel).X + framePad + spacing;
+
+		// Reserve the audio toggle's footprint on the right (mirrors DrawAudioToggleRightAligned).
+		float audioIcon = 24f * FontSizeMultiplier;
+		float audioReserved = audioIcon + style.FramePadding.X * 2f + 8f;
+		float gap = spacing;
+
+		float posX = ImGui.GetWindowWidth() - audioReserved - gap - (snapWidth + showWidth);
+		if (posX > ImGui.GetCursorPosX())
+			ImGui.SetCursorPosX(posX);
+
+		DrawToggleButton(snapLabel, snap, () => EditorSettingsWindow.SnapToGrid = !snap);
+		if (ImGui.IsItemHovered())
+			ImGui.SetTooltip("Snap dragged/dropped entities to the grid.\nHold Ctrl while dragging to invert.");
+
+		ImGui.SameLine();
+		bool show = ShowPlacementGrid;
+		DrawToggleButton(showLabel, show, () => ShowPlacementGrid = !show);
+		if (ImGui.IsItemHovered())
+			ImGui.SetTooltip("Draw the placement grid in the game view.\nThe Tileset Editor's tile grid overrides it while that window is open.");
+	}
+
+	// Small button that tints blue when active, mirroring the Editor Tools bar toggle style.
+	private static void DrawToggleButton(string label, bool active, Action onClick)
+	{
+		if (active)
+		{
+			ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(0.2f, 0.5f, 1f, 1f));
+			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0.3f, 0.6f, 1f, 1f));
+			ImGui.PushStyleColor(ImGuiCol.ButtonActive, new Vector4(0.4f, 0.7f, 1f, 1f));
+		}
+
+		if (ImGui.Button(label))
+			onClick();
+
+		if (active)
+			ImGui.PopStyleColor(3);
 	}
 
 	private void DrawCurrentProjectIndicator()

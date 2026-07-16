@@ -17,8 +17,15 @@ namespace Voltage.Editor.Tools.Tilemap
 		Picker,
 	}
 
+	/// <summary>Whether the brush paints tiles or the collision mask.</summary>
+	public enum TileEditMode
+	{
+		Tiles,
+		Collision,
+	}
+
 	/// <summary>Turns mouse input in the game view into tilemap edits, and draws the grid/cursor overlays.</summary>
-	public class TilePaintTool
+	public partial class TilePaintTool
 	{
 		public TilemapRenderer Target;
 
@@ -29,6 +36,13 @@ namespace Voltage.Editor.Tools.Tilemap
 		public int FallbackTileHeight = 16;
 
 		public TileTool Tool = TileTool.Brush;
+
+		public TileEditMode EditMode = TileEditMode.Tiles;
+
+		/// <summary>Orientation applied to freshly painted tiles: 2-bit rotation + flipX/flipY. See TilemapRenderer.</summary>
+		public byte CurrentOrientation;
+
+		public Color CollisionColor = new(1f, 0.3f, 0.3f, 0.35f);
 
 		/// <summary>On: a drag lets stamps overlap. Off: a drag steps by the stamp size. A single click is always free-form.</summary>
 		public bool StackWhileDragging;
@@ -69,6 +83,10 @@ namespace Voltage.Editor.Tools.Tilemap
 
 		private Point _strokeAnchor;
 
+		private readonly List<TileCollisionUndoAction.CellChange> _collisionChanges = new();
+		private bool _isCollisionStroking;
+		private bool _collisionErases;
+
 		public void SetSelection(int[] tiles, int width, int height)
 		{
 			Selection = tiles ?? Array.Empty<int>();
@@ -77,6 +95,33 @@ namespace Voltage.Editor.Tools.Tilemap
 		}
 
 		public void SetSingleSelection(int tileIndex) => SetSelection(new[] { tileIndex }, 1, 1);
+
+		public int OrientationRotation => CurrentOrientation & TilemapRenderer.OrientRotationMask;
+		public bool OrientationFlipX => (CurrentOrientation & TilemapRenderer.OrientFlipX) != 0;
+		public bool OrientationFlipY => (CurrentOrientation & TilemapRenderer.OrientFlipY) != 0;
+
+		public void RotateBrush(int quarterTurns) =>
+			CurrentOrientation = TilemapRenderer.MakeOrientation(OrientationRotation + quarterTurns, OrientationFlipX, OrientationFlipY);
+
+		public void ToggleFlipX() =>
+			CurrentOrientation = TilemapRenderer.MakeOrientation(OrientationRotation, !OrientationFlipX, OrientationFlipY);
+
+		public void ToggleFlipY() =>
+			CurrentOrientation = TilemapRenderer.MakeOrientation(OrientationRotation, OrientationFlipX, !OrientationFlipY);
+
+		public void ResetOrientation() => CurrentOrientation = 0;
+
+		// Z / X rotate, V / B flip - kept off WASD (camera) and QERTB (cursor modes).
+		private void UpdateOrientationHotkeys()
+		{
+			if (EditMode != TileEditMode.Tiles)
+				return;
+
+			if (ImGui.IsKeyPressed(ImGuiKey.Z, false)) RotateBrush(-1);
+			if (ImGui.IsKeyPressed(ImGuiKey.X, false)) RotateBrush(1);
+			if (ImGui.IsKeyPressed(ImGuiKey.V, false)) ToggleFlipX();
+			if (ImGui.IsKeyPressed(ImGuiKey.C, false)) ToggleFlipY();
+		}
 
 		/// <summary>
 		/// Drops the target if its entity no longer belongs to a live scene. The tool lives on the ImGuiManager and
@@ -103,6 +148,7 @@ namespace Voltage.Editor.Tools.Tilemap
 
 		private void AbandonStroke()
 		{
+			AbandonCollisionStroke();
 			_strokeChanges.Clear();
 			_isStroking = false;
 			_isDraggingRect = false;
@@ -139,11 +185,28 @@ namespace Voltage.Editor.Tools.Tilemap
 		{
 			IsHovering = false;
 
+			UpdateOrientationHotkeys();
+
 			var cell = WorldToCell(worldMouse);
 			HoveredCell = cell;
 			IsHovering = true;
 
 			var eraseModifier = Input.RightMouseButtonDown || ImGui.GetIO().KeyShift;
+
+			// The collision overlay (existing solid cells) is always drawn in collision mode so you can see what
+			// you are editing.
+			if (EditMode == TileEditMode.Collision)
+			{
+				DrawCollisionOverlay(camera);
+				UpdateCollision(cell, eraseModifier);
+				return;
+			}
+
+			if (IsAutotiling)
+			{
+				UpdateAutotile(cell, Tool == TileTool.Eraser || eraseModifier);
+				return;
+			}
 
 			switch (Tool)
 			{
@@ -183,11 +246,15 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			if (_isStroking)
 				CommitStroke();
+
+			CommitPendingCollisionStroke();
 		}
 
 		/// <summary>Cancels an in-progress stroke without committing it, rolling its cells back.</summary>
 		public void Reset()
 		{
+			AbandonCollisionStroke();
+
 			if (_isStroking)
 			{
 				for (var i = _strokeChanges.Count - 1; i >= 0; i--)
@@ -438,10 +505,13 @@ namespace Voltage.Editor.Tools.Tilemap
 			}
 			else if (oldStack.Length == 0 || tileset == null || tileset.IsOpaque(newTile))
 			{
-				if (oldStack.Length == 1 && oldStack[0] == newTile)
+				// A fresh paint carries the brush's current orientation. Rotation is applied but deliberately not
+				// tracked by undo, so re-painting the same tile with the same orientation is a no-op.
+				if (oldStack.Length == 1 && oldStack[0] == newTile && Target.GetOrientation(x, y) == CurrentOrientation)
 					return;
 
 				Target.SetTile(x, y, newTile);
+				Target.SetOrientation(x, y, CurrentOrientation);
 			}
 			else
 			{
@@ -526,6 +596,39 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			for (var y = min.Y; y <= max.Y + 1; y++)
 				Debug.DrawLine(CellToWorld(min.X, y), CellToWorld(max.X + 1, y), GridColor, thickness, 0f);
+		}
+
+		/// <summary>
+		/// Draws a plain world-origin-aligned grid at an arbitrary pixel spacing. Used for the placement
+		/// (snap-to-grid) overlay, independent of any tileset's tile size.
+		/// </summary>
+		public void DrawPlacementGrid(Camera camera, int spacing)
+		{
+			if (spacing <= 0 || camera == null)
+				return;
+
+			var zoom = camera.RawZoom;
+			if (spacing * zoom < 4f)
+				return;
+
+			var view = camera.Bounds;
+			var minX = (int)Math.Floor(view.X / spacing);
+			var maxX = (int)Math.Ceiling(view.Right / spacing);
+			var minY = (int)Math.Floor(view.Y / spacing);
+			var maxY = (int)Math.Ceiling(view.Bottom / spacing);
+
+			if (maxX < minX || maxY < minY)
+				return;
+
+			var thickness = WorldThickness(GridThickness, zoom);
+			float top = minY * spacing, bottom = maxY * spacing;
+			float left = minX * spacing, right = maxX * spacing;
+
+			for (var x = minX; x <= maxX; x++)
+				Debug.DrawLine(new Vector2(x * spacing, top), new Vector2(x * spacing, bottom), GridColor, thickness, 0f);
+
+			for (var y = minY; y <= maxY; y++)
+				Debug.DrawLine(new Vector2(left, y * spacing), new Vector2(right, y * spacing), GridColor, thickness, 0f);
 		}
 
 		/// <summary>
