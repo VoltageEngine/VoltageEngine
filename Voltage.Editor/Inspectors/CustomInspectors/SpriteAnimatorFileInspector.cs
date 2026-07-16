@@ -97,7 +97,125 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                 }
             }
 
+            if (!string.IsNullOrEmpty(animator.TextureFilePath))
+            {
+                ImGui.Spacing();
+                ImGui.Separator();
+                DrawDefaultAnimationSelector(animator);
+            }
+
             DrawAsepriteAnimationFilePickerPopup(animator);
+        }
+
+        // Cache of animation names for the currently-loaded file, so we don't reparse the Aseprite every frame.
+        private string _defaultAnimCacheFile = null;
+        private List<string> _defaultAnimNames = new();
+
+        /// <summary>
+        /// Lets the user choose which animation plays on scene load. The choice is stored in
+        /// <see cref="SpriteAnimator.LoadedTag"/>, which is serialized and replayed by OnStart via LoadAllAnimations.
+        /// </summary>
+        private void DrawDefaultAnimationSelector(SpriteAnimator animator)
+        {
+            ImGui.TextColored(new Num.Vector4(0.8f, 0.9f, 1.0f, 1.0f), "Default Animation (played on scene load)");
+
+            RefreshDefaultAnimNames(animator);
+
+            if (_defaultAnimNames.Count == 0)
+            {
+                ImGui.TextColored(new Num.Vector4(0.7f, 0.7f, 0.7f, 1f), "No animations found in this file.");
+                return;
+            }
+
+            int current = _defaultAnimNames.IndexOf(animator.LoadedTag);
+            if (current < 0) current = 0;
+
+            ImGui.SetNextItemWidth(-1);
+            if (ImGui.BeginCombo("##DefaultAnim", _defaultAnimNames[current]))
+            {
+                for (int i = 0; i < _defaultAnimNames.Count; i++)
+                {
+                    bool selected = i == current;
+                    if (ImGui.Selectable(_defaultAnimNames[i], selected) && _defaultAnimNames[i] != animator.LoadedTag)
+                        SetDefaultAnimationWithUndo(animator, _defaultAnimNames[i]);
+
+                    if (selected)
+                        ImGui.SetItemDefaultFocus();
+                }
+                ImGui.EndCombo();
+            }
+
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip("This animation is serialized and plays automatically the next time the scene loads.");
+        }
+
+        private void RefreshDefaultAnimNames(SpriteAnimator animator)
+        {
+            if (_defaultAnimCacheFile == animator.TextureFilePath && _defaultAnimNames.Count > 0)
+                return;
+
+            _defaultAnimCacheFile = animator.TextureFilePath;
+            _defaultAnimNames.Clear();
+
+            // Prefer names already loaded on the animator; fall back to the file's tags.
+            if (animator.Animations is { Count: > 0 })
+            {
+                foreach (var key in animator.Animations.Keys)
+                    if (!_defaultAnimNames.Contains(key))
+                        _defaultAnimNames.Add(key);
+                return;
+            }
+
+            try
+            {
+                var file = animator.Entity?.Scene?.Content?.LoadAsepriteFile(animator.TextureFilePath)
+                           ?? Core.Content.LoadAsepriteFile(animator.TextureFilePath);
+                if (file?.Tags != null)
+                    foreach (var tag in file.Tags)
+                        if (!_defaultAnimNames.Contains(tag.Name))
+                            _defaultAnimNames.Add(tag.Name);
+            }
+            catch (Exception ex)
+            {
+                _errorMessage = $"Failed to read animations: {ex.Message}";
+            }
+        }
+
+        private void SetDefaultAnimationWithUndo(SpriteAnimator animator, string animationName)
+        {
+            var oldFilePath = animator.TextureFilePath;
+            var oldData = animator.Data != null
+                ? new SpriteAnimator.SpriteAnimatorComponentData(animator)
+                : new SpriteAnimator.SpriteAnimatorComponentData();
+
+            animator.LoadedTag = animationName;
+
+            // Load every animation so the editor can preview the newly-selected default immediately.
+            try
+            {
+                animator.LoadAllAnimations();
+                if (animator.Animations != null && animator.Animations.ContainsKey(animationName))
+                    animator.Play(animationName);
+            }
+            catch (Exception ex)
+            {
+                _errorMessage = $"Failed to play '{animationName}': {ex.Message}";
+            }
+
+            var newData = new SpriteAnimator.SpriteAnimatorComponentData(animator);
+
+            EditorChangeTracker.PushUndo(
+                new SpriteAnimatorLoadUndoAction(
+                    animator,
+                    oldFilePath,
+                    oldData,
+                    animator.TextureFilePath,
+                    newData,
+                    $"Set Default Animation: {animationName}"
+                ),
+                animator.Entity,
+                $"Set Default Animation: {animationName}"
+            );
         }
 
         private void DrawAsepriteAnimationFilePickerPopup(SpriteAnimator animator)

@@ -79,6 +79,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			var entityName = scene.GetUniqueEntityName(baseName, null);
 			var entity = new Entity(entityName, Entity.InstanceType.Serialized);
 			entity.Transform.Position = Microsoft.Xna.Framework.Vector2.Zero;
+			entity.CanBeSelected = false; // Tilemap layers are painted via the palette, not click-selected in the viewport.
 
 			scene.AddEntity(entity);
 

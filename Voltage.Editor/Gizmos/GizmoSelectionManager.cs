@@ -108,14 +108,25 @@ namespace Voltage.Editor.Gizmos
 
 			// Drawn regardless of cursor position: tying it to viewport hover made it vanish whenever the mouse
 			// moved onto the Tile Palette (including to change its colour).
-			if (Core.IsEditMode && Core.Scene != null && tilePaintTool.ShowGrid &&
-				(SelectionMode == CursorSelectionMode.TilePaint || tilePaintTool.AlwaysShowGrid))
+			if (Core.IsEditMode && Core.Scene != null)
 			{
-				// Resolve the layer first so the grid aligns to it, not the world-origin fallback.
-				var selected = _imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities;
-				tilePaintTool.ValidateTarget(selected.Count > 0 ? selected[0] : null);
+				var tilesetEditorOpen = _imGuiManager.TilesetEditorWindow.IsOpen;
+				var paintGridActive = tilePaintTool.ShowGrid &&
+					(SelectionMode == CursorSelectionMode.TilePaint || tilePaintTool.AlwaysShowGrid);
 
-				tilePaintTool.DrawGrid(Core.Scene.Camera);
+				// The tileset tile grid (paint mode or an open Tileset Editor) overrides the placement grid.
+				if (paintGridActive || tilesetEditorOpen)
+				{
+					// Resolve the layer first so the grid aligns to it, not the world-origin fallback.
+					var selected = _imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities;
+					tilePaintTool.ValidateTarget(selected.Count > 0 ? selected[0] : null);
+
+					tilePaintTool.DrawGrid(Core.Scene.Camera);
+				}
+				else if (_imGuiManager.ShowPlacementGrid)
+				{
+					tilePaintTool.DrawPlacementGrid(Core.Scene.Camera, Voltage.Editor.Tools.EditorSettingsWindow.SnapGridSize);
+				}
 			}
 
 			// Update() stops running outside the viewport, so close any stroke released out there.

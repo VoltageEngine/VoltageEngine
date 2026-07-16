@@ -139,27 +139,32 @@ namespace Voltage.Editor.Gizmos
 			if ((_draggingX || _draggingY) && Input.LeftMouseButtonDown)
 			{
 				var delta = worldMouse - _dragStartWorldMouse;
+				// Ctrl inverts the snap setting; snapping the final position flows into undo automatically.
+				var snapCtrl = ImGui.GetIO().KeyCtrl || ImGui.GetIO().KeySuper;
 				foreach (var entity in selectedEntities)
 				{
 					var startPos = _dragStartEntityPositions.TryGetValue(entity, out var pos)
 						? pos
 						: entity.Transform.Position;
 
+					Vector2 target;
 					if (_draggingX && _draggingY)
 					{
 						ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeAll);
-						entity.Transform.Position = startPos + delta;
+						target = startPos + delta;
 					}
 					else if (_draggingX)
 					{
 						ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeEW);
-						entity.Transform.Position = new Vector2(startPos.X + delta.X, startPos.Y);
+						target = new Vector2(startPos.X + delta.X, startPos.Y);
 					}
-					else if (_draggingY)
+					else
 					{
 						ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeNS);
-						entity.Transform.Position = new Vector2(startPos.X, startPos.Y + delta.Y);
+						target = new Vector2(startPos.X, startPos.Y + delta.Y);
 					}
+
+					entity.Transform.Position = Tools.EditorSettingsWindow.ApplyPlacementSnap(target, snapCtrl);
 				}
 			}
 

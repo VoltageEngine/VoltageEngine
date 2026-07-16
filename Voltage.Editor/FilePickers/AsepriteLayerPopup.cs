@@ -2,12 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using ImGuiNET;
+using Microsoft.Xna.Framework.Graphics;
 using Voltage.Editor.DebugUtils;
+using Voltage.Editor.ImGuiCore;
 using Num = System.Numerics;
 
 namespace Voltage.Editor.FilePickers
 {
-	/// <summary>Picks which layers and which frame of an Aseprite file get flattened into a single image.</summary>
+	/// <summary>
+	/// Picks how an Aseprite file becomes a tile image: a single flattened frame (choose layers + frame), or an
+	/// ANIMATED tile built from a frame range (with a live play preview). The chosen layers apply to both.
+	/// </summary>
 	public sealed class AsepriteLayerPopup
 	{
 		private readonly string _popupId;
@@ -18,16 +23,30 @@ namespace Voltage.Editor.FilePickers
 		private int _frame;
 		private int _frameCount = 1;
 
+		private bool _animate;
+		private int _animStart;
+		private int _animEnd;
+
 		private bool _openNextFrame;
-		private bool _confirmed;
+
+		// Live preview: one texture per frame in the range, rebuilt when the range or layer set changes.
+		private readonly List<Texture2D> _frameTextures = new();
+		private readonly List<IntPtr> _frameIds = new();
+		private float _previewDuration = 0.1f;
+		private string _previewKey = "";
 
 		public string FilePath => _filePath;
 
 		/// <summary>Layers to composite. Empty means "all visible layers".</summary>
 		public List<string> SelectedLayers { get; } = new();
 
-		/// <summary>Zero-based frame index.</summary>
+		/// <summary>Zero-based frame index (single-frame mode).</summary>
 		public int Frame { get; private set; }
+
+		/// <summary>True when the user confirmed an animated tile.</summary>
+		public bool Animate { get; private set; }
+		public int AnimStart { get; private set; }
+		public int AnimEnd { get; private set; }
 
 		public AsepriteLayerPopup(string popupId) => _popupId = popupId;
 
@@ -68,7 +87,10 @@ namespace Voltage.Editor.FilePickers
 
 			_filePath = absolutePath;
 			_frame = Math.Clamp(frame, 0, _frameCount - 1);
-			_confirmed = false;
+			_animate = false;
+			_animStart = 0;
+			_animEnd = _frameCount - 1;
+			FreePreviews();
 			_openNextFrame = true;
 			return true;
 		}
@@ -76,6 +98,9 @@ namespace Voltage.Editor.FilePickers
 		/// <summary>Draws the popup. Returns true on the single frame the user confirms.</summary>
 		public bool Draw()
 		{
+			// Build/refresh the per-frame preview textures before the layout pass so the modal only draws them.
+			EnsurePreview();
+
 			if (_openNextFrame)
 			{
 				ImGui.OpenPopup(_popupId);
@@ -84,7 +109,7 @@ namespace Voltage.Editor.FilePickers
 
 			var center = ImGui.GetMainViewport().GetCenter();
 			ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
-			ImGui.SetNextWindowSize(new Num.Vector2(420, 460), ImGuiCond.Appearing);
+			ImGui.SetNextWindowSize(new Num.Vector2(440, 560), ImGuiCond.Appearing);
 
 			var open = true;
 			if (!ImGui.BeginPopupModal(_popupId, ref open, ImGuiWindowFlags.NoResize))
@@ -93,20 +118,148 @@ namespace Voltage.Editor.FilePickers
 			ImGui.TextUnformatted(Path.GetFileName(_filePath ?? string.Empty));
 			ImGui.Separator();
 
+			ImGui.Checkbox("Create as animated tile", ref _animate);
+			if (ImGui.IsItemHovered())
+				ImGui.SetTooltip("Packs a frame range into an animated tile instead of flattening one frame.");
+
+			if (_animate)
+				DrawAnimationRange();
+			else
+				DrawSingleFrame();
+
+			ImGui.Spacing();
+			DrawLayers();
+
+			ImGui.Separator();
+
+			var confirmed = false;
+			if (ImGui.Button("Use this", new Num.Vector2(120, 0)))
+			{
+				CaptureLayers();
+
+				Animate = _animate;
+				if (_animate)
+				{
+					AnimStart = Math.Min(_animStart, _animEnd);
+					AnimEnd = Math.Max(_animStart, _animEnd);
+				}
+				else
+				{
+					Frame = _frame;
+				}
+
+				confirmed = true;
+				FreePreviews();
+				ImGui.CloseCurrentPopup();
+			}
+
+			ImGui.SameLine();
+
+			if (ImGui.Button("Cancel", new Num.Vector2(120, 0)))
+			{
+				FreePreviews();
+				ImGui.CloseCurrentPopup();
+			}
+
+			ImGui.EndPopup();
+
+			// Dismissed by the X or a click outside.
+			if (!open)
+				FreePreviews();
+
+			return confirmed;
+		}
+
+		private void DrawSingleFrame()
+		{
 			ImGui.TextUnformatted("Frame");
 			ImGui.SetNextItemWidth(-1);
 
 			var frame = _frame;
 			if (ImGui.SliderInt("##frame", ref frame, 0, _frameCount - 1, $"%d / {_frameCount - 1}"))
 				_frame = Math.Clamp(frame, 0, _frameCount - 1);
+		}
 
-			ImGui.Spacing();
+		private void DrawAnimationRange()
+		{
+			var start = _animStart;
+			var end = _animEnd;
+
+			ImGui.TextUnformatted("Start / end frame");
+			ImGui.SetNextItemWidth(-1);
+			if (ImGui.SliderInt("##animstart", ref start, 0, _frameCount - 1, $"start %d / {_frameCount - 1}"))
+				_animStart = Math.Clamp(start, 0, _frameCount - 1);
+
+			ImGui.SetNextItemWidth(-1);
+			if (ImGui.SliderInt("##animend", ref end, 0, _frameCount - 1, $"end %d / {_frameCount - 1}"))
+				_animEnd = Math.Clamp(end, 0, _frameCount - 1);
+
+			var lo = Math.Min(_animStart, _animEnd);
+			var hi = Math.Max(_animStart, _animEnd);
+			ImGui.TextDisabled($"{hi - lo + 1} frames");
+
+			DrawPlayPreview(lo);
+		}
+
+		/// <summary>Rebuilds the per-frame preview textures when the frame range or layer set changes.</summary>
+		private void EnsurePreview()
+		{
+			if (!_animate)
+			{
+				if (_frameIds.Count > 0)
+					FreePreviews();
+				return;
+			}
+
+			var lo = Math.Min(_animStart, _animEnd);
+			var hi = Math.Max(_animStart, _animEnd);
+			var key = $"{lo}:{hi}:{string.Join(',', OrderedSelectedLayers())}";
+			if (key != _previewKey)
+				RebuildPreview(lo, hi, key);
+		}
+
+		private void DrawPlayPreview(int lo)
+		{
+			const float size = 96f;
+			var origin = ImGui.GetCursorScreenPos();
+			var drawList = ImGui.GetWindowDrawList();
+			var boxMax = new Num.Vector2(origin.X + size, origin.Y + size);
+			drawList.AddRectFilled(origin, boxMax, ImGui.GetColorU32(new Num.Vector4(0.15f, 0.15f, 0.15f, 1f)));
+
+			if (_frameIds.Count > 0)
+			{
+				var idx = (int)(ImGui.GetTime() / _previewDuration) % _frameIds.Count;
+
+				ImGui.Image(_frameIds[idx], new Num.Vector2(size, size));
+				drawList.AddRect(origin, boxMax, ImGui.GetColorU32(new Num.Vector4(0.5f, 0.5f, 0.5f, 1f)));
+
+				ImGui.SameLine();
+				ImGui.TextDisabled($"playing (frame {lo + idx})");
+			}
+			else
+			{
+				ImGui.Dummy(new Num.Vector2(size, size));
+				drawList.AddRect(origin, boxMax, ImGui.GetColorU32(new Num.Vector4(0.5f, 0.5f, 0.5f, 1f)));
+			}
+		}
+
+		private IEnumerable<string> OrderedSelectedLayers()
+		{
+			foreach (var layer in _layers)
+			{
+				if (_selected.Contains(layer))
+					yield return layer;
+			}
+		}
+
+		private void DrawLayers()
+		{
 			ImGui.TextUnformatted("Layers");
 			ImGui.TextDisabled(_selected.Count == 0
-				? "None ticked — all visible layers will be flattened."
+				? "None ticked - all visible layers will be flattened."
 				: $"{_selected.Count} layer(s) will be composited together.");
 
-			ImGui.BeginChild("layers", new Num.Vector2(0, 260), true);
+			ImGui.BeginChild("layers", new Num.Vector2(0, 150), true);
 
 			foreach (var layer in _layers)
 			{
@@ -117,6 +270,9 @@ namespace Voltage.Editor.FilePickers
 						_selected.Add(layer);
 					else
 						_selected.Remove(layer);
+
+					// The preview depends on the layer set, so force a rebuild.
+					_previewKey = "";
 				}
 			}
 
@@ -129,40 +285,82 @@ namespace Voltage.Editor.FilePickers
 			{
 				foreach (var layer in _layers)
 					_selected.Add(layer);
+				_previewKey = "";
 			}
 
 			ImGui.SameLine();
 
 			if (ImGui.Button("Clear"))
-				_selected.Clear();
-
-			ImGui.Separator();
-
-			var confirmed = false;
-			if (ImGui.Button("Use this", new Num.Vector2(120, 0)))
 			{
-				SelectedLayers.Clear();
-
-				// File order, not tick order: that is how Aseprite composites, so the result matches the artist's view.
-				foreach (var layer in _layers)
-				{
-					if (_selected.Contains(layer))
-						SelectedLayers.Add(layer);
-				}
-
-				Frame = _frame;
-				_confirmed = true;
-				confirmed = true;
-				ImGui.CloseCurrentPopup();
+				_selected.Clear();
+				_previewKey = "";
 			}
+		}
 
-			ImGui.SameLine();
+		private void CaptureLayers()
+		{
+			SelectedLayers.Clear();
 
-			if (ImGui.Button("Cancel", new Num.Vector2(120, 0)))
-				ImGui.CloseCurrentPopup();
+			// File order, not tick order: that is how Aseprite composites, so the result matches the artist's view.
+			foreach (var layer in _layers)
+			{
+				if (_selected.Contains(layer))
+					SelectedLayers.Add(layer);
+			}
+		}
 
-			ImGui.EndPopup();
-			return confirmed;
+		private void RebuildPreview(int lo, int hi, string key)
+		{
+			FreePreviews();
+			_previewKey = key;
+
+			var manager = Core.GetGlobalManager<ImGuiManager>();
+			if (manager == null)
+				return;
+
+			try
+			{
+				var file = Core.Content.LoadAsepriteFile(_filePath);
+				if (file == null)
+					return;
+
+				var layers = new List<string>(OrderedSelectedLayers()).ToArray();
+
+				// The first frame's duration drives playback speed (Aseprite stores per-frame durations in ms).
+				if (file.Frames.Count > lo)
+					_previewDuration = Math.Max(0.01f, file.Frames[lo].Duration / 1000f);
+
+				// One texture per frame via the proven GetTextureFromLayers path (frameNumber is 1-based).
+				for (var f = lo; f <= hi; f++)
+				{
+					var tex = file.GetTextureFromLayers(f + 1, true, false, layers);
+					if (tex == null)
+						continue;
+
+					_frameTextures.Add(tex);
+					_frameIds.Add(manager.BindTexture(tex));
+				}
+			}
+			catch (Exception e)
+			{
+				EditorDebug.Log($"Aseprite: preview build failed: {e.Message}", "Tileset");
+			}
+		}
+
+		private void FreePreviews()
+		{
+			var manager = Core.GetGlobalManager<ImGuiManager>();
+			foreach (var id in _frameIds)
+			{
+				if (id != IntPtr.Zero)
+					manager?.UnbindTexture(id);
+			}
+			foreach (var tex in _frameTextures)
+				tex?.Dispose();
+
+			_frameIds.Clear();
+			_frameTextures.Clear();
+			_previewKey = "";
 		}
 	}
 }
