@@ -109,10 +109,20 @@ namespace Voltage.Spatial
 		/// adds the object to the SpatialHash
 		/// </summary>
 		/// <param name="collider">Object.</param>
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		static bool IsFiniteBounds(RectangleF b) =>
+			float.IsFinite(b.X) && float.IsFinite(b.Y) && float.IsFinite(b.Width) && float.IsFinite(b.Height);
+
 		public void Register(Collider collider)
 		{
 			var bounds = collider.Bounds;
 			collider.registeredPhysicsBounds = bounds;
+
+			// Non-finite bounds would union GridBounds toward infinity and freeze any GridBounds sweep (DebugDraw).
+			// Keep such a collider out of the hash until its bounds are valid again.
+			if (!IsFiniteBounds(bounds))
+				return;
+
 			var p1 = CellCoords(bounds.X, bounds.Y);
 			var p2 = CellCoords(bounds.Right, bounds.Bottom);
 
@@ -142,6 +152,9 @@ namespace Voltage.Spatial
 		public void Remove(Collider collider)
 		{
 			var bounds = collider.registeredPhysicsBounds;
+			if (!IsFiniteBounds(bounds))
+				return;
+
 			var p1 = CellCoords(bounds.X, bounds.Y);
 			var p2 = CellCoords(bounds.Right, bounds.Bottom);
 

@@ -22,6 +22,11 @@ namespace Voltage
 		static KeyboardState _currentKbState;
 		static MouseState _previousMouseState;
 		static MouseState _currentMouseState;
+
+		// Actual OS mouse movement, captured from the hardware poll before anything can override the mouse state
+		// (the editor rewrites it to game-window coordinates). Keeps MousePositionDelta a clean physical delta.
+		static Point _lastPolledMousePos;
+		static Point _mousePositionDelta;
 		static internal FastList<VirtualInput> _virtualInputs = new FastList<VirtualInput>();
 		static int _maxSupportedGamePads;
 
@@ -80,6 +85,7 @@ namespace Voltage
 
 			_previousMouseState = new MouseState();
 			_currentMouseState = Mouse.GetState();
+			_lastPolledMousePos = new Point(_currentMouseState.X, _currentMouseState.Y);
 
 			MaxSupportedGamePads = 1;
 		}
@@ -94,6 +100,10 @@ namespace Voltage
 
 			_previousMouseState = _currentMouseState;
 			_currentMouseState = Mouse.GetState();
+
+			_mousePositionDelta = new Point(_currentMouseState.X - _lastPolledMousePos.X,
+				_currentMouseState.Y - _lastPolledMousePos.Y);
+			_lastPolledMousePos = new Point(_currentMouseState.X, _currentMouseState.Y);
 
 			// Double-click detection
 			_doubleLeftMouseButtonPressed = false;
@@ -437,9 +447,7 @@ namespace Voltage
 		/// <value>The scaled mouse position.</value>
 		public static Vector2 ScaledMousePosition => ScaledPosition(new Vector2(_currentMouseState.X, _currentMouseState.Y));
 
-		public static Point MousePositionDelta =>
-			new Point(_currentMouseState.X, _currentMouseState.Y) -
-			new Point(_previousMouseState.X, _previousMouseState.Y);
+		public static Point MousePositionDelta => _mousePositionDelta;
 
 		public static Vector2 ScaledMousePositionDelta
 		{

@@ -525,6 +525,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		// finished drawing above with the raw OS mouse coordinates.
 		ApplyGameWindowMouseOverride();
 
+		if (DisableKeyboardInputWhenGameWindowUnfocused && !IsGameWindowFocused)
+			Input.SetCurrentKeyboardState(new Microsoft.Xna.Framework.Input.KeyboardState());
+
 		UpdateCamera();
 		NotificationSystem.Draw();
 		GlobalKeyCommands();

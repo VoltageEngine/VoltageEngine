@@ -220,9 +220,29 @@ namespace Voltage
 				var oneWayNormal = oneWay ? new Vector2(0f, -1f) : Vector2.Zero;
 				var originPx = new Vector2(x * tw + _localOffset.X, y * th + _localOffset.Y);
 
-				Collider collider = shape == TileCollisionShape.Box
-					? new BoxCollider(originPx.X, originPx.Y, tw, th)
-					: new PolygonCollider(SlopePoints(shape, originPx, tw, th));
+				Collider collider;
+				switch (shape)
+				{
+					case TileCollisionShape.Circle:
+						collider = new CircleCollider(Math.Min(tw, th) / 2f);
+						collider.SetLocalOffset(new Vector2(originPx.X + tw / 2f, originPx.Y + th / 2f));
+						break;
+
+					case TileCollisionShape.Custom:
+						var pts = CustomPoints(tileset, x, y, originPx, tw, th);
+						if (pts == null)
+							continue; // missing/degenerate custom shape
+						collider = new PolygonCollider(pts);
+						break;
+
+					case TileCollisionShape.Box:
+						collider = new BoxCollider(originPx.X, originPx.Y, tw, th);
+						break;
+
+					default:
+						collider = new PolygonCollider(SlopePoints(shape, originPx, tw, th));
+						break;
+				}
 
 				ConfigureCollider(collider, oneWayNormal);
 				result.Add(collider);
@@ -257,6 +277,43 @@ namespace Voltage
 
 			oneWay = info.OneWay;
 			return info.CollisionShape;
+		}
+
+		// The tile's named custom collider denormalised to entity-local pixels (points are stored 0..1), or null.
+		private Vector2[] CustomPoints(TilesetAsset tileset, int x, int y, Vector2 originPx, int tw, int th)
+		{
+			if (tileset == null)
+				return null;
+
+			var tile = GetBaseTile(x, y);
+			var info = tile >= 0 ? tileset.GetTileInfo(tile) : null;
+			var custom = tileset.GetCustomCollider(info?.CustomColliderName);
+			if (custom?.Points == null || custom.Points.Count < 3)
+				return null;
+
+			var pts = new Vector2[custom.Points.Count];
+			for (var i = 0; i < pts.Length; i++)
+				pts[i] = new Vector2(originPx.X + custom.Points[i].X * tw, originPx.Y + custom.Points[i].Y * th);
+
+			// Reject a degenerate (near-zero-area / collinear) polygon: it would give the physics a NaN centre and
+			// bad SAT axes rather than a real collider.
+			if (Math.Abs(PolygonArea(pts)) < 0.5f)
+				return null;
+
+			return pts;
+		}
+
+		private static float PolygonArea(Vector2[] pts)
+		{
+			var sum = 0f;
+			for (var i = 0; i < pts.Length; i++)
+			{
+				var a = pts[i];
+				var b = pts[(i + 1) % pts.Length];
+				sum += a.X * b.Y - b.X * a.Y;
+			}
+
+			return sum * 0.5f;
 		}
 
 		// Triangle vertices (clockwise, tile-pixel space) for a slope shape. See TileCollisionShape.
