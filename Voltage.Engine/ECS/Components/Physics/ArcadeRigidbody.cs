@@ -212,6 +212,11 @@ namespace Voltage
 			if (ShouldUseGravity)
 				Velocity += Physics.Gravity * Time.DeltaTime;
 
+			// Never integrate a velocity a prior degenerate collision left non-finite.
+			if (!IsFinite(Velocity))
+				Velocity = Vector2.Zero;
+
+			var startPosition = Entity.Transform.Position;
 			Entity.Transform.Position += Velocity * Time.DeltaTime;
 
 			CollisionResult collisionResult;
@@ -229,6 +234,11 @@ namespace Voltage
 				if (!_collider.IsTrigger && !neighbor.IsTrigger)
 					if (_collider.CollidesWith(neighbor, out collisionResult))
 					{
+						// Skip grazing/degenerate contacts: a zero or non-finite MTV only feeds NaN into the response.
+						if (!IsFinite(collisionResult.MinimumTranslationVector) ||
+						    collisionResult.MinimumTranslationVector.LengthSquared() < 1e-6f)
+							continue;
+
 						// if the neighbor has an ArcadeRigidbody we handle full collision response. If not, we calculate things based on the
 						// neighbor being immovable.
 						var neighborRigidbody = neighbor.Entity.GetComponent<ArcadeRigidbody>();
@@ -254,8 +264,18 @@ namespace Voltage
 					}
 			}
 
+			// Safety net: if resolution still left us non-finite, restore the pre-integration position and kill
+			// velocity rather than flinging the body to infinity (which balloons the spatial hash and freezes).
+			if (!IsFinite(Entity.Transform.Position) || !IsFinite(Velocity))
+			{
+				Entity.Transform.Position = IsFinite(startPosition) ? startPosition : Vector2.Zero;
+				Velocity = Vector2.Zero;
+			}
+
 			UpdateTriggerInteractions();
 		}
+
+		static bool IsFinite(Vector2 v) => float.IsFinite(v.X) && float.IsFinite(v.Y);
 
 
 		/// <summary>
@@ -476,6 +496,15 @@ namespace Voltage
 			// first, we get the normalized MTV in the opposite direction: the surface normal
 			var inverseMTV = minimumTranslationVector * -1f;
 			Vector2 normal;
+
+			// A zero-length MTV (exact edge-touch, still counted as intersecting) would normalize to NaN and fling
+			// the body into the void. Treat it as no response.
+			if (inverseMTV.LengthSquared() < 1e-6f)
+			{
+				responseVelocity = Vector2.Zero;
+				return;
+			}
+
 			Vector2.Normalize(ref inverseMTV, out normal);
 
 			// the velocity is decomposed along the normal of the collision and the plane of collision.

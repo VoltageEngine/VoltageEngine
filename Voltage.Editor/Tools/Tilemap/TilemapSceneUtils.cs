@@ -58,7 +58,13 @@ namespace Voltage.Editor.Tools.Tilemap
 		public static void ReloadTilesetsInScene()
 		{
 			foreach (var map in FindTilemaps())
+			{
 				map.ReloadTileset();
+
+				// A re-save can change collision shapes, so rebuild colliders too.
+				if (map.AutoBuildColliders)
+					map.RebuildColliders();
+			}
 		}
 
 		/// <summary>Creates an entity carrying one tilemap layer bound to <paramref name="tileset"/>, selects it, and pushes an undo step.</summary>

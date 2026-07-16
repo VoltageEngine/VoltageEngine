@@ -14,7 +14,7 @@ using Num = System.Numerics;
 namespace Voltage.Editor.Tools.Tilemap
 {
 	/// <summary>Authors a <c>.vtileset</c>: source image, grid, optional normal map. Previews the slicing live.</summary>
-	public class TilesetEditorWindow
+	public partial class TilesetEditorWindow
 	{
 		public bool IsOpen;
 
@@ -24,6 +24,8 @@ namespace Voltage.Editor.Tools.Tilemap
 		private readonly AssetFileBrowser _imageBrowser =
 			new("tileset-image-browser", ImageExtensions, "Images (png, aseprite)");
 		private readonly AsepriteLayerPopup _asepritePopup = new("tileset-aseprite-layers");
+		private readonly AssetFileBrowser _tilesetBrowser =
+			new("tileset-load-browser", new[] { TilesetAssetIO.FileExtension }, "Tileset (.vtileset)");
 
 		/// <summary>Which slot the in-flight Browse / layer popup is filling.</summary>
 		private bool _browsingNormalMap;
@@ -106,7 +108,22 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			if (_asset == null)
 			{
-				ImGui.TextDisabled("No tileset open. Use \"New\", or open a .vtileset from the Asset Browser.");
+				ImGui.TextDisabled("No tileset open.");
+				ImGui.Spacing();
+
+				if (ImGui.Button("New Tileset"))
+					NewTileset();
+
+				ImGui.SameLine();
+				if (ImGui.Button("Load..."))
+					_tilesetBrowser.Open("Open a tileset", SaveFolder, this);
+
+				if (ImGui.IsItemHovered())
+					ImGui.SetTooltip("Open an existing .vtileset file.");
+
+				ImGui.SameLine();
+				ImGui.TextDisabled("or open a .vtileset from the Asset Browser.");
+
 				ImGui.End();
 				PumpBrowsers();
 				return;
@@ -342,6 +359,12 @@ namespace Voltage.Editor.Tools.Tilemap
 		{
 			_folderBrowser.Draw("Select the folder to save the tileset in");
 			_imageBrowser.Draw("Select an image");
+			_tilesetBrowser.Draw("Open a tileset");
+
+			if (_tilesetBrowser.TryTakeResult(out var tilesetFile) && !string.IsNullOrEmpty(tilesetFile))
+				Open(tilesetFile);
+
+			DrawColliderPopup();
 
 			if (_folderBrowser.TryTakeResult(out var folder) && !string.IsNullOrEmpty(folder))
 				SaveFolder = folder;
@@ -485,16 +508,20 @@ namespace Voltage.Editor.Tools.Tilemap
 				ImGui.SetTooltip("Click tiles to flag them Solid (or hold Ctrl). 'Solid from flagged tiles' in the Tile Palette reads this.");
 
 			ImGui.SameLine();
-			ImGui.TextDisabled("| Click a tile to select it for animation.");
+			ImGui.TextDisabled("| Click a tile to edit its collision shape, terrain and animation.");
 
 			var textureId = _showNormalMap ? _previewNormalId : _previewTextureId;
 			if (textureId == IntPtr.Zero)
 				return;
 
-			// When a tile is selected, reserve the lower part of the window for its panel (collision, terrain,
-			// animation) so the atlas child does not fill ALL the space and push the panel off-screen.
+			// Atlas takes the space left after the panel, but never below 20% of it (or an absolute floor). Fixed
+			// heights, so on a small window the pair overflows into the window's own scrollbar instead of squeezing
+			// the atlas to a sliver.
 			var hasSelection = _selectedTile >= 0 && _selectedTile < _preview.TileCount;
-			var atlasHeight = hasSelection ? -SelectedPanelHeight : 0f;
+			var availY = ImGui.GetContentRegionAvail().Y;
+			var atlasHeight = hasSelection
+				? Math.Max(Math.Max(availY - SelectedPanelHeight, availY * 0.2f), MinAtlasHeight)
+				: Math.Max(availY, MinAtlasHeight);
 
 			ImGui.BeginChild("tileset_preview", new Num.Vector2(0, atlasHeight), true,
 				ImGuiWindowFlags.HorizontalScrollbar);
@@ -505,19 +532,21 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			TilePaletteDrawing.DrawSliceGrid(ImGui.GetWindowDrawList(), origin, _preview, _zoom);
 			DrawTileOverlaysAndPicking(origin);
+			DrawCollisionOverlay(origin);
 
 			ImGui.EndChild();
 
 			if (hasSelection)
 			{
-				// Its own scrollable child so a long frame list never clips.
-				ImGui.BeginChild("tileset_tilepanel", new Num.Vector2(0, 0), true);
+				// Fixed height with its own scrollbar so a long frame list never clips.
+				ImGui.BeginChild("tileset_tilepanel", new Num.Vector2(0, SelectedPanelHeight), true);
 				DrawSelectedTilePanel();
 				ImGui.EndChild();
 			}
 		}
 
 		private const float SelectedPanelHeight = 300f;
+		private const float MinAtlasHeight = 140f;
 
 		private void DrawSelectedTilePanel()
 		{
@@ -628,9 +657,10 @@ namespace Voltage.Editor.Tools.Tilemap
 		private static readonly string[] CollisionShapeNames =
 		{
 			"Box", "None", "Slope floor rises right", "Slope floor rises left", "Slope ceiling right", "Slope ceiling left",
+			"Circle", "Custom",
 		};
 
-		/// <summary>Per-tile collision shape (box / none / slope) and the one-way flag.</summary>
+		/// <summary>Per-tile collision shape (box / none / slope / circle / custom) and the one-way flag.</summary>
 		private void DrawCollisionShapePanel()
 		{
 			var info = _asset.GetOrCreateTileInfo(_selectedTile);
@@ -644,7 +674,10 @@ namespace Voltage.Editor.Tools.Tilemap
 			}
 
 			if (ImGui.IsItemHovered())
-				ImGui.SetTooltip("How a solid cell of this tile collides. Slopes emit a triangle collider; boxes greedy-merge.");
+				ImGui.SetTooltip("How a solid cell of this tile collides. Slopes/circle/custom emit their own collider; boxes greedy-merge.");
+
+			if (info.CollisionShape == Voltage.Tilesets.TileCollisionShape.Custom)
+				DrawCustomColliderPicker(info);
 
 			var oneWay = info.OneWay;
 			if (ImGui.Checkbox("One-way platform", ref oneWay))
@@ -655,6 +688,44 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			if (ImGui.IsItemHovered())
 				ImGui.SetTooltip("Blocks only from above; passed through from below/sides. Behaviour is new - verify in play.");
+		}
+
+		/// <summary>Picks / creates / edits the named custom collider a Custom-shaped tile uses (shared across the tileset).</summary>
+		private void DrawCustomColliderPicker(Voltage.Tilesets.TilesetTileInfo info)
+		{
+			var colliders = _asset.CustomColliders;
+
+			var labels = new List<string> { "(none)" };
+			var current = 0;
+			for (var i = 0; i < colliders.Count; i++)
+			{
+				labels.Add(string.IsNullOrEmpty(colliders[i].Name) ? $"Collider {i}" : colliders[i].Name);
+				if (colliders[i].Name == info.CustomColliderName)
+					current = i + 1;
+			}
+
+			ImGui.SetNextItemWidth(200f);
+			if (ImGui.Combo("Custom collider", ref current, labels.ToArray(), labels.Count))
+			{
+				info.CustomColliderName = current == 0 ? null : colliders[current - 1].Name;
+				_dirty = true;
+			}
+
+			if (ImGui.Button("New..."))
+				OpenColliderEditor(info, null);
+
+			if (ImGui.IsItemHovered())
+				ImGui.SetTooltip("Draw a new custom collision polygon on this tile. It is saved on the tileset and reusable by other tiles.");
+
+			var canEdit = _asset.GetCustomCollider(info.CustomColliderName) != null;
+			ImGui.SameLine();
+			ImGui.BeginDisabled(!canEdit);
+			if (ImGui.Button("Edit...") && canEdit)
+				OpenColliderEditor(info, info.CustomColliderName);
+			ImGui.EndDisabled();
+
+			if (colliders.Count == 0)
+				ImGui.TextDisabled("No custom colliders yet - use \"New...\" to draw one.");
 		}
 
 		/// <summary>Authors the selected tile's animation: a sequence of frame tile-indices + per-frame duration.</summary>
@@ -854,6 +925,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			_previewStale = false;
 
 			ReleasePreviewTextures();
+			_preview?.Dispose(); // frees an owned Aseprite texture; no-op for content-loaded ones
 			_preview = null;
 
 			if (_asset == null || !_asset.Texture.IsValid)
@@ -862,6 +934,11 @@ namespace Voltage.Editor.Tools.Tilemap
 			_preview = TilesetRuntime.Build(_asset);
 			if (_preview?.Texture == null)
 				return;
+
+			// Auto-select the first tile so the selected-tile panel shows without a manual click (Aseprite tilesets
+			// already select tile 0 on creation; this gives normal grid tilesets parity).
+			if (_preview.TileCount > 0 && (_selectedTile < 0 || _selectedTile >= _preview.TileCount))
+				_selectedTile = 0;
 
 			var manager = Core.GetGlobalManager<ImGuiManager>();
 			if (manager == null)

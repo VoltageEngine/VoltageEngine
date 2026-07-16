@@ -166,7 +166,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		string gameWindowState = Core.IsEditMode ? "Paused (Editor)" : Core.IsPauseMode ? "Paused" : "Playing";
 
 		ImGuiWindowFlags gameWindowFlags =
-			_gameWindowFlags | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse;
+			_gameWindowFlags | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse
+			| ImGuiWindowFlags.NoBringToFrontOnFocus; // keep in background
 
 		ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Num.Vector2(0, 0));
 		ImGui.Begin($"Game: {gameWindowState}###GameWindow", gameWindowFlags);
@@ -332,8 +333,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 					ButtonState.Released
 				);
 				Input.SetCurrentMouseState(mouseState);
-
-				if (DisableKeyboardInputWhenGameWindowUnfocused) Input.SetCurrentKeyboardState(new KeyboardState());
 			}
 		}
 

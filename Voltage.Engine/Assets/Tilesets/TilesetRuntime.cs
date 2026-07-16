@@ -17,6 +17,11 @@ namespace Voltage.Tilesets
 		public Texture2D Texture { get; private set; }
 		public Texture2D NormalMap { get; private set; }
 
+		// True for textures we created (`new Texture2D`, Aseprite) rather than content-loaded ones: we dispose these
+		// ourselves and they outlive a scene reload, so their cache entry is kept rather than rebuilt.
+		private bool _ownsTexture;
+		private bool _ownsNormalMap;
+
 		public Rectangle[] SourceRects { get; private set; } = Array.Empty<Rectangle>();
 
 		/// <summary>True for tiles that are fully transparent in the source image.</summary>
@@ -87,14 +92,61 @@ namespace Voltage.Tilesets
 			if (string.IsNullOrEmpty(absolutePath))
 				return;
 
-			_cache.Remove(absolutePath);
+			if (_cache.TryGetValue(absolutePath, out var runtime))
+			{
+				runtime.Dispose();
+				_cache.Remove(absolutePath);
+			}
+
 			Generation++;
 		}
 
 		public static void InvalidateAll()
 		{
+			foreach (var runtime in _cache.Values)
+				runtime.Dispose();
+
 			_cache.Clear();
 			Generation++;
+		}
+
+		/// <summary>
+		/// Drops entries whose textures were content-loaded (and so just disposed by <c>Scene.End</c> - reusing them
+		/// samples black). Entries that own their textures survive the reload and are kept, avoiding a rebuild.
+		/// </summary>
+		public static void DropSceneOwned()
+		{
+			List<string> stale = null;
+
+			foreach (var pair in _cache)
+			{
+				var runtime = pair.Value;
+				var survivesReload = runtime._ownsTexture && (runtime.NormalMap == null || runtime._ownsNormalMap);
+				if (!survivesReload)
+					(stale ??= new List<string>()).Add(pair.Key);
+			}
+
+			if (stale == null)
+				return;
+
+			// Their textures were the ContentManager's to dispose; we just drop the dangling references.
+			foreach (var path in stale)
+				_cache.Remove(path);
+
+			Generation++;
+		}
+
+		/// <summary>Disposes only the textures this runtime created itself.</summary>
+		public void Dispose()
+		{
+			if (_ownsTexture)
+				Texture?.Dispose();
+
+			if (_ownsNormalMap)
+				NormalMap?.Dispose();
+
+			Texture = null;
+			NormalMap = null;
 		}
 
 		/// <summary>Builds a runtime from an in-memory asset without touching the cache.</summary>
@@ -113,7 +165,9 @@ namespace Voltage.Tilesets
 				return null;
 			}
 
-			var runtime = new TilesetRuntime { Asset = asset, Texture = texture };
+			// Aseprite frames/strips are `new Texture2D` we own; a plain image comes from the ContentManager.
+			var ownsTexture = asset.TextureIsAsepriteAnimation || asset.TextureSource == TilesetImageSource.Aseprite;
+			var runtime = new TilesetRuntime { Asset = asset, Texture = texture, _ownsTexture = ownsTexture };
 
 			if (asset.NormalMap.IsValid)
 			{
@@ -137,6 +191,7 @@ namespace Voltage.Tilesets
 				}
 
 				runtime.NormalMap = normal;
+				runtime._ownsNormalMap = normal != null && asset.NormalMapSource == TilesetImageSource.Aseprite;
 			}
 
 			runtime.Slice();
