@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Microsoft.Xna.Framework;
 using Voltage.Serialization;
 
 namespace Voltage.Tilesets
@@ -22,6 +23,15 @@ namespace Voltage.Tilesets
 		SlopeUpLeft,    // rising right→left (low on the right)
 		SlopeDownRight, // ceiling slope: solid above a hypotenuse
 		SlopeDownLeft,
+		Circle,         // inscribed circle, radius = half the shorter tile edge
+		Custom,         // a named polygon from the tileset's CustomColliders, referenced by CustomColliderName
+	}
+
+	/// <summary>A named custom collision polygon, reusable across tiles. Points are normalized 0..1, clockwise.</summary>
+	public class TilesetCollider
+	{
+		public string Name;
+		public List<Vector2> Points = new();
 	}
 
 	/// <summary>Optional per-tile metadata. Only tiles that carry non-default data are stored.</summary>
@@ -47,6 +57,9 @@ namespace Voltage.Tilesets
 
 		/// <summary>When true, the generated collider only blocks from its solid-face side (one-way platform).</summary>
 		public bool OneWay;
+
+		/// <summary>Which <see cref="TilesetAsset.CustomColliders"/> entry to use when <see cref="CollisionShape"/> is Custom.</summary>
+		public string CustomColliderName;
 
 		/// <summary>Autotile terrain this tile belongs to, or -1. Tiles of a terrain are chosen by neighbour match.</summary>
 		public int TerrainId = -1;
@@ -109,19 +122,30 @@ namespace Voltage.Tilesets
 
 		public List<TilesetTerrain> Terrains = new();
 
+		/// <summary>Named custom collision polygons, reusable across this tileset's tiles.</summary>
+		public List<TilesetCollider> CustomColliders = new();
+
 		public bool HasNormalMap => NormalMap.IsValid;
 
 		public int TileCount => Columns * Rows;
 
+		// O(1) lookup index, rebuilt when Tiles.Count changes. The editor overlays call this per atlas slot per frame.
+		private Dictionary<int, TilesetTileInfo> _tileInfoIndex;
+		private int _tileInfoIndexCount = -1;
+
 		public TilesetTileInfo GetTileInfo(int index)
 		{
-			for (var i = 0; i < Tiles.Count; i++)
+			if (_tileInfoIndex == null || _tileInfoIndexCount != Tiles.Count)
 			{
-				if (Tiles[i].Index == index)
-					return Tiles[i];
+				_tileInfoIndex ??= new Dictionary<int, TilesetTileInfo>(Tiles.Count);
+				_tileInfoIndex.Clear();
+				for (var i = 0; i < Tiles.Count; i++)
+					_tileInfoIndex[Tiles[i].Index] = Tiles[i];
+
+				_tileInfoIndexCount = Tiles.Count;
 			}
 
-			return null;
+			return _tileInfoIndex.TryGetValue(index, out var info) ? info : null;
 		}
 
 		public TilesetTileInfo GetOrCreateTileInfo(int index)
@@ -137,5 +161,19 @@ namespace Voltage.Tilesets
 		}
 
 		public bool IsSolid(int index) => GetTileInfo(index)?.Solid ?? false;
+
+		public TilesetCollider GetCustomCollider(string name)
+		{
+			if (string.IsNullOrEmpty(name))
+				return null;
+
+			for (var i = 0; i < CustomColliders.Count; i++)
+			{
+				if (CustomColliders[i].Name == name)
+					return CustomColliders[i];
+			}
+
+			return null;
+		}
 	}
 }

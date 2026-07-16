@@ -60,5 +60,14 @@ namespace Voltage
 				OnGraphicsDeviceReset();
 			}
 		}
+
+		/// <summary>Enables touch plus the given gesture types (taps, drags/slides, flicks, pinch, ...). Read them from
+		/// <see cref="CurrentGestures"/>. Without enabling gestures only raw touch points are reported.</summary>
+		public void EnableTouchSupport(GestureType enabledGestures)
+		{
+			EnableTouchSupport();
+			if (_isConnected)
+				TouchPanel.EnabledGestures = enabledGestures;
+		}
 	}
 }

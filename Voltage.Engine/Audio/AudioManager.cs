@@ -99,11 +99,11 @@ namespace Voltage.Audio
 						Debug.Log("[Audio] Using SoftwareMixingAudioBackend (software mixing + DSP-ready).");
 						return new SoftwareMixingAudioBackend();
 					}
-					Debug.Log("[Audio] Software backend unsupported on this platform; using MonoGameAudioBackend.");
+					Debug.Warn("[Audio] Software backend unsupported on this platform; using MonoGameAudioBackend.");
 				}
 				catch (Exception ex)
 				{
-					Debug.Log($"[Audio] Software backend probe failed ({ex.Message}); using MonoGameAudioBackend.");
+					Debug.Warn($"[Audio] Software backend probe failed ({ex.Message}); using MonoGameAudioBackend.");
 				}
 			}
 			return new MonoGameAudioBackend();
