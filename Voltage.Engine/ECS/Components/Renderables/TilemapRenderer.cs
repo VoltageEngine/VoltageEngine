@@ -104,10 +104,55 @@ namespace Voltage
 			/// <summary>Tiles stacked above the base of each stacked cell, comma-separated, bottom-to-top.</summary>
 			public string[] StackTiles = Array.Empty<string>();
 
+			/// <summary>Cell coordinates of oriented cells, packed x0,y0,… — parallel to <see cref="OrientationValues"/>.</summary>
+			public int[] OrientationCoords = Array.Empty<int>();
+
+			/// <summary>Orientation byte per oriented cell (rotation + flip flags).</summary>
+			public byte[] OrientationValues = Array.Empty<byte>();
+
+			/// <summary>Chunk coordinates of collision cells, packed x0,y0,… — parallel to <see cref="CollisionData"/>.</summary>
+			public int[] CollisionCoords = Array.Empty<int>();
+
+			/// <summary>RLE collision bitmask (0/1), one string per chunk.</summary>
+			public string[] CollisionData = Array.Empty<string>();
+
+			public int PhysicsLayer = 1 << 0;
+			public int CollidesWithLayers = Physics.AllLayers;
+			public bool IsTrigger;
+			public bool AutoBuildColliders = true;
+
 			public float LayerDepth;
 			public int RenderLayer;
 			public Vector2 LocalOffset;
 			public Color Color = Color.White;
+		}
+
+		/// <summary>Physics layer the generated colliders sit on.</summary>
+		public int PhysicsLayer
+		{
+			get => _data.PhysicsLayer;
+			set => _data.PhysicsLayer = value;
+		}
+
+		/// <summary>Layer mask the generated colliders collide with.</summary>
+		public int CollidesWithLayers
+		{
+			get => _data.CollidesWithLayers;
+			set => _data.CollidesWithLayers = value;
+		}
+
+		/// <summary>Whether the generated colliders are triggers (events only, no blocking).</summary>
+		public bool IsTrigger
+		{
+			get => _data.IsTrigger;
+			set => _data.IsTrigger = value;
+		}
+
+		/// <summary>Whether colliders are built automatically when the layer starts.</summary>
+		public bool AutoBuildColliders
+		{
+			get => _data.AutoBuildColliders;
+			set => _data.AutoBuildColliders = value;
 		}
 
 		public override ComponentData Data
@@ -191,9 +236,22 @@ namespace Voltage
 		{
 			ApplyDeferredMaterial();
 			_areBoundsDirty = true;
+
+			if (AutoBuildColliders)
+				RebuildColliders();
 		}
 
-		public override void OnEntityTransformChanged(Transform.Component comp) => _areBoundsDirty = true;
+		public override void OnRemovedFromEntity() => RemoveColliders();
+
+		public override void OnEntityTransformChanged(Transform.Component comp)
+		{
+			_areBoundsDirty = true;
+
+			// Colliders are placed relative to the entity via LocalOffset, but rotation/scale changes need a
+			// fresh merge; a plain move is handled by the collider following the transform.
+			if (_colliders != null)
+				RebuildColliders();
+		}
 
 		/// <summary>Keeps the material in step with the scene's renderer and the tileset's normal atlas.</summary>
 		/// <remarks>
@@ -343,6 +401,9 @@ namespace Voltage
 
 			if (tileIndex < 0)
 			{
+				if (_cellOrientation.Count > 0)
+					_cellOrientation.Remove(CellKey(tileX, tileY));
+
 				if (!_chunks.TryGetValue(key, out var existing))
 					return;
 
@@ -381,6 +442,7 @@ namespace Voltage
 		{
 			_chunks.Clear();
 			_stacks.Clear();
+			_cellOrientation.Clear();
 			TileCount = 0;
 			_hasTiles = false;
 			_extentsDirty = false;
@@ -568,6 +630,10 @@ namespace Voltage
 			var color = Color;
 			var layerDepth = LayerDepth;
 
+			// Animated tilesets remap each placed index to its current frame; sampled once per frame.
+			var animated = tileset.HasAnimations;
+			var animTime = animated ? Voltage.Utils.Time.TotalTime : 0f;
+
 			if (rotation != 0f)
 			{
 				// Rotated maps have no axis-aligned tile range, so test every chunk.
@@ -581,6 +647,7 @@ namespace Voltage
 
 					DrawChunk(batcher, xform, chunk, baseX, baseY, tw, th,
 						0, ChunkSize, 0, ChunkSize,
+						tileset, animated, animTime,
 						texture, rects, rectCount, color, rotation, scale, layerDepth);
 				}
 
@@ -612,6 +679,7 @@ namespace Voltage
 
 					DrawChunk(batcher, xform, chunk, baseX, baseY, tw, th,
 						xStart, xEnd, yStart, yEnd,
+						tileset, animated, animTime,
 						texture, rects, rectCount, color, rotation, scale, layerDepth);
 				}
 			}
@@ -619,10 +687,12 @@ namespace Voltage
 
 		private void DrawChunk(Batcher batcher, in TileTransform xform, int[] chunk, int baseX, int baseY,
 			int tw, int th, int xStart, int xEnd, int yStart, int yEnd,
+			TilesetRuntime tileset, bool animated, float animTime,
 			Texture2D texture, Rectangle[] rects, int rectCount, Color color, float rotation, Vector2 scale,
 			float layerDepth)
 		{
 			var hasStacks = _stacks.Count > 0;
+			var hasOrientation = _cellOrientation.Count > 0;
 
 			for (var y = yStart; y < yEnd; y++)
 			{
@@ -638,25 +708,31 @@ namespace Voltage
 
 					var tileIndex = cell - 1;
 					var tileX = baseX + x;
+
+					// Oriented cells are rare, so the common path stays a plain top-left draw with no per-cell
+					// dictionary lookup.
+					byte orientation = 0;
+					if (hasOrientation)
+						_cellOrientation.TryGetValue(CellKey(tileX, tileY), out orientation);
+
 					var world = xform.ToWorld(tileX * tw, worldY);
 
-					if ((uint)tileIndex < (uint)rectCount)
-					{
-						batcher.Draw(texture, world, rects[tileIndex], color,
-							rotation, Vector2.Zero, scale, SpriteEffects.None, layerDepth);
-					}
+					var baseFrame = animated ? tileset.ResolveFrame(tileIndex, animTime) : tileIndex;
+					if ((uint)baseFrame < (uint)rectCount)
+						DrawTile(batcher, texture, rects[baseFrame], world, xform, tileX, tileY, tw, th,
+							color, rotation, scale, orientation, layerDepth);
 
 					if (!hasStacks || !_stacks.TryGetValue(CellKey(tileX, tileY), out var stack))
 						continue;
 
 					for (var i = 0; i < stack.Count; i++)
 					{
-						var stacked = stack[i];
+						var stacked = animated ? tileset.ResolveFrame(stack[i], animTime) : stack[i];
 						if ((uint)stacked >= (uint)rectCount)
 							continue;
 
-						batcher.Draw(texture, world, rects[stacked], color,
-							rotation, Vector2.Zero, scale, SpriteEffects.None, layerDepth);
+						DrawTile(batcher, texture, rects[stacked], world, xform, tileX, tileY, tw, th,
+							color, rotation, scale, orientation, layerDepth);
 					}
 				}
 			}
@@ -771,6 +847,8 @@ namespace Voltage
 			data.ChunkData = payloads.ToArray();
 
 			SaveStacksTo(data);
+			SaveOrientationTo(data);
+			SaveCollisionTo(data);
 		}
 
 		private void SaveStacksTo(TilemapRendererComponentData data)
@@ -842,6 +920,8 @@ namespace Voltage
 			}
 
 			LoadStacksFrom(data);
+			LoadOrientationFrom(data);
+			LoadCollisionFrom(data);
 
 			RecomputeExtents();
 			_extentsDirty = false;

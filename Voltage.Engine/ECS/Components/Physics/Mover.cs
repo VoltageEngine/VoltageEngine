@@ -59,6 +59,10 @@ namespace Voltage
 
                     if (collider.CollidesWith(neighbor, motion, out CollisionResult _InternalcollisionResult))
                     {
+                        // One-way tiles only block from their solid-face side; other approaches pass through.
+                        if (neighbor.ShouldOneWayPassThrough(_InternalcollisionResult.MinimumTranslationVector))
+                            continue;
+
                         // hit. back off our motion
                         motion -= _InternalcollisionResult.MinimumTranslationVector;
 
@@ -114,6 +118,9 @@ namespace Voltage
 
                     if (collider.CollidesWith(neighbor, motion, out CollisionResult _InternalcollisionResult))
                     {
+                        if (neighbor.ShouldOneWayPassThrough(_InternalcollisionResult.MinimumTranslationVector))
+                            continue;
+
                         // hit. back off our motion
                         motion -= _InternalcollisionResult.MinimumTranslationVector;
                         collisionResults.Add(_InternalcollisionResult);

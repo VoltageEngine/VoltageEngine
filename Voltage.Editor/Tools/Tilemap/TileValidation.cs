@@ -88,7 +88,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			}
 
 			if (tileset.TileCount > 0 && !hasSelection)
-				issues.Add(Issue.Warning("No tile selected — click a tile in the atlas below to load the brush."));
+				issues.Add(Issue.Warning("No tile selected - click a tile in the atlas below to load the brush."));
 
 			if (tileset.HasNormalMap && Core.Scene?.GetRenderer<DeferredLightingRenderer>() == null)
 			{

@@ -239,6 +239,10 @@ namespace Voltage
 						}
 						else
 						{
+							// One-way tiles only block from their solid-face side; pass through otherwise.
+							if (neighbor.ShouldOneWayPassThrough(collisionResult.MinimumTranslationVector))
+								continue;
+
 							// neighbor has no ArcadeRigidbody so we assume its immovable and only move ourself
 							Entity.Transform.Position -= collisionResult.MinimumTranslationVector;
 							var relativeVelocity = Velocity;

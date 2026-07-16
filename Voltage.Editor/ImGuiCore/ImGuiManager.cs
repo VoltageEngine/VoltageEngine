@@ -1038,9 +1038,12 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			ImGui.SetTooltip("Camera zoom level (Mouse Wheel to adjust)");
 		}
 
-		// Keep the mode cluster and audio toggle on the same row as the cursor tools.
+		// Keep the mode cluster, grid toggles and audio toggle on the same row as the cursor tools.
 		ImGui.SameLine(0, spacing);
 		DrawEditorModeControls();
+
+		ImGui.SameLine();
+		DrawGridControlsRightAligned();
 
 		ImGui.SameLine();
 		DrawAudioToggleRightAligned();

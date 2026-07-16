@@ -461,6 +461,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		Vector2? worldPos = Core.Scene?.Camera?.ScreenToWorldPoint(Input.ScaledMousePosition);
 
+		// Snap the drop point to the placement grid, matching drag-snap.
+		if (worldPos.HasValue)
+		{
+			var ctrl = ImGuiNET.ImGui.GetIO().KeyCtrl || ImGuiNET.ImGui.GetIO().KeySuper;
+			worldPos = Tools.EditorSettingsWindow.ApplyPlacementSnap(worldPos.Value, ctrl);
+		}
+
 		var ext        = System.IO.Path.GetExtension(reference.HintPath);
 		var descriptor = AssetTypeRegistry.Resolve(ext);
 		descriptor.DropFactory?.Invoke(reference, worldPos);

@@ -424,50 +424,69 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 		}
 	}
 
-	private bool LoadLastAnimation()
+	/// <summary>
+	/// Loads EVERY Aseprite tag from <see cref="TextureFilePath"/> as its own named animation (keyed by tag
+	/// name). A tag-less file becomes a single "Default" animation over all frames. Returns the number loaded.
+	/// </summary>
+	public int LoadAllAnimations()
 	{
-		if (!string.IsNullOrEmpty(TextureFilePath) && !string.IsNullOrEmpty(LoadedTag) && LoadedLayers.Count > 0)
+		if (string.IsNullOrEmpty(TextureFilePath))
+			return 0;
+
+		var file = Entity?.Scene?.Content?.LoadAsepriteFile(TextureFilePath) ?? Core.Content.LoadAsepriteFile(TextureFilePath);
+		if (file == null)
+			return 0;
+
+		var atlas = LoadedLayers is { Count: > 0 }
+			? file.ToSpriteAtlasFromLayers(true, 0, 0, 0, null, LoadedLayers.ToArray())
+			: file.ToSpriteAtlas();
+
+		if (atlas.AnimationNames is { Length: > 0 })
 		{
-			// Try to load the Aseprite file
-			var asepriteFile = Entity?.Scene?.Content?.LoadAsepriteFile(TextureFilePath) ?? Core.Content.LoadAsepriteFile(TextureFilePath);
-			if (asepriteFile == null)
-				return false;
-
-			// Check if the tag exists in the file
-			bool tagExists = asepriteFile.Tags.Any(t => t.Name == LoadedTag);
-			if (!tagExists)
+			foreach (var name in atlas.AnimationNames)
 			{
-				Debug.Error($"SpriteAnimator: Tag '{LoadedTag}' not found in '{TextureFilePath}'. Skipping animation load.");
-				return false;
+				if (!Animations.ContainsKey(name))
+					AddAnimation(name, atlas.GetAnimation(name));
 			}
 
-			if (LoadedLayers != null && LoadedLayers.Count > 0)
-			{
-				AsepriteUtils.LoadAsepriteAnimationWithLayers(this, TextureFilePath, LoadedTag, null, LoadedLayers.ToArray());
-			}
-			else
-			{
-				AsepriteUtils.LoadAsepriteAnimation(this, TextureFilePath, LoadedTag);
-			}
-
-			return true;
+			return atlas.AnimationNames.Length;
 		}
 
-		return false;
+		// No tags: expose the whole timeline as one "Default" animation.
+		if (atlas.Sprites is { Length: > 0 })
+		{
+			var fps = file.Frames.Count > 0 ? 1000f / Math.Max(1, file.Frames[0].Duration) : 10f;
+			AddAnimation("Default", atlas.Sprites, fps);
+			return 1;
+		}
+
+		return 0;
 	}
 
 	/// <summary>
-	/// Called when this component is added to an entity. 
-	/// If we have saved texture file path data, load the image automatically.
+	/// Loads every animation, then plays the serialized default (<see cref="LoadedTag"/>) — or the first
+	/// animation if none is set. This is what makes the chosen animation resume on the next scene load.
 	/// </summary>
 	public override void OnStart()
 	{
 		base.OnStart();
 
-		if (LoadLastAnimation())
-		{
-			Play(LoadedTag);
-		}
+		if (LoadAllAnimations() == 0)
+			return;
+
+		var toPlay = !string.IsNullOrEmpty(LoadedTag) && Animations.ContainsKey(LoadedTag)
+			? LoadedTag
+			: Animations.Keys.FirstOrDefault();
+
+		if (toPlay != null)
+			Play(toPlay);
+
+#if EDITOR
+		// OnEnabled pauses us for edit mode, but Play() above just set the state back to Running. Restore the
+		// pause so animations stay frozen on their first frame in Edit/Pause mode (they resume on entering play).
+		if (Core.IsEditMode)
+			Pause();
+#endif
 	}
 
 	public virtual void NextFrame()

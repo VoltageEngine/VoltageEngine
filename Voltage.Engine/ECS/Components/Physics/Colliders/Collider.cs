@@ -164,6 +164,29 @@ namespace Voltage
 		/// </summary>
 		public bool ShouldColliderScaleAndRotateWithTransform = true;
 
+		/// <summary>
+		/// Outward normal of a one-way (pass-through) collider — the direction of its single solid face. Zero
+		/// (the default) means a normal, fully-solid collider. A mover only resolves a one-way collision when the
+		/// correction pushes it out along this normal, so e.g. a floor with normal (0,-1) blocks from above but
+		/// is passed through from below or the sides. Consumed by <see cref="Mover"/>.
+		/// </summary>
+		public Vector2 OneWayNormal = Vector2.Zero;
+
+		/// <summary>
+		/// True when this one-way collider should be IGNORED for a resolution whose minimum-translation-vector is
+		/// <paramref name="mtv"/>. Movers push out by <c>-mtv</c>, so we only block when that push is outward
+		/// along <see cref="OneWayNormal"/>; other approaches pass through. Shared by every mover that resolves
+		/// against colliders. NOTE: the sign depends on the MTV convention — flip the comparison if one-way
+		/// platforms block from the wrong side.
+		/// </summary>
+		public bool ShouldOneWayPassThrough(Vector2 mtv)
+		{
+			if (OneWayNormal == Vector2.Zero)
+				return false;
+
+			return Vector2.Dot(mtv, OneWayNormal) >= 0f;
+		}
+
 		public bool IsVisibleEvenDisabled;
 
 #if EDITOR

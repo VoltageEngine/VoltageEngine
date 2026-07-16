@@ -98,10 +98,18 @@ namespace Voltage.Editor.Assets
         static AssetTypeRegistry()
         {
             Register(new AssetTypeDescriptor(
-                Extensions: new[] { ".png", ".aseprite", ".ase" },
+                Extensions: new[] { ".png" },
                 IconPath: IconTexture,
                 Kind: AssetKind.Texture,
                 DropFactory: DropHandlers.DropTexture
+            ));
+
+            // Aseprite drops as an ANIMATED sprite (SpriteAnimator with every tag loaded), not a flat sprite.
+            Register(new AssetTypeDescriptor(
+                Extensions: new[] { ".aseprite", ".ase" },
+                IconPath: IconTexture,
+                Kind: AssetKind.Texture,
+                DropFactory: DropHandlers.DropAsepriteAnimated
             ));
 
             Register(new AssetTypeDescriptor(
@@ -255,6 +263,69 @@ namespace Voltage.Editor.Assets
             );
 
             // Select the new entity in the editor.
+            var imgr = Core.GetGlobalManager<ImGuiManager>();
+            imgr?.SceneGraphWindow.EntityPane.SetSelectedEntity(entity, false);
+            imgr?.MainEntityInspectorWindow.DelayedSetEntity(entity);
+        }
+
+        /// <summary>
+        /// Spawns an entity with a <see cref="SpriteAnimator"/> bound to the dropped Aseprite. Every tag loads as
+        /// its own animation; the first tag becomes the serialized default that plays on scene load.
+        /// </summary>
+        internal static void DropAsepriteAnimated(AssetReference reference, Microsoft.Xna.Framework.Vector2? worldPosition = null)
+        {
+            var absolutePath = ResolveOrLog(reference, "DropAsepriteAnimated");
+            if (absolutePath == null) return;
+
+            var scene = Core.Scene;
+            if (scene == null)
+            {
+                EditorDebug.Log("DropAsepriteAnimated: no active scene.", "AssetBrowser");
+                return;
+            }
+
+            var relativePath = ToProjectRelativePath(absolutePath);
+            var baseName = Path.GetFileNameWithoutExtension(absolutePath);
+            var entityName = scene.GetUniqueEntityName(baseName, null);
+            var entity = new Entity(entityName, Entity.InstanceType.Serialized);
+            entity.Transform.Position = worldPosition ?? scene.Camera.Transform.Position;
+
+            scene.AddEntity(entity);
+
+            var animator = entity.AddComponent<SpriteAnimator>();
+            animator.SetSerialized(true);
+            animator.TextureFilePath = relativePath;
+
+            try
+            {
+                var loaded = animator.LoadAllAnimations();
+
+                // Serialize the first animation as the default so it plays on the next scene load.
+                if (loaded > 0)
+                {
+                    string first = null;
+                    foreach (var key in animator.Animations.Keys) { first = key; break; }
+                    if (first != null)
+                    {
+                        animator.LoadedTag = first;
+                        animator.Play(first);
+                    }
+                }
+                else
+                {
+                    EditorDebug.Log($"DropAsepriteAnimated: '{relativePath}' has no frames/tags to animate.", "AssetBrowser");
+                }
+            }
+            catch (Exception ex)
+            {
+                EditorDebug.Log($"DropAsepriteAnimated: failed to load '{relativePath}': {ex.Message}", "AssetBrowser");
+            }
+
+            EditorChangeTracker.PushUndo(
+                new EntityCreateDeleteUndoAction(scene, entity, wasCreated: true, $"Create Animated Sprite '{entityName}'"),
+                entity,
+                $"Create Animated Sprite '{entityName}'");
+
             var imgr = Core.GetGlobalManager<ImGuiManager>();
             imgr?.SceneGraphWindow.EntityPane.SetSelectedEntity(entity, false);
             imgr?.MainEntityInspectorWindow.DelayedSetEntity(entity);
