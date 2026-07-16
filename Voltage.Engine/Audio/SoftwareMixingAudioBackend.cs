@@ -24,6 +24,12 @@ namespace Voltage.Audio
 		public int Underruns;
 		/// <summary>Software voices currently mixing (playing, non-disposed).</summary>
 		public int ActiveVoices;
+		/// <summary>Output device sample rate, in Hz (e.g. 44100).</summary>
+		public int SampleRate;
+		/// <summary>Output device channel count (2 = stereo).</summary>
+		public int Channels;
+		/// <summary>Callback buffer size, in frames (samples per channel).</summary>
+		public int BufferFrames;
 	}
 
 	/// <summary>
@@ -64,6 +70,12 @@ namespace Voltage.Audio
 		/// <summary>Whether this platform can run the software backend (desktop only).</summary>
 		public static bool IsSupported =>
 			OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() || OperatingSystem.IsLinux();
+
+		/// <summary>True once the SDL output device is open and producing audio (it opens lazily on the first sound).</summary>
+		public bool IsDeviceOpen => _device != null;
+
+		/// <summary>True once opening the device has been attempted; attempted-but-not-open means it failed (silent).</summary>
+		public bool DeviceOpenAttempted => _deviceAttempted;
 
 		public void Init()
 		{
@@ -212,6 +224,9 @@ namespace Voltage.Audio
 				LoadPercent = budget > 0f ? avg / budget * 100f : 0f,
 				Underruns = _underruns,
 				ActiveVoices = _mixer?.ActiveVoices ?? 0,
+				SampleRate = _device?.SampleRate ?? PreferredSampleRate,
+				Channels = _device?.Channels ?? Channels,
+				BufferFrames = _device?.BufferFrames ?? BufferFrames,
 			};
 		}
 	}

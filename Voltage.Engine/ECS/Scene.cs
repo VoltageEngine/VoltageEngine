@@ -334,6 +334,12 @@ public partial class Scene
 
 		Camera = null;
 		Content.Dispose();
+
+		// Content.Dispose() just freed the tileset atlases loaded through this scene's ContentManager; drop the
+		// static TilesetRuntime cache entries that point at them so a reload doesn't sample a disposed texture, so we can 
+		// preview a loaded animation tile correctly
+		Voltage.Tilesets.TilesetRuntime.DropSceneOwned();
+
 		Core.GraphicsDevice.SetRenderTarget(null);
 		_sceneRenderTarget.Dispose();
 		Physics.Clear();
