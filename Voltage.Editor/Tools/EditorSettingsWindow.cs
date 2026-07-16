@@ -51,6 +51,34 @@ namespace Voltage.Editor.Tools
 			set => _disableDebugInPlayMode.Value = value;
 		}
 
+		// Placement snapping
+		private static PersistentBool _snapToGrid = new("EditorSettings_SnapToGrid", false);
+		public static bool SnapToGrid
+		{
+			get => _snapToGrid.Value;
+			set => _snapToGrid.Value = value;
+		}
+
+		private static PersistentInt _snapGridSize = new("EditorSettings_SnapGridSize", 16);
+		public static int SnapGridSize
+		{
+			get => System.Math.Max(1, _snapGridSize.Value);
+			set => _snapGridSize.Value = System.Math.Max(1, value);
+		}
+
+		/// <summary>Rounds a world position to the snap grid when snapping is on. Holding Ctrl inverts the setting.</summary>
+		public static Microsoft.Xna.Framework.Vector2 ApplyPlacementSnap(Microsoft.Xna.Framework.Vector2 position, bool ctrlHeld)
+		{
+			var snap = SnapToGrid ^ ctrlHeld;
+			if (!snap)
+				return position;
+
+			var g = SnapGridSize;
+			return new Microsoft.Xna.Framework.Vector2(
+				(float)System.Math.Round(position.X / g) * g,
+				(float)System.Math.Round(position.Y / g) * g);
+		}
+
 
 		public bool IsOpen
 		{
@@ -175,6 +203,27 @@ namespace Voltage.Editor.Tools
 					{
 						ImGui.SetTooltip("Disable debug features while the game is in play mode.");
 					}
+
+					VoltageEditorUtils.SmallVerticalSpace();
+					ImGui.Unindent();
+				}
+
+				if (ImGui.CollapsingHeader("Placement Snapping", ImGuiTreeNodeFlags.DefaultOpen))
+				{
+					ImGui.Indent();
+					VoltageEditorUtils.SmallVerticalSpace();
+
+					bool snap = SnapToGrid;
+					if (ImGui.Checkbox("Snap dragged/dropped entities to a grid##Snap", ref snap))
+						SnapToGrid = snap;
+
+					if (ImGui.IsItemHovered())
+						ImGui.SetTooltip("Rounds entity position to the grid when moving or dropping. Hold Ctrl while dragging to invert.");
+
+					int gridSize = SnapGridSize;
+					ImGui.SetNextItemWidth(160f);
+					if (ImGui.InputInt("Snap grid size (px)##Snap", ref gridSize))
+						SnapGridSize = gridSize;
 
 					VoltageEditorUtils.SmallVerticalSpace();
 					ImGui.Unindent();

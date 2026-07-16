@@ -198,6 +198,7 @@ namespace Voltage.Editor.ImGuiCore
 			return id;
 		}
 
+
 		/// <summary>
 		/// Removes a previously created texture pointer, releasing its reference and allowing it to be deallocated
 		/// </summary>
@@ -403,8 +404,9 @@ namespace Voltage.Editor.ImGuiCore
 			Core.GraphicsDevice.SetVertexBuffer(_vertexBuffer);
 			Core.GraphicsDevice.Indices = _indexBuffer;
 
-			int vtxOffset = 0;
-			int idxOffset = 0;
+			// Base positions of the current cmd list's vertices/indices in the concatenated GPU buffers.
+			int vtxBase = 0;
+			int idxBase = 0;
 
 			for (int n = 0; n < drawData.CmdListsCount; n++)
 			{
@@ -412,12 +414,14 @@ namespace Voltage.Editor.ImGuiCore
 				for (int cmdi = 0; cmdi < cmdList.CmdBuffer.Size; cmdi++)
 				{
 					var drawCmd = cmdList.CmdBuffer[cmdi];
-					
+
+					if (drawCmd.ElemCount == 0)
+						continue;
+
 					// Skip rendering if texture doesn't exist
 					if (!_loadedTextures.ContainsKey(drawCmd.TextureId))
 					{
 						Debug.Warn($"Could not find a texture with id '{drawCmd.TextureId}'. Skipping draw call. This may happen after application restart.");
-						idxOffset += (int)drawCmd.ElemCount;
 						continue;
 					}
 
@@ -434,21 +438,22 @@ namespace Voltage.Editor.ImGuiCore
 						pass.Apply();
 
 #pragma warning disable CS0618 // FNA does not expose an alternative method.
+						// Use ImGui's per-command Idx/Vtx offsets — draw channels (used by modals, tables, columns)
+						// make commands NON-contiguous, so accumulating ElemCount is wrong for those windows.
 						Core.GraphicsDevice.DrawIndexedPrimitives(
 							primitiveType: PrimitiveType.TriangleList,
-							baseVertex: vtxOffset,
+							baseVertex: vtxBase + (int)drawCmd.VtxOffset,
 							minVertexIndex: 0,
 							numVertices: cmdList.VtxBuffer.Size,
-							startIndex: idxOffset,
+							startIndex: idxBase + (int)drawCmd.IdxOffset,
 							primitiveCount: (int)drawCmd.ElemCount / 3
 						);
 #pragma warning restore CS0618
 					}
-
-					idxOffset += (int)drawCmd.ElemCount;
 				}
 
-				vtxOffset += cmdList.VtxBuffer.Size;
+				vtxBase += cmdList.VtxBuffer.Size;
+				idxBase += cmdList.IdxBuffer.Size;
 			}
 		}
 

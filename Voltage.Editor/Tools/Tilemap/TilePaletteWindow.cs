@@ -6,6 +6,7 @@ using Voltage.Editor.Assets;
 using Voltage.Editor.Gizmos;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Undo.Core;
+using Voltage.Editor.Utils;
 using Voltage.Tilesets;
 using EngineAssetReference = Voltage.Serialization.AssetReference;
 using Num = System.Numerics;
@@ -13,7 +14,7 @@ using Num = System.Numerics;
 namespace Voltage.Editor.Tools.Tilemap
 {
 	/// <summary>UI for tile painting: pick the layer, the tileset, the stamp and the active tool. Drives the shared <see cref="TilePaintTool"/>.</summary>
-	public class TilePaletteWindow
+	public partial class TilePaletteWindow
 	{
 		public bool IsOpen;
 
@@ -25,7 +26,7 @@ namespace Voltage.Editor.Tools.Tilemap
 		private string _tilesetPath;
 		private IntPtr _atlasTextureId;
 
-		// Cache generation the atlas was loaded at — a re-save under the same path moves it, which a path compare misses.
+		// Cache generation the atlas was loaded at - a re-save under the same path moves it, which a path compare misses.
 		private int _tilesetGeneration = -1;
 
 		private float _zoom = 2f;
@@ -77,8 +78,13 @@ namespace Voltage.Editor.Tools.Tilemap
 			EnsureTilesetLoaded(tool);
 
 			DrawModeBanner(cursor);
+			ImGui.Spacing();
+
 			DrawIssues(tool);
+			ImGui.Spacing();
+
 			DrawTargetSelector(tool);
+			ImGui.Spacing();
 			ImGui.Separator();
 
 			DrawTilesetSelector(tool, tilesetEditor);
@@ -87,11 +93,17 @@ namespace Voltage.Editor.Tools.Tilemap
 			DrawLayerOrder(tool);
 			ImGui.Separator();
 
+			DrawEditModeSwitch(tool);
+			ImGui.Separator();
+
 			DrawToolButtons(tool);
 			DrawGridOptions(tool);
 			ImGui.Separator();
 
-			DrawAtlas(tool);
+			if (tool.EditMode == TileEditMode.Collision)
+				DrawCollisionControls(tool);
+			else
+				DrawAtlas(tool);
 
 			ImGui.End();
 
@@ -131,7 +143,7 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			ImGui.TextDisabled(_tileset?.Asset != null
 				? $"Tileset: {_tileset.Asset.Name ?? "(unnamed)"}"
-				: "No tileset selected — the layer will be created without one.");
+				: "No tileset selected - the layer will be created without one.");
 
 			ImGui.Separator();
 
@@ -167,7 +179,7 @@ namespace Voltage.Editor.Tools.Tilemap
 		{
 			if (cursor.SelectionMode == CursorSelectionMode.TilePaint)
 			{
-				ImGui.TextColored(new Num.Vector4(0.4f, 0.9f, 0.5f, 1f), "Tile cursor active — paint in the game view.");
+				ImGui.TextColored(new Num.Vector4(0.4f, 0.9f, 0.5f, 1f), "Tile cursor active - paint in the game view.");
 				return;
 			}
 
@@ -181,7 +193,11 @@ namespace Voltage.Editor.Tools.Tilemap
 		private void DrawIssues(TilePaintTool tool)
 		{
 			var issues = TileValidation.ValidateTileset(_tileset?.Asset, _tileset);
-			issues.AddRange(TileValidation.ValidatePainting(tool.Target, _tileset, tool.HasSelection));
+
+			// The "no tile selected" warning only makes sense while painting tiles; treat the collision brush
+			// as always having a selection.
+			var hasSelection = tool.EditMode == TileEditMode.Collision || tool.HasSelection;
+			issues.AddRange(TileValidation.ValidatePainting(tool.Target, _tileset, hasSelection));
 
 			TileValidation.Draw(issues);
 		}
@@ -320,7 +336,7 @@ namespace Voltage.Editor.Tools.Tilemap
 				}
 
 				ImGui.SameLine();
-				ImGui.TextDisabled($"(layer {map.RenderLayer}, depth {map.LayerDepth:0.00})");
+				ImGui.TextDisabled($"(render layer {map.RenderLayer})");
 
 				ImGui.PopID();
 			}
@@ -347,16 +363,21 @@ namespace Voltage.Editor.Tools.Tilemap
 					"tilemap in front of or behind them.");
 			}
 
-			var layerDepth = tool.Target.LayerDepth;
-			ImGui.SetNextItemWidth(140f);
-			if (ImGui.SliderFloat("Layer depth", ref layerDepth, 0f, 1f, "%.2f"))
+			// Layer depth is a fine tie-breaker used only when layers share a render layer; the arrows handle it
+			// for you, so it lives behind an Advanced expander rather than in the common path.
+			if (ImGui.CollapsingHeader("Advanced"))
 			{
-				tool.Target.LayerDepth = layerDepth;
-				EditorChangeTracker.MarkChanged(tool.Target.Entity, "Change tilemap layer depth");
-			}
+				var layerDepth = tool.Target.LayerDepth;
+				ImGui.SetNextItemWidth(140f);
+				if (ImGui.SliderFloat("Layer depth", ref layerDepth, 0f, 1f, "%.2f"))
+				{
+					tool.Target.LayerDepth = layerDepth;
+					EditorChangeTracker.MarkChanged(tool.Target.Entity, "Change tilemap layer depth");
+				}
 
-			if (ImGui.IsItemHovered())
-				ImGui.SetTooltip("Tie-breaker within one render layer. 0 = front, 1 = back.");
+				if (ImGui.IsItemHovered())
+					ImGui.SetTooltip("Tie-breaker within one render layer. 0 = front, 1 = back. Usually left to the arrows.");
+			}
 		}
 
 		private static List<TilemapRenderer> SortedFrontToBack()
@@ -372,26 +393,28 @@ namespace Voltage.Editor.Tools.Tilemap
 			return maps;
 		}
 
+		// The arrows reorder by RenderLayer — the same axis that positions a tilemap against sprites — by swapping
+		// the two neighbours' values (never renumbering, so other layers are untouched). Only when the two share a
+		// render layer does it fall back to the fine LayerDepth tie-breaker.
 		private static void MoveLayer(List<TilemapRenderer> sorted, int index, int direction)
 		{
 			var other = index + direction;
 			if (other < 0 || other >= sorted.Count)
 				return;
 
-			// Layers left at identical defaults have nothing to swap, so spread the depths first — then the swap
-			// always changes the order.
-			SpreadDepthsWithinLayers(sorted);
-
 			var a = sorted[index];
 			var b = sorted[other];
 
-			var layer = a.RenderLayer;
-			var depth = a.LayerDepth;
-
-			a.RenderLayer = b.RenderLayer;
-			a.LayerDepth = b.LayerDepth;
-			b.RenderLayer = layer;
-			b.LayerDepth = depth;
+			if (a.RenderLayer != b.RenderLayer)
+			{
+				(a.RenderLayer, b.RenderLayer) = (b.RenderLayer, a.RenderLayer);
+			}
+			else
+			{
+				// Same render layer: give this group distinct depths (preserving order), then swap the pair.
+				SpreadDepthsWithinLayers(sorted);
+				(a.LayerDepth, b.LayerDepth) = (b.LayerDepth, a.LayerDepth);
+			}
 
 			EditorChangeTracker.MarkChanged(a.Entity, "Reorder tilemap layers");
 			EditorChangeTracker.MarkChanged(b.Entity, "Reorder tilemap layers");
@@ -443,6 +466,164 @@ namespace Voltage.Editor.Tools.Tilemap
 					"replaces it.\n\n" +
 					"A single click is always free-form, whichever way this is set.");
 			}
+
+			DrawOrientationControls(tool);
+			DrawBrushPreview(tool);
+			DrawTerrainSelector(tool);
+		}
+
+		/// <summary>
+		/// Shows the WHOLE selected stamp with the brush's current rotation/flip applied - each tile is oriented
+		/// about its own centre in the same grid arrangement a stroke actually paints (the block itself is not
+		/// rotated, matching StampAt), so the preview never lies about the result.
+		/// </summary>
+		private void DrawBrushPreview(TilePaintTool tool)
+		{
+			if (_tileset?.Texture == null || _atlasTextureId == IntPtr.Zero || !tool.HasSelection)
+				return;
+
+			var cols = tool.SelectionWidth;
+			var rows = tool.SelectionHeight;
+			var texW = (float)_tileset.Texture.Width;
+			var texH = (float)_tileset.Texture.Height;
+
+			var flipX = tool.OrientationFlipX ? -1f : 1f;
+			var flipY = tool.OrientationFlipY ? -1f : 1f;
+			var angle = tool.OrientationRotation * (float)(Math.PI * 0.5);
+			var cos = (float)Math.Cos(angle);
+			var sin = (float)Math.Sin(angle);
+
+			// Fit the whole colsxrows block into a fixed box, preserving its shape.
+			const float box = 96f;
+			var cellPx = box / Math.Max(cols, rows);
+			var blockW = cols * cellPx;
+			var blockH = rows * cellPx;
+
+			var origin = ImGui.GetCursorScreenPos();
+			var blockX = origin.X + (box - blockW) * 0.5f;
+			var blockY = origin.Y + (box - blockH) * 0.5f;
+
+			var drawList = ImGui.GetWindowDrawList();
+			var boxMax = new Num.Vector2(origin.X + box, origin.Y + box);
+			drawList.AddRectFilled(origin, boxMax, ImGui.GetColorU32(new Num.Vector4(0.15f, 0.15f, 0.15f, 1f)));
+
+			var half = cellPx * 0.5f;
+			for (var sy = 0; sy < rows; sy++)
+			{
+				for (var sx = 0; sx < cols; sx++)
+				{
+					var tile = tool.Selection[sy * cols + sx];
+					if (!_tileset.IsValidIndex(tile))
+						continue;
+
+					// Animated tiles play in the preview too, so a placed animation reads at a glance.
+					var displayTile = _tileset.ResolveFrame(tile, (float)ImGui.GetTime());
+					if (!_tileset.IsValidIndex(displayTile))
+						displayTile = tile;
+
+					var rect = _tileset.SourceRects[displayTile];
+					var uvTL = new Num.Vector2(rect.X / texW, rect.Y / texH);
+					var uvTR = new Num.Vector2((rect.X + rect.Width) / texW, rect.Y / texH);
+					var uvBR = new Num.Vector2((rect.X + rect.Width) / texW, (rect.Y + rect.Height) / texH);
+					var uvBL = new Num.Vector2(rect.X / texW, (rect.Y + rect.Height) / texH);
+
+					var cx = blockX + sx * cellPx + half;
+					var cy = blockY + sy * cellPx + half;
+
+					// Flip in local space, then rotate about the tile's centre - the renderer's exact order.
+					Num.Vector2 Corner(float lx, float ly)
+					{
+						lx *= half * flipX;
+						ly *= half * flipY;
+						return new Num.Vector2(cx + (lx * cos - ly * sin), cy + (lx * sin + ly * cos));
+					}
+
+					drawList.AddImageQuad(_atlasTextureId,
+						Corner(-1, -1), Corner(1, -1), Corner(1, 1), Corner(-1, 1),
+						uvTL, uvTR, uvBR, uvBL, 0xFFFFFFFF);
+				}
+			}
+
+			drawList.AddRect(origin, boxMax, ImGui.GetColorU32(new Num.Vector4(0.5f, 0.5f, 0.5f, 1f)));
+
+			ImGui.Dummy(new Num.Vector2(box, box));
+			ImGui.SameLine();
+			ImGui.TextDisabled($"brush {cols}x{rows}{(tool.CurrentOrientation == 0 ? "" : " (oriented)")}");
+		}
+
+		/// <summary>Autotile terrain picker. When set, the brush paints the terrain and auto-selects tiles by neighbour.</summary>
+		private void DrawTerrainSelector(TilePaintTool tool)
+		{
+			var terrains = _tileset?.Asset?.Terrains;
+			if (terrains == null || terrains.Count == 0)
+			{
+				tool.ActiveTerrain = -1;
+				return;
+			}
+
+			var current = 0;
+			var labels = new List<string> { "Off (paint tiles)" };
+			for (var i = 0; i < terrains.Count; i++)
+			{
+				labels.Add(string.IsNullOrEmpty(terrains[i].Name) ? $"Terrain {terrains[i].Id}" : terrains[i].Name);
+				if (terrains[i].Id == tool.ActiveTerrain)
+					current = i + 1;
+			}
+
+			ImGui.SetNextItemWidth(200f);
+			if (ImGui.Combo("Autotile", ref current, labels.ToArray(), labels.Count))
+				tool.ActiveTerrain = current == 0 ? -1 : terrains[current - 1].Id;
+
+			if (ImGui.IsItemHovered())
+				ImGui.SetTooltip("Paint a terrain; the right edge/corner tile is chosen automatically from neighbours.\nDefine terrains and per-tile masks in the Tileset Editor.");
+		}
+
+		/// <summary>Orientation applied to newly painted tiles. Hotkeys Z/X rotate, V/C flip.</summary>
+		private static void DrawOrientationControls(TilePaintTool tool)
+		{
+			ImGui.TextUnformatted("Orient");
+			ImGui.SameLine();
+
+			if (ImGui.SmallButton("Rot -##orient")) tool.RotateBrush(-1);
+			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Rotate 90° left (Z)");
+			ImGui.SameLine();
+
+			if (ImGui.SmallButton("Rot +##orient")) tool.RotateBrush(1);
+			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Rotate 90° right (X)");
+			ImGui.SameLine();
+
+			var flipX = tool.OrientationFlipX;
+			if (ToggleSmall("Flip X##orient", flipX)) tool.ToggleFlipX();
+			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Flip horizontally (V)");
+			ImGui.SameLine();
+
+			var flipY = tool.OrientationFlipY;
+			if (ToggleSmall("Flip Y##orient", flipY)) tool.ToggleFlipY();
+			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Flip vertically (C)");
+			ImGui.SameLine();
+
+			ImGui.BeginDisabled(tool.CurrentOrientation == 0);
+			if (ImGui.SmallButton("Reset##orient")) tool.ResetOrientation();
+			ImGui.EndDisabled();
+
+			if (tool.CurrentOrientation != 0)
+			{
+				ImGui.SameLine();
+				ImGui.TextDisabled($"({tool.OrientationRotation * 90}°{(flipX ? " X" : "")}{(flipY ? " Y" : "")})");
+			}
+		}
+
+		private static bool ToggleSmall(string label, bool active)
+		{
+			if (active)
+				ImGui.PushStyleColor(ImGuiCol.Button, new Num.Vector4(0.2f, 0.5f, 1f, 1f));
+
+			var clicked = ImGui.SmallButton(label);
+
+			if (active)
+				ImGui.PopStyleColor();
+
+			return clicked;
 		}
 
 		private static void DrawToolButton(TilePaintTool tool, TileTool value, string label, string tooltip)
@@ -485,10 +666,37 @@ namespace Voltage.Editor.Tools.Tilemap
 			ImGui.SliderFloat("Grid thickness", ref tool.GridThickness, 0.25f, 4f, "%.2f px");
 
 			if (ImGui.IsItemHovered())
-				ImGui.SetTooltip("Line width in screen pixels — stays constant as you zoom.");
+				ImGui.SetTooltip("Line width in screen pixels - stays constant as you zoom.");
 
 			ImGui.SetNextItemWidth(140f);
 			ImGui.SliderFloat("Cursor thickness", ref tool.HighlightThickness, 0.5f, 6f, "%.2f px");
+		}
+
+		// The tile-grid overlay is skipped past this many tiles per axis (see TilePaletteDrawing.DrawSliceGrid);
+		// beyond it the atlas still shows but without visible tile boundaries.
+		private const int GridDisplayLimit = 256;
+
+		/// <summary>Yellow warning (with the shared warning icon) when the tileset is too large to display its grid.</summary>
+		private void DrawAtlasWarnings()
+		{
+			if (_tileset.Columns <= GridDisplayLimit && _tileset.Rows <= GridDisplayLimit)
+				return;
+
+			var warning = new Num.Vector4(1f, 0.85f, 0.25f, 1f);
+
+			if (ImguiImageLoader.WarningIconId != IntPtr.Zero)
+			{
+				var iconSize = ImGui.GetFontSize() + 2f;
+				ImGui.Image(ImguiImageLoader.WarningIconId, new Num.Vector2(iconSize, iconSize),
+					Num.Vector2.Zero, Num.Vector2.One, warning);
+				ImGui.SameLine();
+			}
+
+			ImGui.PushStyleColor(ImGuiCol.Text, warning);
+			ImGui.TextWrapped(
+				$"Large tileset ({_tileset.Columns}x{_tileset.Rows} tiles): the tile grid is hidden beyond " +
+				$"{GridDisplayLimit} per axis. Zoom in to line up tile edges, or split the tileset.");
+			ImGui.PopStyleColor();
 		}
 
 		private void DrawAtlas(TilePaintTool tool)
@@ -496,7 +704,35 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (_tileset?.Texture == null || _atlasTextureId == IntPtr.Zero)
 				return;
 
-			ImGui.SliderFloat("Zoom", ref _zoom, 1f, 8f, "%.1fx");
+			DrawAtlasWarnings();
+
+			if (_tileset.Asset?.TextureIsAsepriteAnimation == true)
+			{
+				ImGui.TextDisabled("Animated tileset: the strip below is the animation frames. Paint tile 0 (top-left) — it plays automatically.");
+			}
+
+			// Logarithmic + a sub-1x floor so an oversized atlas can be zoomed OUT to fit, not only scrolled.
+			ImGui.SetNextItemWidth(160f);
+			ImGui.SliderFloat("Zoom", ref _zoom, 0.1f, 8f, "%.2fx", ImGuiSliderFlags.Logarithmic);
+
+			ImGui.SameLine();
+
+			// "Fit" scales the whole tileset into the space the atlas child is about to occupy - the answer for a
+			// tileset too big to browse at 1x. GetContentRegionAvail here is the remaining window, ~= the child.
+			if (ImGui.Button("Fit"))
+			{
+				var avail = ImGui.GetContentRegionAvail();
+				var fitX = avail.X / _tileset.Texture.Width;
+				var fitY = Math.Max(80f, avail.Y - 4f) / _tileset.Texture.Height;
+				_zoom = Math.Clamp(Math.Min(fitX, fitY), 0.02f, 8f);
+			}
+
+			if (ImGui.IsItemHovered())
+				ImGui.SetTooltip("Zoom the whole tileset to fit the panel.");
+
+			ImGui.SameLine();
+			if (ImGui.Button("1:1"))
+				_zoom = 1f;
 
 			if (_hasSelection)
 			{
@@ -506,11 +742,12 @@ namespace Voltage.Editor.Tools.Tilemap
 			}
 			else
 			{
-				ImGui.TextDisabled("Click a tile — or drag across several — to choose the stamp.");
+				ImGui.TextDisabled("Click a tile - or drag across several - to choose the stamp.");
 			}
 
+			// Both scrollbars, so a large atlas at any zoom pans in every direction.
 			ImGui.BeginChild("tile_atlas", new Num.Vector2(0, 0), true,
-				ImGuiWindowFlags.HorizontalScrollbar);
+				ImGuiWindowFlags.HorizontalScrollbar | ImGuiWindowFlags.AlwaysVerticalScrollbar);
 
 			var origin = ImGui.GetCursorScreenPos();
 			var size = new Num.Vector2(_tileset.Texture.Width * _zoom, _tileset.Texture.Height * _zoom);
@@ -631,7 +868,7 @@ namespace Voltage.Editor.Tools.Tilemap
 
 		private void EnsureTilesetLoaded(TilePaintTool tool)
 		{
-			// With no layer targeted the palette holds a tileset staged for the next New Layer — leave it be.
+			// With no layer targeted the palette holds a tileset staged for the next New Layer - leave it be.
 			if (tool.Target == null)
 				return;
 
@@ -729,7 +966,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (tileset?.Texture == null || tileset.Columns <= 0 || tileset.Rows <= 0)
 				return;
 
-			// A dense grid at low zoom is just noise — and thousands of draw-list lines.
+			// A dense grid at low zoom is just noise - and thousands of draw-list lines.
 			if (tileset.Columns > 256 || tileset.Rows > 256)
 				return;
 
