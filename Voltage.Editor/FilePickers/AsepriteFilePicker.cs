@@ -37,6 +37,11 @@ namespace Voltage.Editor.FilePickers
         private readonly string _popupId;
         private readonly string _startingPath;
         private readonly bool _isAnimation;
+        private readonly AssetFileBrowser _fileBrowser;
+
+        private bool _awaitingFile;
+        private bool _openOptionsPopup;
+        private string _selectedFile;
 
         
         //  Layers and frames from the currently selected file
@@ -75,14 +80,18 @@ namespace Voltage.Editor.FilePickers
 			_minRenderingLayer = new($"{PopupId}_MinRenderingLayer", -89);
 			_maxRenderingLayer = new($"{PopupId}_MaxRenderingLayer", 89);
 			_isAnimation = isAnimation;
+			_fileBrowser = new AssetFileBrowser($"{_popupId}-browser", new[] { ".aseprite" }, "Aseprite");
         }
 
         /// <summary>
-        /// Opens the file picker popup.
+        /// Opens the file browser; the layer/frame options popup follows once a file is chosen.
         /// </summary>
         public void Open()
         {
+            Reset();
             _isOpen = true;
+            _awaitingFile = true;
+            _fileBrowser.Open("Select Aseprite File", _startingPath, _owner);
         }
 
         /// <summary>
@@ -90,45 +99,38 @@ namespace Voltage.Editor.FilePickers
         /// </summary>
         public AsepriteSelection Draw()
         {
+            if (!_isOpen)
+                return null;
+
+            if (_awaitingFile)
+            {
+                PumpFileBrowser();
+                return null;
+            }
+
+            if (_openOptionsPopup)
+            {
+                ImGui.OpenPopup(_popupId);
+                _openOptionsPopup = false;
+            }
+
             AsepriteSelection result = null;
             bool isOpen = _isOpen;
 
             if (ImGui.BeginPopupModal(_popupId, ref isOpen))
             {
-                var picker = FilePicker.GetFilePicker(_owner, _startingPath, ".aseprite");
-                picker.DontAllowTraverselBeyondRootFolder = true;
-
                 ImGui.Text("Aseprite File Selection:");
+                ImGuiSafe.TextColoredSafe(new Num.Vector4(0.7f, 1.0f, 0.7f, 1.0f), Path.GetFileName(_selectedFile));
 
-                // OS-native file dialog shortcut; the in-editor browser below stays available too.
-                if (NativeFileDialogs.IsAvailable && ImGui.Button("Browse with OS..."))
+                ImGui.SameLine();
+                if (ImGui.Button("Change..."))
                 {
-                    if (NativeFileDialogs.TryOpenFile("Select Aseprite file", _startingPath,
-                            new[] { "aseprite" }, "Aseprite", out var nativeFile) && !string.IsNullOrEmpty(nativeFile))
-                    {
-                        picker.SelectedFile = nativeFile;
-                        if (nativeFile != _lastLoadedFile && nativeFile.EndsWith(".aseprite"))
-                        {
-                            LoadAsepriteMetadata(nativeFile);
-                            _lastLoadedFile = nativeFile;
-                        }
-                    }
+                    _awaitingFile = true;
+                    _fileBrowser.Open("Select Aseprite File", _startingPath, _owner);
+                    ImGui.CloseCurrentPopup();
                 }
+
                 ImGui.Separator();
-
-                if (picker.Draw())
-                {
-                    if (!string.IsNullOrEmpty(picker.SelectedFile) && 
-                        picker.SelectedFile != _lastLoadedFile && 
-                        picker.SelectedFile.EndsWith(".aseprite"))
-                    {
-                        LoadAsepriteMetadata(picker.SelectedFile);
-                        _lastLoadedFile = picker.SelectedFile;
-                    }
-                    
-                    ImGui.EndChild();
-                }
-
                 ImGui.Spacing();
 
                 bool layerMergeOn = _isLayerMergeOn.Value;
@@ -179,14 +181,14 @@ namespace Voltage.Editor.FilePickers
                 
                 ImGui.Separator();
 
-                bool shouldLoad = DrawActionButtons(picker, ref _isOpen);
+                bool shouldLoad = DrawActionButtons(ref _isOpen);
 
                 if (shouldLoad)
                 {
                     string contentRoot = ProjectManager.Instance.CurrentProject.ContentsFolder;
-                    if (CrossPlatformPath.IsPathUnder(contentRoot, picker.SelectedFile))
+                    if (CrossPlatformPath.IsPathUnder(contentRoot, _selectedFile))
                     {
-                        string relativePath = CrossPlatformPath.GetRelativePathForStorage(ProjectManager.Instance.CurrentProject.ProjectPath, picker.SelectedFile);
+                        string relativePath = CrossPlatformPath.GetRelativePathForStorage(ProjectManager.Instance.CurrentProject.ProjectPath, _selectedFile);
                         
                         result = new AsepriteSelection
                         {
@@ -201,7 +203,6 @@ namespace Voltage.Editor.FilePickers
 						};
 
                         ImGui.CloseCurrentPopup();
-                        FilePicker.RemoveFilePicker(picker);
                         _isOpen = false;
                         Reset();
                     }
@@ -213,15 +214,54 @@ namespace Voltage.Editor.FilePickers
 
 	            ImGui.EndPopup();
             }
-            
-            if (!isOpen)
+
+            // "Change..." also closes the popup, so only treat this as a dismissal when we are not
+            // heading back into the file browser.
+            if ((!isOpen || !_isOpen) && !_awaitingFile)
             {
-                FilePicker.RemoveFilePicker(_owner);
                 _isOpen = false;
                 Reset();
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Runs the file-selection stage. Advances to the options popup on a valid pick, closes on cancel.
+        /// </summary>
+        private void PumpFileBrowser()
+        {
+            _fileBrowser.Draw("Select an .aseprite file");
+
+            if (_fileBrowser.TryTakeResult(out var picked))
+            {
+                if (!string.IsNullOrEmpty(picked) && File.Exists(picked) &&
+                    picked.EndsWith(".aseprite", StringComparison.OrdinalIgnoreCase))
+                {
+                    _selectedFile = picked;
+
+                    if (picked != _lastLoadedFile)
+                    {
+                        LoadAsepriteMetadata(picked);
+                        _lastLoadedFile = picked;
+                    }
+
+                    _awaitingFile = false;
+                    _openOptionsPopup = true;
+                }
+                else
+                {
+                    Debug.Error("Please select a valid .aseprite file.");
+                    _isOpen = false;
+                    Reset();
+                }
+            }
+            else if (!_fileBrowser.IsBrowsing)
+            {
+                // Cancelled — nothing picked and no popup left up.
+                _isOpen = false;
+                Reset();
+            }
         }
 
         private void LoadAsepriteMetadata(string filePath)
@@ -457,7 +497,7 @@ namespace Voltage.Editor.FilePickers
             return sprites;
         }
 
-        private bool DrawActionButtons(FilePicker picker, ref bool openPopup)
+        private bool DrawActionButtons(ref bool openPopup)
         {
             bool shouldLoad = false;
 
@@ -465,19 +505,15 @@ namespace Voltage.Editor.FilePickers
             float totalWidth = ImGui.GetContentRegionAvail().X;
             float rightButtonStart = totalWidth - buttonWidth;
 
-            if (_isFileSelected)
+            if (ImGui.Button("Cancel", new Num.Vector2(buttonWidth, 0)))
             {
-                if (ImGui.Button("Cancel", new Num.Vector2(buttonWidth, 0)))
-                {
-                    openPopup = false;
-                }
+                ImGui.CloseCurrentPopup();
+                openPopup = false;
             }
-            
+
             ImGui.SameLine(rightButtonStart);
 
-            bool canConfirm = !string.IsNullOrEmpty(picker.SelectedFile) && 
-                             picker.SelectedFile.EndsWith(".aseprite") &&
-                             _availableLayers.Count > 0;
+            bool canConfirm = !string.IsNullOrEmpty(_selectedFile) && _availableLayers.Count > 0;
             
             if (!canConfirm)
             {
@@ -511,6 +547,9 @@ namespace Voltage.Editor.FilePickers
             _frameInputStart = 0;
             _frameInputEnd = 0;
             _layerSearchFilter = "";
+            _awaitingFile = false;
+            _openOptionsPopup = false;
+            _selectedFile = null;
         }
     }
 }

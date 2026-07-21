@@ -182,9 +182,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private bool _showEngineEffectsPrompt = false;
 	private bool _engineEffectsCheckComplete = false;
 
-	private FilePicker _projectFilePicker;
-	private bool _showProjectFilePicker = false;
-	private bool _reopenMenuAfterProjectPicker = false;
+	private readonly AssetFileBrowser _projectFileBrowser =
+		new("load-project-popup", new[] { ".voltage" }, "Voltage projects");
 
 	private ScriptManager _scriptManager;
 
@@ -622,7 +621,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	}
 
 	/// <summary>
-	/// Opens the file picker for selecting a .voltage file
+	/// Opens the file browser for selecting a .voltage file
 	/// </summary>
 	private void OpenProjectFilePicker()
 	{
@@ -630,69 +629,27 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			? Path.GetDirectoryName(_projectManager.LastProjectPath)
 			: Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 
-		_projectFilePicker = FilePicker.GetFilePicker(this, startingPath, ".voltage");
-		_projectFilePicker.DontAllowTraverselBeyondRootFolder = false;
-		_showProjectFilePicker = true;
+		_projectFileBrowser.Open("Load Project", startingPath, this);
 	}
 
 	/// <summary>
-	/// Draws the project file picker popup
+	/// Pumps the project file browser and loads whatever the user picked.
 	/// </summary>
 	private void DrawProjectFilePicker()
 	{
-		if (_showProjectFilePicker && _projectFilePicker != null)
+		_projectFileBrowser.Draw("Select a .voltage file to load");
+
+		if (!_projectFileBrowser.TryTakeResult(out var selectedFile) || string.IsNullOrEmpty(selectedFile))
+			return;
+
+		if (!Path.GetExtension(selectedFile).Equals(".voltage", StringComparison.OrdinalIgnoreCase))
 		{
-			ImGui.OpenPopup("load-project-popup");
-			_showProjectFilePicker = false;
+			Debug.Warn("Please select a valid .voltage file.");
+			return;
 		}
 
-		var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.5f);
-		ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
-		ImGui.SetNextWindowSize(new Num.Vector2(600, 500), ImGuiCond.Appearing);
-
-		bool open = true;
-		if (ImGui.BeginPopupModal("load-project-popup", ref open, ImGuiWindowFlags.NoResize))
-		{
-			ImGui.TextColored(new Num.Vector4(0.2f, 0.8f, 1.0f, 1.0f), "Load Project");
-			ImGui.Separator();
-			ImGui.TextWrapped("Select a .voltage file to load:");
-			VoltageEditorUtils.SmallVerticalSpace();
-
-			if (_projectFilePicker != null && _projectFilePicker.Draw())
-			{
-				var selectedFile = _projectFilePicker.SelectedFile;
-
-				// Guard against null SelectedFile — FilePicker.Draw() can return true
-				// from a double-click on "../" (directory navigation) because the
-				// IsMouseDoubleClicked check is not scoped to file selectables.
-				if (!string.IsNullOrEmpty(selectedFile) &&
-					Path.GetExtension(selectedFile).Equals(".voltage", StringComparison.OrdinalIgnoreCase))
-				{
-					bool success = _projectManager.LoadProject(selectedFile);
-					Debug.ErrorIf(!success, "Failed to load project.");
-				}
-				else if (!string.IsNullOrEmpty(selectedFile))
-				{
-					Debug.Warn("Please select a valid .voltage file.");
-				}
-
-				if (!string.IsNullOrEmpty(selectedFile))
-				{
-					FilePicker.RemoveFilePicker(_projectFilePicker);
-					_projectFilePicker = null;
-					ImGui.CloseCurrentPopup();
-				}
-			}
-
-			ImGui.EndPopup();
-		}
-
-		// Handle cancel/close via X button
-		if (!open && _projectFilePicker != null)
-		{
-			FilePicker.RemoveFilePicker(_projectFilePicker);
-			_projectFilePicker = null;
-		}
+		bool success = _projectManager.LoadProject(selectedFile);
+		Debug.ErrorIf(!success, "Failed to load project.");
 	}
 
 	/// <summary>
