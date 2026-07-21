@@ -36,6 +36,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	public bool ShowDemoWindow = false;
 	public bool IsGameWindowFocused = false;
+	public bool IsGameWindowHovered = false;
+
 	public Num.Vector2 GameWindowPosition;
 	public Num.Vector2 GameWindowSize;
 	public bool FocusGameWindowOnMiddleClick = false;
@@ -427,10 +429,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	/// </summary>
 	private void LoadDefaultLayout()
 	{
-		if (File.Exists(_layoutFilePath))
+		if (_layoutManager.WasFreshInstall || !File.Exists(_layoutFilePath))
 		{
-			ImGui.LoadIniSettingsFromDisk(_layoutFilePath);
+			_layoutManager.LoadLayout("Default");
+			return;
 		}
+
+		ImGui.LoadIniSettingsFromDisk(_layoutFilePath);
 	}
 
 	/// <summary>

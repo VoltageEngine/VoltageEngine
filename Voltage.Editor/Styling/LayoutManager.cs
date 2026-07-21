@@ -46,6 +46,9 @@ namespace Voltage.Editor.Styling
         /// </summary>
         public string CurrentLayoutName => _currentLayoutName;
 
+        /// <summary>True when no persisted layout was found on disk - the first launch of a built Editor.</summary>
+        public bool WasFreshInstall { get; private set; }
+
         /// <summary>
         /// Creates a "Custom" layout if no user-defined layouts exist in Content/Voltage/Layouts
         /// </summary>
@@ -101,12 +104,11 @@ namespace Voltage.Editor.Styling
         {
             try
             {
-                if (File.Exists(_defaultContentLayoutPath))
+                WasFreshInstall = !File.Exists(_defaultLayoutPath);
+
+                if (File.Exists(_defaultContentLayoutPath) && WasFreshInstall)
                 {
-                    if (!File.Exists(_defaultLayoutPath))
-                    {
-                        File.Copy(_defaultContentLayoutPath, _defaultLayoutPath, overwrite: false);
-                    }
+                    File.Copy(_defaultContentLayoutPath, _defaultLayoutPath, overwrite: false);
                 }
             }
             catch (Exception ex)
@@ -307,6 +309,72 @@ namespace Voltage.Editor.Styling
             catch (Exception ex)
             {
                 Debug.Error($"Failed to delete layout '{layoutName}': {ex.Message}");
+            }
+        }
+
+        /// <summary>Renames a saved layout, moving its .ini on disk. False when refused (Default, clash, bad name).</summary>
+        public bool RenameLayout(string oldName, string newName)
+        {
+            if (string.IsNullOrWhiteSpace(oldName) || string.IsNullOrWhiteSpace(newName))
+            {
+                NotificationSystem.ShowTimedNotification("Cannot rename a layout to an empty name");
+                return false;
+            }
+
+            newName = newName.Trim();
+
+            if (oldName.Equals("Default", StringComparison.OrdinalIgnoreCase))
+            {
+                NotificationSystem.ShowTimedNotification("The Default layout cannot be renamed");
+                return false;
+            }
+
+            if (newName.Equals("Default", StringComparison.OrdinalIgnoreCase))
+            {
+                NotificationSystem.ShowTimedNotification("'Default' is reserved for the built-in layout");
+                return false;
+            }
+
+            if (newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            {
+                NotificationSystem.ShowTimedNotification("A layout name cannot contain path characters");
+                return false;
+            }
+
+            if (oldName.Equals(newName, StringComparison.Ordinal))
+                return true;
+
+            try
+            {
+                var sourcePath = Path.Combine(_layoutsDirectory, $"{oldName}.ini");
+                var targetPath = Path.Combine(_layoutsDirectory, $"{newName}.ini");
+
+                if (!File.Exists(sourcePath))
+                {
+                    NotificationSystem.ShowTimedNotification($"Layout '{oldName}' not found");
+                    return false;
+                }
+
+                // A case-only rename targets the same file, so only a different one is a clash.
+                if (File.Exists(targetPath) && !oldName.Equals(newName, StringComparison.OrdinalIgnoreCase))
+                {
+                    NotificationSystem.ShowTimedNotification($"A layout named '{newName}' already exists");
+                    return false;
+                }
+
+                File.Move(sourcePath, targetPath);
+
+                if (_currentLayoutName.Equals(oldName, StringComparison.OrdinalIgnoreCase))
+                    _currentLayoutName = newName;
+
+                RefreshLayoutList();
+                Debug.Success($"Layout '{oldName}' renamed to '{newName}'");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.Error($"Failed to rename layout '{oldName}': {ex.Message}");
+                return false;
             }
         }
 
