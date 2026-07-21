@@ -35,8 +35,12 @@ namespace Voltage.Editor.FilePickers
         private readonly object _owner;
         private readonly string _popupId;
         private readonly string _startingPath;
+        private readonly AssetFileBrowser _fileBrowser;
         private bool _isOpen = false;
         private bool _isFileSelected = false;
+        private bool _awaitingFile = false;
+        private bool _openOptionsPopup = false;
+        private string _selectedFile;
 
         // UI state - persistent options
         private PersistentBool _loadColliders;
@@ -59,14 +63,19 @@ namespace Voltage.Editor.FilePickers
             _startingPath = startingPath ?? Path.Combine(Environment.CurrentDirectory, "Content");
             _loadColliders = new PersistentBool($"{PopupId}_LoadColliders", true);
             _imageLoadMode = new PersistentInt($"{PopupId}_ImageLoadMode", (int)ImageLoadMode.SeparateLayers);
+            _layerToRenderTo = new PersistentInt($"{PopupId}_LayerToRenderTo", 0);
+            _fileBrowser = new AssetFileBrowser($"{_popupId}-browser", new[] { ".tmx" }, "Tiled maps");
         }
 
         /// <summary>
-        /// Opens the file picker popup.
+        /// Opens the file browser; the load-options popup follows once a file is chosen.
         /// </summary>
         public void Open()
         {
+            Reset();
             _isOpen = true;
+            _awaitingFile = true;
+            _fileBrowser.Open("Select TMX File", _startingPath, _owner);
         }
 
         /// <summary>
@@ -74,51 +83,44 @@ namespace Voltage.Editor.FilePickers
         /// </summary>
         public TmxSelection Draw()
         {
+            if (!_isOpen)
+                return null;
+
+            if (_awaitingFile)
+            {
+                PumpFileBrowser();
+                return null;
+            }
+
+            if (_openOptionsPopup)
+            {
+                ImGui.OpenPopup(_popupId);
+                _openOptionsPopup = false;
+            }
+
             TmxSelection result = null;
             bool isOpen = _isOpen;
 
             if (ImGui.BeginPopupModal(_popupId, ref isOpen, ImGuiWindowFlags.AlwaysAutoResize))
             {
-                var picker = FilePicker.GetFilePicker(_owner, _startingPath, ".tmx");
-                picker.DontAllowTraverselBeyondRootFolder = true;
-
                 ImGui.Text("TMX File Selection:");
+                ImGuiSafe.TextColoredSafe(new Num.Vector4(0.7f, 1.0f, 0.7f, 1.0f), Path.GetFileName(_selectedFile));
 
-                // OS-native file dialog shortcut; the in-editor browser below stays available too.
-                if (NativeFileDialogs.IsAvailable && ImGui.Button("Browse with OS..."))
+                ImGui.SameLine();
+                if (ImGui.Button("Change..."))
                 {
-                    if (NativeFileDialogs.TryOpenFile("Select TMX file", _startingPath,
-                            new[] { "tmx" }, "Tiled maps", out var nativeFile)
-                        && !string.IsNullOrEmpty(nativeFile) && File.Exists(nativeFile)
-                        && nativeFile.EndsWith(".tmx", StringComparison.OrdinalIgnoreCase))
-                    {
-                        picker.SelectedFile = nativeFile;
-                        _isFileSelected = true;
-                    }
-                }
-                ImGui.Separator();
-
-                if (picker.Draw())
-                {
-                    var file = picker.SelectedFile;
-
-                    if (!string.IsNullOrEmpty(file) &&
-                        File.Exists(file) &&
-                        !Directory.Exists(file) &&
-                        file.EndsWith(".tmx", StringComparison.OrdinalIgnoreCase))
-                    {
-                        _isFileSelected = true;
-                    }
+                    _awaitingFile = true;
+                    _fileBrowser.Open("Select TMX File", _startingPath, _owner);
+                    ImGui.CloseCurrentPopup();
                 }
 
-                if (_isFileSelected)
                 {
                     ImGui.Spacing();
                     ImGui.Separator();
                     ImGui.Spacing();
 
                     ImGui.TextColored(new Num.Vector4(0.8f, 0.9f, 1.0f, 1.0f), "Load Options:");
-                    
+
                     bool loadColliders = _loadColliders.Value;
                     if (ImGui.Checkbox("Load Colliders", ref loadColliders))
                         _loadColliders.Value = loadColliders;
@@ -166,14 +168,14 @@ namespace Voltage.Editor.FilePickers
 				}
 
                 ImGui.Separator();
-                bool shouldLoad = DrawActionButtons(picker);
+                bool shouldLoad = DrawActionButtons();
 
                 if (shouldLoad)
                 {
                     string contentRoot = ProjectManager.Instance.CurrentProject.ContentsFolder;
-                    if (CrossPlatformPath.IsPathUnder(contentRoot, picker.SelectedFile))
+                    if (CrossPlatformPath.IsPathUnder(contentRoot, _selectedFile))
                     {
-                        string relativePath = CrossPlatformPath.GetRelativePathForStorage(ProjectManager.Instance.CurrentProject.ProjectPath, picker.SelectedFile);
+                        string relativePath = CrossPlatformPath.GetRelativePathForStorage(ProjectManager.Instance.CurrentProject.ProjectPath, _selectedFile);
 
                         result = new TmxSelection
                         {
@@ -184,7 +186,6 @@ namespace Voltage.Editor.FilePickers
                         };
 
                         ImGui.CloseCurrentPopup();
-                        FilePicker.RemoveFilePicker(_owner);
                         _isOpen = false;
                         Reset();
                     }
@@ -197,10 +198,10 @@ namespace Voltage.Editor.FilePickers
                 ImGui.EndPopup();
             }
 
-            // Handle popup closed via X button or ESC
-            if (!isOpen)
+            // Handle popup closed via X button or ESC. "Change..." closes the popup too, so only
+            // treat it as a dismissal when we are not heading back into the file browser.
+            if (!isOpen && !_awaitingFile)
             {
-                FilePicker.RemoveFilePicker(_owner);
                 _isOpen = false;
                 Reset();
             }
@@ -208,7 +209,39 @@ namespace Voltage.Editor.FilePickers
             return result;
         }
 
-        private bool DrawActionButtons(FilePicker picker)
+        /// <summary>
+        /// Runs the file-selection stage. Advances to the options popup on a valid pick, closes on cancel.
+        /// </summary>
+        private void PumpFileBrowser()
+        {
+            _fileBrowser.Draw("Select a .tmx file");
+
+            if (_fileBrowser.TryTakeResult(out var picked))
+            {
+                if (!string.IsNullOrEmpty(picked) && File.Exists(picked) && !Directory.Exists(picked) &&
+                    picked.EndsWith(".tmx", StringComparison.OrdinalIgnoreCase))
+                {
+                    _selectedFile = picked;
+                    _isFileSelected = true;
+                    _awaitingFile = false;
+                    _openOptionsPopup = true;
+                }
+                else
+                {
+                    Debug.Error("Please select a valid .tmx file.");
+                    _isOpen = false;
+                    Reset();
+                }
+            }
+            else if (!_fileBrowser.IsBrowsing)
+            {
+                // Cancelled — nothing picked and no popup left up.
+                _isOpen = false;
+                Reset();
+            }
+        }
+
+        private bool DrawActionButtons()
         {
             bool shouldLoad = false;
 
@@ -216,20 +249,14 @@ namespace Voltage.Editor.FilePickers
             float totalWidth = ImGui.GetContentRegionAvail().X;
             float rightButtonStart = totalWidth - buttonWidth;
 
-            if (_isFileSelected)
+            if (ImGui.Button("Cancel", new Num.Vector2(buttonWidth, 0)))
             {
-                if (ImGui.Button("Cancel", new Num.Vector2(buttonWidth, 0)))
-                {
-                    Close();
-                }
+                Close();
             }
 
             ImGui.SameLine(rightButtonStart);
 
-            bool canConfirm = !string.IsNullOrEmpty(picker.SelectedFile) &&
-                             picker.SelectedFile.EndsWith(".tmx", StringComparison.OrdinalIgnoreCase) &&
-                             File.Exists(picker.SelectedFile) &&
-                             _isFileSelected;
+            bool canConfirm = !string.IsNullOrEmpty(_selectedFile) && File.Exists(_selectedFile);
 
             if (!canConfirm)
             {
@@ -255,6 +282,9 @@ namespace Voltage.Editor.FilePickers
         public void Reset()
         {
             _isFileSelected = false;
+            _awaitingFile = false;
+            _openOptionsPopup = false;
+            _selectedFile = null;
         }
 
         /// <summary>
@@ -265,7 +295,6 @@ namespace Voltage.Editor.FilePickers
             if (_isOpen)
             {
                 ImGui.CloseCurrentPopup();
-                FilePicker.RemoveFilePicker(_owner);
                 _isOpen = false;
                 Reset();
             }
