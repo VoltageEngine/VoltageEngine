@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using ImGuiNET;
+using Voltage.Editor.Hotkeys;
 using Voltage.Editor.Assets;
 using Voltage.Editor.DebugUtils;
 using Voltage.Editor.ImGuiCore;
@@ -36,6 +37,9 @@ public class AssetBrowserWindow : IDisposable
     /// Set on drag start; consumed by a folder node's drop target.
     /// </summary>
     public static string DraggedSourcePath;
+
+    /// <summary>Every asset in the drag. Holds one entry for a single-row drag.</summary>
+    public static readonly List<string> DraggedSourcePaths = new();
 
     private const string WindowTitle     = "Asset Browser###AssetBrowserWindow";
     private const float  IconSize        = 20f;
@@ -72,9 +76,87 @@ public class AssetBrowserWindow : IDisposable
 
     private readonly List<string> _copiedPaths = new();
 
-    private string _selectedFilePath = null;
+    // Multi-selection, in click order. _selectedFilePath is the primary (last touched) entry.
+    private readonly List<string> _selection = new();
+    private string _selectionAnchor;
+
+    // Visible rows in draw order, rebuilt each frame so a Shift range can be resolved after the pass.
+    private readonly List<string> _visibleOrder = new();
+    private string _pendingRangeTo;
+
+    private string _selectedFilePath
+    {
+        get => _selection.Count > 0 ? _selection[_selection.Count - 1] : null;
+        set => SelectSingle(value);
+    }
+
+    private bool IsSelected(string path) =>
+        path != null && _selection.Contains(path, StringComparer.OrdinalIgnoreCase);
+
+    private void SelectSingle(string path)
+    {
+        _selection.Clear();
+        if (!string.IsNullOrEmpty(path))
+            _selection.Add(path);
+
+        _selectionAnchor = path;
+    }
+
+    private void ToggleSelection(string path)
+    {
+        var index = _selection.FindIndex(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase));
+        if (index >= 0)
+            _selection.RemoveAt(index);
+        else
+            _selection.Add(path);
+
+        _selectionAnchor = path;
+    }
+
+    /// <summary>Resolves a Shift-click against the completed draw order, so nesting and filtering are honoured.</summary>
+    private void ResolvePendingRange()
+    {
+        if (_pendingRangeTo == null)
+            return;
+
+        var to = _visibleOrder.FindIndex(p => string.Equals(p, _pendingRangeTo, StringComparison.OrdinalIgnoreCase));
+        var from = _selectionAnchor == null
+            ? -1
+            : _visibleOrder.FindIndex(p => string.Equals(p, _selectionAnchor, StringComparison.OrdinalIgnoreCase));
+
+        _pendingRangeTo = null;
+
+        if (to < 0)
+            return;
+
+        if (from < 0)
+            from = to;
+
+        _selection.Clear();
+        for (var i = Math.Min(from, to); i <= Math.Max(from, to); i++)
+            _selection.Add(_visibleOrder[i]);
+    }
+
+    private void RemoveFromSelection(string path) =>
+        _selection.RemoveAll(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase));
+
+    private void ReplaceInSelection(string oldPath, string newPath)
+    {
+        for (var i = 0; i < _selection.Count; i++)
+        {
+            if (string.Equals(_selection[i], oldPath, StringComparison.OrdinalIgnoreCase))
+                _selection[i] = newPath;
+        }
+
+        if (string.Equals(_selectionAnchor, oldPath, StringComparison.OrdinalIgnoreCase))
+            _selectionAnchor = newPath;
+    }
+
+    /// <summary>Selected files, newest last. Folders are never part of this selection.</summary>
+    private List<string> SelectedPaths() => new(_selection);
 
     private bool _showDeleteConfirmation = false;
+    private readonly List<string> _filesToDelete = new();
     private string _fileToDelete = null;
     // When the pending delete targets a directory (recursive) rather than a single file.
     private bool _deleteIsFolder = false;
@@ -260,6 +342,7 @@ public class AssetBrowserWindow : IDisposable
 
         // Reset the hovered-folder tracker each frame before drawing the tree.
         _hoveredFolderPath = null;
+        _visibleOrder.Clear();
 
         if (!ProjectManager.Instance.HasActiveProject)
         {
@@ -275,6 +358,9 @@ public class AssetBrowserWindow : IDisposable
             DrawShortcuts();
             DrawTree();
         }
+
+        // Needs the completed _visibleOrder, so it runs after the tree pass.
+        ResolvePendingRange();
 
         HandleKeyboardShortcuts();
 
@@ -432,6 +518,7 @@ public class AssetBrowserWindow : IDisposable
         if (!isProtected && ImGui.BeginDragDropSource(ImGuiDragDropFlags.None))
         {
             DraggedSourcePath = node.AbsolutePath;
+            DraggedSourcePaths.Clear();
             DraggedReference  = default; // folders aren't scene/inspector droppable
             unsafe
             {
@@ -452,9 +539,20 @@ public class AssetBrowserWindow : IDisposable
                 if (payload.NativePtr != null && !string.IsNullOrEmpty(DraggedSourcePath))
                 {
                     if (Directory.Exists(DraggedSourcePath))
+                    {
                         MoveFolder(DraggedSourcePath, node.AbsolutePath);
+                    }
                     else
-                        MoveAsset(DraggedSourcePath, node.AbsolutePath);
+                    {
+                        var moving = DraggedSourcePaths.Count > 0
+                            ? new List<string>(DraggedSourcePaths)
+                            : new List<string> { DraggedSourcePath };
+
+                        foreach (var path in moving)
+                            MoveAsset(path, node.AbsolutePath);
+                    }
+
+                    DraggedSourcePaths.Clear();
                     DraggedSourcePath = null;
                 }
             }
@@ -537,7 +635,9 @@ public class AssetBrowserWindow : IDisposable
             return;
         }
 
-        bool isSelected = string.Equals(_selectedFilePath, item.AbsolutePath, StringComparison.OrdinalIgnoreCase);
+        _visibleOrder.Add(item.AbsolutePath);
+
+        bool isSelected = IsSelected(item.AbsolutePath);
         bool wasSelected = isSelected;
 
         bool isPinging = IsPinging(item.AbsolutePath);
@@ -586,17 +686,29 @@ public class AssetBrowserWindow : IDisposable
         }
         else if (clicked)
         {
-            // Single click. A click on an ALREADY-selected row arms a delayed rename (committed below once
-            // the double-click window passes without a double-click). A click on a not-yet-selected row
-            // just selects it — first selection never renames.
-            if (wasSelected)
+            var io = ImGui.GetIO();
+            var additive = io.KeyCtrl || io.KeySuper;
+
+            if (io.KeyShift)
             {
+                // Resolved after the draw pass, once _visibleOrder holds every row.
+                _pendingRangeTo = item.AbsolutePath;
+                _renameCandidatePath = null;
+            }
+            else if (additive)
+            {
+                ToggleSelection(item.AbsolutePath);
+                _renameCandidatePath = null;
+            }
+            else if (wasSelected && _selection.Count == 1)
+            {
+                // Second click on the lone selected row arms a delayed rename.
                 _renameCandidatePath = item.AbsolutePath;
                 _renameCandidateTime = ImGui.GetTime();
             }
             else
             {
-                _selectedFilePath = item.AbsolutePath;
+                SelectSingle(item.AbsolutePath);
                 _renameCandidatePath = null;
             }
         }
@@ -620,10 +732,16 @@ public class AssetBrowserWindow : IDisposable
 
         if (ImGui.BeginPopupContextItem($"##ctx_{item.FileName}"))
         {
-            _selectedFilePath = item.AbsolutePath; // ensure selection follows right-click
+            // Right-clicking inside a multi-selection keeps it; otherwise the click reselects.
+            if (!IsSelected(item.AbsolutePath))
+                SelectSingle(item.AbsolutePath);
 
-            if (ImGui.MenuItem("Copy"))
-                CopyToInternalClipboard(item.AbsolutePath);
+            var targets = SelectedPaths();
+            var many = targets.Count > 1;
+            var suffix = many ? $" ({targets.Count} assets)" : string.Empty;
+
+            if (ImGui.MenuItem($"Copy{suffix}"))
+                CopyToInternalClipboard(targets);
 
             bool hasCopied = _copiedPaths.Count > 0;
             if (!hasCopied)
@@ -635,19 +753,29 @@ public class AssetBrowserWindow : IDisposable
             if (!hasCopied)
                 ImGui.EndDisabled();
 
-            if (ImGui.MenuItem("Duplicate"))
-                DuplicateFile(item.AbsolutePath);
+            if (ImGui.MenuItem($"Duplicate{suffix}"))
+            {
+                foreach (var path in targets)
+                    DuplicateFile(path);
+            }
 
+            ImGui.BeginDisabled(many);
             if (ImGui.MenuItem("Rename"))
                 BeginRename(item.AbsolutePath);
+            ImGui.EndDisabled();
 
+            if (many && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                ImGui.SetTooltip("Rename works on a single asset.");
+
+            ImGui.BeginDisabled(many);
             if (ImGui.MenuItem("Create Shortcut"))
                 AddShortcut(item.AbsolutePath);
+            ImGui.EndDisabled();
 
             ImGui.Separator();
 
-            if (ImGui.MenuItem("Delete"))
-                RequestDelete(item.AbsolutePath, isFolder: false);
+            if (ImGui.MenuItem($"Delete{suffix}"))
+                RequestDeleteMany(targets);
 
             ImGui.EndPopup();
         }
@@ -658,8 +786,14 @@ public class AssetBrowserWindow : IDisposable
             // doesn't trip into rename mode.
             _renameCandidatePath = null;
 
-            // Every asset can be dragged to another folder to MOVE it; stash the source path.
+            // Dragging an unselected row reselects it first, so the drag always matches what is highlighted.
+            if (!IsSelected(item.AbsolutePath))
+                SelectSingle(item.AbsolutePath);
+
+            // Every asset can be dragged to another folder to MOVE it; stash the source paths.
             DraggedSourcePath = item.AbsolutePath;
+            DraggedSourcePaths.Clear();
+            DraggedSourcePaths.AddRange(SelectedPaths());
 
             // Droppable types additionally carry an AssetReference so they can be dropped into
             // the scene / inspector. Non-droppable types (scripts, etc.) are move-only.
@@ -674,10 +808,14 @@ public class AssetBrowserWindow : IDisposable
                 ImGui.SetDragDropPayload(DragDropPayloadId, (IntPtr)(&sentinel), 1);
             }
 
-            if (isDroppable)
-                ImGuiSafe.TextSafe(item.FileName);
+            var dragLabel = DraggedSourcePaths.Count > 1
+                ? $"{DraggedSourcePaths.Count} assets"
+                : item.FileName;
+
+            if (isDroppable && DraggedSourcePaths.Count <= 1)
+                ImGuiSafe.TextSafe(dragLabel);
             else
-                ImGuiSafe.TextColoredSafe(new Num.Vector4(0.8f, 0.85f, 1f, 1f), $"{item.FileName}  (move)");
+                ImGuiSafe.TextColoredSafe(new Num.Vector4(0.8f, 0.85f, 1f, 1f), $"{dragLabel}  (move)");
 
             ImGui.EndDragDropSource();
         }
@@ -804,8 +942,7 @@ public class AssetBrowserWindow : IDisposable
             if (File.Exists(oldMeta))
                 File.Move(oldMeta, newPath + ".meta");
 
-            if (string.Equals(_selectedFilePath, oldPath, StringComparison.OrdinalIgnoreCase))
-                _selectedFilePath = newPath;
+            ReplaceInSelection(oldPath, newPath);
 
             EditorDebug.Log($"AssetBrowser: renamed '{Path.GetFileName(oldPath)}' → '{newBaseName}{ext}'", "AssetBrowser");
             _refreshRequested = true;
@@ -822,12 +959,10 @@ public class AssetBrowserWindow : IDisposable
         if (!ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows))
             return;
 
-        bool ctrl = ImGui.GetIO().KeyCtrl;
+        if (EditorHotkeys.Pressed(EditorHotkeys.AssetCopy) && _selection.Count > 0)
+            CopyToInternalClipboard(SelectedPaths());
 
-        if (ctrl && ImGui.IsKeyPressed(ImGuiKey.C, false) && _selectedFilePath != null)
-            CopyToInternalClipboard(_selectedFilePath);
-
-        if (ctrl && ImGui.IsKeyPressed(ImGuiKey.V, false) && _copiedPaths.Count > 0)
+        if (EditorHotkeys.Pressed(EditorHotkeys.AssetPaste) && _copiedPaths.Count > 0)
         {
             string targetDir = _hoveredFolderPath;
             if (string.IsNullOrEmpty(targetDir) || !Directory.Exists(targetDir))
@@ -839,11 +974,25 @@ public class AssetBrowserWindow : IDisposable
                 PasteFiles(targetDir);
         }
 
-        if (ctrl && ImGui.IsKeyPressed(ImGuiKey.D, false) && _selectedFilePath != null)
-            DuplicateFile(_selectedFilePath);
+        if (EditorHotkeys.Pressed(EditorHotkeys.AssetDuplicate) && _selection.Count > 0)
+        {
+            foreach (var path in SelectedPaths())
+                DuplicateFile(path);
+        }
 
-        if (ImGui.IsKeyPressed(ImGuiKey.Delete, false) && _selectedFilePath != null)
-            RequestDelete(_selectedFilePath, isFolder: false);
+        if (EditorHotkeys.Pressed(EditorHotkeys.AssetDelete) && _selection.Count > 0)
+            RequestDeleteMany(SelectedPaths());
+    }
+
+    /// <summary>Copies several paths to the internal clipboard, replacing whatever was there.</summary>
+    private void CopyToInternalClipboard(List<string> paths)
+    {
+        _copiedPaths.Clear();
+        foreach (var path in paths)
+        {
+            if (!string.IsNullOrEmpty(path))
+                _copiedPaths.Add(path);
+        }
     }
 
     /// <summary>Copies the path to the internal clipboard (does NOT touch the OS clipboard).</summary>
@@ -916,6 +1065,30 @@ public class AssetBrowserWindow : IDisposable
     {
         _fileToDelete = absolutePath;
         _deleteIsFolder = isFolder;
+        _filesToDelete.Clear();
+
+        if (!isFolder && !string.IsNullOrEmpty(absolutePath))
+            _filesToDelete.Add(absolutePath);
+
+        _showDeleteConfirmation = true;
+    }
+
+    /// <summary>Triggers the delete confirmation popup for a whole selection of assets.</summary>
+    private void RequestDeleteMany(List<string> paths)
+    {
+        if (paths == null || paths.Count == 0)
+            return;
+
+        if (paths.Count == 1)
+        {
+            RequestDelete(paths[0], isFolder: false);
+            return;
+        }
+
+        _fileToDelete = null;
+        _deleteIsFolder = false;
+        _filesToDelete.Clear();
+        _filesToDelete.AddRange(paths);
         _showDeleteConfirmation = true;
     }
 
@@ -941,9 +1114,22 @@ public class AssetBrowserWindow : IDisposable
             ImGui.Separator();
 
             string fileName = _fileToDelete != null ? Path.GetFileName(_fileToDelete) : string.Empty;
-            ImGuiSafe.TextWrappedSafe(_deleteIsFolder
-                ? $"Are you sure you want to delete the folder '{fileName}' and everything inside it?"
-                : $"Are you sure you want to delete '{fileName}'?");
+
+            if (_deleteIsFolder)
+                ImGuiSafe.TextWrappedSafe(
+                    $"Are you sure you want to delete the folder '{fileName}' and everything inside it?");
+            else if (_filesToDelete.Count > 1)
+                ImGuiSafe.TextWrappedSafe($"Are you sure you want to delete these {_filesToDelete.Count} assets?");
+            else
+                ImGuiSafe.TextWrappedSafe($"Are you sure you want to delete '{fileName}'?");
+
+            if (!_deleteIsFolder && _filesToDelete.Count > 1)
+            {
+                ImGui.BeginChild("delete-list", new Num.Vector2(360, 90), true);
+                foreach (var path in _filesToDelete)
+                    ImGui.TextUnformatted(Path.GetFileName(path));
+                ImGui.EndChild();
+            }
             ImGui.TextColored(new Num.Vector4(1f, 0.6f, 0.2f, 1f), "This action cannot be undone!");
 
             VoltageEditorUtils.MediumVerticalSpace();
@@ -957,9 +1143,16 @@ public class AssetBrowserWindow : IDisposable
             if (ImGui.Button("Yes", new Num.Vector2(buttonWidth, 0)))
             {
                 if (_deleteIsFolder)
+                {
                     ExecuteDeleteFolder(_fileToDelete);
+                }
                 else
-                    ExecuteDelete(_fileToDelete);
+                {
+                    foreach (var path in _filesToDelete)
+                        ExecuteDelete(path);
+                }
+
+                _filesToDelete.Clear();
                 _fileToDelete = null;
                 ImGui.CloseCurrentPopup();
             }
@@ -968,6 +1161,7 @@ public class AssetBrowserWindow : IDisposable
 
             if (ImGui.Button("No", new Num.Vector2(buttonWidth, 0)))
             {
+                _filesToDelete.Clear();
                 _fileToDelete = null;
                 ImGui.CloseCurrentPopup();
             }
@@ -997,8 +1191,7 @@ public class AssetBrowserWindow : IDisposable
 
             EditorDebug.Log($"AssetBrowser: deleted '{Path.GetFileName(absolutePath)}'.", "AssetBrowser");
 
-            if (string.Equals(_selectedFilePath, absolutePath, StringComparison.OrdinalIgnoreCase))
-                _selectedFilePath = null;
+            RemoveFromSelection(absolutePath);
 
             _db.Refresh();
         }
@@ -1051,8 +1244,7 @@ public class AssetBrowserWindow : IDisposable
             if (File.Exists(srcMeta))
                 File.Move(srcMeta, destPath + ".meta");
 
-            if (string.Equals(_selectedFilePath, sourcePath, StringComparison.OrdinalIgnoreCase))
-                _selectedFilePath = destPath;
+            ReplaceInSelection(sourcePath, destPath);
 
             EditorDebug.Log($"AssetBrowser: moved '{Path.GetFileName(sourcePath)}' → '{targetDir}'", "AssetBrowser");
             _refreshRequested = true;
@@ -1506,8 +1698,7 @@ public class AssetBrowserWindow : IDisposable
             RemoveShortcutsUnder(absolutePath);
             EditorDebug.Log($"AssetBrowser: deleted folder '{Path.GetFileName(absolutePath)}'.", "AssetBrowser");
 
-            if (_selectedFilePath != null && IsPathUnder(_selectedFilePath, absolutePath))
-                _selectedFilePath = null;
+            _selection.RemoveAll(p => IsPathUnder(p, absolutePath));
 
             _db.Refresh();
         }
@@ -1624,6 +1815,7 @@ public class AssetBrowserWindow : IDisposable
         if (ImGui.BeginDragDropSource(ImGuiDragDropFlags.None))
         {
             DraggedSourcePath = abs;
+            DraggedSourcePaths.Clear();
             bool isDroppable = descriptor.DropFactory != null;
             DraggedReference = isDroppable ? _db.GetReference(abs) : default;
             unsafe

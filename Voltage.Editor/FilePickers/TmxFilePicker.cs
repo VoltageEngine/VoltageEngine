@@ -37,7 +37,6 @@ namespace Voltage.Editor.FilePickers
         private readonly string _startingPath;
         private readonly AssetFileBrowser _fileBrowser;
         private bool _isOpen = false;
-        private bool _isFileSelected = false;
         private bool _awaitingFile = false;
         private bool _openOptionsPopup = false;
         private string _selectedFile;
@@ -217,7 +216,6 @@ namespace Voltage.Editor.FilePickers
                     picked.EndsWith(".tmx", StringComparison.OrdinalIgnoreCase))
                 {
                     _selectedFile = picked;
-                    _isFileSelected = true;
                     _awaitingFile = false;
                     _openOptionsPopup = true;
                 }
@@ -275,7 +273,6 @@ namespace Voltage.Editor.FilePickers
         /// </summary>
         public void Reset()
         {
-            _isFileSelected = false;
             _awaitingFile = false;
             _openOptionsPopup = false;
             _selectedFile = null;

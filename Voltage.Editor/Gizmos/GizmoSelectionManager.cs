@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework;
 using Voltage.DeferredLighting;
 using Voltage.Sprites;
 using Voltage.Utils;
+using Voltage.Editor.Hotkeys;
 using Voltage.Editor.ImGuiCore;
 
 namespace Voltage.Editor.Gizmos
@@ -67,18 +68,22 @@ namespace Voltage.Editor.Gizmos
 		/// </summary>
 		public void UpdateSelection()
 		{ 
-			if (ImGui.IsKeyPressed(ImGuiKey._1) || ImGui.IsKeyPressed(ImGuiKey.Q))
-				SelectionMode = CursorSelectionMode.Normal;
-			else if (ImGui.IsKeyPressed(ImGuiKey._2) || ImGui.IsKeyPressed(ImGuiKey.E))
-				SelectionMode = CursorSelectionMode.Resize;
-			else if (ImGui.IsKeyPressed(ImGuiKey._3) || ImGui.IsKeyPressed(ImGuiKey.R))
-				SelectionMode = CursorSelectionMode.Rotate;
-			else if (ImGui.IsKeyPressed(ImGuiKey._4) || ImGui.IsKeyPressed(ImGuiKey.T))
-				SelectionMode = CursorSelectionMode.ColliderResize;
-			else if (ImGui.IsKeyPressed(ImGuiKey._5) || ImGui.IsKeyPressed(ImGuiKey.B))
-				SelectionMode = CursorSelectionMode.TilePaint;
+			// The Tile Palette owns its letter shortcuts while focused, so the mode aliases stand down.
+			if (!_imGuiManager.IsTilePaletteFocused)
+			{
+				if (EditorHotkeys.Pressed(EditorHotkeys.CursorNormal))
+					SelectionMode = CursorSelectionMode.Normal;
+				else if (EditorHotkeys.Pressed(EditorHotkeys.CursorResize))
+					SelectionMode = CursorSelectionMode.Resize;
+				else if (EditorHotkeys.Pressed(EditorHotkeys.CursorRotate))
+					SelectionMode = CursorSelectionMode.Rotate;
+				else if (EditorHotkeys.Pressed(EditorHotkeys.CursorColliderResize))
+					SelectionMode = CursorSelectionMode.ColliderResize;
+				else if (EditorHotkeys.Pressed(EditorHotkeys.CursorTilePaint))
+					SelectionMode = CursorSelectionMode.TilePaint;
+			}
 
-			if (ImGui.IsKeyPressed(ImGuiKey.Escape))
+			if (EditorHotkeys.Pressed(EditorHotkeys.Cancel))
 			{
 				_transformGizmoHandler.Reset();
 				_rotateGizmoHandler.Reset();
@@ -106,6 +111,14 @@ namespace Voltage.Editor.Gizmos
 			var cursorInGameWindow = _imGuiManager.IsGameWindowFocused && IsCursorWithinGameWindow();
 			var tilePaintTool = _imGuiManager.TilePaintTool;
 			var cursorOverGameView = cursorInGameWindow && _imGuiManager.IsGameWindowHovered;
+
+			// Orientation hotkeys belong to the palette, not the cursor: rotate the tile you just picked.
+			if (Core.IsEditMode && _imGuiManager.IsTilePaletteFocused)
+				tilePaintTool.UpdateOrientationHotkeys();
+
+			// Delete works wherever the tile cursor is active, not only with the palette focused.
+			if (Core.IsEditMode && SelectionMode == CursorSelectionMode.TilePaint)
+				tilePaintTool.UpdateSelectionHotkeys();
 
 			// Drawn regardless of cursor position: tying it to viewport hover made it vanish whenever the mouse
 			// moved onto the Tile Palette (including to change its colour).

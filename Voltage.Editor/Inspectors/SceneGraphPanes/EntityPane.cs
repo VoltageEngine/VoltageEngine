@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using ImGuiNET;
+using Voltage.Editor.Hotkeys;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Voltage.Editor.DebugUtils;
@@ -193,8 +194,7 @@ public class EntityPane
 		if (ImGui.GetIO().WantTextInput || ImGui.GetIO().WantCaptureKeyboard)
 			return;
 
-		bool shiftDown = ImGui.GetIO().KeyShift;
-		if (shiftDown && ImGui.IsKeyPressed(ImGuiKey.N, false))
+		if (EditorHotkeys.Pressed(EditorHotkeys.NewEntity))
 			CreateEntity();
 	}
 
@@ -853,9 +853,9 @@ public class EntityPane
 	    if (ImGui.IsAnyItemActive() || ImGui.IsAnyItemFocused())
 		    return;
 
-		// Handle Copy/Paste/Duplicate Shortcuts
-		bool gameCtrlDown = Input.IsKeyDown(Keys.LeftControl) || Input.IsKeyDown(Keys.RightControl);
-	    bool imguiCtrlDown = ImGui.GetIO().KeyCtrl;
+	    // Scoped to this window so the Asset Browser's identical shortcuts do not both fire.
+	    if (!ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows))
+		    return;
 
 	    bool ShouldBlockDuplication(Entity entity)
 	    {
@@ -873,8 +873,7 @@ public class EntityPane
 	        return entity != null && entity.Type == Entity.InstanceType.SceneRequired;
 	    }
 
-	    // Ctrl+D: Duplicate selected
-	    if (Core.IsEditMode && imguiCtrlDown && ImGui.IsKeyPressed(ImGuiKey.D, false) && _selectedEntities.Count > 0)
+	    if (Core.IsEditMode && EditorHotkeys.Pressed(EditorHotkeys.DuplicateEntity) && _selectedEntities.Count > 0)
 	    {
 	        var entitiesToDuplicate = _selectedEntities.Where(e => !ShouldBlockDuplication(e)).ToList();
 	        if (entitiesToDuplicate.Count > 1)
@@ -888,31 +887,12 @@ public class EntityPane
 	        }
 	    }
 
-	    // Ctrl+C: Copy all selected entities
-	    if (Core.IsEditMode && gameCtrlDown && Input.IsKeyPressed(Keys.C) && _selectedEntities.Count > 0)
-	    {
-	        _copiedEntities = _selectedEntities.ToList();
-	    }
-	    else if (imguiCtrlDown && ImGui.IsKeyPressed(ImGuiKey.C) && _selectedEntities.Count > 0)
+	    if (Core.IsEditMode && EditorHotkeys.Pressed(EditorHotkeys.CopyEntity) && _selectedEntities.Count > 0)
 	    {
 	        _copiedEntities = _selectedEntities.ToList();
 	    }
 
-	    // Ctrl+V: Paste (duplicate all copied entities)
-	    if (Core.IsEditMode && gameCtrlDown && Input.IsKeyPressed(Keys.V) && _copiedEntities.Count > 0)
-	    {
-	        var entitiesToDuplicate = _copiedEntities.Where(e => !ShouldBlockDuplication(e)).ToList();
-	        if (entitiesToDuplicate.Count > 1)
-	        {
-	            DuplicateEntities(entitiesToDuplicate);
-	        }
-	        else
-	        {
-	            foreach (var entity in entitiesToDuplicate)
-	                DuplicateEntity(entity);
-	        }
-	    }
-	    else if (imguiCtrlDown && ImGui.IsKeyPressed(ImGuiKey.V) && _copiedEntities.Count > 0)
+	    if (Core.IsEditMode && EditorHotkeys.Pressed(EditorHotkeys.PasteEntity) && _copiedEntities.Count > 0)
 	    {
 	        var entitiesToDuplicate = _copiedEntities.Where(e => !ShouldBlockDuplication(e)).ToList();
 	        if (entitiesToDuplicate.Count > 1)
@@ -926,9 +906,7 @@ public class EntityPane
 	        }
 	    }
 
-	    // Delete: Remove all selected entities with Undo/Redo support 
-	    if (Core.IsEditMode && _selectedEntities.Count > 0 &&
-	        (Input.IsKeyPressed(Keys.Delete) || ImGui.IsKeyPressed(ImGuiKey.Delete)))
+	    if (Core.IsEditMode && _selectedEntities.Count > 0 && EditorHotkeys.Pressed(EditorHotkeys.DeleteEntity))
 	    {
 	        var entitiesToDelete = _selectedEntities.Where(e => !ShouldBlockDeletion(e)).ToList();
 

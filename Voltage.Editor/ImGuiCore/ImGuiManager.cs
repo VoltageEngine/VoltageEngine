@@ -11,6 +11,7 @@ using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Styling;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Gizmos;
+using Voltage.Editor.Hotkeys;
 using Voltage.Editor.Inspectors.CustomInspectors;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.SceneFile;
@@ -77,6 +78,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private CoreWindow _coreWindow = new();
 	private DebugWindow _debugWindow = new();
 	private TilePaletteWindow _tilePaletteWindow = new();
+
+	/// <summary>Tile Palette has focus, so its shortcuts take precedence over the global ones.</summary>
+	public bool IsTilePaletteFocused => _tilePaletteWindow.IsFocused;
 	private ProjectCreatorWindow _projectCreatorWindow = new();
 	private SceneCreator _sceneCreator = new();
 	private ProjectManager _projectManager;
@@ -756,25 +760,24 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	public void GlobalKeyCommands()
 	{
-		if (ImGui.IsKeyPressed(ImGuiKey.F5, false))
+		// Bindings match modifiers exactly, so Ctrl+F5 no longer also fires the bare-F5 reset.
+		if (EditorHotkeys.Pressed(EditorHotkeys.BuildAndRun))
+			_gameBuildWindow?.BuildAndRun();
+
+		if (EditorHotkeys.Pressed(EditorHotkeys.ResetScene))
 			Core.InvokeResetScene();
 
-		// Edit / Play mode
-		if (ImGui.IsKeyPressed(ImGuiKey.F1, false))
+		if (EditorHotkeys.Pressed(EditorHotkeys.TogglePlay))
 			Core.InvokeSwitchEditMode(!Core.IsEditMode);
 
 		// Pause mode (only in PlayMode)
-		if (ImGui.IsKeyPressed(ImGuiKey.F2, false) && !Core.IsEditMode)
+		if (EditorHotkeys.Pressed(EditorHotkeys.TogglePause) && !Core.IsEditMode)
 			Core.InvokeSwitchPauseMode(!Core.IsPauseMode);
 
-		// KeyCtrl is the physical Control key; on macOS the Command key comes through as KeySuper
-		// (Keys.LeftWindows/RightWindows). Accept either so Cmd+S works on Mac and Ctrl+S everywhere.
-		if ((ImGui.GetIO().KeyCtrl || ImGui.GetIO().KeySuper) && ImGui.IsKeyPressed(ImGuiKey.S, false))
-		{
+		if (EditorHotkeys.Pressed(EditorHotkeys.SaveScene))
 			InvokeSaveSceneChanges();
-		}
 
-		if (ImGui.IsKeyPressed(ImGuiKey.F6, false))
+		if (EditorHotkeys.Pressed(EditorHotkeys.ReloadScene))
 			_scriptManager?.ReloadScene();
 
 		// This triggers the same exit/save prompt as the window close event
@@ -834,18 +837,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void ManageUndoAndRedo()
 	{
-		// Accept Command (KeySuper) as well as Control so undo/redo work on macOS.
-		var cmdOrCtrl = ImGui.GetIO().KeyCtrl || ImGui.GetIO().KeySuper;
-
-		if (cmdOrCtrl && ImGui.IsKeyPressed(ImGuiKey.Z, false))
-		{
+		if (EditorHotkeys.Pressed(EditorHotkeys.Undo))
 			EditorChangeTracker.Undo();
-		}
 
-		if (cmdOrCtrl && ImGui.IsKeyPressed(ImGuiKey.Y, false))
-		{
+		if (EditorHotkeys.Pressed(EditorHotkeys.Redo))
 			EditorChangeTracker.Redo();
-		}
 	}
 
 	#region Drawing Methods
@@ -893,7 +889,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		if (ImGui.IsItemHovered())
 		{
-			ImGui.SetTooltip("Default Cursor (Press Q or 1)");
+			ImGui.SetTooltip($"Default Cursor ({EditorHotkeys.Hint(EditorHotkeys.CursorNormal)})");
 		}
 
 		ImGui.SameLine(0, spacing);
@@ -913,7 +909,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		if (ImGui.IsItemHovered())
 		{
-			ImGui.SetTooltip("Resize Entities (Press E or 2)");
+			ImGui.SetTooltip($"Resize Entities ({EditorHotkeys.Hint(EditorHotkeys.CursorResize)})");
 		}
 
 		ImGui.SameLine(0, spacing);
@@ -933,7 +929,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		if (ImGui.IsItemHovered())
 		{
-			ImGui.SetTooltip("Rotate Entities (Press R or 3)");
+			ImGui.SetTooltip($"Rotate Entities ({EditorHotkeys.Hint(EditorHotkeys.CursorRotate)})");
 		}
 
 		ImGui.SameLine(0, spacing);
@@ -955,7 +951,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		if (ImGui.IsItemHovered())
 		{
-			ImGui.SetTooltip("Resize Colliders (Press T or 4)");
+			ImGui.SetTooltip($"Resize Colliders ({EditorHotkeys.Hint(EditorHotkeys.CursorColliderResize)})");
 		}
 
 		ImGui.SameLine(0, spacing);
@@ -979,7 +975,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		if (ImGui.IsItemHovered())
 		{
-			ImGui.SetTooltip("Paint Tiles (Press B or 5)");
+			ImGui.SetTooltip($"Paint Tiles ({EditorHotkeys.Hint(EditorHotkeys.CursorTilePaint)})");
 		}
 
 		// Zoom indicator
