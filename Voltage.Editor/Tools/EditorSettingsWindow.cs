@@ -229,6 +229,8 @@ namespace Voltage.Editor.Tools
 					ImGui.Unindent();
 				}
 
+				Hotkeys.HotkeySettingsSection.Draw();
+
 				ImGui.End();
 			}
 			
