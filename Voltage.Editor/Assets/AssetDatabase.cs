@@ -746,10 +746,8 @@ namespace Voltage.Editor.Assets
 
             try
             {
-                var sb = new StringBuilder();
-                sb.Append("{\n");
+                var entries = new List<(string Guid, string Path)>();
 
-                bool first = true;
                 lock (_guidLock)
                 {
                     foreach (var kvp in _guidToPath)
@@ -758,19 +756,37 @@ namespace Voltage.Editor.Assets
                         if (string.IsNullOrEmpty(rel))
                             continue;
 
-                        if (!first)
-                            sb.Append(",\n");
-                        first = false;
-
-                        sb.Append("  \"").Append(kvp.Key.ToString()).Append("\": \"")
-                          .Append(EscapeJsonString(rel)).Append('"');
+                        entries.Add((kvp.Key.ToString(), rel));
                     }
+                }
+
+                entries.Sort((a, b) => string.CompareOrdinal(a.Guid, b.Guid));
+
+                var sb = new StringBuilder();
+                sb.Append("{\n");
+
+                for (var i = 0; i < entries.Count; i++)
+                {
+                    if (i > 0)
+                        sb.Append(",\n");
+
+                    sb.Append("  \"").Append(entries[i].Guid).Append("\": \"")
+                      .Append(EscapeJsonString(entries[i].Path)).Append('"');
                 }
 
                 sb.Append("\n}\n");
 
                 Directory.CreateDirectory(project.DataFolder);
-                File.WriteAllText(Path.Combine(project.DataFolder, "assets.manifest"), sb.ToString());
+
+                var manifestPath = Path.Combine(project.DataFolder, "assets.manifest");
+                var contents = sb.ToString();
+
+                // Refresh runs often; rewriting identical bytes would still churn the file's timestamp.
+                if (File.Exists(manifestPath) &&
+                    string.Equals(File.ReadAllText(manifestPath), contents, StringComparison.Ordinal))
+                    return;
+
+                File.WriteAllText(manifestPath, contents);
             }
             catch (Exception ex)
             {
