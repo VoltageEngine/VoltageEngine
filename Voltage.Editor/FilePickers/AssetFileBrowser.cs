@@ -18,8 +18,12 @@ namespace Voltage.Editor.FilePickers
 		private FilePicker _imguiPicker;
 		private object _imguiOwner;
 		private bool _openImguiNextFrame;
+		private bool _imguiPopupWasVisible;
 		private string _result;
 		private bool _hasResult;
+
+		/// <summary>True while the ImGui fallback popup is still up. Always false on the native path.</summary>
+		public bool IsBrowsing => _imguiPicker != null;
 
 		/// <param name="extensions">Lower-case extensions with the leading dot, e.g. ".png".</param>
 		public AssetFileBrowser(string popupId, string[] extensions, string filterDescription)
@@ -59,6 +63,7 @@ namespace Voltage.Editor.FilePickers
 				_extensions.Length > 0 ? _extensions[0] : null);
 			_imguiPicker.DontAllowTraverselBeyondRootFolder = false;
 			_openImguiNextFrame = true;
+			_imguiPopupWasVisible = false;
 		}
 
 		public void Draw(string title = "Select File")
@@ -79,6 +84,8 @@ namespace Voltage.Editor.FilePickers
 			var open = true;
 			if (ImGui.BeginPopupModal(_popupId, ref open, ImGuiWindowFlags.NoResize))
 			{
+				_imguiPopupWasVisible = true;
+
 				ImGui.TextColored(new Num.Vector4(0.2f, 0.8f, 1f, 1f), title);
 				ImGui.Separator();
 
@@ -91,6 +98,12 @@ namespace Voltage.Editor.FilePickers
 				}
 
 				ImGui.EndPopup();
+			}
+			else if (_imguiPopupWasVisible)
+			{
+				// The picker's own Cancel button closes the popup without touching `open`, so a
+				// popup that was visible and no longer begins means the user backed out.
+				CloseImgui();
 			}
 
 			if (!open)
@@ -113,6 +126,7 @@ namespace Voltage.Editor.FilePickers
 
 			_imguiPicker = null;
 			_imguiOwner = null;
+			_imguiPopupWasVisible = false;
 		}
 	}
 }

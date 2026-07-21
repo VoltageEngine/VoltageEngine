@@ -218,20 +218,6 @@ public class SceneGraphWindow
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
-			#region FilePickers
-
-			if (TmxFilePicker.IsOpen)
-			{
-				ImGui.OpenPopup(TmxFilePicker.PopupId);
-			}
-
-			if (AsepriteFilePicker.IsOpen)
-			{
-				ImGui.OpenPopup(AsepriteFilePicker.PopupId);
-			}
-
-			#endregion
-
 			VoltageEditorUtils.MediumVerticalSpace();
 			if (CopiedComponent != null)
 			{
