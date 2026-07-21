@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using ImGuiNET;
+using Voltage.Editor.Hotkeys;
 using Microsoft.Xna.Framework;
 using Voltage.Editor.DebugUtils;
 using Voltage.Utils;
@@ -531,8 +532,8 @@ public class SceneGraphWindow
 		if (currentEntity == null || hierarchyList.Count == 0)
 			return;
 
-		bool upPressed = ImGui.IsKeyPressed(ImGuiKey.UpArrow);
-		bool downPressed = ImGui.IsKeyPressed(ImGuiKey.DownArrow);
+		bool upPressed = EditorHotkeys.Pressed(EditorHotkeys.SelectPrevEntity);
+		bool downPressed = EditorHotkeys.Pressed(EditorHotkeys.SelectNextEntity);
 		bool upHeld = ImGui.IsKeyDown(ImGuiKey.UpArrow);
 		bool downHeld = ImGui.IsKeyDown(ImGuiKey.DownArrow);
 

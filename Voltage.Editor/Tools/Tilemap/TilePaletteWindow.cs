@@ -4,6 +4,7 @@ using System.IO;
 using ImGuiNET;
 using Voltage.Editor.Assets;
 using Voltage.Editor.Gizmos;
+using Voltage.Editor.Hotkeys;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.Undo.Core;
@@ -18,6 +19,9 @@ namespace Voltage.Editor.Tools.Tilemap
 	public partial class TilePaletteWindow
 	{
 		public bool IsOpen;
+
+		/// <summary>Window (or one of its children) has keyboard focus, so its shortcuts own Q/E/Z/X.</summary>
+		public bool IsFocused { get; private set; }
 
 		private static readonly string[] TilesetExtensions = { TilesetAssetIO.FileExtension };
 
@@ -40,11 +44,53 @@ namespace Voltage.Editor.Tools.Tilemap
 		private bool _openNewLayerPopup;
 		private string _newLayerName = "Tilemap";
 
-		// Atlas selection, in tile coordinates.
+		// Atlas selection, in tile coordinates. Several boxes can be active at once; the gaps between them
+		// are preserved as holes in the stamp so the tiles land with the same spacing they were picked at.
+		private readonly List<SelBox> _boxes = new();
 		private bool _isSelecting;
 		private Point2 _selectionAnchor;
 		private Point2 _selectionEnd;
-		private bool _hasSelection;
+		private bool _dragAdditive;
+		private bool _dragExtend;
+
+		private bool _hasSelection => _boxes.Count > 0;
+
+		private readonly struct SelBox
+		{
+			public readonly int MinX;
+			public readonly int MinY;
+			public readonly int MaxX;
+			public readonly int MaxY;
+
+			public SelBox(Point2 a, Point2 b)
+			{
+				MinX = Math.Min(a.X, b.X);
+				MinY = Math.Min(a.Y, b.Y);
+				MaxX = Math.Max(a.X, b.X);
+				MaxY = Math.Max(a.Y, b.Y);
+			}
+
+			private SelBox(int minX, int minY, int maxX, int maxY)
+			{
+				MinX = minX;
+				MinY = minY;
+				MaxX = maxX;
+				MaxY = maxY;
+			}
+
+			public int Width => MaxX - MinX + 1;
+			public int Height => MaxY - MinY + 1;
+			public int Count => Width * Height;
+
+			public bool Contains(Point2 c) => c.X >= MinX && c.X <= MaxX && c.Y >= MinY && c.Y <= MaxY;
+
+			/// <summary>Touching counts as overlapping, so adjacent picks merge into one block.</summary>
+			public bool Overlaps(SelBox o) => MinX <= o.MaxX && o.MinX <= MaxX && MinY <= o.MaxY && o.MinY <= MaxY;
+
+			public SelBox Union(SelBox o) => new(
+				Math.Min(MinX, o.MinX), Math.Min(MinY, o.MinY),
+				Math.Max(MaxX, o.MaxX), Math.Max(MaxY, o.MaxY));
+		}
 
 		private readonly struct Point2
 		{
@@ -63,7 +109,10 @@ namespace Voltage.Editor.Tools.Tilemap
 			_tool = tool;
 
 			if (!IsOpen)
+			{
+				IsFocused = false;
 				return;
+			}
 
 			ImGui.SetNextWindowSize(new Num.Vector2(420, 640), ImGuiCond.FirstUseEver);
 
@@ -73,11 +122,13 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (!ImGui.Begin("Tile Palette ###TilePaletteWindow", ref open))
 			{
 				IsOpen = open;
+				IsFocused = false;
 				ImGui.End();
 				return;
 			}
 
 			IsOpen = open;
+			IsFocused = ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows);
 
 			tool.DropDeadTarget();
 
@@ -459,6 +510,13 @@ namespace Voltage.Editor.Tools.Tilemap
 			DrawToolButton(tool, TileTool.Fill, "Fill", "Flood fill the contiguous matching region.");
 			ImGui.SameLine();
 			DrawToolButton(tool, TileTool.Picker, "Pick", "Pick the tile under the cursor into the palette.");
+			ImGui.SameLine();
+			DrawToolButton(tool, TileTool.Select, "Select",
+				"Marquee placed tiles in the game view, then drag to move them a whole number of cells. " +
+				"Ctrl or Shift adds another box. Tiles and their collision move together.");
+
+			if (tool.Tool == TileTool.Select)
+				DrawSelectionControls(tool);
 
 			ImGui.Checkbox("Stack while dragging", ref tool.StackWhileDragging);
 
@@ -476,6 +534,46 @@ namespace Voltage.Editor.Tools.Tilemap
 			DrawOrientationControls(tool);
 			DrawBrushPreview(tool);
 			DrawTerrainSelector(tool);
+		}
+
+		/// <summary>Actions for a live in-viewport tile selection: rotate the block, or drop the selection.</summary>
+		private static void DrawSelectionControls(TilePaintTool tool)
+		{
+			if (!tool.HasTileSelection)
+			{
+				ImGui.TextDisabled("Drag in the game view to select placed tiles.");
+				return;
+			}
+
+			ImGui.TextDisabled($"{tool.SelectedCellCount} cells selected");
+			ImGui.SameLine();
+
+			if (ImGui.SmallButton("Rot -##seltiles"))
+				tool.RotateSelection(-1);
+
+			if (ImGui.IsItemHovered())
+				ImGui.SetTooltip($"Rotate the selected tiles 90° left ({EditorHotkeys.Hint(EditorHotkeys.TileRotateLeft)})");
+
+			ImGui.SameLine();
+
+			if (ImGui.SmallButton("Rot +##seltiles"))
+				tool.RotateSelection(1);
+
+			if (ImGui.IsItemHovered())
+				ImGui.SetTooltip($"Rotate the selected tiles 90° right ({EditorHotkeys.Hint(EditorHotkeys.TileRotateRight)})");
+
+			ImGui.SameLine();
+
+			if (ImGui.SmallButton("Delete##seltiles"))
+				tool.DeleteSelection();
+
+			if (ImGui.IsItemHovered())
+				ImGui.SetTooltip("Clear the selected tiles and their collision (Delete or Backspace).");
+
+			ImGui.SameLine();
+
+			if (ImGui.SmallButton("Deselect##seltiles"))
+				tool.ClearTileSelection();
 		}
 
 		/// <summary>
@@ -591,21 +689,21 @@ namespace Voltage.Editor.Tools.Tilemap
 			ImGui.SameLine();
 
 			if (ImGui.SmallButton("Rot -##orient")) tool.RotateBrush(-1);
-			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Rotate 90° left (Z)");
+			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Rotate 90° left (Q, palette focused)");
 			ImGui.SameLine();
 
 			if (ImGui.SmallButton("Rot +##orient")) tool.RotateBrush(1);
-			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Rotate 90° right (X)");
+			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Rotate 90° right (E, palette focused)");
 			ImGui.SameLine();
 
 			var flipX = tool.OrientationFlipX;
 			if (ToggleSmall("Flip X##orient", flipX)) tool.ToggleFlipX();
-			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Flip horizontally (V)");
+			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Flip horizontally (Z, palette focused)");
 			ImGui.SameLine();
 
 			var flipY = tool.OrientationFlipY;
 			if (ToggleSmall("Flip Y##orient", flipY)) tool.ToggleFlipY();
-			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Flip vertically (C)");
+			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Flip vertically (X, palette focused)");
 			ImGui.SameLine();
 
 			ImGui.BeginDisabled(tool.CurrentOrientation == 0);
@@ -745,19 +843,38 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			if (_hasSelection)
 			{
-				var w = Math.Abs(_selectionEnd.X - _selectionAnchor.X) + 1;
-				var h = Math.Abs(_selectionEnd.Y - _selectionAnchor.Y) + 1;
-				ImGui.TextDisabled($"Selection: {w} x {h} tile{(w * h == 1 ? "" : "s")}");
+				var tiles = 0;
+				foreach (var box in _boxes)
+					tiles += box.Count;
+
+				var summary = _boxes.Count == 1
+					? $"Selection: {_boxes[0].Width} x {_boxes[0].Height} tile{(tiles == 1 ? "" : "s")}"
+					: $"Selection: {tiles} tiles in {_boxes.Count} groups (gaps are kept)";
+
+				ImGui.TextDisabled(summary);
+
+				ImGui.SameLine();
+				if (ImGui.SmallButton("Clear##sel"))
+				{
+					_boxes.Clear();
+					tool.SetSelection(Array.Empty<int>(), 0, 0);
+				}
 			}
 			else
 			{
-				ImGui.TextDisabled("Click a tile - or drag across several - to choose the stamp.");
+				ImGui.TextDisabled("Click or drag to pick tiles. Ctrl adds a group, Shift grows the last one.");
+				ImGui.TextDisabled("Middle-drag pans, Ctrl+wheel zooms.");
 			}
 
-			// Both scrollbars, so a large atlas at any zoom pans in every direction.
+			// Both scrollbars, so a large atlas at any zoom pans in every direction. NoScrollWithMouse because
+			// the wheel is ours: Ctrl zooms, Shift pans sideways, plain scrolls.
 			ImGui.PushStyleColor(ImGuiCol.ChildBg, AtlasBackground);
 			ImGui.BeginChild("tile_atlas", new Num.Vector2(0, 0), true,
-				ImGuiWindowFlags.HorizontalScrollbar | ImGuiWindowFlags.AlwaysVerticalScrollbar);
+				ImGuiWindowFlags.HorizontalScrollbar | ImGuiWindowFlags.AlwaysVerticalScrollbar |
+				ImGuiWindowFlags.NoScrollWithMouse);
+
+			HandleAtlasWheel();
+			HandleAtlasPan();
 
 			var origin = ImGui.GetCursorScreenPos();
 			var size = new Num.Vector2(_tileset.Texture.Width * _zoom, _tileset.Texture.Height * _zoom);
@@ -772,6 +889,118 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			ImGui.EndChild();
 			ImGui.PopStyleColor();
+		}
+
+		private const float MinAtlasZoom = 0.02f;
+		private const float MaxAtlasZoom = 8f;
+
+		private bool _isPanning;
+		private Num.Vector2 _panStartMouse;
+		private Num.Vector2 _panStartScroll;
+
+		/// <summary>Wheel over the atlas: Ctrl zooms at the cursor, Shift pans sideways, plain scrolls.</summary>
+		private void HandleAtlasWheel()
+		{
+			var io = ImGui.GetIO();
+			if (!ImGui.IsWindowHovered())
+				return;
+
+			var wheel = io.MouseWheel;
+
+			if (io.KeyCtrl && Math.Abs(wheel) > 0.001f)
+			{
+				ZoomAtCursor(wheel);
+				return;
+			}
+
+			var step = ImGui.GetFontSize() * 3f;
+
+			if (Math.Abs(wheel) > 0.001f)
+			{
+				if (io.KeyShift)
+					ImGui.SetScrollX(ImGui.GetScrollX() - wheel * step);
+				else
+					ImGui.SetScrollY(ImGui.GetScrollY() - wheel * step);
+			}
+
+			if (Math.Abs(io.MouseWheelH) > 0.001f)
+				ImGui.SetScrollX(ImGui.GetScrollX() - io.MouseWheelH * step);
+		}
+
+		/// <summary>Middle-drag pans the tile box, mirroring the editor camera's middle-mouse pan.</summary>
+		private void HandleAtlasPan()
+		{
+			if (_isPanning)
+			{
+				if (ImGui.IsMouseDown(ImGuiMouseButton.Middle))
+				{
+					var delta = ImGui.GetIO().MousePos - _panStartMouse;
+					ImGui.SetScrollX(_panStartScroll.X - delta.X);
+					ImGui.SetScrollY(_panStartScroll.Y - delta.Y);
+					ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeAll);
+				}
+				else
+				{
+					_isPanning = false;
+				}
+
+				return;
+			}
+
+			if (!ImGui.IsWindowHovered() || !ImGui.IsMouseClicked(ImGuiMouseButton.Middle))
+				return;
+
+			_isPanning = true;
+			_panStartMouse = ImGui.GetIO().MousePos;
+			_panStartScroll = new Num.Vector2(ImGui.GetScrollX(), ImGui.GetScrollY());
+		}
+
+		/// <summary>Zooms about the cursor, scrolling so the texel under it stays put.</summary>
+		private void ZoomAtCursor(float wheel)
+		{
+			var previous = _zoom;
+			var next = Math.Clamp(previous * (float)Math.Pow(1.2f, wheel), MinAtlasZoom, MaxAtlasZoom);
+			if (Math.Abs(next - previous) < 0.0001f)
+				return;
+
+			// Called before the image is drawn, so the cursor still sits at the scrolled content origin.
+			var texel = (ImGui.GetIO().MousePos - ImGui.GetCursorScreenPos()) / previous;
+			_zoom = next;
+
+			ImGui.SetScrollX(ImGui.GetScrollX() + texel.X * (next - previous));
+			ImGui.SetScrollY(ImGui.GetScrollY() + texel.Y * (next - previous));
+		}
+
+		/// <summary>Pans the atlas when a drag-selection reaches the panel edges.</summary>
+		private static void AutoScrollAtEdges()
+		{
+			const float margin = 28f;
+			const float pixelsPerSecond = 420f;
+
+			var mouse = ImGui.GetIO().MousePos;
+			var min = ImGui.GetWindowPos();
+			var max = min + ImGui.GetWindowSize();
+
+			static float Axis(float pos, float lo, float hi)
+			{
+				if (pos < lo + margin)
+					return -(1f - Math.Clamp((pos - lo) / margin, 0f, 1f));
+
+				if (pos > hi - margin)
+					return 1f - Math.Clamp((hi - pos) / margin, 0f, 1f);
+
+				return 0f;
+			}
+
+			var delta = ImGui.GetIO().DeltaTime * pixelsPerSecond;
+			var x = Axis(mouse.X, min.X, max.X);
+			var y = Axis(mouse.Y, min.Y, max.Y);
+
+			if (x != 0f)
+				ImGui.SetScrollX(ImGui.GetScrollX() + x * delta);
+
+			if (y != 0f)
+				ImGui.SetScrollY(ImGui.GetScrollY() + y * delta);
 		}
 
 		/// <summary>Backdrop for the atlas and the brush swatch. A viewing aid - never painted.</summary>
@@ -826,35 +1055,119 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			if (ImGui.IsMouseClicked(ImGuiMouseButton.Left) && IsInsideAtlas(cell))
 			{
+				var io = ImGui.GetIO();
+
 				_isSelecting = true;
 				_selectionAnchor = cell;
 				_selectionEnd = cell;
+				_dragAdditive = io.KeyCtrl || io.KeySuper;
+				_dragExtend = io.KeyShift;
+
+				// A plain pick replaces everything; Ctrl adds a box and Shift grows the last one.
+				if (!_dragAdditive && !_dragExtend)
+					_boxes.Clear();
 			}
 			else if (_isSelecting && ImGui.IsMouseDown(ImGuiMouseButton.Left))
 			{
 				_selectionEnd = Clamp(cell);
+				AutoScrollAtEdges();
 			}
 
 			if (_isSelecting && ImGui.IsMouseReleased(ImGuiMouseButton.Left))
 			{
 				_isSelecting = false;
-				_hasSelection = true;
+				CommitDraggedBox();
 				CommitSelection(tool);
 			}
 		}
 
+		/// <summary>Folds the box just dragged into the box list, honouring the Ctrl / Shift modifier it started with.</summary>
+		private void CommitDraggedBox()
+		{
+			var box = new SelBox(_selectionAnchor, _selectionEnd);
+
+			if (_dragExtend && _boxes.Count > 0)
+			{
+				_boxes[_boxes.Count - 1] = _boxes[_boxes.Count - 1].Union(box);
+				MergeOverlapping();
+				return;
+			}
+
+			// Ctrl-clicking a single cell that is already picked removes the box it belongs to.
+			if (_dragAdditive && box.Count == 1)
+			{
+				var index = _boxes.FindIndex(b => b.Contains(_selectionAnchor));
+				if (index >= 0)
+				{
+					_boxes.RemoveAt(index);
+					return;
+				}
+			}
+
+			_boxes.Add(box);
+			MergeOverlapping();
+		}
+
+		/// <summary>Overlapping or touching boxes collapse into one, so a picked region is always a single block.</summary>
+		private void MergeOverlapping()
+		{
+			var merged = true;
+
+			while (merged)
+			{
+				merged = false;
+
+				for (var i = 0; i < _boxes.Count && !merged; i++)
+				{
+					for (var j = i + 1; j < _boxes.Count; j++)
+					{
+						if (!_boxes[i].Overlaps(_boxes[j]))
+							continue;
+
+						_boxes[i] = _boxes[i].Union(_boxes[j]);
+						_boxes.RemoveAt(j);
+						merged = true;
+						break;
+					}
+				}
+			}
+		}
+
+		/// <summary>
+		/// Flattens every box into one stamp spanning their combined bounds. Cells no box covers stay
+		/// <see cref="TilePaintTool.NoTile"/>, which is what keeps the gaps between separate picks intact when painted.
+		/// </summary>
 		private void CommitSelection(TilePaintTool tool)
 		{
-			var minX = Math.Min(_selectionAnchor.X, _selectionEnd.X);
-			var minY = Math.Min(_selectionAnchor.Y, _selectionEnd.Y);
-			var width = Math.Abs(_selectionEnd.X - _selectionAnchor.X) + 1;
-			var height = Math.Abs(_selectionEnd.Y - _selectionAnchor.Y) + 1;
+			if (_boxes.Count == 0)
+			{
+				tool.SetSelection(Array.Empty<int>(), 0, 0);
+				return;
+			}
+
+			int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
+			foreach (var box in _boxes)
+			{
+				minX = Math.Min(minX, box.MinX);
+				minY = Math.Min(minY, box.MinY);
+				maxX = Math.Max(maxX, box.MaxX);
+				maxY = Math.Max(maxY, box.MaxY);
+			}
+
+			var width = maxX - minX + 1;
+			var height = maxY - minY + 1;
 
 			var tiles = new int[width * height];
-			for (var y = 0; y < height; y++)
+			for (var i = 0; i < tiles.Length; i++)
+				tiles[i] = TilePaintTool.NoTile;
+
+			foreach (var box in _boxes)
 			{
-				for (var x = 0; x < width; x++)
-					tiles[y * width + x] = (minY + y) * _tileset.Columns + (minX + x);
+				for (var y = box.MinY; y <= box.MaxY; y++)
+				{
+					for (var x = box.MinX; x <= box.MaxX; x++)
+						tiles[(y - minY) * width + (x - minX)] = y * _tileset.Columns + x;
+				}
 			}
 
 			tool.SetSelection(tiles, width, height);
@@ -865,29 +1178,33 @@ namespace Voltage.Editor.Tools.Tilemap
 
 		private void DrawSelectionOverlay(ImDrawListPtr drawList, Num.Vector2 origin)
 		{
-			if (!_hasSelection && !_isSelecting)
-				return;
+			foreach (var box in _boxes)
+				DrawBoxOverlay(drawList, origin, box, 0.25f, 1f);
 
-			var minX = Math.Min(_selectionAnchor.X, _selectionEnd.X);
-			var minY = Math.Min(_selectionAnchor.Y, _selectionEnd.Y);
-			var maxX = Math.Max(_selectionAnchor.X, _selectionEnd.X);
-			var maxY = Math.Max(_selectionAnchor.Y, _selectionEnd.Y);
+			// The in-flight drag is drawn brighter so it reads as separate from what is already picked.
+			if (_isSelecting)
+				DrawBoxOverlay(drawList, origin, new SelBox(_selectionAnchor, _selectionEnd), 0.35f, 1f);
+		}
 
+		private void DrawBoxOverlay(ImDrawListPtr drawList, Num.Vector2 origin, SelBox box, float fillAlpha, float lineAlpha)
+		{
 			var tw = _tileset.TileWidth;
 			var th = _tileset.TileHeight;
 			var spacing = _tileset.Asset.Spacing;
 			var margin = _tileset.Asset.Margin;
 
 			var topLeft = new Num.Vector2(
-				origin.X + (margin + minX * (tw + spacing)) * _zoom,
-				origin.Y + (margin + minY * (th + spacing)) * _zoom);
+				origin.X + (margin + box.MinX * (tw + spacing)) * _zoom,
+				origin.Y + (margin + box.MinY * (th + spacing)) * _zoom);
 
 			var bottomRight = new Num.Vector2(
-				origin.X + (margin + maxX * (tw + spacing) + tw) * _zoom,
-				origin.Y + (margin + maxY * (th + spacing) + th) * _zoom);
+				origin.X + (margin + box.MaxX * (tw + spacing) + tw) * _zoom,
+				origin.Y + (margin + box.MaxY * (th + spacing) + th) * _zoom);
 
-			drawList.AddRectFilled(topLeft, bottomRight, ImGui.GetColorU32(new Num.Vector4(0.2f, 0.6f, 1f, 0.25f)));
-			drawList.AddRect(topLeft, bottomRight, ImGui.GetColorU32(new Num.Vector4(0.3f, 0.8f, 1f, 1f)), 0f, 0, 2f);
+			drawList.AddRectFilled(topLeft, bottomRight,
+				ImGui.GetColorU32(new Num.Vector4(0.2f, 0.6f, 1f, fillAlpha)));
+			drawList.AddRect(topLeft, bottomRight,
+				ImGui.GetColorU32(new Num.Vector4(0.3f, 0.8f, 1f, lineAlpha)), 0f, 0, 2f);
 		}
 
 		private Point2 CellAt(Num.Vector2 mouse, Num.Vector2 origin)
@@ -945,14 +1262,14 @@ namespace Voltage.Editor.Tools.Tilemap
 				EditorChangeTracker.MarkChanged(tool.Target.Entity, "Assign tileset");
 			}
 
-			_hasSelection = false;
+			_boxes.Clear();
 			tool.SetSelection(Array.Empty<int>(), 0, 0);
 			LoadTileset(reference);
 		}
 
 		private void SyncTilesetFromTarget(TilePaintTool tool)
 		{
-			_hasSelection = false;
+			_boxes.Clear();
 			tool.SetSelection(Array.Empty<int>(), 0, 0);
 			LoadTileset(tool.Target?.Tileset ?? default);
 		}
@@ -986,9 +1303,8 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			if (_tileset.TileCount > 0)
 			{
-				_selectionAnchor = new Point2(0, 0);
-				_selectionEnd = new Point2(0, 0);
-				_hasSelection = true;
+				_boxes.Clear();
+				_boxes.Add(new SelBox(new Point2(0, 0), new Point2(0, 0)));
 				_tool.SetSingleSelection(0);
 			}
 		}
