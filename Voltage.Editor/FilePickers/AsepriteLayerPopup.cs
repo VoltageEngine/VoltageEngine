@@ -58,6 +58,10 @@ namespace Voltage.Editor.FilePickers
 
 			try
 			{
+				// Opening the picker re-imports the file, so the cached parse must go.
+				Core.Content?.EvictCachedAsset(absolutePath);
+				Core.Scene?.Content?.EvictCachedAsset(absolutePath);
+
 				var file = Core.Content.LoadAsepriteFile(absolutePath);
 				if (file == null)
 					return false;
@@ -261,10 +265,12 @@ namespace Voltage.Editor.FilePickers
 
 			ImGui.BeginChild("layers", new Num.Vector2(0, 150), true);
 
-			foreach (var layer in _layers)
+			// Layer names repeat across groups, so the name alone is not a unique ImGui ID.
+			for (var i = 0; i < _layers.Count; i++)
 			{
+				var layer = _layers[i];
 				var ticked = _selected.Contains(layer);
-				if (ImGui.Checkbox(layer, ref ticked))
+				if (ImGui.Checkbox($"{layer}##layer{i}", ref ticked))
 				{
 					if (ticked)
 						_selected.Add(layer);

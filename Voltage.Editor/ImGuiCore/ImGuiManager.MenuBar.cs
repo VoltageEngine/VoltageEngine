@@ -144,6 +144,14 @@ public partial class ImGuiManager
 	private PersistentString _lastSelectedTheme = new("ImGui_LastSelectedTheme", "DarkTheme1");
 	#endregion
 
+	// Layouts queued for delete/rename by View > Layout, pending their confirmation popup.
+	private string _layoutPendingDelete;
+	private bool _showDeleteLayoutPopup;
+
+	private string _layoutPendingRename;
+	private string _renameLayoutName = "";
+	private bool _showRenameLayoutPopup;
+
 	private void DrawFileMenu()
 	{
 		if (ImGui.BeginMenu("File"))
@@ -380,10 +388,14 @@ public partial class ImGuiManager
 
 				if (ImGui.BeginMenu("Load Layout"))
 				{
+					ImGui.TextDisabled("Right-click a custom layout to rename or delete it.");
+					ImGui.Separator();
+
 					foreach (var layoutName in _layoutManager.GetLayoutNames())
 					{
 						bool isCurrentLayout = layoutName.Equals(_layoutManager.CurrentLayoutName,
 							StringComparison.OrdinalIgnoreCase);
+						bool isDefaultLayout = layoutName.Equals("Default", StringComparison.OrdinalIgnoreCase);
 
 						if (ImGui.MenuItem(layoutName, "", isCurrentLayout))
 						{
@@ -397,7 +409,50 @@ public partial class ImGuiManager
 									$"Layout '{layoutName}' loaded. Some windows may require restart for full effect.");
 							}
 						}
+
+						if (!isDefaultLayout && ImGui.BeginPopupContextItem($"layout-ctx-{layoutName}"))
+						{
+							if (ImGui.MenuItem("Rename"))
+							{
+								_layoutPendingRename = layoutName;
+								_renameLayoutName = layoutName;
+								_showRenameLayoutPopup = true;
+							}
+
+							if (ImGui.MenuItem("Delete"))
+							{
+								_layoutPendingDelete = layoutName;
+								_showDeleteLayoutPopup = true;
+							}
+
+							ImGui.EndPopup();
+						}
 					}
+
+					ImGui.EndMenu();
+				}
+
+				if (ImGui.BeginMenu("Rename Layout"))
+				{
+					var renameable = 0;
+
+					foreach (var layoutName in _layoutManager.GetLayoutNames())
+					{
+						if (layoutName.Equals("Default", StringComparison.OrdinalIgnoreCase))
+							continue;
+
+						renameable++;
+
+						if (ImGui.MenuItem(layoutName))
+						{
+							_layoutPendingRename = layoutName;
+							_renameLayoutName = layoutName;
+							_showRenameLayoutPopup = true;
+						}
+					}
+
+					if (renameable == 0)
+						ImGui.TextDisabled("No custom layouts yet");
 
 					ImGui.EndMenu();
 				}
@@ -418,17 +473,7 @@ public partial class ImGuiManager
 
 					// Delete outside of the enumeration
 					if (layoutToDelete != null)
-					{
-						// If deleting the currently active layout, switch to Default
-						if (layoutToDelete.Equals(_layoutManager.CurrentLayoutName, StringComparison.OrdinalIgnoreCase))
-						{
-							_lastSelectedLayout.Value = "Default";
-							_layoutManager.LoadLayout("Default");
-						}
-
-						_layoutManager.DeleteLayout(layoutToDelete);
-						_layoutManager.RefreshLayoutList();
-					}
+						DeleteLayout(layoutToDelete);
 
 					ImGui.EndMenu();
 				}
@@ -525,6 +570,149 @@ public partial class ImGuiManager
 		}
 
 		DrawSaveLayoutPopup();
+		DrawRenameLayoutPopup();
+		DrawDeleteLayoutPopup();
+	}
+
+	/// <summary>Renames the layout picked in View > Layout, moving its .ini file to match.</summary>
+	private void DrawRenameLayoutPopup()
+	{
+		if (_showRenameLayoutPopup)
+		{
+			ImGui.OpenPopup("RenameLayoutPopup");
+			_showRenameLayoutPopup = false;
+		}
+
+		var center = new Vector2(Screen.Width * 0.5f, Screen.Height * 0.4f);
+		ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Vector2(0.5f, 0.5f));
+		ImGui.SetNextWindowSize(new Vector2(400, 0), ImGuiCond.Appearing);
+
+		bool open = true;
+		if (!ImGui.BeginPopupModal("RenameLayoutPopup", ref open, ImGuiWindowFlags.AlwaysAutoResize))
+		{
+			if (!open)
+				_layoutPendingRename = null;
+
+			return;
+		}
+
+		ImGuiSafe.TextWrappedSafe($"Rename layout '{_layoutPendingRename}'");
+		ImGui.Separator();
+
+		ImGui.Text("New name:");
+		ImGui.SetNextItemWidth(350);
+		ImGui.InputText("##renamelayout", ref _renameLayoutName, 50);
+
+		var trimmed = _renameLayoutName.Trim();
+		var unchanged = trimmed.Equals(_layoutPendingRename, StringComparison.Ordinal);
+
+		// Same name in a different case is a valid rename, so only a different layout is a clash.
+		var clashes = !unchanged &&
+		              _layoutManager.GetLayoutNames().Contains(trimmed, StringComparer.OrdinalIgnoreCase) &&
+		              !trimmed.Equals(_layoutPendingRename, StringComparison.OrdinalIgnoreCase);
+
+		if (clashes)
+		{
+			ImGuiSafe.TextColoredSafe(new Vector4(1.0f, 0.4f, 0.4f, 1.0f),
+				$"A layout named '{trimmed}' already exists.");
+		}
+
+		VoltageEditorUtils.MediumVerticalSpace();
+
+		var canRename = trimmed.Length > 0 && !clashes && !unchanged;
+
+		if (!canRename)
+			ImGui.BeginDisabled();
+
+		if (ImGui.Button("Rename", new Vector2(100, 0)) && canRename)
+		{
+			RenameLayout(_layoutPendingRename, trimmed);
+			_layoutPendingRename = null;
+			ImGui.CloseCurrentPopup();
+		}
+
+		if (!canRename)
+			ImGui.EndDisabled();
+
+		ImGui.SameLine();
+
+		if (ImGui.Button("Cancel", new Vector2(100, 0)))
+		{
+			_layoutPendingRename = null;
+			ImGui.CloseCurrentPopup();
+		}
+
+		ImGui.EndPopup();
+	}
+
+	/// <summary>Renames a layout, keeping the "last selected layout" setting pointing at it.</summary>
+	private void RenameLayout(string oldName, string newName)
+	{
+		if (string.IsNullOrEmpty(oldName) || !_layoutManager.RenameLayout(oldName, newName))
+			return;
+
+		if (_lastSelectedLayout.Value.Equals(oldName, StringComparison.OrdinalIgnoreCase))
+			_lastSelectedLayout.Value = newName;
+	}
+
+	/// <summary>Confirms deleting the layout right-clicked in View > Layout > Load Layout.</summary>
+	private void DrawDeleteLayoutPopup()
+	{
+		if (_showDeleteLayoutPopup)
+		{
+			ImGui.OpenPopup("DeleteLayoutPopup");
+			_showDeleteLayoutPopup = false;
+		}
+
+		var center = new Vector2(Screen.Width * 0.5f, Screen.Height * 0.4f);
+		ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Vector2(0.5f, 0.5f));
+
+		bool open = true;
+		if (!ImGui.BeginPopupModal("DeleteLayoutPopup", ref open, ImGuiWindowFlags.AlwaysAutoResize))
+		{
+			if (!open)
+				_layoutPendingDelete = null;
+
+			return;
+		}
+
+		ImGuiSafe.TextWrappedSafe($"Delete the layout '{_layoutPendingDelete}'?");
+		ImGui.TextDisabled("This removes its .ini file. It cannot be undone.");
+
+		VoltageEditorUtils.MediumVerticalSpace();
+
+		if (ImGui.Button("Delete", new Vector2(100, 0)))
+		{
+			DeleteLayout(_layoutPendingDelete);
+			_layoutPendingDelete = null;
+			ImGui.CloseCurrentPopup();
+		}
+
+		ImGui.SameLine();
+
+		if (ImGui.Button("Cancel", new Vector2(100, 0)))
+		{
+			_layoutPendingDelete = null;
+			ImGui.CloseCurrentPopup();
+		}
+
+		ImGui.EndPopup();
+	}
+
+	/// <summary>Deletes a saved layout, falling back to Default when it was the active one.</summary>
+	private void DeleteLayout(string layoutName)
+	{
+		if (string.IsNullOrEmpty(layoutName))
+			return;
+
+		if (layoutName.Equals(_layoutManager.CurrentLayoutName, StringComparison.OrdinalIgnoreCase))
+		{
+			_lastSelectedLayout.Value = "Default";
+			_layoutManager.LoadLayout("Default");
+		}
+
+		_layoutManager.DeleteLayout(layoutName);
+		_layoutManager.RefreshLayoutList();
 	}
 
 	private void DrawSaveLayoutPopup()

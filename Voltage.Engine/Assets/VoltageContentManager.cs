@@ -483,6 +483,42 @@ public class VoltageContentManager : ContentManager
 	/// a backslash is a literal filename character, so <see cref="Path.GetFullPath(string,string)"/>
 	/// would carry it through and the file would not be found.
 	/// </remarks>
+	/// <summary>Drops cached entries for this file so the next Load re-reads it. Disposes nothing.</summary>
+	public bool EvictCachedAsset(string name)
+	{
+		if (string.IsNullOrEmpty(name))
+			return false;
+
+		var target = ResolveContentPath(name);
+		var removed = false;
+
+		foreach (var key in LoadedAssets.Keys.ToList())
+		{
+			if (!SameContentFile(key, name, target))
+				continue;
+
+			LoadedAssets.Remove(key);
+			removed = true;
+		}
+
+		return removed;
+	}
+
+	private static bool SameContentFile(string key, string name, string resolvedTarget)
+	{
+		if (string.Equals(key, name, StringComparison.OrdinalIgnoreCase))
+			return true;
+
+		try
+		{
+			return string.Equals(ResolveContentPath(key), resolvedTarget, StringComparison.OrdinalIgnoreCase);
+		}
+		catch
+		{
+			return false;
+		}
+	}
+
 	private static string ResolveContentPath(string name)
 	{
 		if (string.IsNullOrEmpty(name))
