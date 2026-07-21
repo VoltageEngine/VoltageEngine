@@ -67,9 +67,7 @@ namespace Voltage.Editor.FilePickers
             _fileBrowser = new AssetFileBrowser($"{_popupId}-browser", new[] { ".tmx" }, "Tiled maps");
         }
 
-        /// <summary>
-        /// Opens the file browser; the load-options popup follows once a file is chosen.
-        /// </summary>
+        /// <summary>Opens the file browser; the load-options popup follows once a file is chosen.</summary>
         public void Open()
         {
             Reset();
@@ -107,7 +105,7 @@ namespace Voltage.Editor.FilePickers
                 ImGuiSafe.TextColoredSafe(new Num.Vector4(0.7f, 1.0f, 0.7f, 1.0f), Path.GetFileName(_selectedFile));
 
                 ImGui.SameLine();
-                if (ImGui.Button("Change..."))
+                if (ImGui.Button("Change"))
                 {
                     _awaitingFile = true;
                     _fileBrowser.Open("Select TMX File", _startingPath, _owner);
@@ -198,8 +196,7 @@ namespace Voltage.Editor.FilePickers
                 ImGui.EndPopup();
             }
 
-            // Handle popup closed via X button or ESC. "Change..." closes the popup too, so only
-            // treat it as a dismissal when we are not heading back into the file browser.
+            // "Change" closes the popup too, so that is not a dismissal.
             if (!isOpen && !_awaitingFile)
             {
                 _isOpen = false;
@@ -209,9 +206,7 @@ namespace Voltage.Editor.FilePickers
             return result;
         }
 
-        /// <summary>
-        /// Runs the file-selection stage. Advances to the options popup on a valid pick, closes on cancel.
-        /// </summary>
+        /// <summary>Runs the file-selection stage: advances to the options popup, or closes on cancel.</summary>
         private void PumpFileBrowser()
         {
             _fileBrowser.Draw("Select a .tmx file");
@@ -235,7 +230,6 @@ namespace Voltage.Editor.FilePickers
             }
             else if (!_fileBrowser.IsBrowsing)
             {
-                // Cancelled — nothing picked and no popup left up.
                 _isOpen = false;
                 Reset();
             }

@@ -105,6 +105,7 @@ namespace Voltage.Editor.Gizmos
 
 			var cursorInGameWindow = _imGuiManager.IsGameWindowFocused && IsCursorWithinGameWindow();
 			var tilePaintTool = _imGuiManager.TilePaintTool;
+			var cursorOverGameView = cursorInGameWindow && _imGuiManager.IsGameWindowHovered;
 
 			// Drawn regardless of cursor position: tying it to viewport hover made it vanish whenever the mouse
 			// moved onto the Tile Palette (including to change its colour).
@@ -130,7 +131,7 @@ namespace Voltage.Editor.Gizmos
 			}
 
 			// Update() stops running outside the viewport, so close any stroke released out there.
-			if (!cursorInGameWindow && SelectionMode == CursorSelectionMode.TilePaint)
+			if (!cursorOverGameView && SelectionMode == CursorSelectionMode.TilePaint)
 				tilePaintTool.CommitPendingStroke();
 
 			if (cursorInGameWindow)
@@ -145,7 +146,7 @@ namespace Voltage.Editor.Gizmos
 				{
 					IsMouseOverGizmo = false;
 
-					if (Core.IsEditMode)
+					if (Core.IsEditMode && cursorOverGameView)
 					{
 						tilePaintTool.ValidateTarget(selectedEntities.Count > 0 ? selectedEntities[0] : null);
 						tilePaintTool.Update(worldMouse, camera);

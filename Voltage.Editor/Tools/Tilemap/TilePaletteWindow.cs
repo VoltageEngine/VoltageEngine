@@ -5,6 +5,7 @@ using ImGuiNET;
 using Voltage.Editor.Assets;
 using Voltage.Editor.Gizmos;
 using Voltage.Editor.ImGuiCore;
+using Voltage.Editor.Persistence;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Utils;
 using Voltage.Tilesets;
@@ -30,6 +31,11 @@ namespace Voltage.Editor.Tools.Tilemap
 		private int _tilesetGeneration = -1;
 
 		private float _zoom = 2f;
+
+		// Backdrop behind the atlas and the brush swatch, packed 0xAARRGGBB.
+		private const int DefaultAtlasBackground = unchecked((int)0xFF1E1E1E);
+		private static readonly PersistentInt _atlasBackground =
+			new("TilePalette_AtlasBackground", DefaultAtlasBackground);
 
 		private bool _openNewLayerPopup;
 		private string _newLayerName = "Tilemap";
@@ -505,7 +511,7 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			var drawList = ImGui.GetWindowDrawList();
 			var boxMax = new Num.Vector2(origin.X + box, origin.Y + box);
-			drawList.AddRectFilled(origin, boxMax, ImGui.GetColorU32(new Num.Vector4(0.15f, 0.15f, 0.15f, 1f)));
+			drawList.AddRectFilled(origin, boxMax, ImGui.GetColorU32(AtlasBackground));
 
 			var half = cellPx * 0.5f;
 			for (var sy = 0; sy < rows; sy++)
@@ -734,6 +740,9 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (ImGui.Button("1:1"))
 				_zoom = 1f;
 
+			ImGui.SameLine();
+			DrawBackgroundPicker();
+
 			if (_hasSelection)
 			{
 				var w = Math.Abs(_selectionEnd.X - _selectionAnchor.X) + 1;
@@ -746,6 +755,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			}
 
 			// Both scrollbars, so a large atlas at any zoom pans in every direction.
+			ImGui.PushStyleColor(ImGuiCol.ChildBg, AtlasBackground);
 			ImGui.BeginChild("tile_atlas", new Num.Vector2(0, 0), true,
 				ImGuiWindowFlags.HorizontalScrollbar | ImGuiWindowFlags.AlwaysVerticalScrollbar);
 
@@ -761,6 +771,43 @@ namespace Voltage.Editor.Tools.Tilemap
 			DrawSelectionOverlay(drawList, origin);
 
 			ImGui.EndChild();
+			ImGui.PopStyleColor();
+		}
+
+		/// <summary>Backdrop for the atlas and the brush swatch. A viewing aid - never painted.</summary>
+		private static Num.Vector4 AtlasBackground => UnpackColor(_atlasBackground.Value);
+
+		private static void DrawBackgroundPicker()
+		{
+			var color = AtlasBackground;
+
+			if (ImGui.ColorEdit4("##atlasbg", ref color,
+				    ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel |
+				    ImGuiColorEditFlags.AlphaBar | ImGuiColorEditFlags.AlphaPreview))
+			{
+				_atlasBackground.Value = PackColor(color);
+			}
+
+			if (ImGui.IsItemHovered())
+				ImGui.SetTooltip("Background behind the tiles.\n" +
+				                 "A viewing aid only - tiles are still placed with their real transparency.");
+
+			ImGui.SameLine();
+			if (ImGui.SmallButton("Reset bg"))
+				_atlasBackground.Value = DefaultAtlasBackground;
+		}
+
+		private static Num.Vector4 UnpackColor(int packed) => new(
+			((packed >> 16) & 0xFF) / 255f,
+			((packed >> 8) & 0xFF) / 255f,
+			(packed & 0xFF) / 255f,
+			((packed >> 24) & 0xFF) / 255f);
+
+		private static int PackColor(Num.Vector4 color)
+		{
+			static int Channel(float v) => (int)(Math.Clamp(v, 0f, 1f) * 255f + 0.5f);
+
+			return (Channel(color.W) << 24) | (Channel(color.X) << 16) | (Channel(color.Y) << 8) | Channel(color.Z);
 		}
 
 		private void HandleAtlasSelection(TilePaintTool tool, Num.Vector2 origin)

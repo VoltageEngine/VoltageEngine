@@ -22,7 +22,7 @@ namespace Voltage.Editor.FilePickers
 		private string _result;
 		private bool _hasResult;
 
-		/// <summary>True while the ImGui fallback popup is still up. Always false on the native path.</summary>
+		/// <summary>True while the ImGui fallback popup is up. Always false on the native path.</summary>
 		public bool IsBrowsing => _imguiPicker != null;
 
 		/// <param name="extensions">Lower-case extensions with the leading dot, e.g. ".png".</param>
@@ -101,8 +101,7 @@ namespace Voltage.Editor.FilePickers
 			}
 			else if (_imguiPopupWasVisible)
 			{
-				// The picker's own Cancel button closes the popup without touching `open`, so a
-				// popup that was visible and no longer begins means the user backed out.
+				// The picker's own Cancel button closes the popup without touching `open`.
 				CloseImgui();
 			}
 
