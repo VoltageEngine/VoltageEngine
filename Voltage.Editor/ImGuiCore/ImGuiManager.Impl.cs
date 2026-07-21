@@ -174,6 +174,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		IsGameWindowFocused = ImGui.IsWindowFocused();
 
+		// Hit-tested by ImGui, so a panel floating over the view makes this false.
+		IsGameWindowHovered = ImGui.IsWindowHovered(ImGuiHoveredFlags.ChildWindows);
+
 		GameWindowPosition = ImGui.GetWindowPos();
 		GameWindowSize = ImGui.GetWindowSize();
 

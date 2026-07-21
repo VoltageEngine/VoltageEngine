@@ -371,6 +371,9 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			if (_imageBrowser.TryTakeResult(out var file) && !string.IsNullOrEmpty(file))
 			{
+				// Browsing is a re-import, so the cached parse has to go first.
+				EvictSourceCache(file);
+
 				var ext = Path.GetExtension(file).ToLowerInvariant();
 
 				if (ext is ".aseprite" or ".ase")
@@ -446,6 +449,16 @@ namespace Voltage.Editor.Tools.Tilemap
 			_selectedTile = 0;
 			_dirty = true;
 			_previewStale = true;
+		}
+
+		/// <summary>Drops the cached parse of a source image. Both managers: TilesetRuntime prefers the scene's.</summary>
+		private static void EvictSourceCache(string absolutePath)
+		{
+			if (string.IsNullOrEmpty(absolutePath))
+				return;
+
+			Core.Content?.EvictCachedAsset(absolutePath);
+			Core.Scene?.Content?.EvictCachedAsset(absolutePath);
 		}
 
 		/// <summary>Registers the file with the AssetDatabase (minting its .meta GUID if new) and references it.</summary>
@@ -992,15 +1005,23 @@ namespace Voltage.Editor.Tools.Tilemap
 
 				Directory.CreateDirectory(folder);
 
-				var baseName = string.IsNullOrWhiteSpace(_asset.Name) ? "Tileset" : _asset.Name;
+				var baseName = SanitizeFileName(_asset.Name) ?? "Tileset";
 				_path = TilesetPaths.UniquePath(folder, baseName, TilesetAssetIO.FileExtension);
 				SaveFolder = folder;
+			}
+			else
+			{
+				RenameOnDiskIfNeeded();
 			}
 
 			try
 			{
 				TilesetAssetIO.Save(_asset, _path);
 				_dirty = false;
+
+				// Live maps re-composite from the source images, so those must come off the cache too.
+				EvictSourceCache(_asset.Texture.ResolvePath());
+				EvictSourceCache(_asset.NormalMap.ResolvePath());
 
 				// Drop the cached runtime and re-resolve every live map so the change shows up immediately.
 				TilesetRuntime.Invalidate(_path);
@@ -1013,6 +1034,66 @@ namespace Voltage.Editor.Tools.Tilemap
 			{
 				EditorDebug.Log($"TilesetEditor: failed to save '{_path}': {ex.Message}", "Tileset");
 			}
+		}
+
+		/// <summary>Renames the file to match the asset Name. The .meta travels with it, so the GUID survives.</summary>
+		private void RenameOnDiskIfNeeded()
+		{
+			var desired = SanitizeFileName(_asset.Name);
+			if (desired == null)
+				return;
+
+			if (string.Equals(Path.GetFileNameWithoutExtension(_path), desired, StringComparison.Ordinal))
+				return;
+
+			var folder = Path.GetDirectoryName(_path);
+			if (string.IsNullOrEmpty(folder))
+				return;
+
+			var target = Path.Combine(folder, desired + TilesetAssetIO.FileExtension);
+
+			// A case-only rename targets the same file, so only a different one is a clash.
+			if (File.Exists(target) && !string.Equals(target, _path, StringComparison.OrdinalIgnoreCase))
+			{
+				EditorDebug.Log(
+					$"TilesetEditor: '{Path.GetFileName(target)}' already exists - keeping the current file name.",
+					"Tileset");
+				return;
+			}
+
+			var oldPath = _path;
+
+			try
+			{
+				File.Move(oldPath, target);
+
+				var oldMeta = oldPath + ".meta";
+				if (File.Exists(oldMeta))
+					File.Move(oldMeta, target + ".meta");
+			}
+			catch (Exception ex)
+			{
+				EditorDebug.Log($"TilesetEditor: could not rename to '{desired}': {ex.Message}", "Tileset");
+				return;
+			}
+
+			TilesetRuntime.Invalidate(oldPath);
+			_path = target;
+
+			EditorDebug.Log($"Renamed tileset to '{Path.GetFileName(target)}'.", "Tileset");
+		}
+
+		/// <summary>Turns a display name into a usable file name, or null when there is nothing to use.</summary>
+		private static string SanitizeFileName(string name)
+		{
+			if (string.IsNullOrWhiteSpace(name))
+				return null;
+
+			var cleaned = name.Trim();
+			foreach (var c in Path.GetInvalidFileNameChars())
+				cleaned = cleaned.Replace(c, '_');
+
+			return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned;
 		}
 	}
 }
