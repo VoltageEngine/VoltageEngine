@@ -6,6 +6,7 @@ using System.Linq;
 using System.Numerics;
 using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Effects;
+using Voltage.Editor.Hotkeys;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.SceneFile;
 using Voltage.Editor.Tools;
@@ -291,12 +292,7 @@ public partial class ImGuiManager
 
 			ImGui.Separator();
 
-			string saveShortcut = "Ctrl+S";
-#if OS_MAC
-				saveShortcut = "Cmd+S";
-#endif
-			
-			if (ImGui.MenuItem("Save Scene", saveShortcut))
+			if (ImGui.MenuItem("Save Scene", EditorHotkeys.MenuLabel(EditorHotkeys.SaveScene)))
 			{
 				if (Core.Scene == null)
 				{
@@ -935,7 +931,7 @@ public partial class ImGuiManager
 				}
 			}
 
-			if (ImGui.MenuItem("Reload Scene", "F6"))
+			if (ImGui.MenuItem("Reload Scene", EditorHotkeys.MenuLabel(EditorHotkeys.ReloadScene)))
 			{
 				if (hasScriptManager)
 				{
@@ -1240,7 +1236,7 @@ public partial class ImGuiManager
 				ImGui.BeginDisabled();
 			}
 
-			if (ImGui.MenuItem("Build and Run", "Ctrl+F5"))
+			if (ImGui.MenuItem("Build and Run", EditorHotkeys.MenuLabel(EditorHotkeys.BuildAndRun)))
 			{
 				_gameBuildWindow.BuildAndRun();
 			}
@@ -1390,7 +1386,7 @@ public partial class ImGuiManager
 				Core.InvokeSwitchEditMode(false);
 
 			if (ImGui.IsItemHovered())
-				ImGui.SetTooltip("Play (F1)");
+				ImGui.SetTooltip($"Play ({EditorHotkeys.Hint(EditorHotkeys.TogglePlay)})");
 		}
 		else
 		{
@@ -1407,7 +1403,7 @@ public partial class ImGuiManager
 			ImGui.PopStyleColor(3);
 
 			if (ImGui.IsItemHovered())
-				ImGui.SetTooltip("Stop (F1)");
+				ImGui.SetTooltip($"Stop ({EditorHotkeys.Hint(EditorHotkeys.TogglePlay)})");
 		}
 
 		ImGui.SameLine(0, spacing);
@@ -1433,7 +1429,9 @@ public partial class ImGuiManager
 			ImGui.EndDisabled();
 
 		if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-			ImGuiSafe.SetTooltipSafe(Core.IsEditMode ? "Pause (unavailable in Edit Mode)" : isPaused ? "Unpause (F2)" : "Pause (F2)");
+			ImGuiSafe.SetTooltipSafe(Core.IsEditMode
+				? "Pause (unavailable in Edit Mode)"
+				: $"{(isPaused ? "Unpause" : "Pause")} ({EditorHotkeys.Hint(EditorHotkeys.TogglePause)})");
 
 		ImGui.SameLine(0, spacing);
 
@@ -1441,7 +1439,7 @@ public partial class ImGuiManager
 			Core.InvokeResetScene();
 
 		if (ImGui.IsItemHovered())
-			ImGui.SetTooltip("Reset Scene (F5)");
+			ImGui.SetTooltip($"Reset Scene ({EditorHotkeys.Hint(EditorHotkeys.ResetScene)})");
 
 		// Keep cursor on the same line so DrawAudioToggleRightAligned can
 		// use SetCursorPosX to jump to the right edge within the same row.

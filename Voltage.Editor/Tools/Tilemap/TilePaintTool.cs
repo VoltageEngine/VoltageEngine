@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
+using Voltage.Editor.Hotkeys;
 using Voltage.Editor.Undo.ComponentActions;
 using Voltage.Editor.Undo.Core;
 using EngineAssetReference = Voltage.Serialization.AssetReference;
@@ -15,6 +16,7 @@ namespace Voltage.Editor.Tools.Tilemap
 		Rectangle,
 		Fill,
 		Picker,
+		Select,
 	}
 
 	/// <summary>Whether the brush paints tiles or the collision mask.</summary>
@@ -57,7 +59,10 @@ namespace Voltage.Editor.Tools.Tilemap
 		public float GridThickness = 1f;
 		public float HighlightThickness = 2f;
 
-		/// <summary>Rectangular block of tile indices picked in the palette (-1 = erase), anchored at the hovered cell.</summary>
+		/// <summary>A stamp cell covered by no selection box: leave whatever is already there untouched.</summary>
+		public const int NoTile = int.MinValue;
+
+		/// <summary>Block of tile indices picked in the palette (-1 = erase, NoTile = hole), anchored at the hovered cell.</summary>
 		public int[] Selection = Array.Empty<int>();
 		public int SelectionWidth;
 		public int SelectionHeight;
@@ -87,11 +92,19 @@ namespace Voltage.Editor.Tools.Tilemap
 		private bool _isCollisionStroking;
 		private bool _collisionErases;
 
+		// The block exactly as picked in the palette. Selection is always derived from it, so orientation
+		// changes never accumulate rounding or mirror the wrong axis.
+		private int[] _baseSelection = Array.Empty<int>();
+		private int _baseWidth;
+		private int _baseHeight;
+
 		public void SetSelection(int[] tiles, int width, int height)
 		{
-			Selection = tiles ?? Array.Empty<int>();
-			SelectionWidth = width;
-			SelectionHeight = height;
+			_baseSelection = tiles ?? Array.Empty<int>();
+			_baseWidth = width;
+			_baseHeight = height;
+
+			ApplyOrientationToStamp();
 		}
 
 		public void SetSingleSelection(int tileIndex) => SetSelection(new[] { tileIndex }, 1, 1);
@@ -100,27 +113,129 @@ namespace Voltage.Editor.Tools.Tilemap
 		public bool OrientationFlipX => (CurrentOrientation & TilemapRenderer.OrientFlipX) != 0;
 		public bool OrientationFlipY => (CurrentOrientation & TilemapRenderer.OrientFlipY) != 0;
 
-		public void RotateBrush(int quarterTurns) =>
-			CurrentOrientation = TilemapRenderer.MakeOrientation(OrientationRotation + quarterTurns, OrientationFlipX, OrientationFlipY);
+		/// <summary>
+		/// Turns the brush: each tile spins in place AND the stamp's layout turns with it, so a 4x2 block becomes
+		/// 2x4 the way rotating the whole block would. Mirrors what RotateSelection does to placed tiles.
+		/// </summary>
+		public void RotateBrush(int quarterTurns)
+		{
+			CurrentOrientation = TilemapRenderer.MakeOrientation(
+				OrientationRotation + quarterTurns, OrientationFlipX, OrientationFlipY);
 
-		public void ToggleFlipX() =>
-			CurrentOrientation = TilemapRenderer.MakeOrientation(OrientationRotation, !OrientationFlipX, OrientationFlipY);
+			ApplyOrientationToStamp();
+		}
 
-		public void ToggleFlipY() =>
-			CurrentOrientation = TilemapRenderer.MakeOrientation(OrientationRotation, OrientationFlipX, !OrientationFlipY);
+		/// <summary>Mirrors the brush: each tile flips AND the block's cell order flips with it.</summary>
+		public void ToggleFlipX()
+		{
+			CurrentOrientation = TilemapRenderer.MakeOrientation(
+				OrientationRotation, !OrientationFlipX, OrientationFlipY);
 
-		public void ResetOrientation() => CurrentOrientation = 0;
+			ApplyOrientationToStamp();
+		}
 
-		// Z / X rotate, V / B flip - kept off WASD (camera) and QERTB (cursor modes).
-		private void UpdateOrientationHotkeys()
+		public void ToggleFlipY()
+		{
+			CurrentOrientation = TilemapRenderer.MakeOrientation(
+				OrientationRotation, OrientationFlipX, !OrientationFlipY);
+
+			ApplyOrientationToStamp();
+		}
+
+		public void ResetOrientation()
+		{
+			CurrentOrientation = 0;
+			ApplyOrientationToStamp();
+		}
+
+		/// <summary>
+		/// Rebuilds the stamp from the picked block: mirror first, then rotate - the same order the renderer
+		/// applies to a single tile, so the block and the artwork on it always agree. Holes stay holes.
+		/// </summary>
+		private void ApplyOrientationToStamp()
+		{
+			var width = _baseWidth;
+			var height = _baseHeight;
+
+			if (width <= 0 || height <= 0 || _baseSelection.Length == 0)
+			{
+				Selection = _baseSelection;
+				SelectionWidth = width;
+				SelectionHeight = height;
+				return;
+			}
+
+			var source = _baseSelection;
+
+			if (OrientationFlipX || OrientationFlipY)
+			{
+				var mirrored = new int[source.Length];
+
+				for (var y = 0; y < height; y++)
+				{
+					for (var x = 0; x < width; x++)
+					{
+						var sx = OrientationFlipX ? width - 1 - x : x;
+						var sy = OrientationFlipY ? height - 1 - y : y;
+						mirrored[y * width + x] = source[sy * width + sx];
+					}
+				}
+
+				source = mirrored;
+			}
+
+			var turns = OrientationRotation & 3;
+			if (turns == 0)
+			{
+				Selection = source;
+				SelectionWidth = width;
+				SelectionHeight = height;
+				return;
+			}
+
+			var rotatedWidth = turns % 2 == 1 ? height : width;
+			var rotatedHeight = turns % 2 == 1 ? width : height;
+
+			var rotated = new int[rotatedWidth * rotatedHeight];
+			for (var i = 0; i < rotated.Length; i++)
+				rotated[i] = NoTile;
+
+			for (var y = 0; y < height; y++)
+			{
+				for (var x = 0; x < width; x++)
+				{
+					var moved = RotateLocal(new Point(x, y), width, height, turns);
+					rotated[moved.Y * rotatedWidth + moved.X] = source[y * width + x];
+				}
+			}
+
+			Selection = rotated;
+			SelectionWidth = rotatedWidth;
+			SelectionHeight = rotatedHeight;
+		}
+
+		// Bindings live in the Tile Palette category. Only fires while that window is focused.
+		public void UpdateOrientationHotkeys()
 		{
 			if (EditMode != TileEditMode.Tiles)
 				return;
 
-			if (ImGui.IsKeyPressed(ImGuiKey.Z, false)) RotateBrush(-1);
-			if (ImGui.IsKeyPressed(ImGuiKey.X, false)) RotateBrush(1);
-			if (ImGui.IsKeyPressed(ImGuiKey.V, false)) ToggleFlipX();
-			if (ImGui.IsKeyPressed(ImGuiKey.C, false)) ToggleFlipY();
+			// With a live tile selection the rotate keys turn the placed block instead of the brush.
+			var rotatesSelection = Tool == TileTool.Select && HasTileSelection;
+
+			if (EditorHotkeys.Pressed(EditorHotkeys.TileRotateLeft))
+			{
+				if (rotatesSelection) RotateSelection(-1);
+				else RotateBrush(-1);
+			}
+
+			if (EditorHotkeys.Pressed(EditorHotkeys.TileRotateRight))
+			{
+				if (rotatesSelection) RotateSelection(1);
+				else RotateBrush(1);
+			}
+			if (EditorHotkeys.Pressed(EditorHotkeys.TileFlipX)) ToggleFlipX();
+			if (EditorHotkeys.Pressed(EditorHotkeys.TileFlipY)) ToggleFlipY();
 		}
 
 		/// <summary>
@@ -185,8 +300,6 @@ namespace Voltage.Editor.Tools.Tilemap
 		{
 			IsHovering = false;
 
-			UpdateOrientationHotkeys();
-
 			var cell = WorldToCell(worldMouse);
 			HoveredCell = cell;
 			IsHovering = true;
@@ -198,11 +311,17 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (EditMode == TileEditMode.Collision)
 			{
 				DrawCollisionOverlay(camera);
-				UpdateCollision(cell, eraseModifier);
+
+				// Select moves tiles and collision together, so it works in either edit mode.
+				if (Tool == TileTool.Select)
+					UpdateSelect(cell);
+				else
+					UpdateCollision(cell, eraseModifier);
+
 				return;
 			}
 
-			if (IsAutotiling)
+			if (IsAutotiling && Tool != TileTool.Select)
 			{
 				UpdateAutotile(cell, Tool == TileTool.Eraser || eraseModifier);
 				return;
@@ -210,6 +329,10 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			switch (Tool)
 			{
+				case TileTool.Select:
+					UpdateSelect(cell);
+					break;
+
 				case TileTool.Picker:
 					DrawCellOutline(cell.X, cell.Y, 1, 1, HighlightColor);
 					if (Input.LeftMouseButtonPressed)
@@ -253,6 +376,7 @@ namespace Voltage.Editor.Tools.Tilemap
 		/// <summary>Cancels an in-progress stroke without committing it, rolling its cells back.</summary>
 		public void Reset()
 		{
+			ClearTileSelection();
 			AbandonCollisionStroke();
 
 			if (_isStroking)
@@ -370,6 +494,9 @@ namespace Voltage.Editor.Tools.Tilemap
 						? -1
 						: Selection[y % SelectionHeight * SelectionWidth + x % SelectionWidth];
 
+					if (tile == NoTile)
+						continue;
+
 					ApplyCell(minX + x, minY + y, tile);
 				}
 			}
@@ -402,7 +529,19 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (Target?.Entity == null && !EnsurePaintTarget())
 				return;
 
-			var replacement = Selection[0];
+			// Fill takes the first real tile of the stamp; holes are not a fill colour.
+			var replacement = NoTile;
+			foreach (var tile in Selection)
+			{
+				if (tile == NoTile)
+					continue;
+
+				replacement = tile;
+				break;
+			}
+
+			if (replacement == NoTile)
+				return;
 			var targetTile = Target.GetTile(origin.X, origin.Y);
 			if (targetTile == replacement)
 				return;
@@ -479,13 +618,19 @@ namespace Voltage.Editor.Tools.Tilemap
 			for (var y = 0; y < SelectionHeight; y++)
 			{
 				for (var x = 0; x < SelectionWidth; x++)
-					ApplyCell(cell.X + x, cell.Y + y, Selection[y * SelectionWidth + x]);
+				{
+					var tile = Selection[y * SelectionWidth + x];
+					if (tile == NoTile)
+						continue;
+
+					ApplyCell(cell.X + x, cell.Y + y, tile);
+				}
 			}
 		}
 
 		/// <summary>
-		/// Writes one cell. Fully transparent tile = a hole in the stamp, skip it. Fully opaque = replace the cell.
-		/// Partially transparent = stack on top of what is there. Only the eraser clears a cell.
+		/// Writes one cell. Fully transparent tile = a hole in the stamp, skip it. A partially transparent tile
+		/// stacks only while "Stack while dragging" is on; otherwise it replaces. Only the eraser clears a cell.
 		/// </summary>
 		private void ApplyCell(int x, int y, int newTile)
 		{
@@ -503,7 +648,9 @@ namespace Voltage.Editor.Tools.Tilemap
 
 				Target.SetTile(x, y, -1);
 			}
-			else if (oldStack.Length == 0 || tileset == null || tileset.IsOpaque(newTile))
+			// Stacking is opt-in: with "Stack while dragging" off a stamp always REPLACES the cell, even when the
+			// tile has transparency. Otherwise painting over existing tiles silently piled them up.
+			else if (oldStack.Length == 0 || tileset == null || tileset.IsOpaque(newTile) || !StackWhileDragging)
 			{
 				// A fresh paint carries the brush's current orientation. Rotation is applied but deliberately not
 				// tracked by undo, so re-painting the same tile with the same orientation is a no-op.
