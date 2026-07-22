@@ -150,6 +150,21 @@ namespace Voltage.Editor.Tools.Tilemap
 				Save();
 
 			ImGui.SameLine();
+
+			var canSync = _asset != null && _asset.Texture.IsValid;
+			ImGui.BeginDisabled(!canSync);
+			if (ImGui.Button("Sync Changes"))
+				SyncSourceChanges();
+			ImGui.EndDisabled();
+
+			if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+			{
+				ImGui.SetTooltip(canSync
+					? "Re-reads the source image from disk. Use after editing it externally."
+					: "Set a source image first.");
+			}
+
+			ImGui.SameLine();
 			ImGui.TextDisabled(_path == null
 				? "(unsaved)"
 				: $"{Path.GetFileName(_path)}{(_dirty ? " *" : "")}");
@@ -372,7 +387,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (_imageBrowser.TryTakeResult(out var file) && !string.IsNullOrEmpty(file))
 			{
 				// Browsing is a re-import, so the cached parse has to go first.
-				EvictSourceCache(file);
+				TilesetSourceSync.EvictSourceCache(file);
 
 				var ext = Path.GetExtension(file).ToLowerInvariant();
 
@@ -451,14 +466,27 @@ namespace Voltage.Editor.Tools.Tilemap
 			_previewStale = true;
 		}
 
-		/// <summary>Drops the cached parse of a source image. Both managers: TilesetRuntime prefers the scene's.</summary>
-		private static void EvictSourceCache(string absolutePath)
+		/// <summary>Re-reads the source images from disk without a re-import, so external edits show up.</summary>
+		private void SyncSourceChanges()
 		{
-			if (string.IsNullOrEmpty(absolutePath))
+			var oldColumns = _asset?.Columns ?? 0;
+			var oldRows = _asset?.Rows ?? 0;
+
+			if (!TilesetSourceSync.Sync(_asset, _path))
 				return;
 
-			Core.Content?.EvictCachedAsset(absolutePath);
-			Core.Scene?.Content?.EvictCachedAsset(absolutePath);
+			_previewStale = true;
+			RebuildPreview();
+
+			// A resized image reslices into a different grid, which shifts every tile index already painted in maps.
+			if (_preview != null && (_preview.Columns != oldColumns || _preview.Rows != oldRows))
+			{
+				_dirty = true;
+				EditorDebug.Log(
+					$"Tileset: the source image changed size - the grid is now {_preview.Columns}x{_preview.Rows} " +
+					$"(was {oldColumns}x{oldRows}). Tile indices in existing tilemaps have shifted. Save to keep it.",
+					"Tileset");
+			}
 		}
 
 		/// <summary>Registers the file with the AssetDatabase (minting its .meta GUID if new) and references it.</summary>
@@ -506,6 +534,8 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (ImGui.Button("1:1"))
 				_zoom = 1f;
 
+			TileAtlasBackground.DrawPicker();
+
 			if (_preview.HasNormalMap)
 			{
 				ImGui.Checkbox("Show normal map", ref _showNormalMap);
@@ -536,6 +566,7 @@ namespace Voltage.Editor.Tools.Tilemap
 				? Math.Max(Math.Max(availY - SelectedPanelHeight, availY * 0.2f), MinAtlasHeight)
 				: Math.Max(availY, MinAtlasHeight);
 
+			ImGui.PushStyleColor(ImGuiCol.ChildBg, TileAtlasBackground.Color);
 			ImGui.BeginChild("tileset_preview", new Num.Vector2(0, atlasHeight), true,
 				ImGuiWindowFlags.HorizontalScrollbar);
 
@@ -548,6 +579,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			DrawCollisionOverlay(origin);
 
 			ImGui.EndChild();
+			ImGui.PopStyleColor();
 
 			if (hasSelection)
 			{
@@ -1020,8 +1052,8 @@ namespace Voltage.Editor.Tools.Tilemap
 				_dirty = false;
 
 				// Live maps re-composite from the source images, so those must come off the cache too.
-				EvictSourceCache(_asset.Texture.ResolvePath());
-				EvictSourceCache(_asset.NormalMap.ResolvePath());
+				TilesetSourceSync.EvictSourceCache(_asset.Texture.ResolvePath());
+				TilesetSourceSync.EvictSourceCache(_asset.NormalMap.ResolvePath());
 
 				// Drop the cached runtime and re-resolve every live map so the change shows up immediately.
 				TilesetRuntime.Invalidate(_path);
