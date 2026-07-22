@@ -10,6 +10,7 @@ using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Undo.ComponentActions;
 using Voltage.Editor.Undo.EntityActions;
+using Voltage.Editor.Serialization;
 using Voltage.Editor.Utils;
 using Voltage.Persistence;
 using Voltage.Serialization;
@@ -24,7 +25,6 @@ public class EntityPane
     private Entity _previousEntity;
 	public List<Entity> SelectedEntities => _selectedEntities;
 	private ImGuiManager _imGuiManager;
-	private List<Entity> _copiedEntities = new();
 	private List<Entity> _selectedEntities = new();
 	private Entity _lastRangeSelectEntity;
 
@@ -168,8 +168,17 @@ public class EntityPane
 		if (ImGui.BeginPopupContextWindow("entityPaneContextMenu",
 			ImGuiPopupFlags.MouseButtonRight | ImGuiPopupFlags.NoOpenOverItems))
 		{
-			if (ImGui.Selectable("Add Entity"))
+			if (ImGui.MenuItem("Add Entity", EditorHotkeys.MenuLabel(EditorHotkeys.NewEntity)))
 				CreateEntity();
+
+			// Also here, so pasting into an empty scene does not require an existing entity to right-click.
+			ImGui.BeginDisabled(!EntityClipboard.HasContent);
+			if (ImGui.MenuItem("Paste Entity", EditorHotkeys.MenuLabel(EditorHotkeys.PasteEntity)))
+				PasteEntities();
+			ImGui.EndDisabled();
+
+			if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+				ImGui.SetTooltip("Pastes into the current scene - copy in one scene, switch, then paste here.");
 
 			ImGui.EndPopup();
 		}
@@ -654,6 +663,33 @@ public class EntityPane
 
         if (ImGui.BeginPopup("entityContextMenu"))
         {
+            var blocksCopy = entity.Type == Entity.InstanceType.NonSerialized
+                             || entity.Type == Entity.InstanceType.SceneRequired;
+
+            // Right-clicking outside the selection acts on the clicked entity alone, matching the Asset Browser.
+            var copyTargets = _selectedEntities.Contains(entity) ? _selectedEntities.Count : 1;
+            var copyLabel = copyTargets > 1 ? $"Copy ({copyTargets} entities)" : "Copy";
+
+            ImGui.BeginDisabled(blocksCopy);
+            if (ImGui.MenuItem(copyLabel, EditorHotkeys.MenuLabel(EditorHotkeys.CopyEntity)))
+            {
+                if (!_selectedEntities.Contains(entity))
+                    SetSelectedEntity(entity, ctrlDown: false);
+
+                CopySelectedEntities();
+            }
+            ImGui.EndDisabled();
+
+            ImGui.BeginDisabled(!EntityClipboard.HasContent);
+            if (ImGui.MenuItem("Paste", EditorHotkeys.MenuLabel(EditorHotkeys.PasteEntity)))
+                PasteEntities();
+            ImGui.EndDisabled();
+
+            if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                ImGui.SetTooltip("Pastes into the current scene - copy in one scene, switch, then paste here.");
+
+            ImGui.Separator();
+
             if (_imGuiManager.SceneGraphWindow.CopiedComponent != null && ImGui.Selectable("Paste Component"))
             {
                 var copiedComponent = _imGuiManager.SceneGraphWindow.CopiedComponent;
@@ -710,14 +746,14 @@ public class EntityPane
                 }
             }
 
-            if (ImGui.Selectable($"Rename {entity.Name}"))
+            if (ImGui.Selectable("Rename"))
                 BeginEntityRename(entity);
 
-            if (ImGui.Selectable($"Open {entity.Name} in separate window"))
+            if (ImGui.Selectable("Open in separate window"))
                 Core.GetGlobalManager<ImGuiManager>().OpenSeparateEntityInspector(entity);
 
             // Entity Commands
-            if (ImGui.Selectable("Move Camera to " + entity.Name))
+            if (ImGui.Selectable("Move Camera Here"))
                 if (Core.Scene.Entities.Count > 0 && Core.IsEditMode)
                     _imGuiManager.CursorSelectionManager.SetCameraTargetPosition(entity.Transform.Position);
 
@@ -734,7 +770,8 @@ public class EntityPane
 
             if (reason == null)
             {
-                if (ImGui.Selectable("Duplicate Entity " + entity.Name))
+                if (ImGui.MenuItem("Duplicate",
+                        EditorHotkeys.MenuLabel(EditorHotkeys.DuplicateEntity)))
                     DuplicateEntity(entity);
             }
             else
@@ -744,6 +781,7 @@ public class EntityPane
                 ImGui.EndDisabled();
             }
 
+
             if (entity.Type == Entity.InstanceType.SceneRequired)
             {
                 ImGui.BeginDisabled(true);
@@ -752,7 +790,7 @@ public class EntityPane
             }
             else
             {
-                if (ImGui.Selectable("Destroy Entity"))
+                if (ImGui.MenuItem("Destroy", EditorHotkeys.MenuLabel(EditorHotkeys.DeleteEntity)))
                 {
                     // Push undo BEFORE destroying, so the entity is still valid
                     EditorChangeTracker.PushUndo(
@@ -764,7 +802,7 @@ public class EntityPane
                 }
             }
 
-			if (ImGui.Selectable("Create Child Entity", false, ImGuiSelectableFlags.DontClosePopups))
+			if (ImGui.Selectable("Create Child", false, ImGuiSelectableFlags.DontClosePopups))
 			{
 				var child = new Entity("Child Entity");
 				child.Transform.SetParent(entity.Transform);
@@ -848,6 +886,57 @@ public class EntityPane
 	/// Handles copy/paste/duplicate shortcuts for entities.
 	/// </summary>
 	///
+	/// <summary>
+	/// Copies the selection as DATA. Unlike duplication this survives a scene switch, so the paste can land in a
+	/// different scene - or, via the OS clipboard, a different editor instance.
+	/// </summary>
+	public void CopySelectedEntities()
+	{
+		var copyable = _selectedEntities
+			.Where(e => e != null && e.Type != Entity.InstanceType.NonSerialized
+			                      && e.Type != Entity.InstanceType.SceneRequired)
+			.ToList();
+
+		if (copyable.Count == 0)
+		{
+			Debug.Error("Cannot copy NonSerialized or SceneRequired entities.");
+			return;
+		}
+
+		var count = EntityClipboard.Copy(copyable);
+		if (count > 0)
+			EditorDebug.Log($"Copied {count} entit{(count == 1 ? "y" : "ies")}.", "Entity");
+	}
+
+	/// <summary>Pastes the clipboard into the current scene and selects the result.</summary>
+	public void PasteEntities()
+	{
+		if (Core.Scene == null)
+			return;
+
+		// Offset so a same-scene paste is visible instead of landing exactly on the original.
+		var roots = EntityClipboard.Paste(new Vector2(PasteOffset, PasteOffset));
+		if (roots.Count == 0)
+			return;
+
+		var description = $"Pasted: {string.Join(", ", roots.Select(e => e.Name))}";
+
+		// Creation, so undo must DETACH - the inverse of MultiEntityDeleteUndoAction. One composite step
+		// so a paste of several roots reverts in a single Ctrl+Z.
+		var actions = roots
+			.Select(root => (EditorChangeTracker.IEditorAction)
+				new EntityCreateDeleteUndoAction(Core.Scene, root, wasCreated: true, description))
+			.ToList();
+
+		EditorChangeTracker.PushUndo(new CompositeUndoAction(actions, description), roots[0], description);
+
+		DeselectAllEntities();
+		foreach (var root in roots)
+			SetSelectedEntity(root, ctrlDown: true);
+	}
+
+	private const float PasteOffset = 16f;
+
 	private void EntityDuplicationAndDeletion()
     {
 	    if (ImGui.IsAnyItemActive() || ImGui.IsAnyItemFocused())
@@ -888,23 +977,10 @@ public class EntityPane
 	    }
 
 	    if (Core.IsEditMode && EditorHotkeys.Pressed(EditorHotkeys.CopyEntity) && _selectedEntities.Count > 0)
-	    {
-	        _copiedEntities = _selectedEntities.ToList();
-	    }
+	        CopySelectedEntities();
 
-	    if (Core.IsEditMode && EditorHotkeys.Pressed(EditorHotkeys.PasteEntity) && _copiedEntities.Count > 0)
-	    {
-	        var entitiesToDuplicate = _copiedEntities.Where(e => !ShouldBlockDuplication(e)).ToList();
-	        if (entitiesToDuplicate.Count > 1)
-	        {
-	            DuplicateEntities(entitiesToDuplicate);
-	        }
-	        else
-	        {
-	            foreach (var entity in entitiesToDuplicate)
-	                DuplicateEntity(entity);
-	        }
-	    }
+	    if (Core.IsEditMode && EditorHotkeys.Pressed(EditorHotkeys.PasteEntity))
+	        PasteEntities();
 
 	    if (Core.IsEditMode && _selectedEntities.Count > 0 && EditorHotkeys.Pressed(EditorHotkeys.DeleteEntity))
 	    {
@@ -1079,6 +1155,10 @@ public class EntityPane
 
         foreach (var entity in entitiesToDuplicate)
         {
+			// Same guard DuplicateEntity has: cloning a torn-down entity yields an empty husk.
+			if (entity == null || entity.Scene == null)
+				continue;
+
 			var idMap = new Dictionary<Guid, Guid>();
 			var clone = DuplicateEntityInternal(entity, null, idMap, clones);
 			if (clone == null)
