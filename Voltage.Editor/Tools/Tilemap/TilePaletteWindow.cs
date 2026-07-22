@@ -36,11 +36,6 @@ namespace Voltage.Editor.Tools.Tilemap
 
 		private float _zoom = 2f;
 
-		// Backdrop behind the atlas and the brush swatch, packed 0xAARRGGBB.
-		private const int DefaultAtlasBackground = unchecked((int)0xFF1E1E1E);
-		private static readonly PersistentInt _atlasBackground =
-			new("TilePalette_AtlasBackground", DefaultAtlasBackground);
-
 		private bool _openNewLayerPopup;
 		private string _newLayerName = "Tilemap";
 
@@ -310,6 +305,56 @@ namespace Voltage.Editor.Tools.Tilemap
 			}
 		}
 
+		/// <summary>
+		/// One switch for per-entity debug rendering across every tilemap layer. A mixed state reads as off, so the
+		/// click that resolves it turns everything on.
+		/// </summary>
+		private static void DrawAllLayersDebugRender(List<TilemapRenderer> maps)
+		{
+			var on = 0;
+			var total = 0;
+
+			foreach (var map in maps)
+			{
+				if (map.Entity == null)
+					continue;
+
+				total++;
+				if (map.Entity.DebugRenderEnabled)
+					on++;
+			}
+
+			if (total == 0)
+				return;
+
+			var allOn = on == total;
+			var value = allOn;
+
+			if (ImGui.Checkbox("Debug Render", ref value))
+			{
+				foreach (var map in maps)
+					SetDebugRender(map, value);
+			}
+
+			if (ImGui.IsItemHovered())
+				ImGui.SetTooltip("Debug rendering for every tilemap layer at once - collider outlines and gizmos.");
+
+			if (!allOn && on > 0)
+			{
+				ImGui.SameLine();
+				ImGui.TextDisabled($"({on} of {total} on)");
+			}
+		}
+
+		private static void SetDebugRender(TilemapRenderer map, bool enabled)
+		{
+			if (map?.Entity == null || map.Entity.DebugRenderEnabled == enabled)
+				return;
+
+			map.Entity.DebugRenderEnabled = enabled;
+			EditorChangeTracker.MarkChanged(map.Entity, "Toggle tilemap debug render");
+		}
+
 		private void DrawTilesetSelector(TilePaintTool tool, TilesetEditorWindow tilesetEditor)
 		{
 			var reference = tool.Target?.Tileset ?? (_tilesetPath != null
@@ -329,6 +374,21 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (ImGui.Button("Edit Tileset") && canEdit)
 				tilesetEditor.Open(_tilesetPath);
 			ImGui.EndDisabled();
+
+			ImGui.SameLine();
+
+			var canSync = _tileset?.Asset != null && _tilesetPath != null;
+			ImGui.BeginDisabled(!canSync);
+			if (ImGui.Button("Sync Changes") && canSync)
+				SyncTilesetSource(tool);
+			ImGui.EndDisabled();
+
+			if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+			{
+				ImGui.SetTooltip(canSync
+					? "Re-reads this tileset's source image from disk. Use after editing it externally."
+					: "Assign a tileset first.");
+			}
 
 			if (_tileset == null)
 			{
@@ -357,84 +417,127 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			ImGui.TextDisabled("Top of the list draws in front of the ones below it.");
 
-			for (var i = 0; i < maps.Count; i++)
-			{
-				var map = maps[i];
-				if (map.Entity == null)
-					continue;
-
-				ImGui.PushID(i);
-
-				ImGui.BeginDisabled(i == 0);
-				if (ImGui.ArrowButton("up", ImGuiDir.Up))
-					MoveLayer(maps, i, -1);
-				ImGui.EndDisabled();
-
-				if (ImGui.IsItemHovered())
-					ImGui.SetTooltip("Move in front of the layer above.");
-
-				ImGui.SameLine();
-
-				ImGui.BeginDisabled(i == maps.Count - 1);
-				if (ImGui.ArrowButton("down", ImGuiDir.Down))
-					MoveLayer(maps, i, 1);
-				ImGui.EndDisabled();
-
-				if (ImGui.IsItemHovered())
-					ImGui.SetTooltip("Move behind the layer below.");
-
-				ImGui.SameLine();
-
-				var isTarget = ReferenceEquals(map, tool.Target);
-				if (ImGui.Selectable($"{map.Entity.Name}##layer", isTarget))
-				{
-					tool.Target = map;
-					SyncTilesetFromTarget(tool);
-				}
-
-				ImGui.SameLine();
-				ImGui.TextDisabled($"(render layer {map.RenderLayer})");
-
-				ImGui.PopID();
-			}
-
-			if (tool.Target?.Entity == null)
-				return;
-
 			ImGui.Spacing();
-			ImGui.TextDisabled($"Selected: {tool.Target.Entity.Name}");
+			DrawAllLayersDebugRender(maps);
+			ImGui.Spacing();
 
-			var renderLayer = tool.Target.RenderLayer;
-			ImGui.SetNextItemWidth(140f);
-			if (ImGui.InputInt("Render layer", ref renderLayer))
-			{
-				tool.Target.RenderLayer = renderLayer;
-				EditorChangeTracker.MarkChanged(tool.Target.Entity, "Change tilemap render layer");
-			}
+			RenderLayerOptions(out var layerNames, out var layerValues);
 
-			if (ImGui.IsItemHovered())
+			if (ImGui.BeginTable("tilemap-layer-order", 5,
+				    ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersInnerV | ImGuiTableFlags.SizingFixedFit))
 			{
-				ImGui.SetTooltip(
-					"A LOWER render layer draws in FRONT (engine convention).\n" +
-					"This is the same layer space sprites and other renderables use, so it is how you put a\n" +
-					"tilemap in front of or behind them.");
-			}
+				ImGui.TableSetupColumn("Sort", ImGuiTableColumnFlags.WidthFixed, 54f);
+				ImGui.TableSetupColumn("Debug", ImGuiTableColumnFlags.WidthFixed, 52f);
+				ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.WidthStretch);
+				ImGui.TableSetupColumn("Render Layer", ImGuiTableColumnFlags.WidthFixed, 140f);
+				ImGui.TableSetupColumn("Info", ImGuiTableColumnFlags.WidthFixed, 86f);
+				ImGui.TableHeadersRow();
 
-			// Layer depth is a fine tie-breaker used only when layers share a render layer; the arrows handle it
-			// for you, so it lives behind an Advanced expander rather than in the common path.
-			if (ImGui.CollapsingHeader("Advanced"))
-			{
-				var layerDepth = tool.Target.LayerDepth;
-				ImGui.SetNextItemWidth(140f);
-				if (ImGui.SliderFloat("Layer depth", ref layerDepth, 0f, 1f, "%.2f"))
+				for (var i = 0; i < maps.Count; i++)
 				{
-					tool.Target.LayerDepth = layerDepth;
-					EditorChangeTracker.MarkChanged(tool.Target.Entity, "Change tilemap layer depth");
+					var map = maps[i];
+					if (map.Entity == null)
+						continue;
+
+					ImGui.PushID(i);
+					ImGui.TableNextRow();
+
+					ImGui.TableSetColumnIndex(0);
+
+					ImGui.BeginDisabled(i == 0);
+					if (ImGui.ArrowButton("up", ImGuiDir.Up))
+						MoveLayer(maps, i, -1);
+					ImGui.EndDisabled();
+
+					if (ImGui.IsItemHovered())
+						ImGui.SetTooltip("Move in front of the layer above.");
+
+					ImGui.SameLine();
+
+					ImGui.BeginDisabled(i == maps.Count - 1);
+					if (ImGui.ArrowButton("down", ImGuiDir.Down))
+						MoveLayer(maps, i, 1);
+					ImGui.EndDisabled();
+
+					if (ImGui.IsItemHovered())
+						ImGui.SetTooltip("Move behind the layer below.");
+
+					ImGui.TableSetColumnIndex(1);
+
+					// The column header names it, so the checkbox itself carries no label.
+					var debug = map.Entity.DebugRenderEnabled;
+					if (ImGui.Checkbox("##dbg", ref debug))
+						SetDebugRender(map, debug);
+
+					if (ImGui.IsItemHovered())
+						ImGui.SetTooltip("Debug rendering for this layer only - collider outlines and gizmos.");
+
+					ImGui.TableSetColumnIndex(2);
+
+					var isTarget = ReferenceEquals(map, tool.Target);
+					if (ImGui.Selectable($"{map.Entity.Name}##layer", isTarget))
+					{
+						tool.Target = map;
+						SyncTilesetFromTarget(tool);
+					}
+
+					ImGui.TableSetColumnIndex(3);
+
+					var layerIndex = Array.IndexOf(layerValues, map.RenderLayer);
+					if (layerIndex < 0)
+						layerIndex = 0;
+
+					ImGui.SetNextItemWidth(-1);
+					if (ImGui.Combo("##renderlayer", ref layerIndex, layerNames, layerNames.Length))
+					{
+						map.RenderLayer = layerValues[layerIndex];
+						EditorChangeTracker.MarkChanged(map.Entity, "Change tilemap render layer");
+					}
+
+					if (ImGui.IsItemHovered())
+					{
+						ImGui.SetTooltip(
+							"A LOWER render layer draws in FRONT (engine convention).\n" +
+							"This is the same layer space sprites and other renderables use, so it is how you put a\n" +
+							"tilemap in front of or behind them.");
+					}
+
+					ImGui.TableSetColumnIndex(4);
+
+					// Depth, not render layer: the arrows fall back to depth whenever two layers share a render
+					// layer, which is the default, so it is the number a reorder actually moves.
+					ImGui.TextDisabled($"depth {map.LayerDepth:0.00}");
+
+					if (ImGui.IsItemHovered())
+					{
+						ImGui.SetTooltip(
+							"Tie-breaker within one render layer: 0 = front, 1 = back.\n" +
+							"The arrows set this for you when two layers share a render layer.");
+					}
+
+					ImGui.PopID();
 				}
 
-				if (ImGui.IsItemHovered())
-					ImGui.SetTooltip("Tie-breaker within one render layer. 0 = front, 1 = back. Usually left to the arrows.");
+				ImGui.EndTable();
 			}
+		}
+
+		/// <summary>The project's named render layers, matching the picker the Entity Inspector uses.</summary>
+		private static void RenderLayerOptions(out string[] names, out int[] values)
+		{
+			var layers = Project.ProjectSettings.Instance.Rendering.RenderingLayers;
+
+			var nameList = new List<string>();
+			var valueList = new List<int>();
+
+			foreach (var kvp in layers)
+			{
+				nameList.Add(kvp.Key);
+				valueList.Add(kvp.Value);
+			}
+
+			names = nameList.ToArray();
+			values = valueList.ToArray();
 		}
 
 		private static List<TilemapRenderer> SortedFrontToBack()
@@ -609,7 +712,7 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			var drawList = ImGui.GetWindowDrawList();
 			var boxMax = new Num.Vector2(origin.X + box, origin.Y + box);
-			drawList.AddRectFilled(origin, boxMax, ImGui.GetColorU32(AtlasBackground));
+			drawList.AddRectFilled(origin, boxMax, TileAtlasBackground.ColorU32);
 
 			var half = cellPx * 0.5f;
 			for (var sy = 0; sy < rows; sy++)
@@ -838,8 +941,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (ImGui.Button("1:1"))
 				_zoom = 1f;
 
-			ImGui.SameLine();
-			DrawBackgroundPicker();
+			TileAtlasBackground.DrawPicker();
 
 			if (_hasSelection)
 			{
@@ -868,7 +970,7 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			// Both scrollbars, so a large atlas at any zoom pans in every direction. NoScrollWithMouse because
 			// the wheel is ours: Ctrl zooms, Shift pans sideways, plain scrolls.
-			ImGui.PushStyleColor(ImGuiCol.ChildBg, AtlasBackground);
+			ImGui.PushStyleColor(ImGuiCol.ChildBg, TileAtlasBackground.Color);
 			ImGui.BeginChild("tile_atlas", new Num.Vector2(0, 0), true,
 				ImGuiWindowFlags.HorizontalScrollbar | ImGuiWindowFlags.AlwaysVerticalScrollbar |
 				ImGuiWindowFlags.NoScrollWithMouse);
@@ -1001,42 +1103,6 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			if (y != 0f)
 				ImGui.SetScrollY(ImGui.GetScrollY() + y * delta);
-		}
-
-		/// <summary>Backdrop for the atlas and the brush swatch. A viewing aid - never painted.</summary>
-		private static Num.Vector4 AtlasBackground => UnpackColor(_atlasBackground.Value);
-
-		private static void DrawBackgroundPicker()
-		{
-			var color = AtlasBackground;
-
-			if (ImGui.ColorEdit4("##atlasbg", ref color,
-				    ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel |
-				    ImGuiColorEditFlags.AlphaBar | ImGuiColorEditFlags.AlphaPreview))
-			{
-				_atlasBackground.Value = PackColor(color);
-			}
-
-			if (ImGui.IsItemHovered())
-				ImGui.SetTooltip("Background behind the tiles.\n" +
-				                 "A viewing aid only - tiles are still placed with their real transparency.");
-
-			ImGui.SameLine();
-			if (ImGui.SmallButton("Reset bg"))
-				_atlasBackground.Value = DefaultAtlasBackground;
-		}
-
-		private static Num.Vector4 UnpackColor(int packed) => new(
-			((packed >> 16) & 0xFF) / 255f,
-			((packed >> 8) & 0xFF) / 255f,
-			(packed & 0xFF) / 255f,
-			((packed >> 24) & 0xFF) / 255f);
-
-		private static int PackColor(Num.Vector4 color)
-		{
-			static int Channel(float v) => (int)(Math.Clamp(v, 0f, 1f) * 255f + 0.5f);
-
-			return (Channel(color.W) << 24) | (Channel(color.X) << 16) | (Channel(color.Y) << 8) | Channel(color.Z);
 		}
 
 		private void HandleAtlasSelection(TilePaintTool tool, Num.Vector2 origin)
@@ -1265,6 +1331,35 @@ namespace Voltage.Editor.Tools.Tilemap
 			_boxes.Clear();
 			tool.SetSelection(Array.Empty<int>(), 0, 0);
 			LoadTileset(reference);
+		}
+
+		/// <summary>
+		/// Re-reads the tileset's source image from disk. Syncing disposes the cached runtime we are holding, so the
+		/// atlas binding is rebuilt from scratch; the picked tiles survive when the grid still has the same shape.
+		/// </summary>
+		private void SyncTilesetSource(TilePaintTool tool)
+		{
+			var asset = _tileset?.Asset;
+			if (asset == null)
+				return;
+
+			var reference = tool.StagedTileset;
+			var columns = _tileset.Columns;
+			var rows = _tileset.Rows;
+			var boxes = new List<SelBox>(_boxes);
+
+			if (!TilesetSourceSync.Sync(asset, _tilesetPath))
+				return;
+
+			LoadTileset(reference);
+
+			// A same-shaped grid means the picked tiles still index the same cells, so keep the brush as it was.
+			if (_tileset == null || _tileset.Columns != columns || _tileset.Rows != rows || boxes.Count == 0)
+				return;
+
+			_boxes.Clear();
+			_boxes.AddRange(boxes);
+			CommitSelection(tool);
 		}
 
 		private void SyncTilesetFromTarget(TilePaintTool tool)

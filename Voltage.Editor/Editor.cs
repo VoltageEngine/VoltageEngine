@@ -67,10 +67,9 @@ public class Editor : Core
 
 		IsFixedTimeStep = false; 
 		Screen.SynchronizeWithVerticalRetrace = true;
-		// IsFixedTimeStep = true; //Run Update() every 60 frames
-		// Screen.SynchronizeWithVerticalRetrace = false; //Vsync = off
 
 		ScreenUtils.ApplyScreenChange(ScreenUtils.ScreenMode.WindowedMax);
+		Voltage.Editor.Utils.EditorWindowLayout.Install();
 		HandleCommandLineArguments(); // when we open a project file through the file explorer
 		SceneManager.Instance.LoadLastUsedScene();
 		
@@ -112,6 +111,8 @@ public class Editor : Core
 	protected override void Update(GameTime gameTime)
 	{
 		base.Update(gameTime);
+
+		Voltage.Editor.Utils.EditorWindowLayout.Tick();
 
 #if OS_WINDOWS || LINUX
 		if (Input.IsKeyPressed(Keys.F11))

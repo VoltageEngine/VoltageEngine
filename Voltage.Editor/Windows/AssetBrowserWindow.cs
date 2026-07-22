@@ -730,7 +730,10 @@ public class AssetBrowserWindow : IDisposable
             ImGui.EndTooltip();
         }
 
-        if (ImGui.BeginPopupContextItem($"##ctx_{item.FileName}"))
+        var assetPopupId = $"##ctx_{item.FileName}";
+        ImGuiPopupUtils.ConstrainHeight(assetPopupId);
+
+        if (ImGui.BeginPopupContextItem(assetPopupId))
         {
             // Right-clicking inside a multi-selection keeps it; otherwise the click reselects.
             if (!IsSelected(item.AbsolutePath))
@@ -771,6 +774,11 @@ public class AssetBrowserWindow : IDisposable
             if (ImGui.MenuItem("Create Shortcut"))
                 AddShortcut(item.AbsolutePath);
             ImGui.EndDisabled();
+
+            ImGui.Separator();
+
+            if (ImGui.MenuItem("Open In File Explorer"))
+                FileExplorerUtils.Reveal(item.AbsolutePath);
 
             ImGui.Separator();
 
@@ -1312,7 +1320,10 @@ public class AssetBrowserWindow : IDisposable
     // Create Shortcut are always available.
     private void DrawFolderContextMenu(AssetFolderNode node, bool isProtected, string shortcutRelPath = null)
     {
-        if (!ImGui.BeginPopupContextItem($"##folderctx_{node.RelativePath}"))
+        var folderPopupId = $"##folderctx_{node.RelativePath}";
+        ImGuiPopupUtils.ConstrainHeight(folderPopupId);
+
+        if (!ImGui.BeginPopupContextItem(folderPopupId))
             return;
 
         // When this folder is the root of a Shortcuts entry, allow removing the shortcut here.
@@ -1337,6 +1348,13 @@ public class AssetBrowserWindow : IDisposable
 
         if (ImGui.MenuItem("Create Shortcut"))
             AddShortcut(node.AbsolutePath);
+
+        ImGui.Separator();
+
+        if (ImGui.MenuItem("Open In File Explorer"))
+            FileExplorerUtils.Reveal(node.AbsolutePath);
+
+        ImGui.Separator();
 
         if (isProtected)
             ImGui.BeginDisabled();
