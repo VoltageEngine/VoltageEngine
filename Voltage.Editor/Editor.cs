@@ -67,9 +67,10 @@ public class Editor : Core
 
 		IsFixedTimeStep = false; 
 		Screen.SynchronizeWithVerticalRetrace = true;
+		Screen.HardwareModeSwitch = false; // Fix for the Display to not fight against Monogame's F11 fullscreen toggle
 
 		ScreenUtils.ApplyScreenChange(ScreenUtils.ScreenMode.WindowedMax);
-		Voltage.Editor.Utils.EditorWindowLayout.Install();
+		Voltage.Editor.Utils.EditorWindowLayout.FitToUsableBounds();
 		HandleCommandLineArguments(); // when we open a project file through the file explorer
 		SceneManager.Instance.LoadLastUsedScene();
 		
@@ -111,8 +112,6 @@ public class Editor : Core
 	protected override void Update(GameTime gameTime)
 	{
 		base.Update(gameTime);
-
-		Voltage.Editor.Utils.EditorWindowLayout.Tick();
 
 #if OS_WINDOWS || LINUX
 		if (Input.IsKeyPressed(Keys.F11))

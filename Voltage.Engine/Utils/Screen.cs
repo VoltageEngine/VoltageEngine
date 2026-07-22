@@ -61,7 +61,10 @@ namespace Voltage.Utils
 		public static int MonitorHeight => GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height;
 
 		/// <summary>
-		/// Gets the actual physical monitor width, accounting for DPI scaling
+		/// The widest display mode this adapter supports. NOT the current desktop width and NOT DPI-aware:
+		/// use <see cref="MonitorWidth"/> for that. Because this and <see cref="ActualMonitorHeight"/> scan
+		/// independently, the pair can describe a resolution no single supported mode actually has - so it is
+		/// not safe to size a backbuffer or a fullscreen switch from.
 		/// </summary>
 		public static int ActualMonitorWidth
 		{
@@ -79,7 +82,8 @@ namespace Voltage.Utils
 		}
 
 		/// <summary>
-		/// Gets the actual physical monitor height, accounting for DPI scaling
+		/// The tallest display mode this adapter supports. See <see cref="ActualMonitorWidth"/> for why this is
+		/// not the current desktop height and should not be used to size a backbuffer.
 		/// </summary>
 		public static int ActualMonitorHeight
 		{
