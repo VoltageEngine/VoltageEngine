@@ -138,6 +138,11 @@ public class EntityInspectorWindow
 
 			VoltageEditorUtils.BigVerticalSpace();
 
+			// Every entity has these regardless of which components they share, so they are always editable.
+			DrawMultiEntityBasicInfo(_imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities);
+
+			VoltageEditorUtils.BigVerticalSpace();
+
 			// Show common Components
 			foreach (var inspector in _componentInspectors)
 			{
@@ -815,6 +820,222 @@ public class EntityInspectorWindow
 			ImGui.EndPopup();
 		}
 	}
+
+	#region Multi-selection basic info
+
+	private bool _isEditingMultiUpdateInterval;
+
+	// Per-entity, not one shared value: a mixed selection must undo back to each entity's own interval.
+	private readonly List<(Entity Entity, uint Value)> _multiUpdateIntervalEditStart = new();
+
+	/// <summary>
+	/// The basic Entity fields for a multi-selection. Every entity has these whether or not their components line
+	/// up, so they stay editable: the first selected entity supplies the displayed value, an edit is applied to all
+	/// of them, and the whole batch reverts as one undo step. Fields whose values disagree are marked "mixed".
+	/// Name is deliberately left out - it identifies an entity, so setting them all to one string is never useful.
+	/// </summary>
+	private void DrawMultiEntityBasicInfo(List<Entity> entities)
+	{
+		if (entities == null || entities.Count == 0)
+			return;
+
+		if (!ImGui.CollapsingHeader($"Entity ({entities.Count} selected)", ImGuiTreeNodeFlags.DefaultOpen))
+			return;
+
+		MultiCheckbox(entities, "Enabled", null,
+			e => e.Enabled, (e, v) => e.SetEnabled(v));
+
+		MultiInputInt(entities, "Update Order",
+			e => e.UpdateOrder, (e, v) => e.SetUpdateOrder(v));
+
+		MultiUpdateInterval(entities);
+
+		MultiTag(entities);
+
+		VoltageEditorUtils.MediumVerticalSpace();
+
+		MultiCheckbox(entities, "Can Be Selected",
+			"If FALSE, you won't be able select these \n Entities with your cursor in the game window.",
+			e => e.CanBeSelected, (e, v) => e.CanBeSelected = v);
+
+		MultiCheckbox(entities, "Debug Render Enabled", null,
+			e => e.DebugRenderEnabled, (e, v) => e.DebugRenderEnabled = v);
+	}
+
+	/// <summary>The shared value across the selection, or <c>default</c> plus <paramref name="mixed"/> when they disagree.</summary>
+	private static T SharedValue<T>(List<Entity> entities, Func<Entity, T> get, out bool mixed)
+	{
+		mixed = false;
+		var value = default(T);
+		var first = true;
+
+		foreach (var entity in entities)
+		{
+			if (entity == null)
+				continue;
+
+			var current = get(entity);
+
+			if (first)
+			{
+				value = current;
+				first = false;
+			}
+			else if (!Equals(value, current))
+			{
+				mixed = true;
+			}
+		}
+
+		return value;
+	}
+
+	/// <summary>Writes one value to every selected entity and pushes the whole batch as a single undo step.</summary>
+	private static void ApplyToAll<T>(List<Entity> entities, Func<Entity, T> get, Action<Entity, T> set,
+		T value, string fieldName)
+	{
+		var actions = new List<EditorChangeTracker.IEditorAction>();
+
+		foreach (var entity in entities)
+		{
+			if (entity == null)
+				continue;
+
+			var old = get(entity);
+			if (Equals(old, value))
+				continue;
+
+			set(entity, value);
+
+			actions.Add(new GenericValueChangeAction(entity,
+				(obj, val) => set((Entity)obj, (T)val), old, value, $"{entity.Name}.{fieldName}"));
+
+			EditorChangeTracker.MarkChanged(entity, $"{entity.Name}.{fieldName}");
+		}
+
+		if (actions.Count == 0)
+			return;
+
+		EditorChangeTracker.PushUndo(new CompositeUndoAction(actions, $"{actions.Count} entities: {fieldName}"));
+	}
+
+	/// <summary>A mixed selection shows unticked, so the click that resolves it turns the field on everywhere.</summary>
+	private static void MultiCheckbox(List<Entity> entities, string label, string tooltip,
+		Func<Entity, bool> get, Action<Entity, bool> set)
+	{
+		var shared = SharedValue(entities, get, out var mixed);
+		var value = !mixed && shared;
+
+		if (ImGui.Checkbox(label, ref value) && (mixed || value != shared))
+			ApplyToAll(entities, get, set, value, label);
+
+		if (tooltip != null && ImGui.IsItemHovered())
+			ImGui.SetTooltip(tooltip);
+
+		MixedHint(mixed);
+	}
+
+	private static void MultiInputInt(List<Entity> entities, string label,
+		Func<Entity, int> get, Action<Entity, int> set)
+	{
+		var shared = SharedValue(entities, get, out var mixed);
+		var value = shared;
+
+		if (ImGui.InputInt(label, ref value) && (mixed || value != shared))
+			ApplyToAll(entities, get, set, value, label);
+
+		MixedHint(mixed);
+	}
+
+	/// <summary>Dragged, so the undo step is pushed once when the slider is released rather than per frame.</summary>
+	private void MultiUpdateInterval(List<Entity> entities)
+	{
+		var shared = SharedValue(entities, e => e.UpdateInterval, out var mixed);
+		var value = (int)shared;
+
+		var changed = ImGui.SliderInt("Update Interval", ref value, 1, 100);
+
+		if (ImGui.IsItemActive() && !_isEditingMultiUpdateInterval)
+		{
+			_isEditingMultiUpdateInterval = true;
+
+			_multiUpdateIntervalEditStart.Clear();
+			foreach (var entity in entities)
+			{
+				if (entity != null)
+					_multiUpdateIntervalEditStart.Add((entity, entity.UpdateInterval));
+			}
+		}
+
+		// Applied live so the drag reads back, but only committed to the undo stack once.
+		if (changed)
+		{
+			foreach (var entity in entities)
+			{
+				if (entity != null)
+					entity.UpdateInterval = (uint)value;
+			}
+		}
+
+		if (_isEditingMultiUpdateInterval && ImGui.IsItemDeactivatedAfterEdit())
+		{
+			_isEditingMultiUpdateInterval = false;
+
+			// The live drag already overwrote everything, so put each entity back on its own starting value
+			// before ApplyToAll reads them - otherwise undo would flatten the selection instead of restoring it.
+			foreach (var (entity, start) in _multiUpdateIntervalEditStart)
+				entity.UpdateInterval = start;
+
+			ApplyToAll(entities, e => e.UpdateInterval, (e, v) => e.UpdateInterval = v,
+				(uint)value, "Update Interval");
+
+			_multiUpdateIntervalEditStart.Clear();
+		}
+
+		MixedHint(mixed && !_isEditingMultiUpdateInterval);
+	}
+
+	private static void MultiTag(List<Entity> entities)
+	{
+		var tags = Project.ProjectSettings.Instance.Entities.EntityTags;
+		var tagNames = new List<string>();
+		var tagValues = new List<int>();
+
+		foreach (var kvp in tags)
+		{
+			tagNames.Add(kvp.Key);
+			tagValues.Add(kvp.Value);
+		}
+
+		var tagNamesArray = tagNames.ToArray();
+		var tagValuesArray = tagValues.ToArray();
+
+		var shared = SharedValue(entities, e => e.Tag, out var mixed);
+
+		var selectedIndex = System.Array.IndexOf(tagValuesArray, shared);
+		if (selectedIndex < 0)
+			selectedIndex = 0;
+
+		if (ImGui.Combo("Tag", ref selectedIndex, tagNamesArray, tagNamesArray.Length))
+		{
+			var newTag = tagValuesArray[selectedIndex];
+			if (mixed || newTag != shared)
+				ApplyToAll(entities, e => e.Tag, (e, v) => e.Tag = v, newTag, "Tag");
+		}
+
+		MixedHint(mixed);
+	}
+
+	private static void MixedHint(bool mixed)
+	{
+		if (!mixed)
+			return;
+
+		ImGui.SameLine();
+		ImGui.TextDisabled("(mixed)");
+	}
+
+	#endregion
 
 	/// <summary>
 	/// Finds the set of component types that are common to all selected entities.
