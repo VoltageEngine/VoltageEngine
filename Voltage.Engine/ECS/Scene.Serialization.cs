@@ -511,6 +511,161 @@ namespace Voltage
 			return sceneData;
 		}
 
+		#region Entity capture / instantiate (copy-paste, cross-scene)
+
+		/// <summary>
+		/// Captures <paramref name="roots"/> and every descendant as scene-format data, detached from this scene:
+		/// parent links point only INSIDE the captured set, so the result re-instantiates into any scene - or
+		/// another process - through <see cref="InstantiateEntityData"/>.
+		/// </summary>
+		/// <remarks>
+		/// An entity whose parent was not captured comes back as a root. Component references to entities outside
+		/// the set cannot survive the move and resolve to null in the target scene.
+		/// </remarks>
+		public List<SceneData.SceneEntityData> CaptureEntityData(IEnumerable<Entity> roots)
+		{
+			var captured = new List<SceneData.SceneEntityData>();
+			if (roots == null)
+				return captured;
+
+			// Parents must precede their children so instantiation can wire up in one forward pass.
+			var ordered = new List<Entity>();
+			var seen = new HashSet<Entity>();
+
+			void Collect(Entity entity)
+			{
+				if (entity == null || entity.Type == Entity.InstanceType.NonSerialized || !seen.Add(entity))
+					return;
+
+				ordered.Add(entity);
+
+				var children = entity.Transform.Children;
+				for (var i = 0; i < children.Count; i++)
+					Collect(children[i].Entity);
+			}
+
+			foreach (var root in roots)
+				Collect(root);
+
+			foreach (var entity in ordered)
+			{
+				var data = BuildEntityData(entity);
+
+				// BuildEntityData derives ParentId from the SAVED SceneData by name, which is stale (or absent)
+				// for a live capture. Restate it from the live parent so it agrees with Id, and drop it entirely
+				// when the parent is not coming along - the link would dangle in the target scene.
+				var parent = entity.Transform.Parent?.Entity;
+
+				if (parent != null && seen.Contains(parent))
+				{
+					data.ParentId = parent.PersistentId;
+					data.ParentEntityName = parent.Name;
+				}
+				else
+				{
+					data.ParentId = null;
+					data.ParentEntityName = null;
+
+					// Stored transform is local while parented; as a new root it must read as world.
+					data.Position = entity.Transform.Position;
+					data.Rotation = entity.Transform.Rotation;
+					data.Scale = entity.Transform.Scale;
+				}
+
+				captured.Add(data);
+			}
+
+			return captured;
+		}
+
+		/// <summary>
+		/// Instantiates data from <see cref="CaptureEntityData"/> into this scene under fresh identities, so it can
+		/// be pasted alongside the originals or into a different scene. Returns the newly created root entities.
+		/// </summary>
+		/// <param name="entities">
+		/// Captured data. Mutated in place (ids rewritten), so pass a freshly deserialized copy per paste.
+		/// </param>
+		/// <param name="offset">World offset applied to the roots, to keep a same-scene paste from landing exactly on top.</param>
+		public List<Entity> InstantiateEntityData(List<SceneData.SceneEntityData> entities, Vector2 offset = default)
+		{
+			var roots = new List<Entity>();
+			if (entities == null || entities.Count == 0)
+				return roots;
+
+			// One map for the WHOLE paste, not one per root: a reference from one copied entity to another must
+			// land on the new copy, otherwise it silently keeps pointing at the original.
+			var idMap = new Dictionary<Guid, Guid>();
+			foreach (var data in entities)
+			{
+				if (data.Id != Guid.Empty)
+					idMap[data.Id] = Guid.NewGuid();
+			}
+
+			var created = new List<(Entity Entity, SceneData.SceneEntityData Data, Guid ParentId)>();
+
+			foreach (var data in entities)
+			{
+				var originalParentId = data.ParentId ?? Guid.Empty;
+
+				data.Id = idMap.TryGetValue(data.Id, out var newId) ? newId : Guid.NewGuid();
+
+				// Parenting is done below against the live entities we are creating. Clearing it here keeps
+				// LoadEntityData from resolving a same-named entity that already exists in the target scene.
+				data.ParentId = null;
+				data.ParentEntityName = null;
+
+				var entity = new Entity(data.Name);
+				AddEntity(entity);
+				LoadEntityData(entity, data);
+
+				// AddEntity only queues, so earlier entities in this same paste are not in Entities yet - without
+				// passing them, two pasted siblings sharing a name would both be given the same "unique" one.
+				entity.Name = GetUniqueEntityName(data.Name, entity, created.Select(c => c.Entity));
+
+				created.Add((entity, data, originalParentId));
+			}
+
+			// Keyed by the NEW id: entities[i].Id was rewritten above.
+			var byNewId = new Dictionary<Guid, Entity>();
+			for (var i = 0; i < created.Count; i++)
+				byNewId[entities[i].Id] = created[i].Entity;
+
+			// Re-link the hierarchy, restoring each child's stored LOCAL transform.
+			foreach (var (entity, data, parentId) in created)
+			{
+				if (parentId != Guid.Empty && idMap.TryGetValue(parentId, out var newParentId) &&
+				    byNewId.TryGetValue(newParentId, out var parentEntity))
+				{
+					entity.Transform.SetParent(parentEntity.Transform);
+					entity.Transform.SetLocalPosition(data.Position);
+					entity.Transform.SetLocalRotation(data.Rotation);
+					entity.Transform.SetLocalScale(data.Scale);
+				}
+				else
+				{
+					entity.Transform.Position = data.Position + offset;
+					roots.Add(entity);
+				}
+
+				// Left over from LoadEntityData's deferred-parent path; nothing consumes them outside a scene load.
+				entity.RemoveData("_PendingParentId");
+				entity.RemoveData("_PendingParentName");
+				entity.RemoveData("_PendingLocalPosition");
+				entity.RemoveData("_PendingLocalRotation");
+				entity.RemoveData("_PendingLocalScale");
+			}
+
+			foreach (var root in roots)
+			{
+				Serialization.ComponentReferenceResolver.RemapEntitySubtree(root, idMap);
+				Serialization.ComponentReferenceResolver.ResolveEntitySubtree(root, this);
+			}
+
+			return roots;
+		}
+
+		#endregion
+
 		/// <summary>
 		/// Builds entity data from an entity
 		/// </summary>
