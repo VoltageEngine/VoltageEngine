@@ -50,8 +50,8 @@ public class ScreenUtils
     {
         Core.Instance.Window.Position = Point.Zero;
 		Core.Instance.Window.IsBorderless = false;
-        Screen.PreferredBackBufferWidth = Screen.ActualMonitorWidth;
-        Screen.PreferredBackBufferHeight = Screen.ActualMonitorHeight;
+        Screen.PreferredBackBufferWidth = Screen.MonitorWidth;
+        Screen.PreferredBackBufferHeight = Screen.MonitorHeight;
         Screen.IsFullscreen = true;
 		Screen.ApplyChanges();
 	}
@@ -61,8 +61,7 @@ public class ScreenUtils
 	    Core.Instance.Window.Position = Point.Zero;
 		Screen.IsFullscreen = false;
 	    Core.Instance.Window.IsBorderless = true;
-	    Screen.SetSize(Screen.ActualMonitorWidth, Screen.ActualMonitorHeight);
-	    Screen.ApplyChanges();
+	    Screen.SetSize(Screen.MonitorWidth, Screen.MonitorHeight);
 	}
 
 	/// <summary>
