@@ -296,6 +296,14 @@ namespace Voltage.Editor.Assets
             animator.SetSerialized(true);
             animator.TextureFilePath = relativePath;
 
+            // Persist the GUID so the animation survives renaming/moving the Aseprite source later on.
+            animator.AsepriteAsset = new Voltage.Serialization.AssetReference
+            {
+                AssetGuid = reference.Guid,
+                AssetPath = relativePath,
+                AssetName = Path.GetFileNameWithoutExtension(relativePath),
+            };
+
             try
             {
                 var loaded = animator.LoadAllAnimations();
