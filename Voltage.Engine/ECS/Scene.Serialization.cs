@@ -92,6 +92,14 @@ namespace Voltage
 		public static Func<Guid, string> AssetPathResolver;
 
 		/// <summary>
+		/// Optional reverse resolver (editor-only): given an asset's stored path (project-relative or
+		/// absolute), returns a full <see cref="AssetReference"/> carrying its stable GUID and a fresh
+		/// relative hint path. Used to backfill the GUID for assets serialized before they tracked one,
+		/// and to refresh a stored path after the file is renamed/moved. Stays null in published builds.
+		/// </summary>
+		public static Func<string, AssetReference> AssetReferenceResolver;
+
+		/// <summary>
 		/// Loads a content asset referenced by an <see cref="AssetReference"/> through this scene's
 		/// <see cref="Content"/> manager. The reference is resolved <b>GUID-first</b> (so it survives
 		/// renaming/moving the file), then the resolved path is converted to a Content-relative name

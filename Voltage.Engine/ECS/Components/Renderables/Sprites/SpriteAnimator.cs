@@ -63,9 +63,8 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 		public SpriteAnimator.LoopMode CurrentLoopMode = SpriteAnimator.LoopMode.Loop;
 		public int CurrentFrame = 0;
 		public float ElapsedTime = 0f;
-
-		// SpriteRenderer properties - store color as individual RGBA components for proper serialization
 		public string TextureFilePath = "";
+		public Voltage.Serialization.AssetReference AsepriteAsset;
 		public byte ColorR = 255;
 		public byte ColorG = 255;
 		public byte ColorB = 255;
@@ -132,6 +131,7 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 
 			// Capture SpriteRenderer properties using the Color helper property
 			TextureFilePath = animator.TextureFilePath ?? "";
+			AsepriteAsset = animator.AsepriteAsset;
 			Color = animator.Color;  // This uses the helper property to set RGBA components
 			LocalOffset = animator.LocalOffset;
 			Origin = animator.Origin;
@@ -157,10 +157,8 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 	/// </summary>
 	public List<AnimationEvent> AnimationEvents { get; set; } = new();
 	private Dictionary<(string animationName, string eventName), List<Action>> _animationEventSubscribers = new();
-	/// <summary>
-	/// The file path to the Aseprite file used for loading animations.
-	/// </summary>
 	public string TextureFilePath { get; set; } = "";
+	public Voltage.Serialization.AssetReference AsepriteAsset; // GUID-based reference
 
 	public List<string> LoadedLayers { get; set; } = new();
 	public string LoadedTag { get; set; } = "";
@@ -192,6 +190,7 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 
 			// Update TextureFilePath for animator
 			_animatorData.TextureFilePath = TextureFilePath;
+				_animatorData.AsepriteAsset = AsepriteAsset;
 
 			// Update animation events
 			_animatorData.AnimationEvents = AnimationEvents != null
@@ -229,6 +228,7 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 
 				// Apply TextureFilePath
 				TextureFilePath = animatorData.TextureFilePath ?? "";
+				AsepriteAsset = animatorData.AsepriteAsset;
 
 				LoadedLayers = animatorData.LoadedLayers != null ? new List<string>(animatorData.LoadedLayers) : new List<string>();
 				LoadedTag = animatorData.LoadedTag ?? "";
@@ -425,15 +425,57 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 	}
 
 	/// <summary>
+	/// Resolves the Aseprite file to load, GUID-first so it survives a rename/move, falling back to the
+	/// stored path. Backfills the GUID for scenes saved before the animator tracked one, re-derives it when
+	/// the path was pointed at a different asset (e.g. via the inspector), and keeps the stored path in sync.
+	/// </summary>
+	private string ResolveAsepriteLoadPath()
+	{
+		// The path was changed externally to a different asset than the tracked reference — re-derive it.
+		var diverged = AsepriteAsset.IsValid && !string.IsNullOrEmpty(TextureFilePath) &&
+		               !PathsEqual(AsepriteAsset.AssetPath, TextureFilePath);
+
+		if ((!AsepriteAsset.IsValid || diverged) && !string.IsNullOrEmpty(TextureFilePath) &&
+		    Scene.AssetReferenceResolver != null)
+			AsepriteAsset = Scene.AssetReferenceResolver(TextureFilePath);
+
+		if (AsepriteAsset.IsValid)
+		{
+			var absolute = AsepriteAsset.ResolvePath();
+			if (!string.IsNullOrEmpty(absolute))
+			{
+				// Refresh the stored path so a rename/move shows up in the inspector and the fallback.
+				var refreshed = Scene.AssetReferenceResolver?.Invoke(absolute) ?? default;
+				if (refreshed.IsValid && !string.IsNullOrEmpty(refreshed.AssetPath))
+				{
+					AsepriteAsset.AssetPath = refreshed.AssetPath;
+					TextureFilePath = refreshed.AssetPath;
+				}
+				return absolute;
+			}
+		}
+
+		return TextureFilePath;
+	}
+
+	private static bool PathsEqual(string a, string b)
+	{
+		if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b))
+			return string.IsNullOrEmpty(a) && string.IsNullOrEmpty(b);
+		return string.Equals(a.Replace('\\', '/'), b.Replace('\\', '/'), StringComparison.OrdinalIgnoreCase);
+	}
+
+	/// <summary>
 	/// Loads EVERY Aseprite tag from <see cref="TextureFilePath"/> as its own named animation (keyed by tag
 	/// name). A tag-less file becomes a single "Default" animation over all frames. Returns the number loaded.
 	/// </summary>
 	public int LoadAllAnimations()
 	{
-		if (string.IsNullOrEmpty(TextureFilePath))
+		var path = ResolveAsepriteLoadPath();
+		if (string.IsNullOrEmpty(path))
 			return 0;
 
-		var file = Entity?.Scene?.Content?.LoadAsepriteFile(TextureFilePath) ?? Core.Content.LoadAsepriteFile(TextureFilePath);
+		var file = Entity?.Scene?.Content?.LoadAsepriteFile(path) ?? Core.Content.LoadAsepriteFile(path);
 		if (file == null)
 			return 0;
 
@@ -740,14 +782,15 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 	/// <exception cref="ArgumentException">Thrown if the file type is not supported.</exception>
 	public void LoadAsepriteAnimation(string animationTagName, string callableAnimationName = null, string layerName = null)
 	{
-		if (string.IsNullOrEmpty(TextureFilePath))
+		var path = ResolveAsepriteLoadPath();
+		if (string.IsNullOrEmpty(path))
 			throw new ArgumentException("TextureFilePath must be set before loading an animation.");
 
-		var ext = System.IO.Path.GetExtension(TextureFilePath).ToLowerInvariant();
+		var ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
 		if (ext != ".ase" && ext != ".aseprite")
 			throw new ArgumentException("Only .ase or .aseprite files are supported for SpriteAnimator animation loading.");
 
-		AsepriteUtils.LoadAsepriteAnimation(Entity, TextureFilePath, animationTagName, callableAnimationName, layerName);
+		AsepriteUtils.LoadAsepriteAnimation(Entity, path, animationTagName, callableAnimationName, layerName);
 	}
 
 	public void SubscribeToEvent(string animationName, string eventName, Action callback)
