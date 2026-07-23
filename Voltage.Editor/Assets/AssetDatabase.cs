@@ -265,7 +265,19 @@ namespace Voltage.Editor.Assets
             lock (_guidLock)
             {
                 if (_pathToGuid.TryGetValue(absolutePath, out var existingGuid))
+                {
+                    // Self-heal: a prior move may have left the forward map stale or dangling while the
+                    // reverse map still knew this path. Re-anchor the GUID to where the file actually is so
+                    // a Refresh (which runs after every move) always rebuilds a correct GUID -> path map.
+                    if (existingGuid != Guid.Empty &&
+                        (!_guidToPath.TryGetValue(existingGuid, out var forward) ||
+                         !string.Equals(forward, absolutePath, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        _guidToPath[existingGuid] = absolutePath;
+                        _danglingGuids.Remove(existingGuid);
+                    }
                     return existingGuid;
+                }
             }
 
             var guid = ReadOrCreateMeta(absolutePath);
@@ -533,8 +545,7 @@ namespace Voltage.Editor.Assets
             if (guid == Guid.Empty)
                 return;
 
-            // If this path was previously associated with a different GUID (shouldn't happen
-            // in practice, but be safe), remove the stale reverse entry.
+            // If this path was previously associated with a different GUID, remove the stale reverse entry.
             if (_pathToGuid.TryGetValue(absolutePath, out var oldGuid) && oldGuid != guid)
                 _guidToPath.Remove(oldGuid);
 
@@ -552,8 +563,15 @@ namespace Voltage.Editor.Assets
             if (_pathToGuid.TryGetValue(absolutePath, out var guid))
             {
                 _pathToGuid.Remove(absolutePath);
-                _guidToPath.Remove(guid);
-                _danglingGuids.Add(guid);
+
+                // Only drop the forward mapping if it still points at THIS path. A cross-folder move
+                // arrives as Created(new) + Deleted(old);
+                if (_guidToPath.TryGetValue(guid, out var current) &&
+                    string.Equals(current, absolutePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    _guidToPath.Remove(guid);
+                    _danglingGuids.Add(guid);
+                }
             }
         }
 

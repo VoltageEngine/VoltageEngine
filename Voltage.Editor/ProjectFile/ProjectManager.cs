@@ -231,6 +231,26 @@ public class ProjectManager : GlobalManager
 				return !string.IsNullOrEmpty(p) && File.Exists(p) ? p : null;
 			};
 
+			// Reverse resolver (stored path -> GUID + fresh relative hint), backed by the AssetDatabase. Lets
+			// components that persisted only a path recover their stable GUID and refresh it after a rename/move.
+			Scene.AssetReferenceResolver = storedPath =>
+			{
+				if (string.IsNullOrEmpty(storedPath) || AssetDatabase.Instance == null)
+					return default;
+				var abs = Path.IsPathRooted(storedPath)
+					? storedPath
+					: Path.GetFullPath(storedPath, project.ProjectPath);
+				if (!File.Exists(abs))
+					return default;
+				var editorRef = AssetDatabase.Instance.GetReference(abs);
+				return new Voltage.Serialization.AssetReference
+				{
+					AssetGuid = editorRef.Guid,
+					AssetPath = editorRef.HintPath,
+					AssetName = Path.GetFileNameWithoutExtension(editorRef.HintPath),
+				};
+			};
+
 			OnProjectLoaded?.Invoke(project);
 			if (oldProject != null)
 			{
