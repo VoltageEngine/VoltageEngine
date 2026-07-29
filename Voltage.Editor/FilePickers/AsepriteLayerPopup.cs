@@ -27,6 +27,8 @@ namespace Voltage.Editor.FilePickers
 		private int _animStart;
 		private int _animEnd;
 
+		private bool _syncNewLayers;
+
 		private bool _openNextFrame;
 
 		// Live preview: one texture per frame in the range, rebuilt when the range or layer set changes.
@@ -40,6 +42,15 @@ namespace Voltage.Editor.FilePickers
 		/// <summary>Layers to composite. Empty means "all visible layers".</summary>
 		public List<string> SelectedLayers { get; } = new();
 
+		/// <summary>The unticked layers. Empty when everything is ticked.</summary>
+		public List<string> ExcludedLayers { get; } = new();
+
+		/// <summary>True when the caller should store <see cref="ExcludedLayers"/> rather than <see cref="SelectedLayers"/>.</summary>
+		public bool SyncNewLayers { get; private set; }
+
+		/// <summary>Offer the "sync layers added later" switch. Only for callers that can store an exclusion list.</summary>
+		public bool AllowSyncNewLayers { get; init; }
+
 		/// <summary>Zero-based frame index (single-frame mode).</summary>
 		public int Frame { get; private set; }
 
@@ -51,7 +62,9 @@ namespace Voltage.Editor.FilePickers
 		public AsepriteLayerPopup(string popupId) => _popupId = popupId;
 
 		/// <summary>Reads the file's layers and frame count and arms the popup. False when the file cannot be read.</summary>
-		public bool Open(string absolutePath, IEnumerable<string> preselectedLayers = null, int frame = 0)
+		/// <param name="savedLayers">The layers to tick, or - when <paramref name="syncsNewLayers"/> is set - the ones to leave unticked.</param>
+		public bool Open(string absolutePath, IEnumerable<string> savedLayers = null, int frame = 0,
+			bool syncsNewLayers = false)
 		{
 			_layers.Clear();
 			_selected.Clear();
@@ -80,13 +93,20 @@ namespace Voltage.Editor.FilePickers
 				return false;
 			}
 
-			if (preselectedLayers != null)
+			var saved = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			if (savedLayers != null)
 			{
-				foreach (var layer in preselectedLayers)
-				{
-					if (_layers.Contains(layer))
-						_selected.Add(layer);
-				}
+				foreach (var layer in savedLayers)
+					saved.Add(layer);
+			}
+
+			_syncNewLayers = AllowSyncNewLayers && (syncsNewLayers || saved.Count == 0);
+
+			// An exclusion list ticks the complement, so a layer added since the last visit shows up already ticked.
+			foreach (var layer in _layers)
+			{
+				if (_syncNewLayers ? !saved.Contains(layer) : saved.Contains(layer))
+					_selected.Add(layer);
 			}
 
 			_filePath = absolutePath;
@@ -259,9 +279,32 @@ namespace Voltage.Editor.FilePickers
 		private void DrawLayers()
 		{
 			ImGui.TextUnformatted("Layers");
-			ImGui.TextDisabled(_selected.Count == 0
-				? "None ticked - all visible layers will be flattened."
-				: $"{_selected.Count} layer(s) will be composited together.");
+
+			if (AllowSyncNewLayers)
+			{
+				ImGui.Checkbox("Sync layers added later", ref _syncNewLayers);
+
+				if (ImGui.IsItemHovered())
+				{
+					ImGui.SetTooltip(
+						"On: the layers you UNTICK are remembered as the ones to leave out, so any layer added to\n" +
+						"the file after today is composited automatically and Sync Changes always picks it up.\n\n" +
+						"Off: the layers you TICK are remembered as the whole list. It is a snapshot of the file as\n" +
+						"it is now, so a layer added later is silently left out until you come back here.");
+				}
+			}
+
+			var all = _selected.Count == 0 || _selected.Count >= _layers.Count;
+
+			if (all)
+				ImGui.TextDisabled("All visible layers.");
+			else
+				ImGui.TextDisabled($"{_selected.Count} of {_layers.Count} layers composited together.");
+
+			// With every layer in, both modes store the same thing, so the switch changes nothing.
+			ImGui.TextDisabled(_syncNewLayers || all
+				? "Layers added to the file later are included automatically."
+				: "Layers added to the file later are NOT included until you tick them here.");
 
 			ImGui.BeginChild("layers", new Num.Vector2(0, 150), true);
 
@@ -306,13 +349,25 @@ namespace Voltage.Editor.FilePickers
 		private void CaptureLayers()
 		{
 			SelectedLayers.Clear();
+			ExcludedLayers.Clear();
+			SyncNewLayers = AllowSyncNewLayers && _syncNewLayers;
 
 			// File order, not tick order: that is how Aseprite composites, so the result matches the artist's view.
 			foreach (var layer in _layers)
 			{
 				if (_selected.Contains(layer))
 					SelectedLayers.Add(layer);
+				else
+					ExcludedLayers.Add(layer);
 			}
+
+			// Ticking nothing means "all visible layers", not "no layers", so it leaves nothing out.
+			if (_selected.Count == 0)
+				ExcludedLayers.Clear();
+
+			// Everything ticked saves as nothing ticked: same pixels today, and it keeps following the file.
+			if (_layers.Count > 0 && SelectedLayers.Count == _layers.Count)
+				SelectedLayers.Clear();
 		}
 
 		private void RebuildPreview(int lo, int hi, string key)

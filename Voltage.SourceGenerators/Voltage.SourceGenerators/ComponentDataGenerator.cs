@@ -622,6 +622,9 @@ namespace Voltage
 				}
 			}
 
+			// Set last, so it only reports true when the data type matched and every reference was applied.
+			sb.AppendLine();
+			sb.AppendLine($"{indent}\t\t_generatedReferencesApplied = true;");
 			sb.AppendLine($"{indent}\t}}");
 			sb.AppendLine();
 		}
