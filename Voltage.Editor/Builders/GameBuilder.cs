@@ -218,6 +218,7 @@ public static class GameBuilder
 			}
 
 			EnsureGenerateAssemblyInfoDisabled(csprojPath);
+			EnsureBuildFolderExcluded(csprojPath);
 
 			// Ensure TrimmerRoots.xml is synced to the game project before publishing.
 			// Without it, NativeAOT strips type metadata needed by the JSON serializer.
@@ -368,6 +369,39 @@ public static class GameBuilder
 		catch (Exception ex)
 		{
 			EditorDebug.Warn($"Could not patch .csproj for GenerateAssemblyInfo: {ex.Message}", "GameBuilder");
+		}
+	}
+
+	/// <summary>
+	/// Keeps <c>Build\</c> out of the SDK's default item globs. Its files are copies of previous builds, engine
+	/// DLLs included, and the SDK offers globbed files to reference resolution — so a publish can link a STALE
+	/// engine instead of the one in <c>EngineLibs\</c>. Patches projects predating the template fix.
+	/// </summary>
+	private static void EnsureBuildFolderExcluded(string csprojPath)
+	{
+		try
+		{
+			var content = File.ReadAllText(csprojPath);
+
+			if (content.Contains("DefaultItemExcludes", StringComparison.OrdinalIgnoreCase))
+				return;
+
+			const string marker = "</PropertyGroup>";
+			var insertIndex = content.IndexOf(marker, StringComparison.Ordinal);
+			if (insertIndex < 0)
+				return;
+
+			var insertion =
+				"\n    <!-- Published builds are copies of the engine DLLs; globbing them in lets a publish resolve" +
+				"\n         references against an OLD build instead of EngineLibs\\. -->" +
+				"\n    <DefaultItemExcludes>$(DefaultItemExcludes);Build\\**</DefaultItemExcludes>\n  ";
+
+			File.WriteAllText(csprojPath, content.Insert(insertIndex, insertion));
+			EditorDebug.Log("Patched the game .csproj to exclude Build\\ from the default item globs.", "GameBuilder");
+		}
+		catch (Exception ex)
+		{
+			EditorDebug.Warn($"Could not patch .csproj for DefaultItemExcludes: {ex.Message}", "GameBuilder");
 		}
 	}
 

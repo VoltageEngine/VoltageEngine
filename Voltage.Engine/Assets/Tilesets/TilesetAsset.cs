@@ -92,8 +92,17 @@ namespace Voltage.Tilesets
 		public AssetReference Texture;
 		public TilesetImageSource TextureSource = TilesetImageSource.Png;
 
-		/// <summary>Aseprite only: layers to flatten into the atlas. Empty = all visible layers.</summary>
+		/// <summary>
+		/// Aseprite only: layers to flatten into the atlas. Empty = all visible layers. Read as the layers to KEEP,
+		/// or - when <see cref="TextureSyncsNewLayers"/> is set - the layers to DROP.
+		/// </summary>
 		public List<string> TextureLayers = new();
+
+		/// <summary>
+		/// Inverts <see cref="TextureLayers"/> into a drop-list, so layers added to the file later composite on
+		/// their own instead of being silently left out by a keep-list snapshot.
+		/// </summary>
+		public bool TextureSyncsNewLayers;
 
 		/// <summary>Aseprite only: zero-based frame to flatten.</summary>
 		public int TextureFrame;
@@ -111,8 +120,12 @@ namespace Voltage.Tilesets
 		public AssetReference NormalMap;
 		public TilesetImageSource NormalMapSource = TilesetImageSource.Png;
 
-		/// <summary>Empty = all visible layers.</summary>
+		/// <summary>Empty = all visible layers. Read as a drop-list when <see cref="NormalMapSyncsNewLayers"/> is set.</summary>
 		public List<string> NormalMapLayers = new();
+
+		/// <summary><see cref="TextureSyncsNewLayers"/>, for the normal map's layer list.</summary>
+		public bool NormalMapSyncsNewLayers;
+
 		public int NormalMapFrame;
 
 		public int Columns;

@@ -23,7 +23,11 @@ namespace Voltage.Editor.Tools.Tilemap
 		private readonly FolderBrowser _folderBrowser = new("tileset-save-folder");
 		private readonly AssetFileBrowser _imageBrowser =
 			new("tileset-image-browser", ImageExtensions, "Images (png, aseprite)");
-		private readonly AsepriteLayerPopup _asepritePopup = new("tileset-aseprite-layers");
+		// A tileset can store an exclusion list, so it can offer the "sync layers added later" switch.
+		private readonly AsepriteLayerPopup _asepritePopup = new("tileset-aseprite-layers")
+		{
+			AllowSyncNewLayers = true,
+		};
 		private readonly AssetFileBrowser _tilesetBrowser =
 			new("tileset-load-browser", new[] { TilesetAssetIO.FileExtension }, "Tileset (.vtileset)");
 
@@ -263,6 +267,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			var reference = isNormalMap ? _asset.NormalMap : _asset.Texture;
 			var source = isNormalMap ? _asset.NormalMapSource : _asset.TextureSource;
 			var layers = isNormalMap ? _asset.NormalMapLayers : _asset.TextureLayers;
+			var syncsNewLayers = isNormalMap ? _asset.NormalMapSyncsNewLayers : _asset.TextureSyncsNewLayers;
 			var frame = isNormalMap ? _asset.NormalMapFrame : _asset.TextureFrame;
 
 			ImGui.TextUnformatted(label);
@@ -301,16 +306,20 @@ namespace Voltage.Editor.Tools.Tilemap
 			// Own row: SameLine here would draw this over the top of the text field above.
 			if (reference.IsValid && source == TilesetImageSource.Aseprite)
 			{
-				var summary = layers == null || layers.Count == 0
-					? $"all visible layers, frame {frame}"
-					: $"{string.Join(", ", layers)} - frame {frame}";
+				string summary;
+				if (layers == null || layers.Count == 0)
+					summary = $"all visible layers, frame {frame}";
+				else if (syncsNewLayers)
+					summary = $"all visible layers except {string.Join(", ", layers)} - frame {frame}";
+				else
+					summary = $"{string.Join(", ", layers)} - frame {frame} (layers added later are not included)";
 
 				ImGui.SetCursorPosX(ImGui.GetCursorPosX() + LabelWidth);
 
 				if (ImGui.SmallButton($"Layers...##{label}"))
 				{
 					var path = reference.ResolvePath();
-					if (path != null && _asepritePopup.Open(path, layers, frame))
+					if (path != null && _asepritePopup.Open(path, layers, frame, syncsNewLayers))
 						_browsingNormalMap = isNormalMap;
 				}
 
@@ -345,13 +354,14 @@ namespace Voltage.Editor.Tools.Tilemap
 		}
 
 		private void SetImage(bool isNormalMap, Voltage.Serialization.AssetReference reference,
-			TilesetImageSource source, List<string> layers, int frame)
+			TilesetImageSource source, List<string> layers, int frame, bool syncsNewLayers = false)
 		{
 			if (isNormalMap)
 			{
 				_asset.NormalMap = reference;
 				_asset.NormalMapSource = source;
 				_asset.NormalMapLayers = layers ?? new List<string>();
+				_asset.NormalMapSyncsNewLayers = syncsNewLayers;
 				_asset.NormalMapFrame = frame;
 			}
 			else
@@ -359,6 +369,7 @@ namespace Voltage.Editor.Tools.Tilemap
 				_asset.Texture = reference;
 				_asset.TextureSource = source;
 				_asset.TextureLayers = layers ?? new List<string>();
+				_asset.TextureSyncsNewLayers = syncsNewLayers;
 				_asset.TextureFrame = frame;
 
 				// A plain image replaces any prior animation-strip source.
@@ -405,15 +416,17 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			if (_asepritePopup.Draw())
 			{
+				var syncsNewLayers = _asepritePopup.SyncNewLayers;
+				var layers = new List<string>(syncsNewLayers
+					? _asepritePopup.ExcludedLayers
+					: _asepritePopup.SelectedLayers);
+
 				if (_asepritePopup.Animate && !_browsingNormalMap)
-					SetAsepriteAnimation(ReferenceFor(_asepritePopup.FilePath),
-						new List<string>(_asepritePopup.SelectedLayers),
+					SetAsepriteAnimation(ReferenceFor(_asepritePopup.FilePath), layers, syncsNewLayers,
 						_asepritePopup.AnimStart, _asepritePopup.AnimEnd);
 				else
 					SetImage(_browsingNormalMap, ReferenceFor(_asepritePopup.FilePath),
-						TilesetImageSource.Aseprite,
-						new List<string>(_asepritePopup.SelectedLayers),
-						_asepritePopup.Frame);
+						TilesetImageSource.Aseprite, layers, _asepritePopup.Frame, syncsNewLayers);
 			}
 		}
 
@@ -422,11 +435,12 @@ namespace Voltage.Editor.Tools.Tilemap
 		/// [start..end], the tile size is set to the frame size, and tile 0 is set to cycle through them.
 		/// </summary>
 		private void SetAsepriteAnimation(Voltage.Serialization.AssetReference reference, List<string> layers,
-			int start, int end)
+			bool syncsNewLayers, int start, int end)
 		{
 			_asset.Texture = reference;
 			_asset.TextureSource = TilesetImageSource.Aseprite;
 			_asset.TextureLayers = layers ?? new List<string>();
+			_asset.TextureSyncsNewLayers = syncsNewLayers;
 			_asset.TextureIsAsepriteAnimation = true;
 			_asset.TextureAnimStart = start;
 			_asset.TextureAnimEnd = end;
@@ -472,8 +486,12 @@ namespace Voltage.Editor.Tools.Tilemap
 			var oldColumns = _asset?.Columns ?? 0;
 			var oldRows = _asset?.Rows ?? 0;
 
-			if (!TilesetSourceSync.Sync(_asset, _path))
+			// This window owns unsaved edits to _asset, so the sync must not write the file behind the user's back.
+			if (!TilesetSourceSync.Sync(_asset, _path, saveLayerChanges: false, out var layersChanged))
 				return;
+
+			if (layersChanged)
+				_dirty = true;
 
 			_previewStale = true;
 			RebuildPreview();
