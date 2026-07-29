@@ -71,6 +71,12 @@ namespace Voltage
 		/// </summary>
 		public virtual void ApplyResolvedReferences(ComponentData data, Scene scene) { }
 
+		/// <summary>Set by the generated <see cref="ApplyResolvedReferences"/> once it has wired up every reference field.</summary>
+		protected bool _generatedReferencesApplied;
+
+		/// <summary>Mirror of <see cref="Component.HasGeneratedReferenceApplier"/>.</summary>
+		public bool HasGeneratedReferenceApplier => _generatedReferencesApplied;
+
 		/// <summary>
 		/// Rewrites EntityPersistentId on every EntityReference and ComponentReference field
 		/// whose stored entity id is a key in <paramref name="remap"/>. Mirror of the same

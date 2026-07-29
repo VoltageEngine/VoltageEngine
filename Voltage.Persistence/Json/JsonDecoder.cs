@@ -537,6 +537,51 @@ namespace Voltage.Persistence
 		/// </summary>
 		/// <param name="obj">Object.</param>
 		/// <param name="key">Key.</param>
+		/// <summary>
+		/// Last-resort conversion for a decoded value the member cannot take as-is. Without it, SetValue throws on
+		/// the mismatch and the whole object silently reverts to defaults.
+		/// </summary>
+		static object Coerce(object value, Type memberType)
+		{
+			if (value == null || memberType == null)
+				return value;
+
+			var target = Nullable.GetUnderlyingType(memberType) ?? memberType;
+			if (target.IsInstanceOfType(value))
+				return value;
+
+			if (value is string str)
+			{
+				if (target == typeof(Guid) || target.FullName == "System.Guid")
+					return Guid.TryParse(str, out var guid) ? guid : Guid.Empty;
+
+				if (target.IsEnum)
+					return Enum.Parse(target, str, true);
+
+				if (target == typeof(DateTime) || target.FullName == "System.DateTime")
+				{
+					return DateTime.TryParse(str, CultureInfo.InvariantCulture,
+						DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var date)
+						? date
+						: default(DateTime);
+				}
+			}
+
+			if (value is IConvertible && target.IsPrimitive)
+			{
+				try
+				{
+					return Convert.ChangeType(value, target, CultureInfo.InvariantCulture);
+				}
+				catch
+				{
+					return value;
+				}
+			}
+
+			return value;
+		}
+
 		void SetNextValueOnObject(ref object obj, string key)
 		{
 			var field = _cacheResolver.GetField(obj.GetType(), key);
@@ -544,7 +589,7 @@ namespace Voltage.Persistence
 			{
 				if (_cacheResolver.IsMemberInfoEncodeableOrDecodeable(field, field.IsPublic))
 				{
-					var value = DecodeValue(GetNextToken(), field.FieldType);
+					var value = Coerce(DecodeValue(GetNextToken(), field.FieldType), field.FieldType);
 					if (obj.GetType().IsValueType)
 					{
 						// obj is a struct.
@@ -565,7 +610,7 @@ namespace Voltage.Persistence
 			{
 				if (_cacheResolver.IsMemberInfoEncodeableOrDecodeable(property, true))
 				{
-					var value = DecodeValue(GetNextToken(), property.PropertyType);
+					var value = Coerce(DecodeValue(GetNextToken(), property.PropertyType), property.PropertyType);
 					if (obj.GetType().IsValueType)
 					{
 						// obj is a struct.

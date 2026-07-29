@@ -288,6 +288,15 @@ public abstract class Component : IComparable<Component>
 	/// </summary>
 	public virtual void ApplyResolvedReferences(ComponentData data, Scene scene) { }
 
+	/// <summary>Set by the generated <see cref="ApplyResolvedReferences"/> once it has wired up every reference field.</summary>
+	protected bool _generatedReferencesApplied;
+
+	/// <summary>
+	/// True when the generated <see cref="ApplyResolvedReferences"/> already restored every reference field, so the
+	/// resolver can skip its reflection fallback. Components with a hand-written <c>Data</c> override never set it.
+	/// </summary>
+	public bool HasGeneratedReferenceApplier => _generatedReferencesApplied;
+
 	/// <summary>
 	/// Rewrites EntityPersistentId/EntityName on every EntityReference and ComponentReference field
 	/// whose stored entity id is a key in <paramref name="remap"/>. Used after cloning or prefab

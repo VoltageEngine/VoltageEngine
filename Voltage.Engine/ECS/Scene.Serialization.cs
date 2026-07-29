@@ -1453,7 +1453,8 @@ namespace Voltage
 					}
 					catch (Exception ex)
 					{
-						Debug.Error($"Error loading component data for {component.Name}: {ex.Message}");
+						// Full exception: this drops the component's whole state, and the stack names the field.
+						Debug.Error($"Error loading component data '{entry.DataTypeName}' for {component.Name}: {ex}");
 						return false;
 					}
 				}

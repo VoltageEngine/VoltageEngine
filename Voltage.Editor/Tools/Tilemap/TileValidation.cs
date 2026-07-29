@@ -55,6 +55,15 @@ namespace Voltage.Editor.Tools.Tilemap
 			foreach (var issue in runtime.Issues)
 				issues.Add(Issue.Error(issue));
 
+			// Usually a layer added in Aseprite after setup: not in the keep-list, so "Sync Changes" looks broken.
+			if (runtime.UnusedSourceLayers.Count > 0)
+			{
+				issues.Add(Issue.Warning(
+					$"The Aseprite source has layer(s) this tileset does not use: {string.Join(", ", runtime.UnusedSourceLayers)}. " +
+					"Anything drawn on them will not show up and cannot be synced. Under Edit Tileset > Layers, tick " +
+					"them - or turn on 'Sync layers added later' so the tileset follows the file from now on."));
+			}
+
 			if (runtime.TileCount == 0 && runtime.Issues.Count == 0)
 				issues.Add(Issue.Error("This tileset slices into zero tiles. Check the tile size, spacing and margin."));
 
