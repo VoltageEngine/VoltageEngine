@@ -856,8 +856,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			DrawProfilerMenu();
 			DrawScriptingMenu();
 			DrawEffectsMenu();
-			DrawBuildMenu();
 			DrawPluginsMenu();
+			DrawBuildMenu();
 			DrawHelpMenu();
 
 			// Project indicator — centered in the menu bar.

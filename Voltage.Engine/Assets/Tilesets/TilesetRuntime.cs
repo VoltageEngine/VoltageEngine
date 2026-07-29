@@ -38,6 +38,11 @@ namespace Voltage.Tilesets
 
 		private readonly List<string> _issues = new();
 
+		/// <summary>Visible Aseprite layers the asset's keep-list leaves out - anything drawn on them never reaches the atlas.</summary>
+		public IReadOnlyList<string> UnusedSourceLayers => _unusedLayers;
+
+		private List<string> _unusedLayers = new();
+
 		public int TileWidth => Asset?.TileWidth ?? 0;
 		public int TileHeight => Asset?.TileHeight ?? 0;
 		public int TileCount => SourceRects.Length;
@@ -155,9 +160,12 @@ namespace Voltage.Tilesets
 			if (asset == null)
 				return null;
 
+			var unusedLayers = new List<string>();
+
 			var texture = asset.TextureIsAsepriteAnimation
-				? LoadAsepriteAnimationStrip(asset)
-				: LoadImage(asset.Texture, asset.TextureSource, asset.TextureLayers, asset.TextureFrame);
+				? LoadAsepriteAnimationStrip(asset, unusedLayers)
+				: LoadImage(asset.Texture, asset.TextureSource, asset.TextureLayers, asset.TextureSyncsNewLayers,
+					asset.TextureFrame, unusedLayers);
 
 			if (texture == null)
 			{
@@ -167,11 +175,18 @@ namespace Voltage.Tilesets
 
 			// Aseprite frames/strips are `new Texture2D` we own; a plain image comes from the ContentManager.
 			var ownsTexture = asset.TextureIsAsepriteAnimation || asset.TextureSource == TilesetImageSource.Aseprite;
-			var runtime = new TilesetRuntime { Asset = asset, Texture = texture, _ownsTexture = ownsTexture };
+			var runtime = new TilesetRuntime
+			{
+				Asset = asset,
+				Texture = texture,
+				_ownsTexture = ownsTexture,
+				_unusedLayers = unusedLayers,
+			};
 
 			if (asset.NormalMap.IsValid)
 			{
-				var normal = LoadImage(asset.NormalMap, asset.NormalMapSource, asset.NormalMapLayers, asset.NormalMapFrame);
+				var normal = LoadImage(asset.NormalMap, asset.NormalMapSource, asset.NormalMapLayers,
+					asset.NormalMapSyncsNewLayers, asset.NormalMapFrame, unusedLayers);
 
 				if (normal == null)
 				{
@@ -455,7 +470,7 @@ namespace Voltage.Tilesets
 		}
 
 		private static Texture2D LoadImage(AssetReference reference, TilesetImageSource source,
-			List<string> layers, int frame)
+			List<string> layers, bool syncsNewLayers, int frame, List<string> unusedLayers = null)
 		{
 			if (!reference.IsValid)
 				return null;
@@ -479,11 +494,14 @@ namespace Voltage.Tilesets
 					if (file == null)
 						return null;
 
+					var keep = ResolveLayers(file, layers, syncsNewLayers, unusedLayers);
+
 					// The Aseprite API numbers frames from 1; we store them from 0.
-					if (layers == null || layers.Count == 0)
+					if (keep == null)
 						return file.GetTextureFromFrameNumber(frame + 1);
 
-					return file.GetTextureFromLayers(frame + 1, true, false, layers.ToArray());
+					// includeBackgroundLayer: a listed background layer composites like any other, matching the no-list path.
+					return file.GetTextureFromLayers(frame + 1, true, true, keep.ToArray());
 				}
 
 				return content.LoadTexture(path);
@@ -496,10 +514,69 @@ namespace Voltage.Tilesets
 		}
 
 		/// <summary>
+		/// The layers to composite, or null for "all visible layers". A keep-list is used as saved (what it leaves
+		/// out is reported); a drop-list is resolved against the file, so layers added later composite on their own.
+		/// </summary>
+		private static List<string> ResolveLayers(Voltage.Aseprite.AsepriteFile file, List<string> named,
+			bool syncsNewLayers, List<string> unusedLayers)
+		{
+			if (file == null || named == null || named.Count == 0)
+				return null;
+
+			if (!syncsNewLayers)
+			{
+				CollectUnusedLayers(file, named, unusedLayers);
+				return named;
+			}
+
+			var keep = new List<string>();
+			foreach (var layer in file.Layers)
+			{
+				if (!CompositesPixels(layer) || Names(named, layer.Name))
+					continue;
+
+				keep.Add(layer.Name);
+			}
+
+			// Dropping every layer cannot be expressed by the flatten API, so it reads as "no filter".
+			return keep.Count == 0 ? null : keep;
+		}
+
+		/// <summary>Layers a keep-list leaves out. Group and hidden layers never composite, so neither counts.</summary>
+		public static void CollectUnusedLayers(Voltage.Aseprite.AsepriteFile file, List<string> keep, List<string> into)
+		{
+			if (file == null || into == null || keep == null || keep.Count == 0)
+				return;
+
+			foreach (var layer in file.Layers)
+			{
+				if (!CompositesPixels(layer) || Names(keep, layer.Name) || Names(into, layer.Name))
+					continue;
+
+				into.Add(layer.Name);
+			}
+		}
+
+		private static bool CompositesPixels(Voltage.Aseprite.AsepriteLayer layer) =>
+			!string.IsNullOrEmpty(layer.Name) && layer.IsVisible && layer is not Voltage.Aseprite.AsepriteGroupLayer;
+
+		// Aseprite matches layer names case-insensitively when flattening, so the lists must too.
+		private static bool Names(List<string> names, string name)
+		{
+			for (var i = 0; i < names.Count; i++)
+			{
+				if (string.Equals(names[i], name, StringComparison.OrdinalIgnoreCase))
+					return true;
+			}
+
+			return false;
+		}
+
+		/// <summary>
 		/// Packs Aseprite frames [<c>TextureAnimStart</c>..<c>TextureAnimEnd</c>] left-to-right into one strip
 		/// texture (one frame per tile), so the animated tile can cycle through them as ordinary tile indices.
 		/// </summary>
-		private static Texture2D LoadAsepriteAnimationStrip(TilesetAsset asset)
+		private static Texture2D LoadAsepriteAnimationStrip(TilesetAsset asset, List<string> unusedLayers = null)
 		{
 			var path = asset.Texture.ResolvePath();
 			var content = Core.Scene?.Content ?? Core.Content;
@@ -507,7 +584,8 @@ namespace Voltage.Tilesets
 				return null;
 
 			var file = content.LoadAsepriteFile(path);
-			var layers = asset.TextureLayers is { Count: > 0 } ? asset.TextureLayers.ToArray() : null;
+			var keep = ResolveLayers(file, asset.TextureLayers, asset.TextureSyncsNewLayers, unusedLayers);
+			var layers = keep?.ToArray();
 			return BuildAsepriteStrip(file, layers, asset.TextureAnimStart, asset.TextureAnimEnd, out _, out _, out _, out _);
 		}
 
@@ -540,9 +618,10 @@ namespace Voltage.Tilesets
 				for (var f = 0; f < count; f++)
 				{
 					var frame = file.Frames[lo + f];
+					// includeBackgroundLayer, so a strip matches the single-frame path.
 					var pixels = layers == null || layers.Length == 0
-						? frame.FlattenFrame()
-						: frame.FlattenFrameOnLayers(true, false, layers);
+						? frame.FlattenFrame(true, true)
+						: frame.FlattenFrameOnLayers(true, true, layers);
 
 					for (var y = 0; y < fh; y++)
 					{

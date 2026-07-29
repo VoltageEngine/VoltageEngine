@@ -238,10 +238,26 @@ public static class ComponentReferenceResolver
 			return;
 
 		// AOT-safe path: generated override assigns fields directly.
+		bool generatedApplierRan;
 		if (isSceneComponent)
-			((SceneComponent)target).ApplyResolvedReferences(pendingData, scene);
+		{
+			var sceneComponent = (SceneComponent)target;
+			sceneComponent.ApplyResolvedReferences(pendingData, scene);
+			generatedApplierRan = sceneComponent.HasGeneratedReferenceApplier;
+		}
 		else
-			((Component)target).ApplyResolvedReferences(pendingData, scene);
+		{
+			var component = (Component)target;
+			component.ApplyResolvedReferences(pendingData, scene);
+			generatedApplierRan = component.HasGeneratedReferenceApplier;
+		}
+
+		// Nothing left for the walk below, and in a trimmed build it would warn about fields that ARE set.
+		if (generatedApplierRan)
+		{
+			pendingData = null;
+			return;
+		}
 
 		// Reflection fallback: handles components without a generated ApplyResolvedReferences
 		// override (e.g. engine components with manual Data overrides, or script components
