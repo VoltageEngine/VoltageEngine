@@ -28,6 +28,8 @@ namespace Voltage.Editor.ProjectFile
 		private float _sfxVolume;
 		private string _contentDirectory;
 
+		private Vector4 _backgroundClearColor;
+
 		// Design resolution
 		private int _designWidth;
 		private int _designHeight;
@@ -124,6 +126,8 @@ namespace Voltage.Editor.ProjectFile
 					{
 						DrawDisplaySettings();
 						VoltageEditorUtils.MediumVerticalSpace();
+						DrawBackgroundSettings();
+						VoltageEditorUtils.MediumVerticalSpace();
 						DrawDesignResolutionSettings();
 						VoltageEditorUtils.MediumVerticalSpace();
 						DrawAudioSettings();
@@ -192,6 +196,13 @@ namespace Voltage.Editor.ProjectFile
 				_selectedResolutionPolicy = (int)settings.DesignResolution.ResolutionPolicy;
 			}
 			
+			if (settings.Rendering != null)
+			{
+				var background = settings.Rendering.BackgroundClearColor;
+				_backgroundClearColor = new Vector4(background.R / 255f, background.G / 255f,
+					background.B / 255f, background.A / 255f);
+			}
+
 			// Load dictionary settings (deep copy to allow editing)
 			_physicsLayers = new Dictionary<string, int>(settings.Physics.PhysicsLayers);
 			_renderingLayers = new Dictionary<string, int>(settings.Rendering.RenderingLayers);
@@ -288,6 +299,51 @@ namespace Voltage.Editor.ProjectFile
 			}
 		}
 		
+		/// <summary>Background clear colour, applied to every scene the game loads.</summary>
+		private void DrawBackgroundSettings()
+		{
+			if (ImGui.CollapsingHeader("Background", ImGuiTreeNodeFlags.DefaultOpen))
+			{
+				ImGui.Indent();
+
+				ImGui.TextWrapped("Colour the screen is cleared to. Applied to every scene the game loads, " +
+				                  "so this is the background the built game ships with.");
+
+				VoltageEditorUtils.SmallVerticalSpace();
+
+				ImGui.AlignTextToFramePadding();
+				ImGui.TextUnformatted("Select Color");
+				ImGui.SameLine();
+
+				if (VoltageEditorUtils.ColorSwatchButton("##BackgroundClearColor", _backgroundClearColor))
+					ImGui.OpenPopup("project-background-color-popup");
+
+				if (ImGui.IsItemHovered())
+					ImGui.SetTooltip("Background Clear Color - click to pick.");
+
+				if (ImGui.BeginPopup("project-background-color-popup"))
+				{
+					if (ImGui.ColorPicker4("##BackgroundClearColorPicker", ref _backgroundClearColor,
+						    ImGuiColorEditFlags.NoAlpha | ImGuiColorEditFlags.NoSidePreview))
+					{
+						_hasUnsavedChanges = true;
+					}
+
+					ImGui.EndPopup();
+				}
+
+				if (EditorBackgroundColor.UseTemporary)
+				{
+					VoltageEditorUtils.SmallVerticalSpace();
+					ImGui.TextColored(new Vector4(1.0f, 0.8f, 0.2f, 1.0f),
+						"The editor is showing a temporary background colour, so the game view will not change.");
+					ImGui.TextDisabled("Switch it back from the colour swatch in the editor tools bar.");
+				}
+
+				ImGui.Unindent();
+			}
+		}
+
 		private void DrawDesignResolutionSettings()
 		{
 			if (ImGui.CollapsingHeader("Design Resolution", ImGuiTreeNodeFlags.DefaultOpen))
@@ -658,6 +714,7 @@ namespace Voltage.Editor.ProjectFile
 				settings.DesignResolution.ResolutionPolicy = (Scene.SceneResolutionPolicy)_selectedResolutionPolicy;
 				settings.Physics.PhysicsLayers = new Dictionary<string, int>(_physicsLayers);
 				settings.Rendering.RenderingLayers = new Dictionary<string, int>(_renderingLayers);
+				settings.Rendering.BackgroundClearColor = ToXnaColor(_backgroundClearColor);
 				settings.Entities.EntityTags = new Dictionary<string, int>(_entityTags);
 				settings.ContentDirectory = _contentDirectory;
 
@@ -680,6 +737,9 @@ namespace Voltage.Editor.ProjectFile
 			}
 		}
 		
+		private static Microsoft.Xna.Framework.Color ToXnaColor(Vector4 color) =>
+			new Microsoft.Xna.Framework.Color(color.X, color.Y, color.Z, color.W);
+
 		private void ApplySettings()
 		{
 			try
@@ -689,6 +749,14 @@ namespace Voltage.Editor.ProjectFile
 				{
 					var resolutionPolicy = (Scene.SceneResolutionPolicy)_selectedResolutionPolicy;
 					Core.Scene.SetDesignResolution(_designWidth, _designHeight, resolutionPolicy);
+				}
+
+				// Live-apply the background so the game view reflects the picker without a save.
+				var settings = _projectManager.CurrentProject?.Settings;
+				if (settings?.Rendering != null)
+				{
+					settings.Rendering.BackgroundClearColor = ToXnaColor(_backgroundClearColor);
+					EditorBackgroundColor.Apply();
 				}
 
 				//TODO:AUDIO SETTINGS
