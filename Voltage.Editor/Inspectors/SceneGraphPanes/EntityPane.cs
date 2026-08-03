@@ -23,6 +23,25 @@ public class EntityPane
 
     private const int MIN_ENTITIES_FOR_CLIPPER = 100;
     private Entity _previousEntity;
+
+	// One entry per drawn line. The clipper MUST index this, not Scene.Entities: that list skips children and
+	// collapsed subtrees, so the row count and the reserved height disagree and rows blink in and out.
+	private readonly List<Row> _rows = new();
+
+	private readonly struct Row
+	{
+		public readonly Entity Entity;
+		public readonly int Depth;
+
+		public Row(Entity entity, int depth)
+		{
+			Entity = entity;
+			Depth = depth;
+		}
+	}
+
+	private string _entitySearch = string.Empty;
+
 	public List<Entity> SelectedEntities => _selectedEntities;
 	private ImGuiManager _imGuiManager;
 	private List<Entity> _selectedEntities = new();
@@ -99,7 +118,96 @@ public class EntityPane
 	}
 	#endregion
 
+	#region Search
+
+	public bool IsFiltering => !string.IsNullOrWhiteSpace(_entitySearch);
+
+	/// <summary>
+	/// Name filter for the entity tree. A filter shows every entity whose name matches plus the parents that
+	/// lead to it, with those branches force-opened.
+	/// </summary>
+	public void DrawSearchBar()
+	{
+		var clearWidth = ImGui.GetFrameHeight();
+
+		// Clamped: a negative width would be read as a right-aligned offset once the pane gets narrow.
+		var inputWidth = Math.Max(60f,
+			ImGui.GetContentRegionAvail().X - clearWidth - ImGui.GetStyle().ItemSpacing.X);
+
+		ImGui.SetNextItemWidth(inputWidth);
+		ImGui.InputTextWithHint("##EntitySearch", "Search entities...", ref _entitySearch, 128);
+
+		ImGui.SameLine();
+
+		ImGui.BeginDisabled(!IsFiltering);
+		if (ImGui.Button("x##ClearEntitySearch", new System.Numerics.Vector2(clearWidth, 0)))
+			_entitySearch = string.Empty;
+		ImGui.EndDisabled();
+
+		if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+			ImGui.SetTooltip("Clear the search.");
+
+		if (IsFiltering)
+			ImGuiSafe.TextDisabledSafe($"{_rows.Count} row(s) match \"{_entitySearch.Trim()}\"");
+	}
+
+	#endregion
+
 	#region Main Draw Entry Point
+
+	/// <summary>
+	/// Flattens the hierarchy into the rows that will actually be drawn: every root, plus the descendants of
+	/// the entities that are expanded (or of a matching branch while filtering).
+	/// </summary>
+	private void BuildVisibleRows()
+	{
+		_rows.Clear();
+
+		var entities = Core.Scene?.Entities;
+		if (entities == null)
+			return;
+
+		var filter = IsFiltering ? _entitySearch.Trim() : null;
+
+		for (var i = 0; i < entities.Count; i++)
+		{
+			var entity = entities[i];
+			if (entity.Transform.Parent == null)
+				AppendRow(entity, 0, filter);
+		}
+	}
+
+	/// <summary>
+	/// Appends <paramref name="entity"/> and its visible descendants. Returns false when a filter is active and
+	/// neither this entity nor anything below it matched — in which case the rows it added are rolled back.
+	/// </summary>
+	private bool AppendRow(Entity entity, int depth, string filter)
+	{
+		var start = _rows.Count;
+		_rows.Add(new Row(entity, depth));
+
+		// A filter opens every branch, so a match nested inside collapsed parents is still reachable.
+		var expanded = filter != null || _imGuiManager.SceneGraphWindow.ExpandedEntities.Contains(entity);
+		var keptChild = false;
+
+		if (expanded)
+		{
+			for (var i = 0; i < entity.Transform.ChildCount; i++)
+				keptChild |= AppendRow(entity.Transform.GetChild(i).Entity, depth + 1, filter);
+		}
+
+		if (filter == null)
+			return true;
+
+		var selfMatch = entity.Name != null &&
+			entity.Name.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0;
+
+		if (selfMatch || keptChild)
+			return true;
+
+		_rows.RemoveRange(start, _rows.Count - start);
+		return false;
+	}
 
 	/// <summary>
 	/// Main entry point for drawing the entity pane UI and gizmos.
@@ -109,25 +217,30 @@ public class EntityPane
 		if (_imGuiManager == null)
 			_imGuiManager = Core.GetGlobalManager<ImGuiManager>();
 
+		BuildVisibleRows();
+
 		// Draw entity tree (with clipper for large lists)
-		if (Core.Scene.Entities.Count > MIN_ENTITIES_FOR_CLIPPER)
+		if (_rows.Count > MIN_ENTITIES_FOR_CLIPPER)
 		{
 			var clipperPtr = ImGuiNative.ImGuiListClipper_ImGuiListClipper();
 			var clipper = new ImGuiListClipperPtr(clipperPtr);
 
-			clipper.Begin(Core.Scene.Entities.Count, -1);
+			clipper.Begin(_rows.Count, -1);
 
 			while (clipper.Step())
 				for (var i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
-					DrawEntity(Core.Scene.Entities[i]);
+					DrawEntityRow(_rows[i]);
 
 			ImGuiNative.ImGuiListClipper_destroy(clipperPtr);
 		}
 		else
 		{
-			for (var i = 0; i < Core.Scene.Entities.Count; i++)
-				DrawEntity(Core.Scene.Entities[i]);
+			for (var i = 0; i < _rows.Count; i++)
+				DrawEntityRow(_rows[i]);
 		}
+
+		if (_rows.Count == 0 && IsFiltering)
+			ImGuiSafe.TextDisabledSafe($"No entity matches \"{_entitySearch}\".");
 
 
 		// Unparent
@@ -422,18 +535,36 @@ public class EntityPane
     #region Entity Tree Rendering and Interaction
 
     /// <summary>
-    /// Draws a single entity node in the tree, handles selection, context menu, and inspector opening.
+    /// Draws a single row of the flattened tree, handles selection, context menu, and inspector opening.
+    /// Children are NOT drawn from here — <see cref="BuildVisibleRows"/> already put them in the row list —
+    /// so every row is one line of uniform height, which is what the clipper requires.
     /// </summary>
-    private void DrawEntity(Entity entity, bool onlyDrawRoots = true)
+    private void DrawEntityRow(Row row)
     {
-        if (onlyDrawRoots && entity.Transform.Parent != null)
-            return;
+        var entity = row.Entity;
 
+        // Indent by hand: drawn flat, so there is no TreePush/TreePop pair to carry it.
+        var indent = row.Depth * ImGui.GetStyle().IndentSpacing;
+        if (indent > 0f)
+            ImGui.Indent(indent);
+
+        try
+        {
+            DrawEntityRowContent(entity);
+        }
+        finally
+        {
+            if (indent > 0f)
+                ImGui.Unindent(indent);
+        }
+    }
+
+    private void DrawEntityRowContent(Entity entity)
+    {
         bool isSelected = _selectedEntities.Contains(entity);
         ImGui.PushID((int)entity.Id);
 
         // While this entity is being renamed, show an inline editable field in place of its tree row.
-        // (Its children are hidden for the brief duration of the rename; they reappear on commit/cancel.)
         if (_renamingEntity == entity)
         {
             DrawEntityRenameInput(entity);
@@ -441,9 +572,9 @@ public class EntityPane
             return;
         }
 
-        bool treeNodeOpened = false;
-        var flags = isSelected ? ImGuiTreeNodeFlags.Selected : 0;
-        bool isExpanded = _imGuiManager.SceneGraphWindow.ExpandedEntities.Contains(entity);
+        // NoTreePushOnOpen: the open state only drives the arrow here, since children are separate rows.
+        var flags = ImGuiTreeNodeFlags.NoTreePushOnOpen | (isSelected ? ImGuiTreeNodeFlags.Selected : 0);
+        bool isExpanded = IsFiltering || _imGuiManager.SceneGraphWindow.ExpandedEntities.Contains(entity);
         if (entity.Transform.ChildCount > 0)
             ImGui.SetNextItemOpen(isExpanded, ImGuiCond.Always);
 
@@ -470,10 +601,10 @@ public class EntityPane
 
 		// Draw tree node
 		if (entity.Transform.ChildCount > 0)
-			treeNodeOpened = ImGui.TreeNodeEx($"{entity.Name} ({entity.Transform.ChildCount})###{entity.Id}",
+			ImGui.TreeNodeEx($"{entity.Name} ({entity.Transform.ChildCount})###{entity.Id}",
 				ImGuiTreeNodeFlags.OpenOnArrow | flags);
 		else
-			treeNodeOpened = ImGui.TreeNodeEx($"{entity.Name} ({entity.Transform.ChildCount})###{entity.Id}",
+			ImGui.TreeNodeEx($"{entity.Name} ({entity.Transform.ChildCount})###{entity.Id}",
 				ImGuiTreeNodeFlags.Leaf | ImGuiTreeNodeFlags.OpenOnArrow | flags);
 
 		if (isSceneRequired || isPrefab || isNonSerialized)
@@ -486,10 +617,10 @@ public class EntityPane
 			if (ImGui.IsItemClicked(ImGuiMouseButton.Left) &&
 			    ImGui.GetMousePos().X - ImGui.GetItemRectMin().X <= ImGui.GetTreeNodeToLabelSpacing())
 			{
-				if (isExpanded)
-					_imGuiManager.SceneGraphWindow.ExpandedEntities.Remove(entity);
-				else
-					_imGuiManager.SceneGraphWindow.ExpandedEntities.Add(entity);
+				// Toggle the stored state, not the displayed one, which a filter forces open.
+				var expandedSet = _imGuiManager.SceneGraphWindow.ExpandedEntities;
+				if (!expandedSet.Remove(entity))
+					expandedSet.Add(entity);
 			}
 		}
 		VoltageEditorUtils.ShowContextMenuTooltip();
@@ -635,15 +766,6 @@ public class EntityPane
 				}
 			}
 			ImGui.EndDragDropTarget();
-		}
-
-		// Recursively draw children
-		if (treeNodeOpened)
-		{
-			for (var i = 0; i < entity.Transform.ChildCount; i++)
-				DrawEntity(entity.Transform.GetChild(i).Entity, false);
-
-			ImGui.TreePop();
 		}
 
 		ImGui.PopID();

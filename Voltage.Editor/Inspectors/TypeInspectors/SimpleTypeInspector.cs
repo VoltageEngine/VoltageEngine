@@ -53,9 +53,29 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
         void InspectBoolean()
         {
             var value = GetValue<bool>();
+
+            if (IsVisibilityFlag(_name))
+            {
+                if (VoltageEditorUtils.EyeToggle(_name, ref value,
+                        value ? $"{_name}: visible - click to hide." : $"{_name}: hidden - click to show.",
+                        _name))
+                {
+                    SetValueWithUndo(value, _name);
+                }
+
+                return;
+            }
+
             if (ImGui.Checkbox(_name, ref value))
                 SetValueWithUndo(value, _name);
         }
+
+        /// <summary>
+        /// Visible, IsVisible, Visibility. Deliberately not Hidden/Hide: those invert the meaning, so an open
+        /// eye would lie about the state.
+        /// </summary>
+        static bool IsVisibilityFlag(string name) =>
+            !string.IsNullOrEmpty(name) && name.IndexOf("visib", StringComparison.OrdinalIgnoreCase) >= 0;
 
         void InspectColor()
         {

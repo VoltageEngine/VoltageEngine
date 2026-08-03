@@ -20,10 +20,6 @@ namespace Voltage.Editor.Utils
 		public static IntPtr InfoIconId;
 		public static IntPtr SuccessIconId;
 		public static IntPtr FailIconId;
-
-		// Asset Browser file-type icons: live in DefaultContent/UI/RemixIcon/FileTypes/.
-		// Confirmed present: Aseprite, Prefab, Scene, Script, Unsupported-File.
-		// Effect and Tiled have no dedicated icon yet — both fall back to Unsupported.
 		public static IntPtr AssetIconTexture;     // .png / .aseprite / .ase
 		public static IntPtr AssetIconPrefab;      // .prefab
 		public static IntPtr AssetIconScene;       // .vscene
@@ -41,6 +37,10 @@ namespace Voltage.Editor.Utils
 		// Audio toggle icons (menu bar, right-aligned): live in DefaultContent/UI/RemixIcon/MenuBar/.
 		public static IntPtr AudioOn;
 		public static IntPtr AudioMute;
+
+		// Visibility toggles
+		public static IntPtr EyeOn;
+		public static IntPtr EyeOff;
 
 		public static void LoadImages(ImGuiRenderer renderer)
 		{
@@ -76,6 +76,9 @@ namespace Voltage.Editor.Utils
 
 			AudioOn   = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/MenuBar/volume-up.png"));
 			AudioMute = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/MenuBar/volume-mute.png"));
+
+			EyeOn  = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/eye-on.png"));
+			EyeOff = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/eye-off.png"));
 		}
 	}
 }

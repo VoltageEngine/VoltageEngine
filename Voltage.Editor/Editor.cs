@@ -60,7 +60,7 @@ public class Editor : Core
 		RegisterGlobalManager(imGuiManager);
 
 		Scene.OnSceneBegin += TrackSceneChange;
-		Scene.OnSceneBegin += SetSceneClearColor; // Set grey background color when scene changes
+		Scene.OnSceneBegin += SetSceneClearColor;
 
 		Window.AllowUserResizing = true;
 		ExitOnEscapeKeypress = false;
@@ -73,9 +73,8 @@ public class Editor : Core
 		Voltage.Editor.Utils.EditorWindowLayout.FitToUsableBounds();
 		HandleCommandLineArguments(); // when we open a project file through the file explorer
 		SceneManager.Instance.LoadLastUsedScene();
-		
-		if (Scene != null)
-			Scene.ClearColor = new Color(45, 45, 48);
+
+		Voltage.Editor.Utils.EditorBackgroundColor.Apply();
 	}
 
 	protected override void EndRun()
@@ -88,8 +87,7 @@ public class Editor : Core
 
 	private void SetSceneClearColor()
 	{
-		if (Scene != null)
-			Scene.ClearColor = new Color(45, 45, 48);
+		Voltage.Editor.Utils.EditorBackgroundColor.Apply();
 	}
 
 	/// <summary>

@@ -318,6 +318,7 @@ namespace Voltage.Serialization
 					case "RenderingLayers":
 						s.RenderingLayers = r.ReadStringDictionary(rd => rd.ReadInt());
 						break;
+					case "BackgroundClearColor": s.BackgroundClearColor = ReadColor(r); break;
 					default: r.SkipValue(); break;
 				}
 			}
