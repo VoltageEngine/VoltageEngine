@@ -1001,15 +1001,19 @@ public partial class ImGuiManager
 
 		float snapWidth = ImGui.CalcTextSize(snapLabel).X + framePad;
 		float showWidth = ImGui.CalcTextSize(showLabel).X + framePad + spacing;
+		float backgroundWidth = ImGui.CalcTextSize(BackgroundLabel).X + spacing + BackgroundSwatchWidth + spacing;
 
 		// Reserve the audio toggle's footprint on the right (mirrors DrawAudioToggleRightAligned).
 		float audioIcon = 24f * FontSizeMultiplier;
 		float audioReserved = audioIcon + style.FramePadding.X * 2f + 8f;
 		float gap = spacing;
 
-		float posX = ImGui.GetWindowWidth() - audioReserved - gap - (snapWidth + showWidth);
+		float posX = ImGui.GetWindowWidth() - audioReserved - gap - (backgroundWidth + snapWidth + showWidth);
 		if (posX > ImGui.GetCursorPosX())
 			ImGui.SetCursorPosX(posX);
+
+		DrawBackgroundColorControl();
+		ImGui.SameLine();
 
 		DrawToggleButton(snapLabel, snap, () => EditorSettingsWindow.SnapToGrid = !snap);
 		if (ImGui.IsItemHovered())
@@ -1021,6 +1025,94 @@ public partial class ImGuiManager
 		if (ImGui.IsItemHovered())
 			ImGui.SetTooltip("Draw the placement grid in the game view.\nThe Tileset Editor's tile grid overrides it while that window is open.");
 	}
+
+	private const string BackgroundLabel = "Background";
+
+	internal static float BackgroundSwatchWidth => ImGui.GetFrameHeight() * 1.6f;
+
+	/// <summary>
+	/// "Background" control in the Editor Tools bar: a labelled swatch of the colour the game view is cleared
+	/// to. Clicking picks between the project colour (shipped with the build) and a temporary editor-only one.
+	/// </summary>
+	private void DrawBackgroundColorControl()
+	{
+		var active = ToVector4(EditorBackgroundColor.Active);
+		var temporary = EditorBackgroundColor.UseTemporary;
+
+		ImGui.AlignTextToFramePadding();
+		ImGui.TextUnformatted(BackgroundLabel);
+		ImGui.SameLine();
+
+		// Amber outline for the temporary colour, so a stand-in is never mistaken for the one that ships.
+		if (VoltageEditorUtils.ColorSwatchButton("##BackgroundColor", active, temporary, BackgroundSwatchWidth))
+			ImGui.OpenPopup("background-color-popup");
+
+		if (ImGui.IsItemHovered())
+		{
+			ImGui.SetTooltip(temporary
+				? "Background Color - temporary (this editor only, not saved to the project)"
+				: "Background Color - project (saved, used in builds)");
+		}
+
+		DrawBackgroundColorPopup();
+
+		// Persist once the drag ends. Done here, not off the picker's own deactivation, so a colour typed in
+		// or picked inside its nested popup is saved too.
+		if (!ImGui.IsAnyMouseDown())
+			EditorBackgroundColor.FlushTemporary();
+	}
+
+	private void DrawBackgroundColorPopup()
+	{
+		if (!ImGui.BeginPopup("background-color-popup"))
+			return;
+
+		ImGui.TextUnformatted("Background Color");
+		ImGui.Separator();
+
+		var useTemporary = EditorBackgroundColor.UseTemporary;
+
+		if (ImGui.RadioButton("Project color", !useTemporary))
+			EditorBackgroundColor.UseTemporary = false;
+
+		ImGui.Indent();
+		VoltageEditorUtils.ColorSwatchButton("##BackgroundProjectColor",
+			ToVector4(EditorBackgroundColor.Project), false, BackgroundSwatchWidth);
+
+		ImGui.SameLine();
+		ImGui.TextDisabled("Saved in Project Settings, used by the build.");
+
+		if (_projectManager.HasActiveProject && ImGui.SmallButton("Edit in Project Settings"))
+		{
+			_projectSettingsWindow.IsOpen = true;
+			ImGui.CloseCurrentPopup();
+		}
+
+		ImGui.Unindent();
+		VoltageEditorUtils.SmallVerticalSpace();
+
+		if (ImGui.RadioButton("Temporary color", useTemporary))
+			EditorBackgroundColor.UseTemporary = true;
+
+		ImGui.Indent();
+
+		var temporary = ToVector4(EditorBackgroundColor.Temporary);
+		ImGui.SetNextItemWidth(220f);
+		if (ImGui.ColorEdit4("##BackgroundTemporaryColor", ref temporary, ImGuiColorEditFlags.NoAlpha))
+			EditorBackgroundColor.Temporary = ToXnaColor(temporary);
+
+		ImGui.TextDisabled("Kept in this editor's settings, for every scene you open.");
+		ImGui.TextDisabled("Never written to ProjectSettings.json, a scene file or a build.");
+		ImGui.Unindent();
+
+		ImGui.EndPopup();
+	}
+
+	private static Vector4 ToVector4(Microsoft.Xna.Framework.Color color) =>
+		new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f);
+
+	private static Microsoft.Xna.Framework.Color ToXnaColor(Vector4 color) =>
+		new Microsoft.Xna.Framework.Color(color.X, color.Y, color.Z, color.W);
 
 	// Small button that tints blue when active, mirroring the Editor Tools bar toggle style.
 	private static void DrawToggleButton(string label, bool active, Action onClick)

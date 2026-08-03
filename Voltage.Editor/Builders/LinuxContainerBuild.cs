@@ -125,7 +125,7 @@ public static class LinuxContainerBuild
 		// Writable, persistent HOME/NuGet locations so the container (running as the
 		// mapped host user under rootless podman) can write caches without polluting
 		// the project root or the per-build output that gets wiped each run.
-		var containerHome = Path.Combine(projectPath, "Build", ".aot-container-home");
+		var containerHome = Path.Combine(projectPath, "obj", ".aot-container-home");
 		var nugetCache = GetNuGetCachePath();
 		TryCreateDir(containerHome);
 		TryCreateDir(nugetCache);
@@ -196,7 +196,7 @@ public static class LinuxContainerBuild
 		}
 
 		// Write the Containerfile to a host-visible context dir and build from it.
-		var contextDir = Path.Combine(projectPath, "Build", ".aot-container-build");
+		var contextDir = Path.Combine(projectPath, "obj", ".aot-container-build");
 		try
 		{
 			Directory.CreateDirectory(contextDir);

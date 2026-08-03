@@ -481,7 +481,11 @@ namespace Voltage.Editor.Tools
 
 			ImGui.SameLine(ImGui.GetContentRegionAvail().X - 160);
 
-			ImGui.Checkbox("Show Rect Indexes", ref _showSourceRectIndexes);
+			VoltageEditorUtils.EyeToggle("showrectindexes", ref _showSourceRectIndexes,
+				_showSourceRectIndexes
+					? "Rect indexes are shown - click to hide them."
+					: "Rect indexes are hidden - click to show them.",
+				"Rect Indexes");
 
 			DrawAtlasSlicerPopup();
 		}

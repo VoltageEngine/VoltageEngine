@@ -142,7 +142,11 @@ namespace Voltage.Editor.FilePickers
                 }
 
                 bool showHiddenLayers = _showHiddenLayers.Value;
-                if (ImGui.Checkbox("Load Hidden Layers", ref showHiddenLayers))
+                if (VoltageEditorUtils.EyeToggle("loadhiddenlayers", ref showHiddenLayers,
+                        showHiddenLayers
+                            ? "Layers hidden in Aseprite are listed - click to leave them out."
+                            : "Layers hidden in Aseprite are left out - click to list them.",
+                        "Hidden Layers"))
                 {
                     _showHiddenLayers.Value = showHiddenLayers;
                     

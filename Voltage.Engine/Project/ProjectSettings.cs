@@ -97,6 +97,9 @@ namespace Voltage.Project
 		[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
 		public class RenderingSettings
 		{
+			public Microsoft.Xna.Framework.Color BackgroundClearColor =
+				new Microsoft.Xna.Framework.Color(100, 149, 237, 255);
+
 			[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(Dictionary<string, int>))]
 			public Dictionary<string, int> RenderingLayers = new()
 			{

@@ -165,6 +165,10 @@ public class SceneGraphWindow
 			if (Math.Abs(currentWidth - _sceneGraphWidth) > 0.01f)
 				_sceneGraphWidth = Math.Clamp(currentWidth, _minSceneGraphWidth, _maxSceneGraphWidth);
 
+			// Above the scrolling child, so it stays pinned no matter how far the panes below are scrolled.
+			_entityPane.DrawSearchBar();
+			ImGui.Separator();
+
 			// Wrap all content in a child so BeginDragDropTarget() after EndChild() binds
 			// to the child item — making the entire scene-graph area a valid drop zone.
 			// Child is borderless/transparent so it is invisible to the user.
@@ -274,11 +278,12 @@ public class SceneGraphWindow
 
 				ImGui.EndDragDropTarget();
 			}
-
-			ImGui.End();
-			ImGui.PopStyleVar();
-			ImGui.PopStyleColor();
 		}
+
+		// Must run even when Begin() returns false (collapsed/clipped), or the ImGui stacks stay unbalanced.
+		ImGui.End();
+		ImGui.PopStyleVar();
+		ImGui.PopStyleColor();
 
 		// Draw delete confirmation popup outside of the main window
 		DrawDeletePrefabConfirmationPopup();

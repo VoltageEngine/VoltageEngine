@@ -114,6 +114,14 @@ public partial class Scene
 	public Color ClearColor = Color.CornflowerBlue;
 
 	/// <summary>
+	/// Editor-only stand-in for <see cref="ClearColor"/>. Never serialized, so the project's real clear colour
+	/// is still what gets saved and shipped. Null means "use <see cref="ClearColor"/>".
+	/// </summary>
+	public Color? ClearColorOverride;
+
+	public Color EffectiveClearColor => ClearColorOverride ?? ClearColor;
+
+	/// <summary>
 	/// clear color for the final render of the RenderTarget to the framebuffer
 	/// </summary>
 	public Color LetterboxColor = Color.Black;
@@ -395,7 +403,7 @@ public partial class Scene
 		if (_renderers[0].WantsToRenderToSceneRenderTarget)
 		{
 			Core.GraphicsDevice.SetRenderTarget(_sceneRenderTarget);
-			Core.GraphicsDevice.Clear(ClearColor);
+			Core.GraphicsDevice.Clear(EffectiveClearColor);
 		}
 
 
@@ -407,7 +415,7 @@ public partial class Scene
 			if (lastRendererHadRenderTarget && _renderers.Buffer[i].WantsToRenderToSceneRenderTarget)
 			{
 				Core.GraphicsDevice.SetRenderTarget(_sceneRenderTarget);
-				Core.GraphicsDevice.Clear(ClearColor);
+				Core.GraphicsDevice.Clear(EffectiveClearColor);
 
 				// force a Camera matrix update to account for the new Viewport size
 				if (_renderers.Buffer[i].Camera != null)

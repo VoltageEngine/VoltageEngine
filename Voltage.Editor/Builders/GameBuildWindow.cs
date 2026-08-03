@@ -190,7 +190,8 @@ public class GameBuildWindow
 			ImGui.SameLine();
 			ImGuiSafe.TextDisabledSafe(project.Version.ToString());
 
-			var buildDir = Path.Combine(project.ProjectPath, "Build", selectedPlatform.FolderSuffix);
+			// Straight from the builder, so the preview cannot drift from where the publish actually lands.
+			var buildDir = GameBuilder.GetBuildOutputDirectory(project, selectedPlatform, _debugBuild.Value);
 			ImGui.Text("Output:");
 			ImGui.SameLine();
 			ImGuiSafe.TextDisabledSafe(buildDir);
