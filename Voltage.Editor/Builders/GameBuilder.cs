@@ -14,7 +14,7 @@ namespace Voltage.Editor.Builders;
 
 /// <summary>
 /// Handles building/exporting a game project into a standalone executable.
-/// Produces a "Build" directory inside the game project folder containing:
+/// Produces <c>bin/&lt;Configuration&gt;/&lt;rid&gt;</c> inside the game project folder containing:
 ///   - The published executable (AOT + trimmed)
 ///   - Voltage engine content files (compiled effects, etc.)
 ///   - Project content/assets (copied raw or compiled via MGCB)
@@ -23,6 +23,17 @@ namespace Voltage.Editor.Builders;
 /// </summary>
 public static class GameBuilder
 {
+	/// <summary>
+	/// Where a published game lands: <c>&lt;project&gt;/bin/&lt;Configuration&gt;/&lt;rid&gt;</c>. bin\ is already
+	/// excluded from the SDK's item globs and from the generated .gitignore.
+	/// </summary>
+	public static string GetBuildOutputDirectory(IGameProject project, BuildPlatform platform, string configuration) =>
+		Path.Combine(project.ProjectPath, "bin", configuration, platform.FolderSuffix);
+
+	/// <inheritdoc cref="GetBuildOutputDirectory(IGameProject,BuildPlatform,string)"/>
+	public static string GetBuildOutputDirectory(IGameProject project, BuildPlatform platform, bool debugBuild) =>
+		GetBuildOutputDirectory(project, platform, debugBuild ? "Debug" : "Release");
+
 	// Events for progress tracking
 	public static event Action<string> OnBuildStepStarted;
 	public static event Action<string, bool> OnBuildStepCompleted;
@@ -58,8 +69,7 @@ public static class GameBuilder
 
 		var configuration = debugBuild ? "Debug" : "Release";
 
-		// Each platform gets its own subfolder: Build/win-x64, Build/linux-x64, etc.
-		var buildDir = Path.Combine(project.ProjectPath, "Build", configuration, platform.FolderSuffix);
+		var buildDir = GetBuildOutputDirectory(project, platform, configuration);
 		OnBuildStarted?.Invoke(7);
 
 		try
@@ -218,7 +228,6 @@ public static class GameBuilder
 			}
 
 			EnsureGenerateAssemblyInfoDisabled(csprojPath);
-			EnsureBuildFolderExcluded(csprojPath);
 
 			// Ensure TrimmerRoots.xml is synced to the game project before publishing.
 			// Without it, NativeAOT strips type metadata needed by the JSON serializer.
@@ -320,8 +329,7 @@ public static class GameBuilder
 	/// </summary>
 	public static string FindGameExecutable(IGameProject project, BuildPlatform platform, bool debugBuild = false)
 	{
-		var configuration = debugBuild ? "Debug" : "Release";
-		var buildDir = Path.Combine(project.ProjectPath, "Build", configuration, platform.FolderSuffix);
+		var buildDir = GetBuildOutputDirectory(project, platform, debugBuild);
 		if (!Directory.Exists(buildDir))
 			return null;
 
@@ -369,39 +377,6 @@ public static class GameBuilder
 		catch (Exception ex)
 		{
 			EditorDebug.Warn($"Could not patch .csproj for GenerateAssemblyInfo: {ex.Message}", "GameBuilder");
-		}
-	}
-
-	/// <summary>
-	/// Keeps <c>Build\</c> out of the SDK's default item globs. Its files are copies of previous builds, engine
-	/// DLLs included, and the SDK offers globbed files to reference resolution — so a publish can link a STALE
-	/// engine instead of the one in <c>EngineLibs\</c>. Patches projects predating the template fix.
-	/// </summary>
-	private static void EnsureBuildFolderExcluded(string csprojPath)
-	{
-		try
-		{
-			var content = File.ReadAllText(csprojPath);
-
-			if (content.Contains("DefaultItemExcludes", StringComparison.OrdinalIgnoreCase))
-				return;
-
-			const string marker = "</PropertyGroup>";
-			var insertIndex = content.IndexOf(marker, StringComparison.Ordinal);
-			if (insertIndex < 0)
-				return;
-
-			var insertion =
-				"\n    <!-- Published builds are copies of the engine DLLs; globbing them in lets a publish resolve" +
-				"\n         references against an OLD build instead of EngineLibs\\. -->" +
-				"\n    <DefaultItemExcludes>$(DefaultItemExcludes);Build\\**</DefaultItemExcludes>\n  ";
-
-			File.WriteAllText(csprojPath, content.Insert(insertIndex, insertion));
-			EditorDebug.Log("Patched the game .csproj to exclude Build\\ from the default item globs.", "GameBuilder");
-		}
-		catch (Exception ex)
-		{
-			EditorDebug.Warn($"Could not patch .csproj for DefaultItemExcludes: {ex.Message}", "GameBuilder");
 		}
 	}
 

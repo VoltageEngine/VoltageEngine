@@ -379,6 +379,10 @@ namespace Voltage
 				Screen.ApplyChanges();
 			}
 
+			// Global: the project colour wins over whatever the .vscene stored, for every level loaded.
+			if (settings?.Rendering != null)
+				loadedScene.ClearColor = settings.Rendering.BackgroundClearColor;
+
 			// Apply the configured design resolution as the default for all scenes and to this scene.
 			// We operate on loadedScene directly (not Core.Scene) since a runtime switch defers the swap.
 			var design = settings?.DesignResolution;

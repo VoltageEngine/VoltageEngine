@@ -346,6 +346,18 @@ namespace Voltage.Editor.Tools.Tilemap
 			}
 		}
 
+		private static void SetLayerVisible(TilemapRenderer map, bool visible)
+		{
+			if (map?.Entity == null || map.Enabled == visible)
+				return;
+
+			if (visible && !map.Entity.Enabled)
+				map.Entity.SetEnabled(true);
+
+			map.SetEnabled(visible);
+			EditorChangeTracker.MarkChanged(map.Entity, "Toggle tilemap layer visibility");
+		}
+
 		private static void SetDebugRender(TilemapRenderer map, bool enabled)
 		{
 			if (map?.Entity == null || map.Entity.DebugRenderEnabled == enabled)
@@ -423,10 +435,11 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			RenderLayerOptions(out var layerNames, out var layerValues);
 
-			if (ImGui.BeginTable("tilemap-layer-order", 5,
+			if (ImGui.BeginTable("tilemap-layer-order", 6,
 				    ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersInnerV | ImGuiTableFlags.SizingFixedFit))
 			{
 				ImGui.TableSetupColumn("Sort", ImGuiTableColumnFlags.WidthFixed, 54f);
+				ImGui.TableSetupColumn("Visible", ImGuiTableColumnFlags.WidthFixed, 52f);
 				ImGui.TableSetupColumn("Debug", ImGuiTableColumnFlags.WidthFixed, 52f);
 				ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.WidthStretch);
 				ImGui.TableSetupColumn("Render Layer", ImGuiTableColumnFlags.WidthFixed, 140f);
@@ -464,6 +477,19 @@ namespace Voltage.Editor.Tools.Tilemap
 
 					ImGui.TableSetColumnIndex(1);
 
+					var visible = map.Enabled;
+					if (VoltageEditorUtils.EyeToggle("layervis", ref visible,
+						    visible
+							    ? "Layer is visible - click to hide it."
+							    : map.Entity.Enabled
+								    ? "Layer is hidden - click to show it."
+								    : "Layer is hidden - its entity is disabled too, and showing it re-enables both."))
+					{
+						SetLayerVisible(map, visible);
+					}
+
+					ImGui.TableSetColumnIndex(2);
+
 					// The column header names it, so the checkbox itself carries no label.
 					var debug = map.Entity.DebugRenderEnabled;
 					if (ImGui.Checkbox("##dbg", ref debug))
@@ -472,7 +498,7 @@ namespace Voltage.Editor.Tools.Tilemap
 					if (ImGui.IsItemHovered())
 						ImGui.SetTooltip("Debug rendering for this layer only - collider outlines and gizmos.");
 
-					ImGui.TableSetColumnIndex(2);
+					ImGui.TableSetColumnIndex(3);
 
 					var isTarget = ReferenceEquals(map, tool.Target);
 					if (ImGui.Selectable($"{map.Entity.Name}##layer", isTarget))
@@ -481,7 +507,7 @@ namespace Voltage.Editor.Tools.Tilemap
 						SyncTilesetFromTarget(tool);
 					}
 
-					ImGui.TableSetColumnIndex(3);
+					ImGui.TableSetColumnIndex(4);
 
 					var layerIndex = Array.IndexOf(layerValues, map.RenderLayer);
 					if (layerIndex < 0)
@@ -502,7 +528,7 @@ namespace Voltage.Editor.Tools.Tilemap
 							"tilemap in front of or behind them.");
 					}
 
-					ImGui.TableSetColumnIndex(4);
+					ImGui.TableSetColumnIndex(5);
 
 					// Depth, not render layer: the arrows fall back to depth whenever two layers share a render
 					// layer, which is the default, so it is the number a reorder actually moves.
@@ -852,7 +878,9 @@ namespace Voltage.Editor.Tools.Tilemap
 
 		private void DrawGridOptions(TilePaintTool tool)
 		{
-			ImGui.Checkbox("Show grid", ref tool.ShowGrid);
+			VoltageEditorUtils.EyeToggle("showgrid", ref tool.ShowGrid,
+				tool.ShowGrid ? "Grid is shown - click to hide it." : "Grid is hidden - click to show it.",
+				"Grid");
 			ImGui.SameLine();
 			ImGui.Checkbox("Always", ref tool.AlwaysShowGrid);
 

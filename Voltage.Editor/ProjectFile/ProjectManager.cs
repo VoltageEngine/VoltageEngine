@@ -175,6 +175,9 @@ public class ProjectManager : GlobalManager
 			EngineLibsSync.SyncToProject(project.ProjectPath);
 			ProjectStructureGenerator.EnsureDefaultFontExists(project.ProjectPath);
 			ProjectSettings.Instance = project.Settings;
+
+			Utils.EditorBackgroundColor.Apply();
+
 			Plugins.PluginManager.Instance.RestoreForProject(project);
 
 			// Point the content resolver at the game project root so that relative

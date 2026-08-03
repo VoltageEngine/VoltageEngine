@@ -8,6 +8,7 @@ using Voltage.Editor.FilePickers;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.ProjectFile;
+using Voltage.Editor.Utils;
 using Voltage.Tilesets;
 using Num = System.Numerics;
 
@@ -556,7 +557,11 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			if (_preview.HasNormalMap)
 			{
-				ImGui.Checkbox("Show normal map", ref _showNormalMap);
+				VoltageEditorUtils.EyeToggle("shownormalmap", ref _showNormalMap,
+					_showNormalMap
+						? "Showing the normal map - click for the colour map."
+						: "Showing the colour map - click for the normal map.",
+					"Normal map");
 				ImGui.SameLine();
 			}
 			else
