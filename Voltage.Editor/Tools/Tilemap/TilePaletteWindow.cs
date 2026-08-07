@@ -39,6 +39,8 @@ namespace Voltage.Editor.Tools.Tilemap
 		private bool _openNewLayerPopup;
 		private string _newLayerName = "Tilemap";
 
+		private string _layerSearch = string.Empty;
+
 		// Atlas selection, in tile coordinates. Several boxes can be active at once; the gaps between them
 		// are preserved as holes in the stamp so the tiles land with the same spacing they were picked at.
 		private readonly List<SelBox> _boxes = new();
@@ -271,10 +273,7 @@ namespace Voltage.Editor.Tools.Tilemap
 
 					var selected = ReferenceEquals(map, tool.Target);
 					if (ImGui.Selectable(map.Entity.Name, selected))
-					{
-						tool.Target = map;
-						SyncTilesetFromTarget(tool);
-					}
+						SelectLayer(tool, map);
 
 					if (selected)
 						ImGui.SetItemDefaultFocus();
@@ -285,6 +284,8 @@ namespace Voltage.Editor.Tools.Tilemap
 
 				ImGui.EndCombo();
 			}
+
+			DrawLayerSearch(tool, maps);
 
 			if (ImGui.Button("New Layer"))
 			{
@@ -303,6 +304,152 @@ namespace Voltage.Editor.Tools.Tilemap
 				ImGui.SameLine();
 				ImGui.TextDisabled($"{tool.Target.TileCount} tiles");
 			}
+		}
+
+		/// <summary>
+		/// Name filter over the scene's tilemap layers, closest match first. Picking a result makes it the layer
+		/// being painted, same as the combo above.
+		/// </summary>
+		private void DrawLayerSearch(TilePaintTool tool, List<TilemapRenderer> maps)
+		{
+			var clearWidth = ImGui.GetFrameHeight();
+
+			// Clamped: a negative width would be read as a right-aligned offset once the panel gets narrow.
+			var inputWidth = Math.Max(60f,
+				ImGui.GetContentRegionAvail().X - clearWidth - ImGui.GetStyle().ItemSpacing.X);
+
+			ImGui.SetNextItemWidth(inputWidth);
+			var entered = ImGui.InputTextWithHint("##layersearch", "Search layers...", ref _layerSearch, 128,
+				ImGuiInputTextFlags.EnterReturnsTrue);
+
+			ImGui.SameLine();
+
+			var filtering = !string.IsNullOrWhiteSpace(_layerSearch);
+
+			ImGui.BeginDisabled(!filtering);
+			if (ImGui.Button("x##clearlayersearch", new Num.Vector2(clearWidth, 0)))
+				_layerSearch = string.Empty;
+			ImGui.EndDisabled();
+
+			if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+				ImGui.SetTooltip("Clear the search.");
+
+			if (!filtering)
+				return;
+
+			var query = _layerSearch.Trim();
+			var matches = RankLayers(maps, query);
+
+			if (matches.Count == 0)
+			{
+				ImGui.TextDisabled($"No layer matches \"{query}\".");
+				return;
+			}
+
+			// Enter takes the closest match, so a search can be driven from the keyboard alone.
+			if (entered)
+			{
+				SelectLayer(tool, matches[0]);
+				return;
+			}
+
+			// Capped height: a scene full of layers would otherwise push the rest of the palette off-screen.
+			var rows = Math.Min(matches.Count, 6);
+			var height = rows * ImGui.GetTextLineHeightWithSpacing() + ImGui.GetStyle().FramePadding.Y * 2f;
+
+			ImGui.BeginChild("layer-search-results", new Num.Vector2(inputWidth, height), true);
+
+			for (var i = 0; i < matches.Count; i++)
+			{
+				var map = matches[i];
+
+				ImGui.PushID(i);
+				if (ImGui.Selectable(map.Entity.Name, ReferenceEquals(map, tool.Target)))
+					SelectLayer(tool, map);
+				ImGui.PopID();
+			}
+
+			ImGui.EndChild();
+		}
+
+		/// <summary>Makes a layer the paint target. Clearing the search is what closes the result list behind it.</summary>
+		private void SelectLayer(TilePaintTool tool, TilemapRenderer map)
+		{
+			tool.Target = map;
+			_layerSearch = string.Empty;
+			SyncTilesetFromTarget(tool);
+		}
+
+		private static List<TilemapRenderer> RankLayers(List<TilemapRenderer> maps, string query)
+		{
+			var scored = new List<(TilemapRenderer Map, int Score)>();
+
+			foreach (var map in maps)
+			{
+				if (map.Entity == null)
+					continue;
+
+				var score = MatchScore(map.Entity.Name, query);
+				if (score > 0)
+					scored.Add((map, score));
+			}
+
+			scored.Sort((a, b) =>
+			{
+				var byScore = b.Score.CompareTo(a.Score);
+				return byScore != 0
+					? byScore
+					: string.Compare(a.Map.Entity.Name, b.Map.Entity.Name, StringComparison.OrdinalIgnoreCase);
+			});
+
+			var result = new List<TilemapRenderer>(scored.Count);
+			foreach (var entry in scored)
+				result.Add(entry.Map);
+
+			return result;
+		}
+
+		/// <summary>
+		/// How closely a layer name matches the query, 0 for no match. Exact beats prefix beats substring beats a
+		/// scattered subsequence, so the obvious answer is never buried under a loose one.
+		/// </summary>
+		private static int MatchScore(string name, string query)
+		{
+			if (string.IsNullOrEmpty(name))
+				return 0;
+
+			if (string.Equals(name, query, StringComparison.OrdinalIgnoreCase))
+				return 1000;
+
+			if (name.StartsWith(query, StringComparison.OrdinalIgnoreCase))
+				return 800 - Math.Min(name.Length - query.Length, 99);
+
+			var index = name.IndexOf(query, StringComparison.OrdinalIgnoreCase);
+			if (index >= 0)
+				return 600 - Math.Min(index, 99);
+
+			// Letters in order but not adjacent, so "gt" still finds "Ground Tiles". Spaces are skipped: the gap
+			// count is what ranks these against each other, and a typed space would inflate it.
+			var lowerName = name.ToLowerInvariant();
+			var lowerQuery = query.ToLowerInvariant();
+
+			var cursor = 0;
+			var gaps = 0;
+
+			foreach (var ch in lowerQuery)
+			{
+				if (ch == ' ')
+					continue;
+
+				var at = lowerName.IndexOf(ch, cursor);
+				if (at < 0)
+					return 0;
+
+				gaps += at - cursor;
+				cursor = at + 1;
+			}
+
+			return Math.Max(1, 400 - Math.Min(gaps, 399));
 		}
 
 		/// <summary>
