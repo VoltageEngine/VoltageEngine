@@ -41,6 +41,11 @@ namespace Voltage.Editor.Plugins
 		/// <summary>User-facing explanation when State is Unavailable or Failed.</summary>
 		public string Error;
 
+		/// <summary>
+		/// Set when the plugin declares an <c>EngineVersion</c> range this engine does not satisfy.
+		/// </summary>
+		public string CompatibilityWarning;
+
 		/// <summary>The plugin's synced folder under the project's PluginLibs (null when not synced).</summary>
 		public string PayloadPath;
 
@@ -141,7 +146,7 @@ namespace Voltage.Editor.Plugins
 					instance.Resolved = resolved;
 					instance.Manifest = resolved.Manifest;
 
-					CheckEngineVersion(resolved.Manifest);
+					instance.CompatibilityWarning = CheckEngineVersion(resolved.Manifest);
 
 					instance.PayloadPath = PluginSync.SyncPlugin(project.ProjectPath, resolved);
 					instance.State = PluginState.Restored;
@@ -651,15 +656,20 @@ namespace Voltage.Editor.Plugins
 				EditorDebug.Error($"plugins.json lists plugin '{dup}' more than once — only the first entry is honored.", "Plugins");
 		}
 
-		/// <summary>Engine version range mismatch is a warning in the editor (plugin still loads).</summary>
-		private static void CheckEngineVersion(PluginManifest manifest)
+		/// <summary>
+		/// Engine version range mismatch is a warning, not a block: the plugin still loads.
+		/// </summary>
+		private static string CheckEngineVersion(PluginManifest manifest)
 		{
-			if (!SemVerRange.Satisfies(VoltageVersion.Engine, manifest.EngineVersion))
-			{
-				EditorDebug.Warn(
-					$"Plugin '{manifest.Id}' declares EngineVersion '{manifest.EngineVersion}' but this engine is {VoltageVersion.Engine}. It may not work correctly.",
-					"Plugins");
-			}
+			if (SemVerRange.Satisfies(VoltageVersion.Engine, manifest.EngineVersion))
+				return null;
+
+			var message =
+				$"Plugin '{manifest.Id}' declares EngineVersion '{manifest.EngineVersion}' but this engine is " +
+				$"{VoltageVersion.Engine}. It may not work correctly.";
+
+			EditorDebug.Warn(message, "Plugins");
+			return message;
 		}
 
 		/// <summary>Flags restored plugins whose declared dependencies are missing, disabled, or too old.</summary>

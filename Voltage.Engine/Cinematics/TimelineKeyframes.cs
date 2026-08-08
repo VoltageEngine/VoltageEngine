@@ -13,6 +13,16 @@ namespace Voltage.Cinematics
 		public EaseType Ease = EaseType.Linear;
 	}
 
+	/// <summary>A keyframe holding a <see cref="Color"/> (RGB only; alpha is its own float channel).</summary>
+	public class ColorKeyframe
+	{
+		public float Time;
+		public Color Value = Color.White;
+
+		/// <summary>Ease used when interpolating INTO this keyframe from the previous one.</summary>
+		public EaseType Ease = EaseType.Linear;
+	}
+
 	/// <summary>A keyframe holding a scalar value (rotation/alpha/any float property) at a point in time.</summary>
 	public class FloatKeyframe
 	{

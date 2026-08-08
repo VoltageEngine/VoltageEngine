@@ -12,6 +12,7 @@ namespace Voltage.Cinematics
 	/// Keyframe lists are expected to be sorted ascending by <see cref="Vector2Keyframe.Time"/> (the editor
 	/// keeps them sorted on edit).
 	/// </summary>
+	[TrackTypeId("transform")]
 	public class TimelineTransformTrack : TimelineParameterTrack
 	{
 		public List<Vector2Keyframe> Position = new();
@@ -30,6 +31,15 @@ namespace Voltage.Cinematics
 				entity.Rotation = SampleFloat(Rotation, time);
 			if (Scale is { Count: > 0 })
 				entity.Scale = SampleVector2(Scale, time);
+		}
+
+		public override float ContentEndTime()
+		{
+			var end = 0f;
+			foreach (var k in Position) end = System.Math.Max(end, k.Time);
+			foreach (var k in Rotation) end = System.Math.Max(end, k.Time);
+			foreach (var k in Scale) end = System.Math.Max(end, k.Time);
+			return end;
 		}
 
 		public override void CaptureRestoreState(StateSnapshot snapshot, ITimelineContext context)

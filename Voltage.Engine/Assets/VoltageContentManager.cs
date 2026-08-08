@@ -449,12 +449,21 @@ public class VoltageContentManager : ContentManager
 			[typeof(string)]                           = static (c, path, name, raw) => c.LoadJson(path),
 		};
 
+		private static readonly Func<VoltageContentManager, string, string, bool, object> DataAssetLoader =
+			static (c, path, name, raw) => Voltage.Data.DataAssetCache.GetByPath(path);
+
 		// Human-readable list of AssetReference-loadable types, surfaced in diagnostics.
 		public static readonly string SupportedTypeNames =
-			string.Join(", ", Map.Keys.Select(t => t == typeof(string) ? "string (JSON)" : t.Name));
+			string.Join(", ", Map.Keys.Select(t => t == typeof(string) ? "string (JSON)" : t.Name))
+			+ ", and any DataAsset subclass";
 
-		public static Func<VoltageContentManager, string, string, bool, object> Resolve(Type t) =>
-			Map.TryGetValue(t, out var loader) ? loader : null;
+		public static Func<VoltageContentManager, string, string, bool, object> Resolve(Type t)
+		{
+			if (Map.TryGetValue(t, out var loader))
+				return loader;
+
+			return typeof(Voltage.Data.DataAsset).IsAssignableFrom(t) ? DataAssetLoader : null;
+		}
 	}
 
 	#endregion

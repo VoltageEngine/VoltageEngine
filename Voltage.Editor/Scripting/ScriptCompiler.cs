@@ -78,9 +78,21 @@ namespace Voltage.Editor.Scripting
 			// registers the id in its bootstrap. Cache-installed plugin sources are read-only:
 			// stamping there is refused and reported as a compile error instead.
 			var stampViolations = new List<string>();
-			var stampedFiles = ComponentIdStamper.StampMissing(compilation,
-				allowStamp: path => !Plugins.PluginManager.Instance.IsReadOnlyPluginSource(path),
-				violations: stampViolations);
+			Func<string, bool> allowStamp = path => !Plugins.PluginManager.Instance.IsReadOnlyPluginSource(path);
+
+			var stampedFiles = ComponentIdStamper.StampMissing(compilation, allowStamp, stampViolations);
+			if (stampedFiles.Count > 0)
+			{
+				// Reparse before the next pass, or it rewrites pre-stamp trees and undoes this one.
+				compilation = ReparseChangedTrees(compilation, stampedFiles);
+			}
+
+			var stampedAssetFiles = ComponentIdStamper.StampMissingAssetTypeIds(compilation, allowStamp, stampViolations);
+			if (stampedAssetFiles.Count > 0)
+			{
+				compilation = ReparseChangedTrees(compilation, stampedAssetFiles);
+			}
+
 			if (stampViolations.Count > 0)
 			{
 				return new CompilationResult
@@ -90,8 +102,6 @@ namespace Voltage.Editor.Scripting
 					Assembly = null
 				};
 			}
-			if (stampedFiles.Count > 0)
-				compilation = ReparseChangedTrees(compilation, stampedFiles);
 
 			// Run the Voltage.SourceGenerators source generator to produce ComponentData
 			// overrides for partial Component subclasses. This mirrors what MSBuild does

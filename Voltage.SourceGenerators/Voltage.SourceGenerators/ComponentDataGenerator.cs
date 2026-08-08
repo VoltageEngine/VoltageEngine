@@ -27,7 +27,7 @@ namespace Voltage.SourceGenerators;
 /// The generated code is AOT-safe: zero reflection, direct field access only.
 /// </summary>
 [Generator]
-public class ComponentDataGenerator : IIncrementalGenerator
+public partial class ComponentDataGenerator : IIncrementalGenerator
 {
 	private const string HideAttribute = "Voltage.HideAttributeInInspector";
 	private const string JsonExcludeAttribute = "Voltage.Persistence.JsonExcludeAttribute";
@@ -40,6 +40,7 @@ public class ComponentDataGenerator : IIncrementalGenerator
 	private const string EntityReferenceFullName = "Voltage.Serialization.EntityReference";
 	private const string PrefabReferenceFullName = "Voltage.Serialization.PrefabReference";
 	private const string ComponentGroupInterface = "Voltage.IComponentGroup";
+	private const string SerializableDataInterface = "Voltage.ISerializableData";
 
 	// Engine struct types whose readers are already hand-written in AotDeserializers.
 	// The generator calls those instead of emitting its own reader for these types.
@@ -102,6 +103,8 @@ namespace Voltage
 			ctx.AddSource("ComponentIdAttribute.g.cs",
 				SourceText.From(ComponentIdAttributeSource, Encoding.UTF8)));
 
+		// [AssetTypeId] is deliberately NOT emitted here — it is declared in the engine assembly. See DataAssetPipeline.
+
 		var dataGenCandidates = context.SyntaxProvider
 			.CreateSyntaxProvider(
 				predicate: static (node, _) => IsPartialClassCandidate(node),
@@ -124,6 +127,18 @@ namespace Voltage
 		{
 			EmitAotBootstrap(spc, components);
 		});
+
+		var dataAssets = context.SyntaxProvider
+			.CreateSyntaxProvider(
+				predicate: static (node, _) => node is ClassDeclarationSyntax,
+				transform: static (ctx, ct) => GetDataAssetModel(ctx, ct))
+			.Where(static x => x is not null)
+			.Select(static (x, _) => x!.Value);
+
+		context.RegisterSourceOutput(dataAssets, static (spc, model) => EmitDataAsset(spc, model));
+
+		context.RegisterSourceOutput(dataAssets.Collect(),
+			static (spc, all) => ReportDuplicateAssetTypeIds(spc, all));
 	}
 
 	#region Syntactic / Semantic Filters
@@ -1063,6 +1078,11 @@ namespace Voltage
 			return $"{readerMethod}({readerParam})";
 		}
 
+		// Enum-ness is not recoverable from a type name, so without this an enum silently
+		// deserializes to its default in a NativeAOT build while working in the editor.
+		if (m.IsEnum)
+			return $"{readerParam}.ReadEnum<{m.TypeFullName}>()";
+
 		// Delegate to the type-symbol based overload using a lightweight probe
 		// We encode the type kind in TypeFullName via the existing field
 		return GetReadExpressionFromTypeName(m.TypeFullName, readerParam);
@@ -1347,12 +1367,13 @@ namespace Voltage
 		foreach (var iface in named.AllInterfaces)
 		{
 			// Primary: fully-qualified match
-			if (iface.ToDisplayString() == ComponentGroupInterface)
+			if (iface.ToDisplayString() == ComponentGroupInterface ||
+				iface.ToDisplayString() == SerializableDataInterface)
 				return true;
 
 			// Fallback: match by name + containing namespace in case the symbol
 			// is unresolved or its display string differs (e.g. error type).
-			if (iface.Name == "IComponentGroup" &&
+			if ((iface.Name == "IComponentGroup" || iface.Name == "ISerializableData") &&
 				iface.ContainingNamespace?.ToDisplayString() == "Voltage")
 				return true;
 		}
@@ -1447,6 +1468,7 @@ namespace Voltage
 					bool isEntityRef = IsEntityType(field.Type, compilation);
 					bool isTransformRef = IsTransformType(field.Type, compilation);
 					bool isComponentGroup = IsComponentGroupType(field.Type);
+					bool isEnum = field.Type is INamedTypeSymbol { EnumUnderlyingType: not null };
 					bool isListField = IsListType(field.Type, out var listElementTypeSymbol);
 					ITypeSymbol dictValueTypeSymbol = null;
 					bool isDictField = !isListField && IsDictionaryStringKeyType(field.Type, out dictValueTypeSymbol);
@@ -1507,6 +1529,7 @@ namespace Voltage
 						{
 							Name = field.Name,
 							TypeFullName = field.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+							IsEnum = isEnum,
 							IsProperty = false,
 							IsPublic = true,
 							IsComponentReference = isComponentRef,
@@ -1533,6 +1556,7 @@ namespace Voltage
 						{
 							Name = field.Name,
 							TypeFullName = field.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+							IsEnum = isEnum,
 							IsProperty = false,
 							IsPublic = false,
 							IsComponentReference = isComponentRef,
@@ -1574,6 +1598,7 @@ namespace Voltage
 					bool isEntityRef = IsEntityType(prop.Type, compilation);
 					bool isTransformRef = IsTransformType(prop.Type, compilation);
 					bool isComponentGroup = IsComponentGroupType(prop.Type);
+					bool isEnum = prop.Type is INamedTypeSymbol { EnumUnderlyingType: not null };
 					bool isListField = IsListType(prop.Type, out var listElementTypeSymbol);
 					ITypeSymbol dictValueTypeSymbol = null;
 					bool isDictField = !isListField && IsDictionaryStringKeyType(prop.Type, out dictValueTypeSymbol);
@@ -1624,6 +1649,7 @@ namespace Voltage
 						{
 							Name = prop.Name,
 							TypeFullName = prop.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+							IsEnum = isEnum,
 							IsProperty = true,
 							IsPublic = true,
 							IsComponentReference = isComponentRef,
@@ -1650,6 +1676,7 @@ namespace Voltage
 						{
 							Name = prop.Name,
 							TypeFullName = prop.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+							IsEnum = isEnum,
 							IsProperty = true,
 							IsPublic = false,
 							IsComponentReference = isComponentRef,
@@ -2236,6 +2263,10 @@ namespace Voltage
 	private struct MemberModel
 	{
 		public string Name;
+		/// <summary>
+		/// True when the member's type is an enum.
+		/// </summary>
+		public bool IsEnum;
 		public string TypeFullName;
 		public bool IsProperty;
 		public bool IsPublic;

@@ -147,11 +147,6 @@
 
 	<ItemGroup>
 	  <ProjectReference Include="..\Voltage.Engine\Voltage.Engine.csproj" />
-	  <!-- Farseer is a bundled PLUGIN, not an editor dependency: build-order only, no assembly
-	       reference and no copy into the editor output. The BuildBundledPlugins target below builds
-	       and stages it under BundledPlugins/, and the editor loads it per-project via plugins.json. -->
-	  <ProjectReference Include="..\Voltage.FarseerPhysics\Voltage.FarseerPhysics.csproj"
-	                    ReferenceOutputAssembly="false" Private="false" />
 	  <ProjectReference Include="..\Voltage.Persistence\Voltage.Persistence.csproj" />
 	  <!--
 	    Reference the source generator project as a normal dependency (NOT as an Analyzer).
@@ -176,33 +171,10 @@
 		      Condition="Exists('$(_GeneratorBin)Voltage.SourceGenerators.dll')" />
 	</Target>
 
-	<!-- Build the bundled Farseer plugin into <output>/BundledPlugins/Voltage.FarseerPhysics/:
-	     lib/        = Release build (no EDITOR) — statically referenced into published games
-	     editor-lib/ = Editor-Release build (EDITOR defined) — loaded by the editor itself
-	     plugin.json = the checked-in manifest describing the package.
-	     MSBuild is incremental, so unchanged Farseer sources make this a near-no-op. -->
-	<Target Name="BuildBundledPlugins" AfterTargets="Build">
-		<PropertyGroup>
-			<_FarseerProj>$(MSBuildThisFileDirectory)..\Voltage.FarseerPhysics\Voltage.FarseerPhysics.csproj</_FarseerProj>
-			<_FarseerBundleDir>$(OutputPath)BundledPlugins\Voltage.FarseerPhysics\</_FarseerBundleDir>
-		</PropertyGroup>
 
-		<MSBuild Projects="$(_FarseerProj)" Targets="Build"
-		         Properties="Configuration=Release"
-		         RemoveProperties="RuntimeIdentifier;OutputPath;OutputType;SelfContained">
-			<Output TaskParameter="TargetOutputs" ItemName="_FarseerRuntimeDll" />
-		</MSBuild>
-		<MSBuild Projects="$(_FarseerProj)" Targets="Build"
-		         Properties="Configuration=Editor-Release"
-		         RemoveProperties="RuntimeIdentifier;OutputPath;OutputType;SelfContained">
-			<Output TaskParameter="TargetOutputs" ItemName="_FarseerEditorDll" />
-		</MSBuild>
-
-		<Copy SourceFiles="@(_FarseerRuntimeDll)" DestinationFolder="$(_FarseerBundleDir)lib" SkipUnchangedFiles="true" />
-		<Copy SourceFiles="@(_FarseerEditorDll)" DestinationFolder="$(_FarseerBundleDir)editor-lib" SkipUnchangedFiles="true" />
-		<Copy SourceFiles="$(MSBuildThisFileDirectory)BundledPlugins\Voltage.FarseerPhysics\plugin.json"
-		      DestinationFolder="$(_FarseerBundleDir)" SkipUnchangedFiles="true" />
-	</Target>
+	<!-- Nothing ships in BundledPlugins any more: Farseer moved to its own repository and installs from
+	     the plugin registry. "Bundled" remains a supported source kind for offline/enterprise distribution,
+	     it just has no default contents. See docs/plugins/README.md. -->
 
 	<!-- Copy DefaultContent to output, but exclude the Effects folder (since we compile them) -->
 	<ItemGroup>

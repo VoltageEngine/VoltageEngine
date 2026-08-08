@@ -20,6 +20,9 @@ public class AssetReferenceTypeInspector : AbstractTypeInspector
 	private bool _showPicker;
 	private string _pickerSearch = string.Empty;
 
+	private AssetSlotFilter _filter;
+	private AssetSlotFilter Filter => _filter ??= AssetSlotFilter.For(MemberInfo);
+
 	public override void DrawMutable()
 	{
 		var current = (AssetReference)_getter(_target);
@@ -29,7 +32,7 @@ public class AssetReferenceTypeInspector : AbstractTypeInspector
 
 		var label = current.IsValid
 			? (current.AssetName ?? current.AssetPath)
-			: "None (AssetReference)";
+			: $"None ({Filter.DisplayTypeName})";
 
 		var buttonColor = current.IsValid
 			? new Num.Vector4(0.25f, 0.45f, 0.55f, 0.9f)
@@ -66,7 +69,13 @@ public class AssetReferenceTypeInspector : AbstractTypeInspector
 		// AssetReference carries the GUID + project-relative hint path.
 		if (ImGui.BeginDragDropTarget())
 		{
-			var payload = ImGui.AcceptDragDropPayload(AssetBrowserWindow.DragDropPayloadId);
+			var dragged = AssetBrowserWindow.DraggedReference;
+			var draggedOk = dragged.IsEmpty || !Filter.IsConstrained ||
+							Filter.Accepts(Voltage.Editor.Assets.AssetDatabase.Instance?.Resolve(dragged), dragged.Guid);
+
+			var payload = draggedOk
+				? ImGui.AcceptDragDropPayload(AssetBrowserWindow.DragDropPayloadId)
+				: default;
 			bool accepted;
 			unsafe { accepted = payload.NativePtr != null; }
 
@@ -115,14 +124,14 @@ public class AssetReferenceTypeInspector : AbstractTypeInspector
 		if (!ImGui.BeginPopupModal($"assetref_picker_{_scopeId}", ref open, ImGuiWindowFlags.NoResize))
 			return;
 
-		ImGuiSafe.TextColoredSafe(new Num.Vector4(0.3f, 0.8f, 1f, 1f), $"{_name}  (AssetReference)");
+		ImGuiSafe.TextColoredSafe(new Num.Vector4(0.3f, 0.8f, 1f, 1f), $"{_name}  ({Filter.DisplayTypeName})");
 		ImGui.Separator();
 
 		ImGui.SetNextItemWidth(-1);
 		ImGui.InputTextWithHint("##assetsearch", "Search...", ref _pickerSearch, 128);
 		ImGui.Separator();
 
-		if (ImGui.Selectable("  None (AssetReference)", !current.IsValid))
+		if (ImGui.Selectable($"  None ({Filter.DisplayTypeName})", !current.IsValid))
 		{
 			SetValueWithUndo(default(AssetReference), $"Clear {_name}");
 			ImGui.CloseCurrentPopup();
@@ -162,7 +171,7 @@ public class AssetReferenceTypeInspector : AbstractTypeInspector
 				continue;
 			}
 
-			bool hasVisibleContent = FolderHasFiles(folder);
+			bool hasVisibleContent = FolderHasAcceptableFiles(folder);
 			if (!hasVisibleContent)
 				continue;
 
@@ -191,6 +200,9 @@ public class AssetReferenceTypeInspector : AbstractTypeInspector
 	{
 		var db    = Voltage.Editor.Assets.AssetDatabase.Instance;
 		var edRef = db?.GetReference(item.AbsolutePath) ?? Assets.AssetReference.Empty;
+
+		if (Filter.IsConstrained && !Filter.Accepts(item.AbsolutePath, edRef.Guid))
+			return;
 		bool isCurrent = current.IsValid && current.AssetGuid != Guid.Empty && current.AssetGuid == edRef.Guid;
 
 		if (ImGui.Selectable($"  {item.FileName}", isCurrent))
@@ -211,6 +223,26 @@ public class AssetReferenceTypeInspector : AbstractTypeInspector
 			ImGuiSafe.TextSafe(item.AbsolutePath);
 			ImGui.EndTooltip();
 		}
+	}
+
+	private bool FolderHasAcceptableFiles(Voltage.Editor.Assets.AssetFolderNode folder)
+	{
+		if (!Filter.IsConstrained)
+			return FolderHasFiles(folder);
+
+		var db = Voltage.Editor.Assets.AssetDatabase.Instance;
+		foreach (var file in folder.Files)
+		{
+			var guid = db?.GetReference(file.AbsolutePath).Guid ?? Guid.Empty;
+			if (Filter.Accepts(file.AbsolutePath, guid))
+				return true;
+		}
+
+		foreach (var child in folder.ChildFolders)
+			if (FolderHasAcceptableFiles(child))
+				return true;
+
+		return false;
 	}
 
 	internal static bool FolderHasFilesInternal(Voltage.Editor.Assets.AssetFolderNode folder) => FolderHasFiles(folder);

@@ -12,47 +12,59 @@ using Voltage.Editor.DebugUtils;
 namespace Voltage.Editor.Scripting
 {
 	/// <summary>
-	/// Gives every concrete component (and scene-component) script a stable, rename-proof identity by
-	/// stamping a <c>[Voltage.ComponentId("…")]</c> attribute on it the first time it is compiled
-	/// without one. Scenes reference components by this id rather than by their C# type name, so
-	/// renaming the class or moving its namespace no longer breaks the scenes that use it.
+	/// Gives types referenced <i>by identity</i> in serialized data a stable, rename-proof id, by stamping
+	/// a marker attribute on the first compile without one: <c>[ComponentId]</c> for components (scenes
+	/// reference them by it) and <c>[AssetTypeId]</c> for data assets (a <c>.vasset</c>'s <c>@assetType</c>).
 	///
-	/// The id is a human-readable alias (Orleans-style), defaulting to the class's simple name at the
-	/// moment of stamping. It is then <b>frozen</b>: the stamper never rewrites an existing id, so a
-	/// later class rename leaves the id untouched — which is exactly what keeps references stable.
-	/// Developers are free to hand-write any id string they prefer.
-	///
-	/// Detection is semantic (it walks the real inheritance chain via the Roslyn compilation), so
-	/// indirect subclasses such as <c>BonkerComponent : EnemyComponent : Component</c> are handled.
-	/// Stamping is idempotent — a class that already has the attribute is never touched, so this
-	/// causes a one-time edit per component and no churn thereafter.
+	/// <para>The id defaults to the class's simple name and is then <b>frozen</b> — never rewritten — which
+	/// is exactly what keeps references stable across a later rename. Detection is semantic, so indirect
+	/// subclasses are handled; stamping is idempotent, so it costs one edit per type and no churn.</para>
 	/// </summary>
 	internal static class ComponentIdStamper
 	{
-		private const string ComponentBase     = "Voltage.Component";
+		private const string ComponentBase = "Voltage.Component";
 		private const string SceneComponentBase = "Voltage.SceneComponent";
+		private const string DataAssetBase = "Voltage.Data.DataAsset";
 
-		/// <summary>
-		/// Scans every syntax tree in <paramref name="compilation"/> for concrete component classes
-		/// lacking a <c>[ComponentId]</c>, writes the attribute into the corresponding source files,
-		/// and returns the absolute paths of the files that were modified (empty when nothing changed).
-		///
-		/// <paramref name="allowStamp"/> (optional) gates which files may be mutated on disk: stamping is
-		/// only appropriate for sources the user owns (the project's Scripts folder, dev-mode plugin
-		/// folders). Cache-installed plugin packages are immutable — a component there that lacks an id is
-		/// reported into <paramref name="violations"/> instead and must be fixed by the plugin author
-		/// (published plugins must declare stable [ComponentId]s).
-		/// </summary>
+		/// <summary>Stamps <c>[ComponentId]</c> onto every concrete component / scene-component lacking one.</summary>
 		public static IReadOnlyList<string> StampMissing(CSharpCompilation compilation,
 			Func<string, bool> allowStamp = null, List<string> violations = null)
+			=> Stamp(compilation, new[] { ComponentBase, SceneComponentBase },
+				attributeSimpleName: "ComponentId", kindLabel: "component",
+				allowStamp: allowStamp, violations: violations);
+
+		/// <summary>Stamps <c>[AssetTypeId]</c> onto every concrete <c>DataAsset</c> subclass lacking one.</summary>
+		public static IReadOnlyList<string> StampMissingAssetTypeIds(CSharpCompilation compilation,
+			Func<string, bool> allowStamp = null, List<string> violations = null)
+			=> Stamp(compilation, new[] { DataAssetBase },
+				attributeSimpleName: "AssetTypeId", kindLabel: "data asset",
+				allowStamp: allowStamp, violations: violations);
+
+		/// <summary>
+		/// Writes the attribute into every source file declaring a matching type that lacks it, and returns
+		/// the paths modified.
+		///
+		/// <para><paramref name="allowStamp"/> gates which files may be mutated: only sources the user owns.
+		/// Cache-installed plugin packages are immutable, so a type there is reported into
+		/// <paramref name="violations"/> for the plugin author to fix.</para>
+		/// </summary>
+		private static IReadOnlyList<string> Stamp(
+			CSharpCompilation compilation,
+			string[] baseTypeFullNames,
+			string attributeSimpleName,
+			string kindLabel,
+			Func<string, bool> allowStamp,
+			List<string> violations)
 		{
 			var changedFiles = new List<string>();
 
-			var componentBase = compilation.GetTypeByMetadataName(ComponentBase);
-			var sceneComponentBase = compilation.GetTypeByMetadataName(SceneComponentBase);
-			if (componentBase == null && sceneComponentBase == null)
+			var baseTypes = baseTypeFullNames
+				.Select(compilation.GetTypeByMetadataName)
+				.Where(t => t != null)
+				.ToArray();
+
+			if (baseTypes.Length == 0)
 			{
-				// Engine reference missing — cannot classify components; skip silently.
 				return changedFiles;
 			}
 
@@ -74,17 +86,12 @@ namespace Voltage.Editor.Scripting
 					var symbol = model.GetDeclaredSymbol(classDecl);
 					if (symbol == null || symbol.IsAbstract)
 						continue;
-					if (!DerivesFrom(symbol, componentBase) && !DerivesFrom(symbol, sceneComponentBase))
+					if (!baseTypes.Any(b => DerivesFrom(symbol, b)))
 						continue;
-					// Detect an existing [ComponentId] SYNTACTICALLY. The attribute type is emitted by
-					// the generator, which has not run yet at stamp time, so a semantic lookup would
-					// fail to resolve it and we'd stamp a duplicate on every compile.
-					if (HasComponentIdSyntax(classDecl))
+					// Syntactic check: the generator has not run yet, so a semantic lookup would re-stamp every compile.
+					if (HasAttributeSyntax(classDecl, attributeSimpleName))
 						continue;
 
-					// Default the id to the class's simple name. If a file declares two components
-					// with the same simple name (rare) disambiguate the second within the file so the
-					// generator's duplicate-id diagnostic doesn't fire on a fresh stamp.
 					var id = symbol.Name;
 					int n = 2;
 					while (!usedIdsInFile.Add(id))
@@ -99,8 +106,9 @@ namespace Voltage.Editor.Scripting
 				if (allowStamp != null && !allowStamp(path))
 				{
 					violations?.Add(
-						$"{path}: component(s) missing a [ComponentId] attribute inside a read-only plugin package. " +
-						"Published plugins must declare stable [ComponentId]s on every component.");
+						$"{path}: {kindLabel}(s) missing a [{attributeSimpleName}] attribute inside a " +
+						"read-only plugin package. Published plugins must declare stable " +
+						$"[{attributeSimpleName}]s on every {kindLabel}.");
 					continue;
 				}
 
@@ -109,10 +117,6 @@ namespace Voltage.Editor.Scripting
 					var text = tree.GetText();
 					var changes = new List<TextChange>(insertions.Count + 1);
 
-					// The attribute is written unqualified ([ComponentId]) and lives in namespace
-					// Voltage, so the file needs `using Voltage;`. Component scripts virtually always
-					// have it (they derive from Voltage.Component), but guarantee it for the rare file
-					// that fully-qualifies its base type instead.
 					bool hasVoltageUsing = root.DescendantNodes().OfType<UsingDirectiveSyntax>()
 						.Any(u => u.Name?.ToString() == "Voltage");
 					if (!hasVoltageUsing)
@@ -125,7 +129,7 @@ namespace Voltage.Editor.Scripting
 					foreach (var (position, id) in insertions)
 					{
 						var indent = GetIndentAt(text, position);
-						var insert = $"[ComponentId(\"{id}\")]\r\n{indent}";
+						var insert = $"[{attributeSimpleName}(\"{id}\")]\r\n{indent}";
 						changes.Add(new TextChange(new TextSpan(position, 0), insert));
 					}
 
@@ -134,12 +138,12 @@ namespace Voltage.Editor.Scripting
 					changedFiles.Add(path);
 
 					EditorDebug.Log(
-						$"Stamped {insertions.Count} [ComponentId] attribute(s) into {Path.GetFileName(path)}.",
-						"ComponentId");
+						$"Stamped {insertions.Count} [{attributeSimpleName}] attribute(s) into {Path.GetFileName(path)}.",
+						attributeSimpleName);
 				}
 				catch (Exception ex)
 				{
-					Debug.Error($"[ComponentIdStamper] Failed to stamp '{path}': {ex.Message}");
+					Debug.Error($"[{attributeSimpleName}Stamper] Failed to stamp '{path}': {ex.Message}");
 				}
 			}
 
@@ -174,14 +178,8 @@ namespace Voltage.Editor.Scripting
 			return false;
 		}
 
-		/// <summary>
-		/// True when the class declaration already carries a <c>[ComponentId]</c> attribute, checked
-		/// against the attribute's <b>syntax</b> (its written name) rather than a resolved symbol.
-		/// This is deliberate: the attribute type is generator-emitted and is not yet part of the
-		/// compilation when the stamper runs, so a semantic check would never see an existing id and
-		/// would re-stamp a duplicate on every compile.
-		/// </summary>
-		private static bool HasComponentIdSyntax(ClassDeclarationSyntax classDecl)
+		/// <summary>Checked against written syntax rather than a resolved symbol — see the call site.</summary>
+		private static bool HasAttributeSyntax(ClassDeclarationSyntax classDecl, string attributeSimpleName)
 		{
 			foreach (var list in classDecl.AttributeLists)
 			{
@@ -191,7 +189,7 @@ namespace Voltage.Editor.Scripting
 					int dot = name.LastIndexOf('.');
 					if (dot >= 0)
 						name = name.Substring(dot + 1);
-					if (name == "ComponentId" || name == "ComponentIdAttribute")
+					if (name == attributeSimpleName || name == attributeSimpleName + "Attribute")
 						return true;
 				}
 			}

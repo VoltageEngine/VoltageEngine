@@ -76,6 +76,13 @@ namespace Voltage.Cinematics
 		public bool KeepAfterTimeline;
 	}
 
+	/// <summary>A named point on the timeline, for navigation. No runtime effect — see <see cref="TimelineAsset.Markers"/>.</summary>
+	public class TimelineMarker
+	{
+		public string Name;
+		public float Time;
+	}
+
 	/// <summary>A named actor slot declared by a timeline asset, bound to a real entity per scene by the director.</summary>
 	public class TimelineRole
 	{

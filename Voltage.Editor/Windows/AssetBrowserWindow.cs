@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using ImGuiNET;
+using Voltage.Assets;
 using Voltage.Editor.Hotkeys;
 using Voltage.Editor.Assets;
 using Voltage.Editor.DebugUtils;
@@ -175,6 +176,8 @@ public class AssetBrowserWindow : IDisposable
     // so the rebuild is deferred to the end of Draw() to avoid "collection was modified".
     private bool _refreshRequested = false;
 
+    private int _seenAssetTypeVersion = -1;
+
     #region Ping (reveal + highlight)
 
     private const double PingDuration = 1.6;
@@ -270,13 +273,12 @@ public class AssetBrowserWindow : IDisposable
 
     #endregion
 
-    // Generic "create asset of kind X" modal: each kind supplies a label, extension and writer.
     private bool _showCreateAssetPopup = false;
     private string _createAssetFolder = null;
-    private string _createAssetName = "NewTimeline";
-    private string _createAssetLabel = "Timeline";
-    private string _createAssetExtension = Voltage.Cinematics.TimelineAssetIO.FileExtension;
-    private Action<string> _createAssetWriter = path => Voltage.Cinematics.TimelineAssetIO.CreateAndSave(path);
+    private string _createAssetName = string.Empty;
+    private string _createAssetLabel = "Asset";
+    private string _createAssetExtension = string.Empty;
+    private Action<string> _createAssetWriter = null;
 
     public AssetBrowserWindow()
     {
@@ -371,6 +373,13 @@ public class AssetBrowserWindow : IDisposable
         // Must be outside Begin/End to be modal.
         DrawDeleteConfirmationPopup();
         DrawCreateAssetPopup();
+
+        if (_seenAssetTypeVersion != AssetTypeRegistry.Version)
+        {
+            _seenAssetTypeVersion = AssetTypeRegistry.Version;
+            AssetBrowserIcons.ClearCache();
+            _refreshRequested = true;
+        }
 
         if (_refreshRequested)
         {
@@ -620,7 +629,7 @@ public class AssetBrowserWindow : IDisposable
 
     private void DrawAssetRow(AssetItem item, string parentFolderPath)
     {
-        var iconId = AssetBrowserIcons.GetIconId(item.Descriptor.Kind);
+        var iconId = AssetBrowserIcons.GetIconId(item.Descriptor);
 
         if (iconId != IntPtr.Zero)
         {
@@ -683,6 +692,8 @@ public class AssetBrowserWindow : IDisposable
                 DropHandlers.OpenPrefabIsolated(reference);
             else if (item.Descriptor.Kind == AssetKind.Tileset)
                 Core.GetGlobalManager<ImGuiManager>()?.TilesetEditorWindow.Open(item.AbsolutePath);
+            else if (item.Descriptor.Kind == AssetKind.Data)
+                Core.GetGlobalManager<ImGuiManager>()?.DataAssetWindow.Open(item.AbsolutePath);
         }
         else if (clicked)
         {
@@ -1339,10 +1350,7 @@ public class AssetBrowserWindow : IDisposable
 
         if (ImGui.BeginMenu("Create"))
         {
-            if (ImGui.MenuItem("Timeline"))
-                BeginCreateTimeline(node.AbsolutePath);
-            if (ImGui.MenuItem("Tileset"))
-                BeginCreateTileset(node.AbsolutePath);
+            DrawCreateAssetMenuItems(node.AbsolutePath);
             ImGui.EndMenu();
         }
 
@@ -1437,15 +1445,36 @@ public class AssetBrowserWindow : IDisposable
         }
     }
 
-    private void BeginCreateTimeline(string targetFolder) =>
-        BeginCreateAsset(targetFolder, "Timeline", "NewTimeline",
-            Voltage.Cinematics.TimelineAssetIO.FileExtension,
-            path => Voltage.Cinematics.TimelineAssetIO.CreateAndSave(path));
+    private void DrawCreateAssetMenuItems(string targetFolder)
+    {
+        foreach (var format in AssetFileRegistry.All.OrderBy(f => f.DisplayName, StringComparer.OrdinalIgnoreCase))
+        {
+            var options = format.CreateOptions;
+            if (options == null || options.Count == 0)
+                continue;
 
-    private void BeginCreateTileset(string targetFolder) =>
-        BeginCreateAsset(targetFolder, "Tileset", "NewTileset",
-            Voltage.Tilesets.TilesetAssetIO.FileExtension,
-            path => Voltage.Tilesets.TilesetAssetIO.CreateAndSave(path));
+            if (options.Count == 1)
+            {
+                var option = options[0];
+                if (ImGui.MenuItem(option.Label))
+                    BeginCreateAsset(targetFolder, option.Label, option.DefaultFileName,
+                        format.Extension, path => option.Write(path));
+                continue;
+            }
+
+            if (!ImGui.BeginMenu(format.DisplayName))
+                continue;
+
+            foreach (var option in options)
+            {
+                if (ImGui.MenuItem(option.Label))
+                    BeginCreateAsset(targetFolder, option.Label, option.DefaultFileName,
+                        format.Extension, path => option.Write(path));
+            }
+
+            ImGui.EndMenu();
+        }
+    }
 
     // Arms the create-asset popup for the given target folder, seeding a default name.
     private void BeginCreateAsset(string targetFolder, string label, string defaultName, string extension,
@@ -1538,6 +1567,12 @@ public class AssetBrowserWindow : IDisposable
         name = name?.Trim();
         if (string.IsNullOrEmpty(name))
             return;
+
+        if (_createAssetWriter == null || string.IsNullOrEmpty(_createAssetExtension))
+        {
+            EditorDebug.Log("AssetBrowser: create requested with no asset kind armed.", "AssetBrowser");
+            return;
+        }
 
         string ext = _createAssetExtension;
         string kind = _createAssetLabel.ToLowerInvariant();
@@ -1810,7 +1845,7 @@ public class AssetBrowserWindow : IDisposable
     private void DrawFileShortcut(string relPath, string abs)
     {
         var descriptor = AssetTypeRegistry.Resolve(Path.GetExtension(abs));
-        var iconId = AssetBrowserIcons.GetIconId(descriptor.Kind);
+        var iconId = AssetBrowserIcons.GetIconId(descriptor);
         if (iconId != IntPtr.Zero)
         {
             ImGui.Image(iconId, new Num.Vector2(IconSize, IconSize));
@@ -1827,6 +1862,8 @@ public class AssetBrowserWindow : IDisposable
                 DropHandlers.DropScene(reference);
             else if (descriptor.Kind == AssetKind.Prefab)
                 DropHandlers.OpenPrefabIsolated(reference);
+            else if (descriptor.Kind == AssetKind.Data)
+                Core.GetGlobalManager<ImGuiManager>()?.DataAssetWindow.Open(abs);
         }
 
         // Drag SOURCE: droppable file shortcuts carry an AssetReference for scene/inspector drops.

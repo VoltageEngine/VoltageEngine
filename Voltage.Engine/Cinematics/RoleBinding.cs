@@ -7,7 +7,12 @@ namespace Voltage.Cinematics
 	/// Lives on the <see cref="TimelineDirector"/> (per-scene data), not on the reusable asset — which is
 	/// what lets the same timeline drive different actors in different levels.
 	/// </summary>
-	public class RoleBinding
+	/// <remarks>
+	/// <see cref="ISerializableData"/> is required, not decorative: without it the generator does not
+	/// recognise <c>List&lt;RoleBinding&gt;</c> as serializable and silently drops the director's bindings
+	/// from the scene, so every role resolves to null on load.
+	/// </remarks>
+	public class RoleBinding : ISerializableData
 	{
 		/// <summary>The role name this binding satisfies (matches a <see cref="TimelineRole.Name"/>).</summary>
 		public string Role;
