@@ -41,6 +41,10 @@ namespace Voltage.Editor.Assets
         Audio,
         Timeline,
         Tileset,
+        /// <summary>A <c>.vasset</c> data container (see <c>Voltage.Data.DataAsset</c>).</summary>
+        Data,
+        /// <summary>A file type contributed by a plugin. Carries its own icon via the descriptor.</summary>
+        Custom,
         Unsupported,
     }
 
@@ -67,11 +71,21 @@ namespace Voltage.Editor.Assets
     );
 
     /// <summary>
-    /// Singleton registry that maps file extensions to <see cref="AssetTypeDescriptor"/>s.
-    /// Resolves unknown extensions to the <c>Unsupported</c> fallback descriptor.
+    /// Maps file extensions to <see cref="AssetTypeDescriptor"/>s, resolving unknown ones to the
+    /// <c>Unsupported</c> fallback.
+    ///
+    /// <para><b>Plugins register here too.</b> Call <see cref="Register"/> from an
+    /// <c>IEditorPlugin</c> so a plugin-contributed file type gets its own icon and drop behaviour
+    /// instead of showing as unsupported. <see cref="Version"/> bumps on every registration so the Asset
+    /// Browser can re-resolve descriptors for files it indexed before the plugin loaded.</para>
     /// </summary>
     public static class AssetTypeRegistry
     {
+        /// <summary>
+        /// Bumped on every registration.
+        /// </summary>
+        public static int Version { get; private set; }
+
         private const string IconDir         = "DefaultContent/UI/RemixIcon/FileTypes/";
         private const string IconTexture     = IconDir + "Voltage-Aseprite.png"; 
         private const string IconPrefab      = IconDir + "Voltage-Prefab.png";
@@ -80,9 +94,9 @@ namespace Voltage.Editor.Assets
         private const string IconUnsupported = IconDir + "Voltage-Unsupported-File.png";
         private const string IconAudio       = IconDir + "Voltage-Audio.png";
 
-		// No dedicated Effect or Tiled icon confirmed in the directory — fall back to unsupported icon.
 		private const string IconEffect = IconUnsupported;
         private const string IconTiled  = IconUnsupported;
+        private const string IconData   = IconUnsupported;
 
         private const string IconTileset = "DefaultContent/UI/Custom/CursorSelection-UI-TileBrush.png";
 
@@ -168,12 +182,29 @@ namespace Voltage.Editor.Assets
                 Kind: AssetKind.Tileset,
                 DropFactory: DropHandlers.DropTileset
             ));
+
+            Register(new AssetTypeDescriptor(
+                Extensions: new[] { Voltage.Data.DataAssetIO.FileExtension },
+                IconPath: IconData,
+                Kind: AssetKind.Data
+            ));
         }
 
-        private static void Register(AssetTypeDescriptor descriptor)
+        /// <summary>
+        /// Registers a file-type family, replacing any previous descriptor for the same extensions.
+        /// </summary>
+        public static void Register(AssetTypeDescriptor descriptor)
         {
+            if (descriptor?.Extensions == null)
+                return;
+
             foreach (var ext in descriptor.Extensions)
-                _map[ext] = descriptor;
+            {
+                if (!string.IsNullOrEmpty(ext))
+                    _map[ext.StartsWith(".") ? ext : "." + ext] = descriptor;
+            }
+
+            Version++;
         }
 
         /// <summary>

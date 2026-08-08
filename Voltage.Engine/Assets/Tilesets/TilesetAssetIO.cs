@@ -1,41 +1,35 @@
-using System.IO;
-using Voltage.Persistence;
+using Voltage.Assets;
 
 namespace Voltage.Tilesets
 {
-	/// <summary>Load/save for <c>.vtileset</c> assets.</summary>
+	/// <summary>
+	/// Load/save for <c>.vtileset</c> assets.
+	/// </summary>
 	public static class TilesetAssetIO
 	{
 		public const string FileExtension = ".vtileset";
 
-		private static JsonSettings Settings() => new()
-		{
-			PrettyPrint = true,
-			TypeNameHandling = TypeNameHandling.None,
-			PreserveReferencesHandling = false,
-		};
+		/// <summary>Default JSON settings: a tileset holds no polymorphic members.</summary>
+		public static readonly JsonAssetFile<TilesetAsset> Format = new(
+			FileExtension,
+			"Tileset",
+			createDefault: name => new TilesetAsset
+			{
+				Name = name,
+				TileWidth = 16,
+				TileHeight = 16,
+			});
 
-		public static TilesetAsset CreateDefault(string name = null) => new()
-		{
-			Name = name,
-			TileWidth = 16,
-			TileHeight = 16,
-		};
+		public static TilesetAsset CreateDefault(string name = null) => Format.CreateDefault(name);
 
-		public static TilesetAsset CreateAndSave(string path)
-		{
-			var asset = CreateDefault(Path.GetFileNameWithoutExtension(path));
-			Save(asset, path);
-			return asset;
-		}
+		public static TilesetAsset CreateAndSave(string path) => Format.CreateAndSave(path);
 
-		public static string ToJson(TilesetAsset asset) => Json.ToJson(asset, Settings());
+		public static string ToJson(TilesetAsset asset) => Format.ToJson(asset);
 
-		public static TilesetAsset FromJson(string json) => Json.FromJson<TilesetAsset>(json, Settings());
+		public static TilesetAsset FromJson(string json) => Format.FromJson(json);
 
-		public static void Save(TilesetAsset asset, string path) => File.WriteAllText(path, ToJson(asset));
+		public static void Save(TilesetAsset asset, string path) => Format.Save(asset, path);
 
-		public static TilesetAsset Load(string path) =>
-			File.Exists(path) ? FromJson(File.ReadAllText(path)) : null;
+		public static TilesetAsset Load(string path) => Format.Load(path);
 	}
 }

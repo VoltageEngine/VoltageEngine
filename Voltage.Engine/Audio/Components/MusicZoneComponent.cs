@@ -14,6 +14,7 @@ namespace Voltage.Audio
 	public partial class MusicZoneComponent : Component, ITriggerListener, IUpdatable, IUpdatableInPauseMode
 	{
 		/// <summary>Music track to play on enter (drag from the Asset Browser).</summary>
+		[AssetType(".wav", ".ogg", ".mp3")]
 		public AssetReference Track;
 
 		/// <summary>Music volume 0..1 on the Music bus. 0 = silent.</summary>

@@ -14,6 +14,7 @@ namespace Voltage.Audio
 	public partial class AmbienceZoneComponent : Component, ITriggerListener, IUpdatable, IUpdatableInPauseMode
 	{
 		/// <summary>Looping ambience clip to play (drag from the Asset Browser).</summary>
+		[AssetType(".wav", ".ogg", ".mp3")]
 		public AssetReference Ambience;
 
 		/// <summary>Target mixer bus name. Defaults to Ambience.</summary>

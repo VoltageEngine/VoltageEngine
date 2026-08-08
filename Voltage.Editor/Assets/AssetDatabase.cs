@@ -156,6 +156,8 @@ namespace Voltage.Editor.Assets
         // can report "dangling" rather than silently failing.
         private readonly HashSet<Guid> _danglingGuids = new();
 
+        private readonly Dictionary<Guid, string> _dataAssetTypeIds = new();
+
         private readonly List<FileSystemWatcher> _watchers = new();
         private readonly Timer _debounceTimer;
         private readonly object _fswLock = new();
@@ -288,6 +290,45 @@ namespace Voltage.Editor.Assets
             }
 
             return guid;
+        }
+
+        /// <summary>
+        /// The <c>@assetType</c> of a <c>.vasset</c>, or null if that GUID is not one.
+        /// </summary>
+        public string GetDataAssetTypeId(Guid guid)
+        {
+            if (guid == Guid.Empty)
+                return null;
+
+            lock (_guidLock)
+            {
+                if (_dataAssetTypeIds.TryGetValue(guid, out var cached))
+                    return cached;
+            }
+
+            var path = GetPath(guid);
+            if (string.IsNullOrEmpty(path) ||
+                !path.EndsWith(Voltage.Data.DataAssetIO.FileExtension, StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            var id = Voltage.Data.DataAssetIO.PeekAssetTypeId(path);
+            if (id != null)
+            {
+                lock (_guidLock)
+                    _dataAssetTypeIds[guid] = id;
+            }
+
+            return id;
+        }
+
+        /// <summary>Drops the cached <c>@assetType</c> after a content change.</summary>
+        private void InvalidateDataAssetTypeId(Guid guid)
+        {
+            if (guid == Guid.Empty)
+                return;
+
+            lock (_guidLock)
+                _dataAssetTypeIds.Remove(guid);
         }
 
         /// <summary>
@@ -571,6 +612,7 @@ namespace Voltage.Editor.Assets
                 {
                     _guidToPath.Remove(guid);
                     _danglingGuids.Add(guid);
+                    _dataAssetTypeIds.Remove(guid);
                 }
             }
         }
@@ -590,6 +632,8 @@ namespace Voltage.Editor.Assets
                 watcher.Created += OnFswEvent;
                 watcher.Deleted += OnFswEvent;
                 watcher.Renamed += OnFswRename;
+
+                watcher.Changed += OnFswEvent;
 
                 _watchers.Add(watcher);
             }
@@ -680,6 +724,10 @@ namespace Voltage.Editor.Assets
                             needsBrowserRefresh = true;
                         }
                     }
+                    else if (ev.ChangeType == WatcherChangeTypes.Changed)
+                    {
+                        HandleContentChanged(ev.FullPath);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -711,6 +759,23 @@ namespace Voltage.Editor.Assets
 
             // Ensure the new path is indexed (the .meta will have moved with the file).
             GetOrCreateGuid(newAbsPath);
+        }
+
+        /// <summary>
+        /// Only <c>.vasset</c> files act on a content-only write: the cached header is dropped and any live instance is re-read <b>in place</b>, so an open window and a running play session both pick up an external edit without a restart.
+        /// </summary>
+        private void HandleContentChanged(string absolutePath)
+        {
+            if (string.IsNullOrEmpty(absolutePath) ||
+                !absolutePath.EndsWith(Voltage.Data.DataAssetIO.FileExtension, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            Guid guid;
+            lock (_guidLock)
+                _pathToGuid.TryGetValue(absolutePath, out guid);
+
+            InvalidateDataAssetTypeId(guid);
+            Voltage.Data.DataAssetCache.ReloadPath(absolutePath);
         }
 
         /// <summary>

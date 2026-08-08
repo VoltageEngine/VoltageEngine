@@ -89,6 +89,7 @@ namespace Voltage.Tilesets
 		public int Spacing;
 		public int Margin;
 
+		[AssetType(".png", ".aseprite", ".ase")]
 		public AssetReference Texture;
 		public TilesetImageSource TextureSource = TilesetImageSource.Png;
 
@@ -117,6 +118,7 @@ namespace Voltage.Tilesets
 		public int TextureAnimEnd;
 
 		/// <summary>Parallel atlas: must have identical pixel dimensions and grid layout as <see cref="Texture"/>.</summary>
+		[AssetType(".png", ".aseprite", ".ase")]
 		public AssetReference NormalMap;
 		public TilesetImageSource NormalMapSource = TilesetImageSource.Png;
 

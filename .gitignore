@@ -89,3 +89,7 @@ desktop.ini
 # Editor Specific
 Voltage.Editor/Content/
 
+
+# Plugin package staging — release artifacts, never committed.
+Voltage.FarseerPhysics/lib/
+Voltage.FarseerPhysics/editor-lib/
