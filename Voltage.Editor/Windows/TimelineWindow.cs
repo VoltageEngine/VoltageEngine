@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using ImGuiNET;
 using Voltage.Cinematics;
+using Voltage.Sprites;
 using Voltage.Editor.Assets;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.ImGuiCore;
@@ -47,22 +48,48 @@ namespace Voltage.Editor.Windows
 			public bool HasCamera;
 		}
 
-		private enum LaneKind { Transform, Camera, Event, Spawn }
+		private enum LaneKind { Transform, Camera, Event, Spawn, Tint, Sprite, Activation, Audio, Property, Nested }
 
-		private struct Lane
+		/// <summary>
+		/// One draggable element on a lane.
+		/// </summary>
+		private sealed class LaneItem
+		{
+			public float Time;
+			public float Duration;
+			public string Label;
+
+			/// <summary>
+			/// The underlying keyframe / clip / range instance.
+			/// </summary>
+			public object Key;
+
+			/// <summary>Writes an edited (time, duration) back into the underlying keyframe / clip / range.</summary>
+			public Action<float, float> Apply;
+
+			public bool IsRange => Duration > 0f;
+		}
+
+		private sealed class Lane
 		{
 			public string Name;
 			public LaneKind Kind;
-			public List<float> Marks;              // instant keyframes / events
-			public List<(float Start, float Len)> Ranges;  // ranged events
-			public float Start, Length;            // spawn bar
+			public readonly List<LaneItem> Items = new();
 		}
 
+		private enum DragMode { None, Move, ResizeStart, ResizeEnd }
+
+		private DragMode _dragMode;
+		private object _dragKey;
+		private float _dragGrabOffset;
+
+		private bool _needsNormalize;
 		private static readonly Num.Vector4 Muted = new(0.6f, 0.6f, 0.6f, 1f);
 		private static readonly Num.Vector4 Ok = new(0.3f, 1f, 0.4f, 1f);
 		private static readonly Num.Vector4 Warn = new(1f, 0.8f, 0.2f, 1f);
 
 		private static readonly string[] EaseNames = Enum.GetNames(typeof(EaseType));
+		private static readonly string[] LoopNames = Enum.GetNames(typeof(SpriteAnimator.LoopMode));
 		private static readonly string[] SkipNames = Enum.GetNames(typeof(SkipBehavior));
 
 		public void Draw()
@@ -118,8 +145,21 @@ namespace Voltage.Editor.Windows
 				if (ImGui.BeginTabItem("Roles"))      { DrawRoles(); ImGui.EndTabItem(); }
 				if (ImGui.BeginTabItem("Events"))     { DrawEvents(); ImGui.EndTabItem(); }
 				if (ImGui.BeginTabItem("Transform"))  { DrawTransformTracks(); ImGui.EndTabItem(); }
+				if (ImGui.BeginTabItem("Tint"))       { DrawTintTracks(); ImGui.EndTabItem(); }
+				if (ImGui.BeginTabItem("Sprite"))     { DrawSpriteTracks(); ImGui.EndTabItem(); }
+				if (ImGui.BeginTabItem("Active"))     { DrawActivationTracks(); ImGui.EndTabItem(); }
+				if (ImGui.BeginTabItem("Audio"))      { DrawAudioTracks(); ImGui.EndTabItem(); }
+				if (ImGui.BeginTabItem("Property"))   { DrawPropertyTracks(); ImGui.EndTabItem(); }
+				if (ImGui.BeginTabItem("Nested"))     { DrawNestedTracks(); ImGui.EndTabItem(); }
 				if (ImGui.BeginTabItem("Spawns"))     { DrawSpawns(); ImGui.EndTabItem(); }
+				if (ImGui.BeginTabItem("Markers"))    { DrawMarkers(); ImGui.EndTabItem(); }
 				ImGui.EndTabBar();
+			}
+
+			if (_needsNormalize)
+			{
+				NormalizeAsset();
+				_needsNormalize = false;
 			}
 
 			ImGui.End();
@@ -139,6 +179,7 @@ namespace Voltage.Editor.Windows
 			StopPreview();
 			_director = director;
 			_asset = _director != null ? LoadOrNull(_director) : null;
+			CancelDrag();
 			_scrub = 0f;
 		}
 
@@ -227,6 +268,21 @@ namespace Voltage.Editor.Windows
 				_asset.Duration = Math.Max(0.1f, dur);
 
 			ImGui.SameLine();
+			var contentEnd = _asset.ContentEndTime();
+			if (contentEnd > _asset.Duration + 0.001f)
+			{
+				ImGui.TextColored(Warn, $"content runs to {contentEnd:0.00}s");
+				if (ImGui.IsItemHovered())
+					ImGui.SetTooltip("Anything past Length never plays. Press Fit to extend the timeline.");
+				ImGui.SameLine();
+			}
+
+			if (ImGui.Button("Fit"))
+				_asset.Duration = Math.Max(0.1f, contentEnd);
+			if (ImGui.IsItemHovered())
+				ImGui.SetTooltip("Set Length to the end of the last keyframe, clip, event or marker.");
+
+			ImGui.SameLine();
 			if (ImGui.Button("Save"))
 				SaveIfPathKnown();
 			ImGui.SameLine();
@@ -263,6 +319,7 @@ namespace Voltage.Editor.Windows
 			try
 			{
 				_asset = TimelineAssetIO.CreateAndSave(path);
+				CancelDrag();
 				AssignTimelineToDirector(path);
 				_scrub = 0f;
 				_status = $"Created {Path.GetFileName(path)}.";
@@ -289,6 +346,7 @@ namespace Voltage.Editor.Windows
 					return;
 				}
 				_asset = loaded;
+				CancelDrag();
 				AssignTimelineToDirector(path);
 				_scrub = 0f;
 				_status = $"Loaded {Path.GetFileName(path)}.";
@@ -345,12 +403,209 @@ namespace Voltage.Editor.Windows
 			{
 				_asset.InvalidateEventOrder();
 				TimelineAssetIO.Save(_asset, path);
+				TimelineNestedTrack.ClearCache();
 				_status = $"Saved to {Path.GetFileName(path)}.";
 			}
 			catch (Exception ex)
 			{
 				_status = $"Save failed: {ex.Message}";
 			}
+		}
+
+		#endregion
+
+		#region Property tracks
+
+		private void DrawPropertyTracks()
+		{
+			ImGui.TextColored(Muted,
+				"Animate any component member marked [TimelineProperty]. Supported types: float, Vector2, Color.");
+			ImGui.Spacing();
+
+			var registered = TimelinePropertyRegistry.Registered().OrderBy(r => r.ComponentId)
+				.ThenBy(r => r.Property).ToList();
+
+			if (registered.Count == 0)
+			{
+				ImGui.TextColored(Warn,
+					"No [TimelineProperty] members found. Mark a public float/Vector2/Color on a component\n" +
+					"that has a [ComponentId], then recompile.");
+			}
+
+			var tracks = _asset.ParameterTracks.OfType<TimelinePropertyTrack>().ToList();
+			for (var i = 0; i < tracks.Count; i++)
+			{
+				var track = tracks[i];
+				ImGui.PushID("prop" + i);
+				ImGui.Separator();
+
+				ImGui.SetNextItemWidth(160);
+				DrawRoleSelect("Target Role", ref track.TargetRole);
+				ImGui.SameLine();
+				if (ImGui.SmallButton("Remove Track")) { _asset.ParameterTracks.Remove(track); ImGui.PopID(); break; }
+
+				var current = string.IsNullOrEmpty(track.Property)
+					? "(pick a property)"
+					: $"{track.TargetComponentId}.{track.Property}";
+
+				ImGui.SetNextItemWidth(280);
+				if (ImGui.BeginCombo("Property", current))
+				{
+					foreach (var entry in registered)
+					{
+						var label = $"{entry.ComponentId}.{entry.Property}  ({entry.Kind})";
+						var selected = entry.ComponentId == track.TargetComponentId && entry.Property == track.Property;
+						if (ImGui.Selectable(label, selected))
+						{
+							track.TargetComponentId = entry.ComponentId;
+							track.Property = entry.Property;
+						}
+					}
+					ImGui.EndCombo();
+				}
+
+				if (TimelinePropertyRegistry.TryGetKind(track.TargetComponentId, track.Property, out var kind))
+				{
+					switch (kind)
+					{
+						case TimelinePropertyKind.Float: DrawFloatKeys("Value", track.FloatKeys); break;
+						case TimelinePropertyKind.Vector2: DrawVector2Keys("Value", track.Vector2Keys); break;
+						case TimelinePropertyKind.Color: DrawColorKeys("Value", track.ColorKeys); break;
+					}
+				}
+				else if (!string.IsNullOrEmpty(track.Property))
+				{
+					ImGui.TextColored(Warn,
+						$"'{track.TargetComponentId}.{track.Property}' is no longer registered — it was renamed or removed.");
+				}
+
+				ImGui.PopID();
+			}
+
+			ImGui.Separator();
+			if (ImGui.Button("Add Property Track"))
+				_asset.ParameterTracks.Add(new TimelinePropertyTrack { TargetRole = _asset.Roles.FirstOrDefault()?.Name });
+		}
+
+		#endregion
+
+		#region Nested timelines
+
+		private void DrawNestedTracks()
+		{
+			ImGui.TextColored(Muted,
+				"Play other timelines as reusable beats. Roles are shared with this timeline, so a nested\n" +
+				"beat referencing \"Hero\" binds to this timeline's \"Hero\". Nested spawn clips are not run.");
+			ImGui.Spacing();
+
+			var tracks = _asset.ParameterTracks.OfType<TimelineNestedTrack>().ToList();
+			for (var i = 0; i < tracks.Count; i++)
+			{
+				var track = tracks[i];
+				ImGui.PushID("nest" + i);
+				ImGui.Separator();
+
+				if (ImGui.SmallButton("Remove Track")) { _asset.ParameterTracks.Remove(track); ImGui.PopID(); break; }
+
+				for (var c = 0; c < track.Clips.Count; c++)
+				{
+					var clip = track.Clips[c];
+					ImGui.PushID(c);
+
+					ImGui.SetNextItemWidth(70);
+					MarkEditedTime(ImGui.InputFloat("t", ref clip.Time, 0, 0, "%.2f"));
+					ImGui.SameLine();
+
+					var label = clip.Timeline.IsValid ? (clip.Timeline.AssetName ?? "timeline") : "None (.vtimeline)";
+					ImGui.Button($"{label}##nested", new Num.Vector2(170, 0));
+					if (ImGui.BeginDragDropTarget())
+					{
+						var payload = ImGui.AcceptDragDropPayload(AssetBrowserWindow.DragDropPayloadId);
+						bool accepted;
+						unsafe { accepted = payload.NativePtr != null; }
+						if (accepted && !AssetBrowserWindow.DraggedReference.IsEmpty)
+						{
+							var dr = AssetBrowserWindow.DraggedReference;
+							AssetBrowserWindow.DraggedReference = Voltage.Editor.Assets.AssetReference.Empty;
+							clip.Timeline = new Voltage.Serialization.AssetReference
+							{
+								AssetGuid = dr.Guid,
+								AssetPath = dr.HintPath,
+								AssetName = Path.GetFileNameWithoutExtension(dr.HintPath),
+							};
+							clip.Name ??= clip.Timeline.AssetName;
+							TimelineNestedTrack.ClearCache();
+						}
+						ImGui.EndDragDropTarget();
+					}
+
+					ImGui.SameLine();
+					ImGui.SetNextItemWidth(60);
+					ImGui.InputFloat("speed", ref clip.Speed, 0, 0, "%.2f");
+					ImGui.SameLine();
+					if (ImGui.SmallButton("x")) { track.Clips.RemoveAt(c); ImGui.PopID(); break; }
+					ImGui.PopID();
+				}
+
+				if (ImGui.SmallButton("+ nested"))
+					track.Clips.Add(new TimelineNestedClip { Time = _scrub });
+
+				ImGui.PopID();
+			}
+
+			ImGui.Separator();
+			if (ImGui.Button("Add Nested Track"))
+				_asset.ParameterTracks.Add(new TimelineNestedTrack());
+
+			ImGui.SameLine();
+			if (ImGui.Button("Reload Nested"))
+				TimelineNestedTrack.ClearCache();
+			if (ImGui.IsItemHovered())
+				ImGui.SetTooltip("Nested timelines are cached. Press this after editing one to see the change.");
+		}
+
+		#endregion
+
+		#region Markers
+
+		private void DrawMarkers()
+		{
+			ImGui.TextColored(Muted,
+				"Named points for navigation — jump the playhead, or seek to one at runtime with\n" +
+				"director.SeekToMarker(\"name\"). Markers have no effect of their own; use an event's\n" +
+				"Broadcast field to signal game code.");
+			ImGui.Spacing();
+
+			for (var i = 0; i < _asset.Markers.Count; i++)
+			{
+				var marker = _asset.Markers[i];
+				ImGui.PushID("mk" + i);
+
+				ImGui.SetNextItemWidth(70);
+				MarkEditedTime(ImGui.InputFloat("t", ref marker.Time, 0, 0, "%.2f"));
+				ImGui.SameLine();
+
+				var name = marker.Name ?? string.Empty;
+				ImGui.SetNextItemWidth(180);
+				if (ImGui.InputText("name", ref name, 64)) marker.Name = name;
+
+				ImGui.SameLine();
+				if (ImGui.SmallButton("go"))
+				{
+					_previewPlaying = false;
+					_scrub = Math.Clamp(marker.Time, 0f, Math.Max(0.1f, _asset.Duration));
+					_director.Evaluate(_scrub);
+				}
+
+				ImGui.SameLine();
+				if (ImGui.SmallButton("x")) { _asset.Markers.RemoveAt(i); ImGui.PopID(); break; }
+
+				ImGui.PopID();
+			}
+
+			ImGui.Separator();
+			if (ImGui.Button("Add Marker"))
+				_asset.Markers.Add(new TimelineMarker { Time = _scrub, Name = "beat" });
 		}
 
 		#endregion
@@ -398,6 +653,12 @@ namespace Voltage.Editor.Windows
 			var colCam = ImGui.GetColorU32(new Num.Vector4(0.8f, 0.6f, 1f, 1f));
 			var colEvent = ImGui.GetColorU32(new Num.Vector4(1f, 0.8f, 0.2f, 1f));
 			var colSpawn = ImGui.GetColorU32(new Num.Vector4(0.5f, 1f, 0.5f, 0.45f));
+			var colTint = ImGui.GetColorU32(new Num.Vector4(1f, 0.55f, 0.75f, 1f));
+			var colAudio = ImGui.GetColorU32(new Num.Vector4(0.4f, 1f, 0.85f, 1f));
+			var colSprite = ImGui.GetColorU32(new Num.Vector4(0.55f, 0.72f, 0.4f, 0.85f));
+			var colActive = ImGui.GetColorU32(new Num.Vector4(0.45f, 0.6f, 0.85f, 0.85f));
+			var colEdge = ImGui.GetColorU32(new Num.Vector4(1f, 1f, 1f, 0.45f));
+			var colMarker = ImGui.GetColorU32(new Num.Vector4(1f, 0.55f, 0.15f, 0.9f));
 
 			// Ruler background + per-second grid (with minor lines that appear as you zoom in).
 			dl.AddRectFilled(new Num.Vector2(origin.X, origin.Y), new Num.Vector2(origin.X + contentW, origin.Y + rulerH), colRuler);
@@ -422,28 +683,59 @@ namespace Voltage.Editor.Windows
 				if (i % 2 == 0)
 					dl.AddRectFilled(new Num.Vector2(timeX, y), new Num.Vector2(origin.X + contentW, y + trackH), colLaneAlt);
 
-				if (lane.Kind == LaneKind.Spawn)
-					dl.AddRectFilled(new Num.Vector2(timeX + lane.Start * pps, y + 4f),
-						new Num.Vector2(timeX + (lane.Start + lane.Length) * pps, y + trackH - 4f), colSpawn, 3f);
-
-				if (lane.Ranges != null)
-					foreach (var r in lane.Ranges)
-						dl.AddRectFilled(new Num.Vector2(timeX + r.Start * pps, cy - 3f),
-							new Num.Vector2(timeX + (r.Start + r.Len) * pps, cy + 3f), colEvent, 2f);
-
-				var markColor = lane.Kind switch
+				var laneColor = lane.Kind switch
 				{
 					LaneKind.Event => colEvent,
 					LaneKind.Camera => colCam,
+					LaneKind.Tint => colTint,
+					LaneKind.Audio => colAudio,
+					LaneKind.Spawn => colSpawn,
+					LaneKind.Sprite => colSprite,
+					LaneKind.Activation => colActive,
 					_ => colKey,
 				};
-				if (lane.Marks != null)
-					foreach (var m in lane.Marks)
+
+				for (var j = 0; j < lane.Items.Count; j++)
+				{
+					var item = lane.Items[j];
+					var x0 = timeX + item.Time * pps;
+
+					if (item.IsRange)
 					{
-						var x = timeX + m * pps;
-						dl.AddQuadFilled(new Num.Vector2(x, cy - 5f), new Num.Vector2(x + 5f, cy),
-							new Num.Vector2(x, cy + 5f), new Num.Vector2(x - 5f, cy), markColor);
+						var x1 = timeX + (item.Time + item.Duration) * pps;
+						var top = y + 3f;
+						var bottom = y + trackH - 3f;
+
+						dl.AddRectFilled(new Num.Vector2(x0, top), new Num.Vector2(x1, bottom), laneColor, 3f);
+						dl.AddRectFilled(new Num.Vector2(x0, top), new Num.Vector2(x0 + EdgeGrabPx, bottom), colEdge, 2f);
+						dl.AddRectFilled(new Num.Vector2(x1 - EdgeGrabPx, top), new Num.Vector2(x1, bottom), colEdge, 2f);
+
+						if (!string.IsNullOrEmpty(item.Label) && x1 - x0 > 26f)
+							dl.AddText(new Num.Vector2(x0 + EdgeGrabPx + 3f, y + 5f), colText, item.Label);
+
+						if (hovered && !io.MouseDown[0] && mouse.Y >= top && mouse.Y <= bottom)
+						{
+							if (mouse.X >= x0 - EdgeGrabPx && mouse.X <= x0 + EdgeGrabPx)
+								HoverEdge(DragMode.ResizeStart, item, mouse, timeX, pps);
+							else if (mouse.X >= x1 - EdgeGrabPx && mouse.X <= x1 + EdgeGrabPx)
+								HoverEdge(DragMode.ResizeEnd, item, mouse, timeX, pps);
+							else if (mouse.X > x0 && mouse.X < x1)
+								HoverEdge(DragMode.Move, item, mouse, timeX, pps);
+						}
 					}
+					else
+					{
+						dl.AddQuadFilled(new Num.Vector2(x0, cy - 5f), new Num.Vector2(x0 + 5f, cy),
+							new Num.Vector2(x0, cy + 5f), new Num.Vector2(x0 - 5f, cy), laneColor);
+
+						if (hovered && !io.MouseDown[0] &&
+							mouse.Y >= y && mouse.Y <= y + trackH &&
+							Math.Abs(mouse.X - x0) <= 6f)
+						{
+							HoverEdge(DragMode.Move, item, mouse, timeX, pps);
+						}
+					}
+				}
 
 				dl.AddRectFilled(new Num.Vector2(origin.X, y), new Num.Vector2(timeX, y + trackH), colGutter);
 				dl.AddText(new Num.Vector2(origin.X + 6f, y + 5f), colText, lane.Name);
@@ -460,8 +752,22 @@ namespace Voltage.Editor.Windows
 			dl.AddTriangleFilled(new Num.Vector2(px - 5f, origin.Y), new Num.Vector2(px + 5f, origin.Y),
 				new Num.Vector2(px, origin.Y + 8f), colPlay);
 
-			// Scrub by clicking/dragging in the time area.
-			if (hovered && ImGui.IsMouseDown(ImGuiMouseButton.Left) && mouse.X >= timeX)
+			foreach (var marker in _asset.Markers)
+			{
+				if (marker == null)
+					continue;
+				var mx = timeX + marker.Time * pps;
+				dl.AddLine(new Num.Vector2(mx, origin.Y + rulerH), new Num.Vector2(mx, bottomY), colMarker);
+				dl.AddTriangleFilled(new Num.Vector2(mx - 4f, origin.Y + rulerH - 7f),
+					new Num.Vector2(mx + 4f, origin.Y + rulerH - 7f), new Num.Vector2(mx, origin.Y + rulerH), colMarker);
+				if (!string.IsNullOrEmpty(marker.Name))
+					dl.AddText(new Num.Vector2(mx + 6f, origin.Y + rulerH - 15f), colMarker, marker.Name);
+			}
+
+			ApplyItemDrag(lanes, mouse, timeX, pps, duration, io);
+
+			if (_dragMode == DragMode.None &&
+				hovered && ImGui.IsMouseDown(ImGuiMouseButton.Left) && mouse.X >= timeX)
 			{
 				_previewPlaying = false;
 				_scrub = Math.Clamp((mouse.X - timeX) / pps, 0f, duration);
@@ -476,6 +782,175 @@ namespace Voltage.Editor.Windows
 			ImGui.EndChild();
 		}
 
+		/// <summary>
+		/// Projects the asset into draggable lane items.
+		/// </summary>
+		private const float EdgeGrabPx = 5f;
+
+		/// <summary>
+		/// Arms a drag when the cursor is over an item, and shows the matching resize/move cursor.
+		/// </summary>
+		private void HoverEdge(DragMode mode, LaneItem target, Num.Vector2 mouse, float timeX, float pps)
+		{
+			ImGui.SetMouseCursor(mode == DragMode.Move ? ImGuiMouseCursor.ResizeAll : ImGuiMouseCursor.ResizeEW);
+
+			if (!ImGui.IsMouseClicked(ImGuiMouseButton.Left))
+				return;
+
+			_dragMode = mode;
+			_dragKey = target.Key;
+			_dragGrabOffset = (mouse.X - timeX) / pps - target.Time;
+		}
+
+		/// <summary>
+		/// Applies the in-flight drag.
+		/// </summary>
+		private void ApplyItemDrag(List<Lane> lanes, Num.Vector2 mouse, float timeX, float pps, float duration, ImGuiIOPtr io)
+		{
+			if (_dragMode == DragMode.None)
+				return;
+
+			if (!io.MouseDown[0])
+			{
+				_dragMode = DragMode.None;
+				_dragKey = null;
+				_needsNormalize = true;   // re-sort once the drag settles, not during it
+				return;
+			}
+
+			var item = FindItem(lanes, _dragKey);
+			if (item == null)
+			{
+				_dragMode = DragMode.None;
+				_dragKey = null;
+				return;
+			}
+			var cursor = Math.Max(0f, (mouse.X - timeX) / pps);
+			var snap = io.KeyAlt ? 0f : SnapStep(pps);
+
+			const float minLength = 0.05f;
+			var time = item.Time;
+			var length = item.Duration;
+
+			switch (_dragMode)
+			{
+				case DragMode.Move:
+					time = Snap(cursor - _dragGrabOffset, snap);
+					break;
+
+				case DragMode.ResizeStart:
+				{
+					var end = item.Time + item.Duration;
+					time = Math.Min(Snap(cursor, snap), end - minLength);
+					length = end - time;
+					break;
+				}
+
+				case DragMode.ResizeEnd:
+					length = Math.Max(minLength, Snap(cursor, snap) - item.Time);
+					break;
+			}
+
+			time = Math.Clamp(time, 0f, Math.Max(0f, duration));
+			item.Time = time;
+			item.Duration = length;
+			item.Apply?.Invoke(time, length);
+
+			_previewPlaying = false;
+			_director?.Evaluate(_scrub);
+		}
+
+		/// <summary>Abandons an in-flight drag — its key refers to an object graph that is going away.</summary>
+		private void CancelDrag()
+		{
+			_dragMode = DragMode.None;
+			_dragKey = null;
+			_needsNormalize = false;
+		}
+
+		private static LaneItem FindItem(List<Lane> lanes, object key)
+		{
+			if (key == null)
+				return null;
+
+			foreach (var lane in lanes)
+			{
+				foreach (var item in lane.Items)
+				{
+					if (ReferenceEquals(item.Key, key))
+						return item;
+				}
+			}
+
+			return null;
+		}
+
+		/// <summary>
+		/// Restores the invariants the runtime depends on after an edit: keyframe lists must be sorted ascending (every sampler assumes it), and the director's cached event ordering only rebuilds on a count change, so a retimed event needs an explicit invalidation.
+		/// </summary>
+		private void NormalizeAsset()
+		{
+			if (_asset == null)
+				return;
+
+			foreach (var track in _asset.ParameterTracks)
+			{
+				switch (track)
+				{
+					case TimelineTransformTrack tt:
+						tt.Position.Sort(CompareVector2Keys);
+						tt.Rotation.Sort(CompareFloatKeys);
+						tt.Scale.Sort(CompareVector2Keys);
+						break;
+					case TimelineCameraTrack ct:
+						ct.Zoom.Sort(CompareFloatKeys);
+						break;
+					case TimelineTintTrack tint:
+						tint.Alpha.Sort(CompareFloatKeys);
+						tint.Tint.Sort((a, b) => a.Time.CompareTo(b.Time));
+						break;
+					case TimelineSpriteTrack sprite:
+						sprite.Clips.Sort((a, b) => a.Time.CompareTo(b.Time));
+						break;
+					case TimelineActivationTrack activation:
+						activation.Ranges.Sort((a, b) => a.Time.CompareTo(b.Time));
+						break;
+					case TimelineAudioTrack audioTrack:
+						audioTrack.Clips.Sort((a, b) => a.Time.CompareTo(b.Time));
+						break;
+					case TimelineNestedTrack nestedTrack:
+						nestedTrack.Clips.Sort((a, b) => a.Time.CompareTo(b.Time));
+						break;
+					case TimelinePropertyTrack prop:
+						prop.FloatKeys.Sort(CompareFloatKeys);
+						prop.Vector2Keys.Sort(CompareVector2Keys);
+						prop.ColorKeys.Sort((a, b) => a.Time.CompareTo(b.Time));
+						break;
+				}
+			}
+
+			_asset.InvalidateEventOrder();
+		}
+
+		private static int CompareFloatKeys(FloatKeyframe a, FloatKeyframe b) => a.Time.CompareTo(b.Time);
+		private static int CompareVector2Keys(Vector2Keyframe a, Vector2Keyframe b) => a.Time.CompareTo(b.Time);
+
+		/// <summary>Grid step matching the visible ruler ticks, so dragging lands where the eye expects.</summary>
+		/// <summary>
+		/// Records that a time field was edited, so the asset is re-sorted once the edit settles.
+		/// </summary>
+		private bool MarkEditedTime(bool changed)
+		{
+			if (ImGui.IsItemDeactivatedAfterEdit())
+				_needsNormalize = true;
+			return changed;
+		}
+
+		private static float SnapStep(float pps) => pps >= 220f ? 0.05f : pps >= 90f ? 0.1f : 0.25f;
+
+		private static float Snap(float value, float step) =>
+			step <= 0f ? value : MathF.Round(value / step) * step;
+
 		private List<Lane> BuildLanes()
 		{
 			var lanes = new List<Lane>();
@@ -486,34 +961,181 @@ namespace Voltage.Editor.Windows
 				{
 					case TimelineTransformTrack tt:
 					{
-						var marks = new List<float>();
-						foreach (var k in tt.Position) marks.Add(k.Time);
-						foreach (var k in tt.Rotation) marks.Add(k.Time);
-						foreach (var k in tt.Scale) marks.Add(k.Time);
-						lanes.Add(new Lane { Name = $"{tt.TargetRole} - transform", Kind = LaneKind.Transform, Marks = marks });
+						var lane = new Lane { Name = $"{tt.TargetRole} - transform", Kind = LaneKind.Transform };
+						AddFloatKeys(lane, tt.Rotation);
+						AddVector2Keys(lane, tt.Position);
+						AddVector2Keys(lane, tt.Scale);
+						lanes.Add(lane);
 						break;
 					}
+
 					case TimelineCameraTrack ct:
-						lanes.Add(new Lane { Name = $"{ct.TargetRole} - zoom", Kind = LaneKind.Camera, Marks = ct.Zoom.Select(k => k.Time).ToList() });
+					{
+						var lane = new Lane { Name = $"{ct.TargetRole} - zoom", Kind = LaneKind.Camera };
+						AddFloatKeys(lane, ct.Zoom);
+						lanes.Add(lane);
 						break;
+					}
+
+					case TimelineTintTrack tint:
+					{
+						var lane = new Lane { Name = $"{tint.TargetRole} - tint", Kind = LaneKind.Tint };
+						AddFloatKeys(lane, tint.Alpha);
+						foreach (var k in tint.Tint)
+						{
+							var key = k;
+							lane.Items.Add(new LaneItem { Time = key.Time, Key = key, Apply = (t, _) => key.Time = t });
+						}
+						lanes.Add(lane);
+						break;
+					}
+
+					case TimelineSpriteTrack sprite:
+					{
+						var lane = new Lane { Name = $"{sprite.TargetRole} - sprite", Kind = LaneKind.Sprite };
+						foreach (var c in sprite.Clips)
+						{
+							var clip = c;
+							lane.Items.Add(new LaneItem
+							{
+								Time = clip.Time,
+								Duration = clip.Duration,
+								Label = clip.Animation,
+								Key = clip,
+								Apply = (t, d) => { clip.Time = t; clip.Duration = d; },
+							});
+						}
+						lanes.Add(lane);
+						break;
+					}
+
+					case TimelineActivationTrack activation:
+					{
+						var lane = new Lane { Name = $"{activation.TargetRole} - active", Kind = LaneKind.Activation };
+						foreach (var r in activation.Ranges)
+						{
+							var range = r;
+							lane.Items.Add(new LaneItem
+							{
+								Time = range.Time,
+								Duration = range.Duration,
+								Label = "visible",
+								Key = range,
+								Apply = (t, d) => { range.Time = t; range.Duration = d; },
+							});
+						}
+						lanes.Add(lane);
+						break;
+					}
+
+					case TimelinePropertyTrack prop:
+					{
+						var lane = new Lane
+						{
+							Name = $"{prop.TargetRole} - {prop.Property ?? "property"}",
+							Kind = LaneKind.Property,
+						};
+						AddFloatKeys(lane, prop.FloatKeys);
+						AddVector2Keys(lane, prop.Vector2Keys);
+						foreach (var k in prop.ColorKeys)
+						{
+							var key = k;
+							lane.Items.Add(new LaneItem { Time = key.Time, Key = key, Apply = (t, _) => key.Time = t });
+						}
+						lanes.Add(lane);
+						break;
+					}
+
+					case TimelineNestedTrack nestedTrack:
+					{
+						var lane = new Lane { Name = "nested", Kind = LaneKind.Nested };
+						foreach (var c in nestedTrack.Clips)
+						{
+							var clip = c;
+							lane.Items.Add(new LaneItem
+							{
+								Time = clip.Time,
+								Label = clip.Name ?? clip.Timeline.AssetName,
+								Key = clip,
+								Apply = (t, _) => clip.Time = t,
+							});
+						}
+						lanes.Add(lane);
+						break;
+					}
+
+					case TimelineAudioTrack audioTrack:
+					{
+						var lane = new Lane { Name = "audio", Kind = LaneKind.Audio };
+						foreach (var c in audioTrack.Clips)
+						{
+							var clip = c;
+							lane.Items.Add(new LaneItem
+							{
+								Time = clip.Time,
+								Label = clip.Name,
+								Key = clip,
+								Apply = (t, _) => clip.Time = t,
+							});
+						}
+						lanes.Add(lane);
+						break;
+					}
 				}
 			}
 
 			if (_asset.Events.Count > 0)
 			{
-				lanes.Add(new Lane
+				var lane = new Lane { Name = "events", Kind = LaneKind.Event };
+				foreach (var e in _asset.Events)
 				{
-					Name = "events",
-					Kind = LaneKind.Event,
-					Marks = _asset.Events.Where(e => e.Duration <= 0f).Select(e => e.Time).ToList(),
-					Ranges = _asset.Events.Where(e => e.Duration > 0f).Select(e => (e.Time, e.Duration)).ToList(),
-				});
+					var evt = e;
+					lane.Items.Add(new LaneItem
+					{
+						Time = evt.Time,
+						Duration = evt.Duration,
+						Label = evt.Name,
+						Key = evt,
+						Apply = (t, d) => { evt.Time = t; evt.Duration = d; _asset.InvalidateEventOrder(); },
+					});
+				}
+				lanes.Add(lane);
 			}
 
 			foreach (var s in _asset.SpawnClips)
-				lanes.Add(new Lane { Name = $"spawn - {s.SpawnRole}", Kind = LaneKind.Spawn, Start = s.Time, Length = s.Duration });
+			{
+				var spawn = s;
+				var lane = new Lane { Name = $"spawn - {spawn.SpawnRole}", Kind = LaneKind.Spawn };
+				lane.Items.Add(new LaneItem
+				{
+					Time = spawn.Time,
+					Duration = spawn.Duration,
+					Label = spawn.SpawnRole,
+					Key = spawn,
+					Apply = (t, d) => { spawn.Time = t; spawn.Duration = d; },
+				});
+				lanes.Add(lane);
+			}
 
 			return lanes;
+		}
+
+		private static void AddFloatKeys(Lane lane, List<FloatKeyframe> keys)
+		{
+			foreach (var k in keys)
+			{
+				var key = k;
+				lane.Items.Add(new LaneItem { Time = key.Time, Key = key, Apply = (t, _) => key.Time = t });
+			}
+		}
+
+		private static void AddVector2Keys(Lane lane, List<Vector2Keyframe> keys)
+		{
+			foreach (var k in keys)
+			{
+				var key = k;
+				lane.Items.Add(new LaneItem { Time = key.Time, Key = key, Apply = (t, _) => key.Time = t });
+			}
 		}
 
 		#endregion
@@ -883,7 +1505,7 @@ namespace Voltage.Editor.Windows
 				var k = keys[i];
 				ImGui.PushID(label + i);
 				ImGui.SetNextItemWidth(70);
-				ImGui.InputFloat("t", ref k.Time, 0, 0, "%.2f");
+				MarkEditedTime(ImGui.InputFloat("t", ref k.Time, 0, 0, "%.2f"));
 				ImGui.SameLine();
 				var v = new Num.Vector2(k.Value.X, k.Value.Y);
 				ImGui.SetNextItemWidth(140);
@@ -915,7 +1537,7 @@ namespace Voltage.Editor.Windows
 				var k = keys[i];
 				ImGui.PushID(label + i);
 				ImGui.SetNextItemWidth(70);
-				ImGui.InputFloat("t", ref k.Time, 0, 0, "%.2f");
+				MarkEditedTime(ImGui.InputFloat("t", ref k.Time, 0, 0, "%.2f"));
 				ImGui.SameLine();
 				ImGui.SetNextItemWidth(90);
 				ImGui.InputFloat("val", ref k.Value, 0, 0, "%.3f");
@@ -934,6 +1556,242 @@ namespace Voltage.Editor.Windows
 				keys.Sort((a, b) => a.Time.CompareTo(b.Time));
 			}
 			ImGui.TreePop();
+		}
+
+		#endregion
+
+		#region Tint / sprite / activation / audio tracks
+
+		private void DrawTintTracks()
+		{
+			ImGui.TextColored(Muted, "Fade or tint every renderable on an actor. Alpha and RGB are independent.");
+			ImGui.Spacing();
+
+			var tracks = _asset.ParameterTracks.OfType<TimelineTintTrack>().ToList();
+			for (var i = 0; i < tracks.Count; i++)
+			{
+				var track = tracks[i];
+				ImGui.PushID("tint" + i);
+				ImGui.Separator();
+
+				ImGui.SetNextItemWidth(160);
+				DrawRoleSelect("Target Role", ref track.TargetRole);
+				ImGui.SameLine();
+				if (ImGui.SmallButton("Remove Track")) { _asset.ParameterTracks.Remove(track); ImGui.PopID(); break; }
+
+				DrawFloatKeys("Alpha (0-1)", track.Alpha);
+				DrawColorKeys("Tint", track.Tint);
+
+				ImGui.PopID();
+			}
+
+			ImGui.Separator();
+			if (ImGui.Button("Add Tint Track"))
+				_asset.ParameterTracks.Add(new TimelineTintTrack { TargetRole = _asset.Roles.FirstOrDefault()?.Name });
+		}
+
+		private void DrawColorKeys(string label, List<ColorKeyframe> keys)
+		{
+			if (!ImGui.TreeNode($"{label} ({keys.Count} keys)"))
+				return;
+
+			for (var i = 0; i < keys.Count; i++)
+			{
+				var k = keys[i];
+				ImGui.PushID(label + i);
+				ImGui.SetNextItemWidth(70);
+				MarkEditedTime(ImGui.InputFloat("t", ref k.Time, 0, 0, "%.2f"));
+				ImGui.SameLine();
+
+				var rgb = new Num.Vector3(k.Value.R / 255f, k.Value.G / 255f, k.Value.B / 255f);
+				ImGui.SetNextItemWidth(160);
+				if (ImGui.ColorEdit3("rgb", ref rgb, ImGuiColorEditFlags.NoInputs))
+					k.Value = new Xna.Color(rgb.X, rgb.Y, rgb.Z);
+
+				ImGui.SameLine();
+				var ease = (int)k.Ease;
+				ImGui.SetNextItemWidth(130);
+				if (ImGui.Combo("ease", ref ease, EaseNames, EaseNames.Length)) k.Ease = (EaseType)ease;
+				ImGui.SameLine();
+				if (ImGui.SmallButton("x")) { keys.RemoveAt(i); ImGui.PopID(); break; }
+				ImGui.PopID();
+			}
+
+			if (ImGui.SmallButton($"+ key##{label}"))
+			{
+				keys.Add(new ColorKeyframe { Time = _scrub, Value = Xna.Color.White });
+				keys.Sort((a, b) => a.Time.CompareTo(b.Time));
+			}
+			ImGui.TreePop();
+		}
+
+		private void DrawSpriteTracks()
+		{
+			ImGui.TextColored(Muted,
+				"Choose which SpriteAnimator animation plays over a span. Scrubbing selects the clip but does\n" +
+				"not seek inside it.");
+			ImGui.Spacing();
+
+			var tracks = _asset.ParameterTracks.OfType<TimelineSpriteTrack>().ToList();
+			for (var i = 0; i < tracks.Count; i++)
+			{
+				var track = tracks[i];
+				ImGui.PushID("sprite" + i);
+				ImGui.Separator();
+
+				ImGui.SetNextItemWidth(160);
+				DrawRoleSelect("Target Role", ref track.TargetRole);
+				ImGui.SameLine();
+				if (ImGui.SmallButton("Remove Track")) { _asset.ParameterTracks.Remove(track); ImGui.PopID(); break; }
+
+				for (var c = 0; c < track.Clips.Count; c++)
+				{
+					var clip = track.Clips[c];
+					ImGui.PushID(c);
+					ImGui.SetNextItemWidth(70);
+					MarkEditedTime(ImGui.InputFloat("t", ref clip.Time, 0, 0, "%.2f"));
+					ImGui.SameLine();
+					ImGui.SetNextItemWidth(70);
+					ImGui.InputFloat("len", ref clip.Duration, 0, 0, "%.2f");
+					ImGui.SameLine();
+					var name = clip.Animation ?? string.Empty;
+					ImGui.SetNextItemWidth(130);
+					if (ImGui.InputText("anim", ref name, 64)) clip.Animation = name;
+					ImGui.SameLine();
+					var loop = (int)clip.Loop;
+					ImGui.SetNextItemWidth(110);
+					if (ImGui.Combo("loop", ref loop, LoopNames, LoopNames.Length))
+						clip.Loop = (SpriteAnimator.LoopMode)loop;
+					ImGui.SameLine();
+					if (ImGui.SmallButton("x")) { track.Clips.RemoveAt(c); ImGui.PopID(); break; }
+					ImGui.PopID();
+				}
+
+				if (ImGui.SmallButton("+ clip"))
+					track.Clips.Add(new TimelineSpriteClip { Time = _scrub, Duration = 1f });
+
+				ImGui.PopID();
+			}
+
+			ImGui.Separator();
+			if (ImGui.Button("Add Sprite Track"))
+				_asset.ParameterTracks.Add(new TimelineSpriteTrack { TargetRole = _asset.Roles.FirstOrDefault()?.Name });
+		}
+
+		private void DrawActivationTracks()
+		{
+			ImGui.TextColored(Muted, "Show an actor only during these spans. Scrubs correctly in both directions.");
+			ImGui.Spacing();
+
+			var tracks = _asset.ParameterTracks.OfType<TimelineActivationTrack>().ToList();
+			for (var i = 0; i < tracks.Count; i++)
+			{
+				var track = tracks[i];
+				ImGui.PushID("act" + i);
+				ImGui.Separator();
+
+				ImGui.SetNextItemWidth(160);
+				DrawRoleSelect("Target Role", ref track.TargetRole);
+				ImGui.SameLine();
+				if (ImGui.SmallButton("Remove Track")) { _asset.ParameterTracks.Remove(track); ImGui.PopID(); break; }
+
+				var outside = track.ActiveOutsideRanges;
+				if (ImGui.Checkbox("Active outside ranges (invert)", ref outside))
+					track.ActiveOutsideRanges = outside;
+
+				for (var r = 0; r < track.Ranges.Count; r++)
+				{
+					var range = track.Ranges[r];
+					ImGui.PushID(r);
+					ImGui.SetNextItemWidth(70);
+					MarkEditedTime(ImGui.InputFloat("t", ref range.Time, 0, 0, "%.2f"));
+					ImGui.SameLine();
+					ImGui.SetNextItemWidth(70);
+					ImGui.InputFloat("len", ref range.Duration, 0, 0, "%.2f");
+					ImGui.SameLine();
+					if (ImGui.SmallButton("x")) { track.Ranges.RemoveAt(r); ImGui.PopID(); break; }
+					ImGui.PopID();
+				}
+
+				if (ImGui.SmallButton("+ range"))
+					track.Ranges.Add(new TimelineActiveRange { Time = _scrub, Duration = 1f });
+
+				ImGui.PopID();
+			}
+
+			ImGui.Separator();
+			if (ImGui.Button("Add Activation Track"))
+				_asset.ParameterTracks.Add(new TimelineActivationTrack { TargetRole = _asset.Roles.FirstOrDefault()?.Name });
+		}
+
+		private void DrawAudioTracks()
+		{
+			ImGui.TextColored(Muted,
+				"One-shots fired as the playhead passes them. Scrubbing does not retrigger them.");
+			ImGui.Spacing();
+
+			var tracks = _asset.ParameterTracks.OfType<TimelineAudioTrack>().ToList();
+			for (var i = 0; i < tracks.Count; i++)
+			{
+				var track = tracks[i];
+				ImGui.PushID("audio" + i);
+				ImGui.Separator();
+
+				if (ImGui.SmallButton("Remove Track")) { _asset.ParameterTracks.Remove(track); ImGui.PopID(); break; }
+
+				for (var c = 0; c < track.Clips.Count; c++)
+				{
+					var clip = track.Clips[c];
+					ImGui.PushID(c);
+					ImGui.SetNextItemWidth(70);
+					MarkEditedTime(ImGui.InputFloat("t", ref clip.Time, 0, 0, "%.2f"));
+					ImGui.SameLine();
+
+					var label = clip.Clip.IsValid ? (clip.Clip.AssetName ?? "clip") : "None (audio)";
+					ImGui.SetNextItemWidth(150);
+					ImGui.Button($"{label}##clip", new Num.Vector2(150, 0));
+					if (ImGui.BeginDragDropTarget())
+					{
+						var payload = ImGui.AcceptDragDropPayload(AssetBrowserWindow.DragDropPayloadId);
+						bool accepted;
+						unsafe { accepted = payload.NativePtr != null; }
+						if (accepted && !AssetBrowserWindow.DraggedReference.IsEmpty)
+						{
+							var dr = AssetBrowserWindow.DraggedReference;
+							AssetBrowserWindow.DraggedReference = Voltage.Editor.Assets.AssetReference.Empty;
+							clip.Clip = new Voltage.Serialization.AssetReference
+							{
+								AssetGuid = dr.Guid,
+								AssetPath = dr.HintPath,
+								AssetName = Path.GetFileNameWithoutExtension(dr.HintPath),
+							};
+							if (string.IsNullOrEmpty(clip.Name))
+								clip.Name = clip.Clip.AssetName;
+						}
+						ImGui.EndDragDropTarget();
+					}
+
+					ImGui.SameLine();
+					ImGui.SetNextItemWidth(70);
+					ImGui.InputFloat("vol", ref clip.Volume, 0, 0, "%.2f");
+					ImGui.SameLine();
+					var bus = clip.Bus ?? "SFX";
+					ImGui.SetNextItemWidth(80);
+					if (ImGui.InputText("bus", ref bus, 32)) clip.Bus = bus;
+					ImGui.SameLine();
+					if (ImGui.SmallButton("x")) { track.Clips.RemoveAt(c); ImGui.PopID(); break; }
+					ImGui.PopID();
+				}
+
+				if (ImGui.SmallButton("+ sound"))
+					track.Clips.Add(new TimelineAudioClip { Time = _scrub });
+
+				ImGui.PopID();
+			}
+
+			ImGui.Separator();
+			if (ImGui.Button("Add Audio Track"))
+				_asset.ParameterTracks.Add(new TimelineAudioTrack());
 		}
 
 		#endregion

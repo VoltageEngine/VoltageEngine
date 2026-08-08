@@ -58,6 +58,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	public TilesetEditorWindow TilesetEditorWindow { get; } = new();
 
+	/// <summary>Generic editor for .vasset data containers — one window serves every user-declared type.</summary>
+	public DataAssetWindow DataAssetWindow { get; } = new();
+
 	private List<EntityInspectorWindow> _entityInspectors = new();
 	public EntityInspectorWindow MainEntityInspectorWindow { get; private set; }
 	public bool IsInspectorTabLocked = false;
@@ -600,6 +603,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		}
 
 		TilesetEditorWindow.Draw();
+		DataAssetWindow.Draw();
 
 		Plugins.EditorPluginHost.DrawWindows();
 		_cursorSelectionManager.UpdateSelection();

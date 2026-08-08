@@ -108,6 +108,7 @@ namespace Voltage.Editor.Windows
 			if (ImGui.IsItemHovered())
 				ImGui.SetTooltip("Scaffold a new plugin folder (plugin.json + starter code) and optionally add it to this project.");
 
+			DrawBrowsePluginsSection();
 			DrawAddPluginSection();
 			DrawCreatePluginPopup();
 
@@ -206,6 +207,14 @@ namespace Voltage.Editor.Windows
 				ImGui.TextWrapped(plugin.Error);
 			}
 
+			foreach (var plugin in plugins.Where(p => p.CompatibilityWarning != null))
+			{
+				ImGui.Spacing();
+				ImGui.TextColored(ColorWarn, $"{plugin.Id} (version mismatch):");
+				ImGui.SameLine();
+				ImGui.TextWrapped(plugin.CompatibilityWarning);
+			}
+
 			DrawExternalSdkSection(plugins);
 
 			ImGui.End();
@@ -215,6 +224,102 @@ namespace Voltage.Editor.Windows
 		/// The "Add Plugin" form: pick a source kind (bundled dropdown / local folder / git URL / zip
 		/// URL), fill its fields, and add. The plugin's id is discovered from the resolved manifest.
 		/// </summary>
+		private string _browseSearch = string.Empty;
+		private bool _browseOpenedOnce;
+
+		/// <summary>
+		/// The catalogue: search a registry and install with one click.
+		/// </summary>
+		private void DrawBrowsePluginsSection()
+		{
+			if (!ImGui.CollapsingHeader("Browse Plugins"))
+				return;
+
+			ImGui.Indent();
+
+			if (!_browseOpenedOnce)
+			{
+				_browseOpenedOnce = true;
+				PluginRegistryIndex.LoadCache();
+				PluginRegistryIndex.RefreshAsync();
+			}
+
+			ImGui.SetNextItemWidth(260);
+			ImGui.InputTextWithHint("##pluginsearch", "Search plugins...", ref _browseSearch, 128);
+			ImGui.SameLine();
+			if (ImGui.Button("Refresh"))
+				PluginRegistryIndex.RefreshAsync();
+
+			if (PluginRegistryIndex.IsFetching)
+			{
+				ImGui.SameLine();
+				ImGui.TextColored(ColorWarn, "fetching...");
+			}
+
+			if (PluginRegistryIndex.LastError != null && !PluginRegistryIndex.HasEntries)
+			{
+				ImGui.TextWrapped(PluginRegistryIndex.LastError);
+				ImGui.Unindent();
+				return;
+			}
+
+			if (PluginRegistryIndex.LastError != null)
+				ImGui.TextColored(ColorWarn, "Showing a cached list — the registry could not be reached.");
+
+			var installed = PluginManager.Instance.Plugins.Select(p => p.Id);
+			var results = PluginRegistryIndex.Search(_browseSearch, installed);
+
+			if (results.Count == 0)
+			{
+				ImGui.TextColored(ColorMuted, PluginRegistryIndex.HasEntries
+					? "No matches (plugins already in this project are hidden)."
+					: "The registry list is empty.");
+				ImGui.Unindent();
+				return;
+			}
+
+			foreach (var listing in results)
+			{
+				ImGui.PushID(listing.Id);
+				ImGui.Separator();
+
+				ImGui.TextColored(ColorOk, listing.Name ?? listing.Id);
+				if (!string.IsNullOrEmpty(listing.Author))
+				{
+					ImGui.SameLine();
+					ImGui.TextColored(ColorMuted, $"by {listing.Author}");
+				}
+
+				if (!string.IsNullOrEmpty(listing.Description))
+					ImGui.TextWrapped(listing.Description);
+
+				if (listing.Tags is { Count: > 0 })
+					ImGui.TextColored(ColorMuted, string.Join("  ", listing.Tags.Select(t => "#" + t)));
+
+				if (!string.IsNullOrEmpty(listing.RegistryName))
+					ImGui.TextColored(ColorMuted, $"from {listing.RegistryName}");
+
+				if (!listing.IsInstallable)
+				{
+					ImGui.TextColored(ColorWarn, "This listing has no Zip or Git source and cannot be installed.");
+				}
+				else if (ImGui.Button("Install"))
+				{
+					var source = !string.IsNullOrWhiteSpace(listing.Zip)
+						? new PluginSourceSpec { Zip = listing.Zip.Trim() }
+						: new PluginSourceSpec { Git = listing.Git.Trim(), Ref = listing.Ref?.Trim() };
+
+					_statusMessage = PluginManager.Instance.AddPlugin(
+						new ProjectPluginEntry { Id = listing.Id, Source = source });
+					_statusIsError = false;
+				}
+
+				ImGui.PopID();
+			}
+
+			ImGui.Unindent();
+		}
+
 		private void DrawAddPluginSection()
 		{
 			if (!ImGui.CollapsingHeader("Add Plugin"))

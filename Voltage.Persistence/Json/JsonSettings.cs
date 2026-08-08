@@ -44,6 +44,16 @@ namespace Voltage.Persistence
 		};
 
 		public TypeNameHandling TypeNameHandling = TypeNameHandling.None;
+
+		/// <summary>
+		/// Optional override for the polymorphic type hint written to <c>@type</c>.
+		/// </summary>
+		public Func<Type, string> TypeNameWriter;
+
+		/// <summary>
+		/// Optional resolver for a stored <c>@type</c> hint, consulted <b>before</b> the assembly scan.
+		/// </summary>
+		public Func<string, Type> TypeNameReader;
 		public bool PrettyPrint;
 		public bool PreserveReferencesHandling;
 		public JsonTypeConverter[] TypeConverters;

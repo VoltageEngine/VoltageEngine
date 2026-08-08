@@ -922,7 +922,7 @@ namespace Voltage.Persistence
 							{
 								var dump = GetNextToken();
 								var typeHint = DecodeString();
-								var makeType = FindType(typeHint);
+								var makeType = _settings?.TypeNameReader?.Invoke(typeHint) ?? FindType(typeHint);
 								if (makeType == null)
 								{
 									throw new TypeLoadException(

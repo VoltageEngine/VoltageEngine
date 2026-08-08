@@ -470,6 +470,9 @@ namespace Voltage.Editor.Plugins
 				return false;
 			}
 
+			foreach (var plugin in manager.Plugins.Where(p => p.CompatibilityWarning != null))
+				Debug.Warn($"Build: {plugin.CompatibilityWarning}", "Plugins");
+
 			try
 			{
 				// Dev plugins compile from their working folder in the editor, but game builds consume

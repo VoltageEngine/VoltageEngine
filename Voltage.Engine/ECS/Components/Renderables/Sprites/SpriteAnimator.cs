@@ -158,6 +158,7 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 	public List<AnimationEvent> AnimationEvents { get; set; } = new();
 	private Dictionary<(string animationName, string eventName), List<Action>> _animationEventSubscribers = new();
 	public string TextureFilePath { get; set; } = "";
+	[Voltage.Serialization.AssetType(".aseprite", ".ase")]
 	public Voltage.Serialization.AssetReference AsepriteAsset; // GUID-based reference
 
 	public List<string> LoadedLayers { get; set; } = new();

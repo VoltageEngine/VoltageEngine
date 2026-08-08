@@ -494,6 +494,8 @@ public class GameBuildWindow
 	/// </summary>
 	private void StartBuild(IGameProject project, BuildPlatform platform, bool runAfterBuild)
 	{
+		WarnAboutUnshippedDataAssets(project);
+
 		// User opted out of the advisory check — go straight to building.
 		if (_suppressBuildDepCheck.Value)
 		{
@@ -526,6 +528,58 @@ public class GameBuildWindow
 			onCancel: () => { PersistSuppressIfRequested(); Debug.Log("Build cancelled by user.", "GameBuildWindow"); },
 			allowProceedWhenMissing: true,
 			showSuppressOption: true);
+	}
+
+	/// <summary>
+	/// Warns about any <c>.vasset</c> that will not ship.
+	/// </summary>
+	private static void WarnAboutUnshippedDataAssets(IGameProject project)
+	{
+		if (project == null || string.IsNullOrEmpty(project.ProjectPath))
+			return;
+
+		try
+		{
+			var stray = new List<string>();
+
+			foreach (var path in Directory.EnumerateFiles(project.ProjectPath,
+						 "*" + Voltage.Data.DataAssetIO.FileExtension, SearchOption.AllDirectories))
+			{
+				if (IsUnder(path, project.ContentsFolder) || IsUnder(path, project.DataFolder))
+					continue;
+
+				if (IsUnder(path, Path.Combine(project.ProjectPath, "obj")) ||
+					IsUnder(path, Path.Combine(project.ProjectPath, "bin")))
+					continue;
+
+				stray.Add(Path.GetRelativePath(project.ProjectPath, path));
+			}
+
+			if (stray.Count == 0)
+				return;
+
+			Debug.Warn(
+				$"{stray.Count} data asset(s) will NOT be included in the build because they are outside " +
+				$"Content/ and Data/:\n  {string.Join("\n  ", stray)}\n" +
+				"Move them under Content/ or Data/ (references resolve by GUID, so moving is safe), or add " +
+				"a matching <Content Include=\"…\"> item to the project's .csproj.",
+				"GameBuildWindow");
+		}
+		catch (Exception ex)
+		{
+			EditorDebug.Log($"GameBuildWindow: data asset location check failed: {ex.Message}", "GameBuildWindow");
+		}
+	}
+
+	private static bool IsUnder(string path, string folder)
+	{
+		if (string.IsNullOrEmpty(folder))
+			return false;
+
+		var normalizedFolder = Path.GetFullPath(folder)
+			.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+
+		return Path.GetFullPath(path).StartsWith(normalizedFolder, StringComparison.OrdinalIgnoreCase);
 	}
 
 	/// <summary>

@@ -30,6 +30,16 @@ namespace Voltage.Editor.Plugins
 
 			public bool Gameplay = true;
 			public bool Editor;
+
+			/// <summary>
+			/// Emit the files a standalone repository needs — .gitignore, a release workflow, and a PackagePlugin target.
+			/// </summary>
+			public bool RepositoryFiles = true;
+
+			/// <summary>
+			/// Absolute path to a Voltage build the generated projects reference.
+			/// </summary>
+			public string EngineLibsPath;
 		}
 
 		/// <summary>Outcome of a scaffold: the created plugin root folder, or a user-facing error.</summary>
@@ -73,6 +83,13 @@ namespace Voltage.Editor.Plugins
 					WriteGameplayStarter(opt, pluginRoot);
 				if (opt.Editor)
 					WriteEditorStarter(opt, pluginRoot);
+
+				if (opt.RepositoryFiles)
+				{
+					WriteGitIgnore(pluginRoot);
+					WritePackagingProject(opt, pluginRoot);
+					WriteReleaseWorkflow(opt, pluginRoot);
+				}
 
 				WriteReadme(opt, pluginRoot);
 
@@ -207,15 +224,176 @@ namespace Voltage.Editor.Plugins
 			csproj.AppendLine("    <OutputPath>..\\editor\\</OutputPath>");
 			csproj.AppendLine("    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>");
 			csproj.AppendLine("  </PropertyGroup>");
-			csproj.AppendLine("  <!-- Point these HintPaths at your Voltage editor build output. -->");
+			AppendEnginePathBlock(csproj, opt, "  ");
 			csproj.AppendLine("  <ItemGroup>");
-			csproj.AppendLine("    <Reference Include=\"Voltage.Editor\"><HintPath>PATH\\TO\\Voltage.Editor.dll</HintPath></Reference>");
-			csproj.AppendLine("    <Reference Include=\"Voltage\"><HintPath>PATH\\TO\\Voltage.dll</HintPath></Reference>");
-			csproj.AppendLine("    <Reference Include=\"ImGui.NET\"><HintPath>PATH\\TO\\ImGui.NET.dll</HintPath></Reference>");
+			foreach (var dll in new[] { "Voltage.Editor", "Voltage", "Voltage.Persistence", "ImGui.NET" })
+			{
+				csproj.AppendLine($"    <Reference Include=\"{dll}\">");
+				csproj.AppendLine($"      <HintPath>$(VoltageEnginePath)\\{dll}.dll</HintPath>");
+				csproj.AppendLine("      <Private>false</Private>");
+				csproj.AppendLine("    </Reference>");
+			}
 			csproj.AppendLine("  </ItemGroup>");
 			csproj.AppendLine("</Project>");
 
 			File.WriteAllText(Path.Combine(editorSrc, ns + ".Editor.csproj"), csproj.ToString());
+		}
+
+		/// <summary>
+		/// Emits the VoltageEnginePath property block shared by every generated project.
+		/// </summary>
+		private static void AppendEnginePathBlock(StringBuilder sb, Options opt, string indent)
+		{
+			var fallback = string.IsNullOrWhiteSpace(opt.EngineLibsPath)
+				? AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar)
+				: opt.EngineLibsPath.TrimEnd(Path.DirectorySeparatorChar);
+
+			sb.AppendLine($"{indent}<!-- Where to find the Voltage assemblies. Override with -p:VoltageEnginePath=<dir>");
+			sb.AppendLine($"{indent}     or the VOLTAGE_ENGINE_PATH environment variable; the default below points at the");
+			sb.AppendLine($"{indent}     editor that generated this project, so it builds as-is on this machine. -->");
+			sb.AppendLine($"{indent}<PropertyGroup>");
+			sb.AppendLine($"{indent}  <VoltageEnginePath Condition=\"'$(VoltageEnginePath)' == '' And '$(VOLTAGE_ENGINE_PATH)' != ''\">$(VOLTAGE_ENGINE_PATH)</VoltageEnginePath>");
+			sb.AppendLine($"{indent}  <VoltageEnginePath Condition=\"'$(VoltageEnginePath)' == ''\">{EscapeXml(fallback)}</VoltageEnginePath>");
+			sb.AppendLine($"{indent}</PropertyGroup>");
+			sb.AppendLine($"{indent}<Target Name=\"VerifyVoltageEnginePath\" BeforeTargets=\"ResolveAssemblyReferences\">");
+			sb.AppendLine($"{indent}  <Error Condition=\"!Exists('$(VoltageEnginePath)\\Voltage.dll')\" Text=\"Voltage.dll not found at '$(VoltageEnginePath)'. Set VoltageEnginePath or VOLTAGE_ENGINE_PATH to a Voltage build.\" />");
+			sb.AppendLine($"{indent}</Target>");
+		}
+
+		private static void WriteGitIgnore(string pluginRoot)
+		{
+			var sb = new StringBuilder();
+			sb.AppendLine("# Build output");
+			sb.AppendLine("bin/");
+			sb.AppendLine("obj/");
+			sb.AppendLine();
+			sb.AppendLine("# Staged plugin package - release artifacts produced by `-t:PackagePlugin`.");
+			sb.AppendLine("# PluginResolver reads this layout from a release zip, not from the repository,");
+			sb.AppendLine("# so committing built DLLs would only add binary churn to git history.");
+			sb.AppendLine("lib/");
+			sb.AppendLine("editor/");
+			sb.AppendLine();
+			sb.AppendLine("# IDE / OS");
+			sb.AppendLine(".vs/");
+			sb.AppendLine(".idea/");
+			sb.AppendLine("*.user");
+			sb.AppendLine(".DS_Store");
+
+			File.WriteAllText(Path.Combine(pluginRoot, ".gitignore"), sb.ToString());
+		}
+
+		/// <summary>
+		/// Emits a tiny MSBuild project whose only job is <c>PackagePlugin</c>: stage the manifest and any built assemblies into the layout <c>PluginResolver</c> expects, ready to zip into a release.
+		/// </summary>
+		private static void WritePackagingProject(Options opt, string pluginRoot)
+		{
+			var ns = NamespaceOf(opt);
+			var sb = new StringBuilder();
+
+			sb.AppendLine("<Project Sdk=\"Microsoft.NET.Sdk\">");
+			sb.AppendLine();
+			sb.AppendLine("  <!--");
+			sb.AppendLine("    Packaging-only project: it compiles nothing itself. `PackagePlugin` produces the");
+			sb.AppendLine("    plugin.json + assemblies layout PluginResolver reads. Zip the staged files and attach");
+			sb.AppendLine("    the archive to a release; the workflow in .github/workflows does this for a v* tag.");
+			sb.AppendLine();
+			sb.AppendLine("        dotnet msbuild package.proj -t:PackagePlugin");
+			sb.AppendLine("  -->");
+			sb.AppendLine();
+			sb.AppendLine("  <PropertyGroup>");
+			sb.AppendLine("    <TargetFramework>net8.0</TargetFramework>");
+			sb.AppendLine("    <NoBuild>true</NoBuild>");
+			sb.AppendLine("    <IncludeBuildOutput>false</IncludeBuildOutput>");
+			sb.AppendLine("  </PropertyGroup>");
+			sb.AppendLine();
+			sb.AppendLine("  <Target Name=\"PackagePlugin\">");
+
+			if (opt.Editor)
+			{
+				sb.AppendLine("    <!-- The editor assembly is loaded by the editor, so it needs the EDITOR-flavoured build. -->");
+				sb.AppendLine($"    <MSBuild Projects=\"editor-src/{ns}.Editor.csproj\" Targets=\"Build\" Properties=\"Configuration=Release\" />");
+			}
+
+			if (opt.Gameplay)
+			{
+				sb.AppendLine("    <!-- Gameplay ships as source (see plugin.json SourceRoots): it is compiled into the game");
+				sb.AppendLine("         project, which is what lets NativeAOT see and trim it correctly. Nothing to build here. -->");
+			}
+
+			sb.AppendLine("    <Message Importance=\"high\" Text=\"Plugin package staged. Zip plugin.json and the src/editor folders into a release asset.\" />");
+			sb.AppendLine("  </Target>");
+			sb.AppendLine();
+			sb.AppendLine("</Project>");
+
+			File.WriteAllText(Path.Combine(pluginRoot, "package.proj"), sb.ToString());
+		}
+
+		private static void WriteReleaseWorkflow(Options opt, string pluginRoot)
+		{
+			var dir = Path.Combine(pluginRoot, ".github", "workflows");
+			Directory.CreateDirectory(dir);
+
+			var paths = new List<string> { "plugin.json" };
+			if (opt.Gameplay) paths.Add("src");
+			if (opt.Editor) paths.Add("editor");
+
+			var sb = new StringBuilder();
+			sb.AppendLine("name: Release");
+			sb.AppendLine();
+			sb.AppendLine("# Packages the plugin and attaches it to a tagged release.");
+			sb.AppendLine("#");
+			sb.AppendLine("# The engine is checked out and built first, because a plugin binds to a built engine rather");
+			sb.AppendLine("# than a NuGet package. Pinning the engine ref keeps a release reproducible.");
+			sb.AppendLine("on:");
+			sb.AppendLine("  push:");
+			sb.AppendLine("    tags: ['v*']");
+			sb.AppendLine("  workflow_dispatch:");
+			sb.AppendLine();
+			sb.AppendLine("env:");
+			sb.AppendLine("  ENGINE_REPO: VoltageEngine/VoltageEngine");
+			sb.AppendLine("  ENGINE_REF: main");
+			sb.AppendLine();
+			sb.AppendLine("jobs:");
+			sb.AppendLine("  package:");
+			sb.AppendLine("    runs-on: ubuntu-latest");
+			sb.AppendLine("    steps:");
+			sb.AppendLine("      - uses: actions/checkout@v4");
+			sb.AppendLine("        with: { path: plugin }");
+			sb.AppendLine("      - uses: actions/checkout@v4");
+			sb.AppendLine("        with:");
+			sb.AppendLine("          repository: ${{ env.ENGINE_REPO }}");
+			sb.AppendLine("          ref: ${{ env.ENGINE_REF }}");
+			sb.AppendLine("          path: VoltageEngine");
+			sb.AppendLine("      - uses: actions/setup-dotnet@v4");
+			sb.AppendLine("        with: { dotnet-version: '8.0.x' }");
+			sb.AppendLine();
+			sb.AppendLine("      - name: Build the engine");
+			sb.AppendLine("        run: dotnet build VoltageEngine/Voltage.Editor/Voltage.Editor.csproj -c Editor-Release");
+			sb.AppendLine();
+			sb.AppendLine("      - name: Stage the package");
+			sb.AppendLine("        working-directory: plugin");
+			sb.AppendLine("        run: dotnet msbuild package.proj -t:PackagePlugin -p:VoltageEnginePath=$GITHUB_WORKSPACE/VoltageEngine/Voltage.Editor/bin/Editor-Release/net8.0");
+			sb.AppendLine();
+			sb.AppendLine("      # The manifest version is what the editor displays and what dependency ranges resolve");
+			sb.AppendLine("      # against, so a tag that disagrees with it would ship a mislabelled package.");
+			sb.AppendLine("      - name: Check plugin.json version matches the tag");
+			sb.AppendLine("        if: startsWith(github.ref, 'refs/tags/v')");
+			sb.AppendLine("        working-directory: plugin");
+			sb.AppendLine("        run: |");
+			sb.AppendLine("          TAG=\"${GITHUB_REF_NAME#v}\"");
+			sb.AppendLine("          MANIFEST=$(grep -o '\"Version\"[[:space:]]*:[[:space:]]*\"[^\"]*\"' plugin.json | head -1 | sed 's/.*\"\\([^\"]*\\)\"$/\\1/')");
+			sb.AppendLine("          [ \"$TAG\" = \"$MANIFEST\" ] || { echo \"::error::tag $GITHUB_REF_NAME != plugin.json $MANIFEST\"; exit 1; }");
+			sb.AppendLine();
+			sb.AppendLine("      - name: Zip the package");
+			sb.AppendLine("        working-directory: plugin");
+			sb.AppendLine($"        run: zip -r \"{opt.Id.Trim()}-${{GITHUB_REF_NAME#v}}.zip\" {string.Join(" ", paths)}");
+			sb.AppendLine();
+			sb.AppendLine("      - name: Attach to the release");
+			sb.AppendLine("        if: startsWith(github.ref, 'refs/tags/v')");
+			sb.AppendLine("        uses: softprops/action-gh-release@v2");
+			sb.AppendLine("        with: { files: plugin/*.zip }");
+
+			File.WriteAllText(Path.Combine(dir, "release.yml"), sb.ToString());
 		}
 
 		private static void WriteReadme(Options opt, string pluginRoot)

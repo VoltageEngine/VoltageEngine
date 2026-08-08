@@ -28,12 +28,17 @@ namespace Voltage.Persistence
 
 		public static string ToJson(object obj, JsonSettings settings)
 		{
-			var encoder = new JsonEncoder(settings);
-			encoder.EncodeValue(obj, false);
-
-			var json = _builder.ToString();
-			_builder.Length = 0;
-			return json;
+			try
+			{
+				var encoder = new JsonEncoder(settings);
+				encoder.EncodeValue(obj, false);
+				return _builder.ToString();
+			}
+			finally
+			{
+				// Shared static builder: must be cleared even on throw, or the next encode appends to partial JSON.
+				_builder.Length = 0;
+			}
 		}
 
 		JsonEncoder(JsonSettings settings)
@@ -419,7 +424,7 @@ namespace Voltage.Persistence
 				WriteValueDelimiter();
 				EncodeString(JsonConstants.TypeHintPropertyName);
 				AppendColon();
-				EncodeString(type.FullName);
+				EncodeString(_settings.TypeNameWriter?.Invoke(type) ?? type.FullName);
 			}
 		}
 

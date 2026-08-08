@@ -18,6 +18,7 @@ namespace Voltage
 		/// <summary>Tiles per chunk edge. A chunk holds ChunkSize * ChunkSize cells.</summary>
 		public const int ChunkSize = 32;
 
+		[AssetType(typeof(Voltage.Tilesets.TilesetAsset))]
 		public AssetReference Tileset
 		{
 			get => _data.Tileset;

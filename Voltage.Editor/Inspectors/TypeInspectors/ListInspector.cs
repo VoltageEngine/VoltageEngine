@@ -402,12 +402,15 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 			ImGui.EndPopup();
 		}
 
+		private AssetSlotFilter _assetFilter;
+		private AssetSlotFilter AssetFilter => _assetFilter ??= AssetSlotFilter.For(MemberInfo);
+
 		void DrawAssetReferenceSlot(int index, ref int removeAt)
 		{
 			ImGui.PushID(index);
 
 			var current = (Voltage.Serialization.AssetReference)_list[index];
-			var label   = current.IsValid ? (current.AssetName ?? current.AssetPath) : "None (AssetReference)";
+			var label   = current.IsValid ? (current.AssetName ?? current.AssetPath) : $"None ({AssetFilter.DisplayTypeName})";
 			var btnColor = current.IsValid
 				? new Num.Vector4(0.25f, 0.45f, 0.55f, 0.9f)
 				: new Num.Vector4(0.22f, 0.22f, 0.22f, 0.9f);
@@ -436,10 +439,15 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 				ImGui.EndTooltip();
 			}
 
-			// Drag-drop from Asset Browser
 			if (ImGui.BeginDragDropTarget())
 			{
-				var payload = ImGui.AcceptDragDropPayload(AssetBrowserWindow.DragDropPayloadId);
+				var dragged = AssetBrowserWindow.DraggedReference;
+				var draggedOk = dragged.IsEmpty || !AssetFilter.IsConstrained ||
+								AssetFilter.Accepts(Assets.AssetDatabase.Instance?.Resolve(dragged), dragged.Guid);
+
+				var payload = draggedOk
+					? ImGui.AcceptDragDropPayload(AssetBrowserWindow.DragDropPayloadId)
+					: default;
 				bool accepted;
 				unsafe { accepted = payload.NativePtr != null; }
 				if (accepted && !AssetBrowserWindow.DraggedReference.IsEmpty)
@@ -539,8 +547,7 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 					continue;
 				}
 
-				bool anyFile = AssetReferenceTypeInspector.FolderHasFilesInternal(folder);
-				if (!anyFile) continue;
+				if (!FolderHasAcceptableFiles(folder)) continue;
 
 				if (ImGui.TreeNodeEx(folder.Label, ImGuiTreeNodeFlags.DefaultOpen | ImGuiTreeNodeFlags.SpanAvailWidth))
 				{
@@ -552,10 +559,33 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 			}
 		}
 
+		bool FolderHasAcceptableFiles(Assets.AssetFolderNode folder)
+		{
+			if (!AssetFilter.IsConstrained)
+				return AssetReferenceTypeInspector.FolderHasFilesInternal(folder);
+
+			var db = Assets.AssetDatabase.Instance;
+			foreach (var file in folder.Files)
+			{
+				var guid = db?.GetReference(file.AbsolutePath).Guid ?? Guid.Empty;
+				if (AssetFilter.Accepts(file.AbsolutePath, guid))
+					return true;
+			}
+
+			foreach (var child in folder.ChildFolders)
+				if (FolderHasAcceptableFiles(child))
+					return true;
+
+			return false;
+		}
+
 		void DrawAssetPickerItem(Assets.AssetItem item, AssetReference current)
 		{
 			var db    = Assets.AssetDatabase.Instance;
 			var edRef = db?.GetReference(item.AbsolutePath) ?? Assets.AssetReference.Empty;
+
+			if (AssetFilter.IsConstrained && !AssetFilter.Accepts(item.AbsolutePath, edRef.Guid))
+				return;
 			bool isCurrent = current.IsValid && current.AssetGuid != Guid.Empty && current.AssetGuid == edRef.Guid;
 
 			if (ImGui.Selectable($"  {item.FileName}", isCurrent))

@@ -16,6 +16,7 @@ namespace Voltage.Audio
 	public partial class AudioSourceComponent : Component, IUpdatable, IUpdatableInPauseMode
 	{
 		/// <summary>Audio clip to play (drag from the Asset Browser).</summary>
+		[AssetType(".wav", ".ogg", ".mp3")]
 		public AssetReference Clip;
 
 		/// <summary>Target mixer bus name (Master/Music/SFX/UI/Ambience/Voice). Defaults to SFX.</summary>
