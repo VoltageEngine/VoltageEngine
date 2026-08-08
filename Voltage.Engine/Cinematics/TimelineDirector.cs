@@ -16,10 +16,11 @@ namespace Voltage.Cinematics
 	public partial class TimelineDirector : Component, IUpdatable, ITimelineContext
 	{
 		/// <summary>The reusable .vtimeline asset this director plays.</summary>
+		[AssetType(typeof(TimelineAsset))]
 		public AssetReference Timeline;
 
 		/// <summary>Role → scene entity for pre-existing actors. Spawnables bind themselves at runtime.</summary>
-		public readonly List<RoleBinding> Bindings = new();
+		public List<RoleBinding> Bindings = new();
 
 		public WrapMode Wrap = WrapMode.Hold;
 
@@ -42,6 +43,7 @@ namespace Voltage.Cinematics
 		private readonly HashSet<TimelineEventClip> _begun = new();
 		private readonly HashSet<TimelineEventClip> _ended = new();
 		private readonly StateSnapshot _snapshot = new();
+		private readonly HashSet<string> _warned = new();
 
 		public DirectorState State => _state;
 		public float PlayheadTime => _playhead;
@@ -96,6 +98,7 @@ namespace Voltage.Cinematics
 			}
 
 			ResolveBindings();
+			ValidateOnPlay();
 			CaptureSnapshot();
 			_begun.Clear();
 			_ended.Clear();
@@ -119,6 +122,23 @@ namespace Voltage.Cinematics
 				_state = DirectorState.Playing;
 		}
 
+		/// <summary>
+		/// Jumps to a named marker.
+		/// </summary>
+		public bool SeekToMarker(string markerName)
+		{
+			EnsureAsset();
+			var marker = _asset?.FindMarker(markerName);
+			if (marker == null)
+			{
+				Debug.Warn($"[TimelineDirector] No marker named '{markerName}' on '{Entity?.Name}'.");
+				return false;
+			}
+
+			Seek(marker.Time);
+			return true;
+		}
+
 		/// <summary>Programmatic time jump (rewind, checkpoint). Pure state — fires NO events.</summary>
 		public void Seek(float time)
 		{
@@ -129,6 +149,7 @@ namespace Voltage.Cinematics
 				ResolveBindings();
 
 			_playhead = Math.Clamp(time, 0f, Duration);
+			NotifyInterrupted();
 			EvaluateState(_playhead);
 		}
 
@@ -192,6 +213,7 @@ namespace Voltage.Cinematics
 			if (_state == DirectorState.Stopped)
 				return;
 
+			NotifyInterrupted();
 			_snapshot.Restore();
 			DespawnAll(includePersistent: true);
 			_state = DirectorState.Stopped;
@@ -239,6 +261,81 @@ namespace Voltage.Cinematics
 				Finish();
 		}
 
+		/// <summary>
+		/// Reports everything this timeline references that will not resolve, in one pass at <see cref="Play"/>.
+		/// </summary>
+		private void ValidateOnPlay()
+		{
+			if (_asset == null)
+				return;
+
+			var problems = new List<string>();
+
+			foreach (var role in _asset.Roles)
+			{
+				if (role == null || string.IsNullOrEmpty(role.Name))
+					continue;
+
+				if (_resolvedRoles.ContainsKey(role.Name))
+					continue;
+
+				var spawned = false;
+				foreach (var spawn in _asset.SpawnClips)
+				{
+					if (spawn != null && spawn.SpawnRole == role.Name)
+					{
+						spawned = true;
+						break;
+					}
+				}
+
+				if (!spawned)
+					problems.Add($"role '{role.Name}' is not bound to an entity.");
+			}
+
+			foreach (var binding in Bindings)
+			{
+				if (binding == null || string.IsNullOrEmpty(binding.Role))
+					continue;
+
+				if (ResolveBoundEntity(binding.Entity) == null)
+					problems.Add($"role '{binding.Role}' is bound to an entity that no longer exists.");
+				else if (_asset.Roles.TrueForAll(r => r?.Name != binding.Role))
+					problems.Add($"binding for role '{binding.Role}' matches no role on the asset — it was probably renamed.");
+			}
+
+			foreach (var spawn in _asset.SpawnClips)
+			{
+				if (spawn != null && !spawn.Prefab.IsValid)
+					problems.Add($"spawn '{spawn.SpawnRole}' has no prefab assigned.");
+			}
+
+			foreach (var track in _asset.ParameterTracks)
+				track?.Validate(this, problems);
+
+			var contentEnd = _asset.ContentEndTime();
+			if (contentEnd > _asset.Duration + 0.001f)
+				problems.Add($"content runs to {contentEnd:0.00}s but Length is {_asset.Duration:0.00}s — the rest never plays.");
+
+			if (problems.Count == 0)
+				return;
+
+			WarnOnce($"validate:{_asset.GetHashCode()}:{problems.Count}",
+				$"[TimelineDirector] '{Entity?.Name}' has {problems.Count} unresolved timeline reference(s):" +
+				Environment.NewLine + "  - " + string.Join(Environment.NewLine + "  - ", problems));
+		}
+
+		/// <summary>
+		/// Logs a warning the first time a given key is seen.
+		/// </summary>
+		private void WarnOnce(string key, string message)
+		{
+			if (!_warned.Add(key))
+				return;
+
+			Debug.Warn(message);
+		}
+
 		/// <summary>Advances the playhead honoring the wrap mode; reports cycle wraps and end-of-timeline.</summary>
 		private float Advance(float from, float delta, out bool wrapped, out bool finished)
 		{
@@ -274,6 +371,17 @@ namespace Voltage.Cinematics
 			}
 		}
 
+		/// <summary>Tells every track to silence or reset whatever it started on a forward crossing.</summary>
+		private void NotifyInterrupted()
+		{
+			var tracks = _asset?.ParameterTracks;
+			if (tracks == null)
+				return;
+
+			for (var i = 0; i < tracks.Count; i++)
+				tracks[i]?.OnPlaybackInterrupted(this);
+		}
+
 		/// <summary>Pure function of time: reconcile spawnables, then sample + apply every parameter track.</summary>
 		private void EvaluateState(float time)
 		{
@@ -291,6 +399,13 @@ namespace Voltage.Cinematics
 		{
 			if (next <= prev) // events only fire on forward motion
 				return;
+
+			var tracks = _asset.ParameterTracks;
+			if (tracks != null)
+			{
+				for (var i = 0; i < tracks.Count; i++)
+					tracks[i]?.OnCrossForward(prev, next, this);
+			}
 
 			foreach (var e in _asset.EventsInOrder())
 			{
@@ -332,8 +447,29 @@ namespace Voltage.Cinematics
 				return;
 
 			var entity = ResolveRole(e.TargetRole);
+			if (entity == null)
+			{
+				WarnOnce($"event-role:{e.TargetRole}:{method}",
+					$"[TimelineDirector] Event '{e.Name ?? method}' targets role '{e.TargetRole}', which is not " +
+					"bound to any entity — the event did nothing.");
+				return;
+			}
+
 			var component = ResolveComponent(entity, e.TargetComponentId);
-			TimelineDispatch.TryInvoke(e.TargetComponentId, method, component, e.Args);
+			if (component == null)
+			{
+				WarnOnce($"event-component:{e.TargetComponentId}:{method}",
+					$"[TimelineDirector] Event '{e.Name ?? method}': entity '{entity.Name}' has no component " +
+					$"with id '{e.TargetComponentId}'.");
+				return;
+			}
+
+			if (!TimelineDispatch.TryInvoke(e.TargetComponentId, method, component, e.Args))
+			{
+				WarnOnce($"event-method:{e.TargetComponentId}.{method}",
+					$"[TimelineDirector] Event '{e.Name ?? method}': no [TimelineEvent] method " +
+					$"'{method}' on component '{e.TargetComponentId}'. It may have been renamed or removed.");
+			}
 		}
 
 		private void Finish()
@@ -353,6 +489,11 @@ namespace Voltage.Cinematics
 				return null;
 			return _resolvedRoles.TryGetValue(role, out var e) ? e : null;
 		}
+
+		Component ITimelineContext.ResolveComponent(string role, string componentId) =>
+			ResolveComponent(ResolveRole(role), componentId);
+
+		void ITimelineContext.RaiseSignal(string name, TimelineArg[] args) => OnSignal?.Invoke(name, args);
 
 		private Component ResolveComponent(Entity entity, string componentId)
 		{
@@ -491,9 +632,25 @@ namespace Voltage.Cinematics
 		/// </summary>
 		private TimelineAsset TryLoadAsset()
 		{
+			if (!Timeline.IsValid)
+				return null;   // no asset assigned yet — not an error
+
 			var path = Timeline.ResolvePath();
-			if (string.IsNullOrEmpty(path) || !File.Exists(path))
+			if (string.IsNullOrEmpty(path))
+			{
+				WarnOnce($"timeline-unresolved:{Timeline.AssetGuid}",
+					$"[TimelineDirector] '{Entity?.Name}' references timeline {Timeline} but it could not be " +
+					"resolved. The file may have been deleted, or the asset manifest may be stale — reopen the " +
+					"project in the editor to regenerate it.");
 				return null;
+			}
+
+			if (!File.Exists(path))
+			{
+				WarnOnce($"timeline-missing:{path}",
+					$"[TimelineDirector] '{Entity?.Name}': timeline file '{path}' does not exist.");
+				return null;
+			}
 
 			try
 			{

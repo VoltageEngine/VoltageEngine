@@ -8,6 +8,7 @@ namespace Voltage.Cinematics
 	/// <see cref="TimelineTransformTrack"/> bound to the same role; this track adds the camera-specific
 	/// <see cref="Camera.RawZoom"/> channel.
 	/// </summary>
+	[TrackTypeId("camera")]
 	public class TimelineCameraTrack : TimelineParameterTrack
 	{
 		/// <summary>Keyframes for <see cref="Camera.RawZoom"/>. Empty = don't animate zoom.</summary>
@@ -21,6 +22,13 @@ namespace Voltage.Cinematics
 
 			if (Zoom is { Count: > 0 })
 				camera.RawZoom = TimelineTransformTrack.SampleFloat(Zoom, time);
+		}
+
+		public override float ContentEndTime()
+		{
+			var end = 0f;
+			foreach (var k in Zoom) end = System.Math.Max(end, k.Time);
+			return end;
 		}
 
 		public override void CaptureRestoreState(StateSnapshot snapshot, ITimelineContext context)

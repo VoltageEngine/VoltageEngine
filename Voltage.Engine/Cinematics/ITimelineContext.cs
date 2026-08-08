@@ -12,5 +12,15 @@ namespace Voltage.Cinematics
 
 		/// <summary>Resolves a role name to its live entity (bound actor or active spawnable), or null.</summary>
 		Entity ResolveRole(string role);
+
+		/// <summary>
+		/// Resolves a role to a component on its entity by stable <c>[ComponentId]</c>, or null.
+		/// </summary>
+		Component ResolveComponent(string role, string componentId);
+
+		/// <summary>
+		/// Raises a broadcast signal on the owning director.
+		/// </summary>
+		void RaiseSignal(string name, TimelineArg[] args);
 	}
 }

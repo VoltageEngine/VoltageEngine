@@ -40,7 +40,7 @@ namespace Voltage.Editor.Scripting
 		{
 			"Voltage.dll",
 			"Voltage.Persistence.dll",
-			// Voltage.FarseerPhysics is intentionally absent: it is a bundled PLUGIN, referenced by
+			// Voltage.FarseerPhysics is intentionally absent: it is an installed PLUGIN, referenced by
 			// game projects via the generated PluginLibs/Plugins.g.props instead of EngineLibs.
 			"MonoGame.Framework.dll",
 			// Managed audio decoders pulled in transitively by Voltage.dll (see AudioDecoders). They are

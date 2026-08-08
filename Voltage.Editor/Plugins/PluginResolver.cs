@@ -89,7 +89,23 @@ namespace Voltage.Editor.Plugins
 		{
 			var packageRoot = FindBundledPackage(entry.Id);
 			if (packageRoot == null)
-				throw new PluginResolveException($"Bundled plugin '{entry.Id}' not found under {GetBundledPluginsRoot()}. The editor install may be incomplete.");
+			{
+				var listing = PluginRegistryIndex.Entries.FirstOrDefault(
+					e => string.Equals(e.Id, entry.Id, StringComparison.OrdinalIgnoreCase));
+
+				if (listing != null && !string.IsNullOrWhiteSpace(listing.Git))
+				{
+					throw new PluginResolveException(
+						$"'{entry.Id}' is no longer bundled with the editor — it now ships separately. Remove the " +
+						$"entry and reinstall it from Plugin Manager ▸ Browse Plugins, or change its source in " +
+						$"plugins.json to {{ \"Git\": \"{listing.Git}\" }}.");
+				}
+
+				throw new PluginResolveException(
+					$"Bundled plugin '{entry.Id}' not found under {GetBundledPluginsRoot()}. The editor install " +
+					"may be incomplete, or the plugin may have moved to its own repository — check Plugin " +
+					"Manager ▸ Browse Plugins.");
+			}
 
 			var manifest = PluginManifest.LoadFrom(packageRoot);
 			EnsureManifestIdMatches(entry, manifest);

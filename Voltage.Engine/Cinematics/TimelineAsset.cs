@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Voltage.Cinematics
@@ -32,6 +33,11 @@ namespace Voltage.Cinematics
 		/// <summary>Prefab spawn clips whose lifecycle the director owns.</summary>
 		public List<TimelineSpawnClip> SpawnClips = new();
 
+		/// <summary>
+		/// Named points for navigation — "jump to the choice", "the door opens here".
+		/// </summary>
+		public List<TimelineMarker> Markers = new();
+
 		private List<TimelineEventClip> _eventsInOrder;
 
 		/// <summary>
@@ -50,5 +56,42 @@ namespace Voltage.Cinematics
 
 		/// <summary>Drops the cached event ordering (call after adding/removing/retiming events).</summary>
 		public void InvalidateEventOrder() => _eventsInOrder = null;
+
+		/// <summary>
+		/// The last moment anything on this timeline happens, ignoring <see cref="Duration"/>.
+		/// </summary>
+		public float ContentEndTime()
+		{
+			var end = 0f;
+
+			foreach (var track in ParameterTracks)
+				end = Math.Max(end, track?.ContentEndTime() ?? 0f);
+
+			foreach (var e in Events)
+				end = Math.Max(end, e.Time + Math.Max(0f, e.Duration));
+
+			foreach (var s in SpawnClips)
+				end = Math.Max(end, s.Time + Math.Max(0f, s.Duration));
+
+			foreach (var m in Markers)
+				end = Math.Max(end, m?.Time ?? 0f);
+
+			return end;
+		}
+
+		/// <summary>The marker with this name, or null.</summary>
+		public TimelineMarker FindMarker(string name)
+		{
+			if (string.IsNullOrEmpty(name))
+				return null;
+
+			foreach (var m in Markers)
+			{
+				if (m != null && string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase))
+					return m;
+			}
+
+			return null;
+		}
 	}
 }
