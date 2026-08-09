@@ -232,6 +232,8 @@ public partial class ImGuiManager
 				Core.ConfirmAndExit();
 			}
 
+			Plugins.EditorPluginHost.DrawMenuItems(Plugins.EditorMenu.File);
+
 			ImGui.EndMenu();
 		}
 	}
@@ -335,6 +337,8 @@ public partial class ImGuiManager
 			{
 				ImGui.EndDisabled();
 			}
+
+			Plugins.EditorPluginHost.DrawMenuItems(Plugins.EditorMenu.Project);
 
 			ImGui.EndMenu();
 		}
@@ -560,6 +564,8 @@ public partial class ImGuiManager
 
 				ImGui.EndMenu();
 			}
+
+			Plugins.EditorPluginHost.DrawMenuItems(Plugins.EditorMenu.View);
 
 			ImGui.EndMenu();
 		}
@@ -979,6 +985,8 @@ public partial class ImGuiManager
 				ImGui.EndDisabled();
 			}
 
+			Plugins.EditorPluginHost.DrawMenuItems(Plugins.EditorMenu.Scripting);
+
 			ImGui.EndMenu();
 		}
 	}
@@ -1200,6 +1208,8 @@ public partial class ImGuiManager
 					                         "currently hidden. Click to show it again on the next launch.");
 			}
 
+			Plugins.EditorPluginHost.DrawMenuItems(Plugins.EditorMenu.Effects);
+
 			ImGui.EndMenu();
 		}
 	}
@@ -1251,6 +1261,8 @@ public partial class ImGuiManager
 				ImGui.EndDisabled();
 			}
 
+			Plugins.EditorPluginHost.DrawMenuItems(Plugins.EditorMenu.Build);
+
 			ImGui.EndMenu();
 		}
 	}
@@ -1293,6 +1305,8 @@ public partial class ImGuiManager
 				var startInfo = new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true };
 				System.Diagnostics.Process.Start(startInfo);
 			}
+
+			Plugins.EditorPluginHost.DrawMenuItems(Plugins.EditorMenu.Help);
 
 			ImGui.EndMenu();
 		}
