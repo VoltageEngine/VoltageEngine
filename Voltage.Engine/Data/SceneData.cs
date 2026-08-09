@@ -15,6 +15,32 @@ public class SceneData
 {
 	#region Scene Metadata
 
+	/// <summary>
+	/// Version of the scene file envelope itself - not of the components inside it, which carry their own
+	/// stable ids.
+	///
+	/// <para>Bump only when the shape of this file changes in a way older code cannot read. A file written
+	/// before this field existed deserializes as 0, which is how a pre-versioning scene is recognised.
+	/// It cannot be added retroactively, which is why it is here before it is needed: without it, the
+	/// first breaking envelope change has no way to tell an old file from a new one, and nowhere to hang
+	/// a migration.</para>
+	/// </summary>
+	/// <remarks>
+	/// Defaults to 0, not the current version: a file written before the field existed simply has no such
+	/// key, and the decoder leaves the initializer in place. Defaulting to the current version would make
+	/// every legacy scene claim to be current.
+	/// </remarks>
+	public int FormatVersion;
+
+	/// <summary>Envelope version this build writes.</summary>
+	public const int CurrentFormatVersion = 1;
+
+	/// <summary>Written before <see cref="FormatVersion"/> existed.</summary>
+	public bool IsPreVersioned => FormatVersion <= 0;
+
+	/// <summary>Written by a newer build than this one, so some of it may not be understood.</summary>
+	public bool IsFromNewerBuild => FormatVersion > CurrentFormatVersion;
+
 	public string Name = "Untitled Scene";
 	[JsonExclude]
 	public string FilePath = string.Empty;

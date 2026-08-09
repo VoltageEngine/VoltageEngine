@@ -61,6 +61,16 @@ namespace Voltage.Editor.ProjectFile
 			public string ScenesFolder;
 			public string PrefabsFolder;
 			public DateTime CreatedDate;
+
+			/// <summary>
+			/// Engine version this project targets. Empty on a project created before the field existed.
+			///
+			/// <para>Changed only by an explicit upgrade, never stamped on open. Stamping would rewrite the
+			/// file every time a teammate on a different version opened it, so the two of them would trade
+			/// commits back and forth - noise in the one file that is supposed to make version differences
+			/// legible.</para>
+			/// </summary>
+			public string EngineVersion;
 		}
 
 		public void OpenCreateProjectPopup()
@@ -479,7 +489,8 @@ namespace Voltage.Editor.ProjectFile
 					// Always use forward slashes for cross-platform portability in the stored .voltage file
 					ScenesFolder = DataFolder + "/" + ScenesFolder,
 					PrefabsFolder = DataFolder + "/" + PrefabsFolder,
-					CreatedDate = DateTime.Now
+					CreatedDate = DateTime.Now,
+					EngineVersion = VoltageVersion.Engine,
 				};
 				
 				var metadataPath = Path.Combine(fullProjectPath, $"{projectMetadata.ProjectName}.voltage");

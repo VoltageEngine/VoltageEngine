@@ -217,6 +217,67 @@ namespace Voltage.Editor.ProjectFile
 			_hasUnsavedChanges = false;
 		}
 
+		private string _engineVersionMessage;
+		private bool _engineVersionMessageIsError;
+
+		/// <summary>
+		/// Which engine version the project targets, and whether that matches this editor. The mismatch
+		/// that matters is a project newer than the editor: this build may not understand everything in
+		/// its scenes, and saving can drop what it did not understand.
+		/// </summary>
+		private void DrawEngineVersion()
+		{
+			ImGui.Text("Engine Version:");
+			ImGui.SameLine();
+
+			var state = ProjectEngineVersion.State;
+			var project = ProjectEngineVersion.ProjectVersion;
+			var editor = ProjectEngineVersion.EditorVersion;
+
+			switch (state)
+			{
+				case ProjectVersionState.Match:
+					ImGui.TextColored(new Vector4(0.4f, 0.9f, 0.4f, 1f), $"{project} (matches this editor)");
+					break;
+				case ProjectVersionState.Older:
+					ImGui.TextColored(new Vector4(1f, 0.8f, 0.3f, 1f), $"{project}  (editor is {editor})");
+					break;
+				case ProjectVersionState.Newer:
+					ImGui.TextColored(new Vector4(1f, 0.35f, 0.35f, 1f), $"{project}  (editor is only {editor})");
+					break;
+				case ProjectVersionState.Unstamped:
+					ImGui.TextColored(new Vector4(0.6f, 0.6f, 0.6f, 1f), "not recorded");
+					break;
+				default:
+					ImGui.TextColored(new Vector4(1f, 0.8f, 0.3f, 1f), $"'{project}' (unreadable)");
+					break;
+			}
+
+			if (ProjectEngineVersion.Summary != null)
+				ImGui.TextWrapped(ProjectEngineVersion.Summary);
+
+			// Not offered when the project is newer: stamping it down to this editor would claim the
+			// project supports a build that may not be able to round-trip it.
+			if (state is ProjectVersionState.Older or ProjectVersionState.Unstamped or ProjectVersionState.Unreadable)
+			{
+				if (ImGui.Button($"Set project to Voltage {editor}"))
+				{
+					_engineVersionMessageIsError = !ProjectEngineVersion.StampCurrentVersion(
+						_projectManager.CurrentProject, _projectManager.LastProjectPath, out _engineVersionMessage);
+				}
+
+				if (ImGui.IsItemHovered())
+					ImGui.SetTooltip("Writes the version into the .voltage file. Commit it so the team moves together.");
+			}
+
+			if (!string.IsNullOrEmpty(_engineVersionMessage))
+			{
+				ImGui.TextColored(
+					_engineVersionMessageIsError ? new Vector4(1f, 0.35f, 0.35f, 1f) : new Vector4(0.4f, 0.9f, 0.4f, 1f),
+					_engineVersionMessage);
+			}
+		}
+
 		private void DrawProjectInfoSettings()
 		{
 			ImGui.TextColored(new Vector4(0.7f, 1.0f, 0.7f, 1.0f), "Project Information");
@@ -233,6 +294,8 @@ namespace Voltage.Editor.ProjectFile
 			ImGui.Text("Project Path:");
 			ImGui.SameLine();
 			ImGuiSafe.TextDisabledSafe(project.ProjectPath);
+
+			DrawEngineVersion();
 
 			VoltageEditorUtils.MediumVerticalSpace();
 

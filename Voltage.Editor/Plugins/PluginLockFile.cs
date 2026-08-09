@@ -35,6 +35,12 @@ namespace Voltage.Editor.Plugins
 
 		public void SaveTo(string projectPath)
 		{
+			// Sorted by id, not insertion order. Both teammates adding a plugin otherwise produce lists
+			// that differ by position rather than content, so git reports a conflict spanning entries
+			// neither of them touched. Sorted, a conflict is confined to the entry that actually differs
+			// and the resolution is "keep both, reopen the project to re-pin".
+			Resolved.Sort((a, b) => string.Compare(a?.Id, b?.Id, StringComparison.OrdinalIgnoreCase));
+
 			File.WriteAllText(GetPath(projectPath), Json.ToJson(this, prettyPrint: true));
 		}
 
