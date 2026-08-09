@@ -39,6 +39,9 @@ namespace Voltage.Editor.Windows
 		private readonly List<StatusMessage> _messages = new();
 		private int _nextMessageId;
 
+		/// <summary>Plugin problems the user has dismissed, keyed by id and text.</summary>
+		private readonly HashSet<string> _dismissedProblems = new(StringComparer.Ordinal);
+
 		/// <summary>Enough to see a burst of results; beyond that the oldest are dropped.</summary>
 		private const int MaxMessages = 20;
 
@@ -104,16 +107,8 @@ namespace Voltage.Editor.Windows
 			// which would otherwise throw part-way through drawing.
 			var plugins = PluginManager.Instance.Plugins.ToList();
 
-			if (PluginManager.Instance.HasProblems)
-			{
-				var problemCount = plugins.Count(p => p.State is PluginState.Unavailable or PluginState.Failed);
-				ImGui.TextColored(ColorWarn, $"{problemCount} plugin(s) have problems. Scenes using their components still load; unknown component data is preserved on save.");
-				ImGui.Separator();
-			}
-
-			DrawMessages();
-
-			DrawInstallJobs();
+			DrawMessages(plugins);
+			DrawActiveInstalls(); // Live progress stays outside the dropdown
 
 			if (ImGui.Button("Create New Plugin..."))
 			{
@@ -211,23 +206,6 @@ namespace Voltage.Editor.Windows
 				}
 
 				ImGui.EndTable();
-			}
-
-			// Full error text for any problematic plugin, below the table where it has room to wrap.
-			foreach (var plugin in plugins.Where(p => p.Error != null))
-			{
-				ImGui.Spacing();
-				ImGui.TextColored(ColorError, $"{plugin.Id}:");
-				ImGui.SameLine();
-				ImGui.TextWrapped(plugin.Error);
-			}
-
-			foreach (var plugin in plugins.Where(p => p.CompatibilityWarning != null))
-			{
-				ImGui.Spacing();
-				ImGui.TextColored(ColorWarn, $"{plugin.Id} (version mismatch):");
-				ImGui.SameLine();
-				ImGui.TextWrapped(plugin.CompatibilityWarning);
 			}
 
 			DrawPublishReadinessSection(plugins);
@@ -417,60 +395,7 @@ namespace Voltage.Editor.Windows
 				job.Cancel();
 		}
 
-		/// <summary>
-		/// Running and just-finished installs, above the plugin table so a result cannot be missed when the
-		/// Browse section is collapsed or scrolled away.
-		/// </summary>
-		private void DrawInstallJobs()
-		{
-			var jobs = PluginInstaller.Jobs;
-			if (jobs.Count == 0)
-				return;
-
-			foreach (var job in jobs)
-			{
-				ImGui.PushID("job-" + job.PluginId);
-
-				switch (job.State)
-				{
-					case PluginInstallState.Downloading:
-					case PluginInstallState.Working:
-					case PluginInstallState.ReadyToApply:
-						ImGui.TextUnformatted($"Installing {job.DisplayName}");
-						ImGui.SameLine();
-						DrawInstallProgress(job, compact: false);
-						break;
-
-					case PluginInstallState.Succeeded:
-						ImGui.TextColored(ColorOk, $"Installed {job.DisplayName}. {job.Message}");
-						ImGui.SameLine();
-						if (ImGui.SmallButton("Dismiss"))
-							PluginInstaller.Dismiss(job);
-						break;
-
-					case PluginInstallState.Cancelled:
-						ImGui.TextColored(ColorWarn, $"{job.DisplayName}: {job.Message}");
-						ImGui.SameLine();
-						if (ImGui.SmallButton("Dismiss"))
-							PluginInstaller.Dismiss(job);
-						break;
-
-					case PluginInstallState.Failed:
-						ImGui.TextColored(ColorError, $"{job.DisplayName} failed:");
-						ImGui.SameLine();
-						ImGui.TextWrapped(job.Message ?? "unknown error");
-						if (ImGui.SmallButton("Dismiss"))
-							PluginInstaller.Dismiss(job);
-						break;
-				}
-
-				ImGui.PopID();
-			}
-
-			ImGui.Separator();
-		}
-
-		private void DrawAddPluginSection()
+private void DrawAddPluginSection()
 		{
 			if (!ImGui.CollapsingHeader("Add Plugin"))
 				return;
@@ -930,41 +855,134 @@ namespace Voltage.Editor.Windows
 				_messages.RemoveRange(0, _messages.Count - MaxMessages);
 		}
 
-		/// <summary>Each result dismissable on its own, plus one button to clear the lot.</summary>
-		private void DrawMessages()
+		/// <summary>
+		/// Every result in one place: action outcomes, finished installs, and problems reported by the
+		/// plugins themselves. They used to be spread across a banner, an inline block and two loops under
+		/// the table, so a result could appear anywhere depending on what produced it.
+		///
+		/// <para>A plugin problem is not an event, so dismissing one records the text rather than deleting
+		/// it. If the plugin later reports something different, it returns.</para>
+		/// </summary>
+		private void DrawMessages(IReadOnlyList<PluginInstance> plugins)
 		{
-			if (_messages.Count == 0)
-				return;
-
-			for (var i = _messages.Count - 1; i >= 0; i--)
-			{
-				var message = _messages[i];
-				ImGui.PushID(message.Id);
-
-				if (ImGui.SmallButton("x"))
-				{
-					_messages.RemoveAt(i);
-					ImGui.PopID();
-					continue;
-				}
-
-				ImGui.SameLine();
-				ImGui.PushStyleColor(ImGuiCol.Text, message.IsError ? ColorError : ColorOk);
-				ImGui.TextWrapped(message.Text);
-				ImGui.PopStyleColor();
-
-				ImGui.PopID();
-			}
-
-			// Finished installs are results too, and each has its own Dismiss, so Clear All takes them as
-			// well - otherwise it clears the list and leaves a row of them sitting underneath.
 			var finishedJobs = PluginInstaller.Jobs.Where(j => j.IsFinished).ToList();
 
-			if ((_messages.Count > 1 || finishedJobs.Count > 0) && ImGui.SmallButton("Clear All"))
+			var problems = plugins
+				.SelectMany(p => new[]
+				{
+					(Plugin: p, Text: p.Error, IsError: true),
+					(Plugin: p, Text: p.CompatibilityWarning, IsError: false),
+				})
+				.Where(x => !string.IsNullOrWhiteSpace(x.Text))
+				.Where(x => !_dismissedProblems.Contains(ProblemKey(x.Plugin.Id, x.Text)))
+				.ToList();
+
+			var total = _messages.Count + finishedJobs.Count + problems.Count;
+			if (total == 0)
+				return;
+
+			var anyError = _messages.Any(m => m.IsError)
+			               || finishedJobs.Any(j => j.State == PluginInstallState.Failed)
+			               || problems.Any(p => p.IsError);
+
+			ImGui.PushStyleColor(ImGuiCol.Text, anyError ? ColorError : ColorOk);
+			var open = ImGui.CollapsingHeader($"Messages ({total})###plugin-messages");
+			ImGui.PopStyleColor();
+
+			if (!open)
+			{
+				ImGui.Separator();
+				return;
+			}
+
+			ImGui.Indent();
+
+			// Always offered, even for a single message, so there is one predictable way to clear.
+			if (ImGui.SmallButton("Clear All"))
 			{
 				_messages.Clear();
 				foreach (var job in finishedJobs)
 					PluginInstaller.Dismiss(job);
+				foreach (var problem in problems)
+					_dismissedProblems.Add(ProblemKey(problem.Plugin.Id, problem.Text));
+			}
+
+			ImGui.Separator();
+
+			// Newest first: the thing you just did is the thing you want to read.
+			for (var i = _messages.Count - 1; i >= 0; i--)
+			{
+				var message = _messages[i];
+				ImGui.PushID(message.Id);
+				if (DrawDismissableMessage(message.Text, message.IsError))
+					_messages.RemoveAt(i);
+				ImGui.PopID();
+			}
+
+			foreach (var job in finishedJobs)
+			{
+				ImGui.PushID("job-" + job.PluginId);
+
+				var text = job.State switch
+				{
+					PluginInstallState.Succeeded => $"Installed {job.DisplayName}. {job.Message}",
+					PluginInstallState.Failed => $"{job.DisplayName} failed: {job.Message ?? "unknown error"}",
+					_ => $"{job.DisplayName}: {job.Message}",
+				};
+
+				if (DrawDismissableMessage(text, job.State == PluginInstallState.Failed))
+					PluginInstaller.Dismiss(job);
+
+				ImGui.PopID();
+			}
+
+			foreach (var problem in problems)
+			{
+				ImGui.PushID("problem-" + problem.Plugin.Id + problem.IsError);
+
+				var label = problem.IsError
+					? $"{problem.Plugin.Id}: {problem.Text}"
+					: $"{problem.Plugin.Id} (version mismatch): {problem.Text}";
+
+				if (DrawDismissableMessage(label, problem.IsError))
+					_dismissedProblems.Add(ProblemKey(problem.Plugin.Id, problem.Text));
+
+				ImGui.PopID();
+			}
+
+			ImGui.Unindent();
+			ImGui.Separator();
+		}
+
+		/// <summary>Returns true when the x was pressed this frame.</summary>
+		private bool DrawDismissableMessage(string text, bool isError)
+		{
+			var dismissed = ImGui.SmallButton("x");
+
+			ImGui.SameLine();
+			ImGui.PushStyleColor(ImGuiCol.Text, isError ? ColorError : ColorOk);
+			ImGui.TextWrapped(text);
+			ImGui.PopStyleColor();
+
+			return dismissed;
+		}
+
+		private static string ProblemKey(string pluginId, string text) => pluginId + "\u0000" + text;
+
+		/// <summary>Installs still running, with progress and a way out.</summary>
+		private void DrawActiveInstalls()
+		{
+			var running = PluginInstaller.Jobs.Where(j => !j.IsFinished).ToList();
+			if (running.Count == 0)
+				return;
+
+			foreach (var job in running)
+			{
+				ImGui.PushID("active-" + job.PluginId);
+				ImGui.TextUnformatted($"Installing {job.DisplayName}");
+				ImGui.SameLine();
+				DrawInstallProgress(job, compact: false);
+				ImGui.PopID();
 			}
 
 			ImGui.Separator();
