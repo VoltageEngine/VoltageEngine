@@ -215,6 +215,7 @@ namespace Voltage.Editor.Windows
 				ImGui.TextWrapped(plugin.CompatibilityWarning);
 			}
 
+			DrawPublishReadinessSection(plugins);
 			DrawExternalSdkSection(plugins);
 
 			ImGui.End();
@@ -639,6 +640,95 @@ namespace Voltage.Editor.Windows
 				if (ImGui.Button("Cancel"))
 					ImGui.CloseCurrentPopup();
 				ImGui.EndPopup();
+			}
+		}
+
+		/// <summary>
+		/// For a plugin you author: which step of tag -> release -> registry is missing, and the command
+		/// that fixes it. Every one of those failures otherwise looks identical - the plugin just never
+		/// shows up in Browse Plugins.
+		/// </summary>
+		private void DrawPublishReadinessSection(IReadOnlyList<PluginInstance> plugins)
+		{
+			var authorable = plugins.Where(PluginPublishReadiness.IsAuthorable).ToList();
+			if (authorable.Count == 0)
+				return;
+
+			ImGui.Spacing();
+			if (!ImGui.CollapsingHeader("Publish Readiness"))
+				return;
+
+			ImGui.Indent();
+			ImGui.TextColored(ColorMuted,
+				"Checks a plugin you are authoring. Read-only: it runs your git and one anonymous GitHub request, never writes.");
+			ImGui.Spacing();
+
+			foreach (var plugin in authorable)
+			{
+				ImGui.PushID("publish-" + plugin.Id);
+
+				var report = PluginPublishReadiness.Get(plugin.Id);
+				var expanded = ImGui.TreeNodeEx(plugin.DisplayName ?? plugin.Id,
+					ImGuiTreeNodeFlags.SpanAvailWidth | ImGuiTreeNodeFlags.DefaultOpen);
+
+				ImGui.SameLine(ImGui.GetContentRegionAvail().X - 60);
+				if (report is { Running: true })
+					ImGui.TextColored(ColorWarn, "checking");
+				else if (ImGui.SmallButton("Check"))
+					PluginPublishReadiness.RefreshAsync(plugin);
+
+				if (expanded)
+				{
+					if (report == null)
+						ImGui.TextColored(ColorMuted, "Not checked yet.");
+					else if (report.FatalError != null)
+						ImGui.TextColored(ColorError, report.FatalError);
+					else
+						DrawPublishChecks(report);
+
+					ImGui.TreePop();
+				}
+
+				ImGui.PopID();
+				ImGui.Spacing();
+			}
+
+			ImGui.Unindent();
+		}
+
+		private void DrawPublishChecks(PublishReport report)
+		{
+			if (report.Checks.Count == 0 && report.Running)
+			{
+				ImGui.TextColored(ColorMuted, "Running...");
+				return;
+			}
+
+			foreach (var check in report.Checks)
+			{
+				var (color, marker) = check.State switch
+				{
+					PublishCheckState.Ok => (ColorOk, "[ok]"),
+					PublishCheckState.Warning => (ColorWarn, "[!]"),
+					PublishCheckState.Blocked => (ColorError, "[x]"),
+					_ => (ColorMuted, "[?]"),
+				};
+
+				ImGui.TextColored(color, marker);
+				ImGui.SameLine();
+				ImGui.TextUnformatted(check.Label);
+				ImGui.SameLine();
+				ImGui.TextColored(ColorMuted, check.Detail ?? "");
+
+				if (string.IsNullOrEmpty(check.Fix))
+					continue;
+
+				ImGui.Indent();
+				ImGui.TextColored(ColorMuted, check.Fix);
+				ImGui.SameLine();
+				if (ImGui.SmallButton($"Copy##{check.Label}"))
+					ImGui.SetClipboardText(check.Fix);
+				ImGui.Unindent();
 			}
 		}
 
