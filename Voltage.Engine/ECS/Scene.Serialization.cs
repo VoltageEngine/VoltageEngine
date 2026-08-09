@@ -45,6 +45,17 @@ namespace Voltage
 					return null;
 				}
 
+				// A scene from a newer build may contain envelope fields this one drops on the next save.
+				// Component data is safe either way - unresolvable entries are preserved verbatim - but the
+				// scene's own settings are not, so it is worth saying before someone saves over it.
+				if (sceneData.IsFromNewerBuild)
+				{
+					Debug.Warn(
+						$"'{Path.GetFileName(scenePath)}' was written by a newer Voltage build " +
+						$"(scene format {sceneData.FormatVersion}, this build reads {Data.SceneData.CurrentFormatVersion}). " +
+						"Saving it here may drop scene settings this build does not understand.");
+				}
+
 				var scene = new Scene();
 				scene.ApplySceneData(sceneData);
 
@@ -414,6 +425,7 @@ namespace Voltage
 				var sceneData = BuildSceneData();
 				sceneData.FilePath = scenePath;
 				sceneData.ModifiedAt = DateTime.Now;
+				sceneData.FormatVersion = Data.SceneData.CurrentFormatVersion;
 
 				var jsonSettings = new Voltage.Persistence.JsonSettings
 				{
