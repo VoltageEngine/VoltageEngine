@@ -194,7 +194,20 @@ namespace Voltage
 				_tilesetResolved = false;
 
 				LoadChunksFrom(data);
+				ReleaseSerializedTiles(data);
 			}
+		}
+
+		private static void ReleaseSerializedTiles(TilemapRendererComponentData data)
+		{
+			data.ChunkCoords = Array.Empty<int>();
+			data.ChunkData = Array.Empty<string>();
+			data.StackCoords = Array.Empty<int>();
+			data.StackTiles = Array.Empty<string>();
+			data.OrientationCoords = Array.Empty<int>();
+			data.OrientationValues = Array.Empty<byte>();
+			data.CollisionCoords = Array.Empty<int>();
+			data.CollisionData = Array.Empty<string>();
 		}
 
 		public override RectangleF Bounds
