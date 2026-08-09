@@ -75,6 +75,18 @@
 	                    OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	</ItemGroup>
 
+	<!-- Copy the generator next to Voltage.dll so a standalone plugin can reference it as an Analyzer;
+	     the Analyzer item above only copies to analyzers\dotnet\cs\, not the output root. -->
+	<Target Name="CopySourceGeneratorDllToOutput" AfterTargets="Build">
+		<PropertyGroup>
+			<_GeneratorBin>$(MSBuildThisFileDirectory)..\Voltage.SourceGenerators\Voltage.SourceGenerators\bin\$(Configuration)\netstandard2.0\</_GeneratorBin>
+		</PropertyGroup>
+		<Copy SourceFiles="$(_GeneratorBin)Voltage.SourceGenerators.dll"
+		      DestinationFolder="$(OutputPath)"
+		      SkipUnchangedFiles="true"
+		      Condition="Exists('$(_GeneratorBin)Voltage.SourceGenerators.dll')" />
+	</Target>
+
 	<!-- Trimmer roots: preserve types needed by reflection-based JSON serialization -->
 	<ItemGroup>
 		<TrimmerRootDescriptor Include="TrimmerRoots.xml" />
