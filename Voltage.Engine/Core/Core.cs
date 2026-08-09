@@ -129,6 +129,15 @@ public class Core : Game
 	private TimeSpan _frameCounterElapsedTime = TimeSpan.Zero;
 	private int _frameCounter = 0;
 	private string _windowTitle;
+
+	/// <summary>
+	/// Extra context for the window title - the editor supplies project, scene and version.
+	///
+	/// <para>A provider rather than a string because the title is only rebuilt once a second: the editor
+	/// would otherwise have to track changes and push them, and this way it is asked only when the answer
+	/// is about to be used.</para>
+	/// </summary>
+	public static Func<string> WindowTitleStatusProvider;
 #endif
 
 	private Scene _scene;
@@ -412,7 +421,11 @@ public class Core : Game
 		if (_frameCounterElapsedTime >= TimeSpan.FromSeconds(1))
 		{
 			var totalMemory = (GC.GetTotalMemory(false) / 1048576f).ToString("F");
-			Window.Title = string.Format("{0} {1} fps - {2} MB", _windowTitle, _frameCounter, totalMemory);
+			var status = WindowTitleStatusProvider?.Invoke();
+
+			Window.Title = string.IsNullOrEmpty(status)
+				? string.Format("{0} {1} fps - {2} MB", _windowTitle, _frameCounter, totalMemory)
+				: string.Format("{0} - {1} - {2} fps - {3} MB", _windowTitle, status, _frameCounter, totalMemory);
 			_frameCounter = 0;
 			_frameCounterElapsedTime -= TimeSpan.FromSeconds(1);
 		}
