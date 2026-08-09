@@ -115,7 +115,8 @@ namespace Voltage.Editor.Plugins
 			});
 		}
 
-		private static string ResolveFolder(PluginInstance plugin)
+		/// <summary>The plugin's folder on disk, resolving a project-relative Path source.</summary>
+		public static string ResolveFolder(PluginInstance plugin)
 		{
 			var path = plugin.Entry.Source.Path;
 			if (Path.IsPathRooted(path))
@@ -477,7 +478,7 @@ namespace Voltage.Editor.Plugins
 		}
 
 		/// <summary>github.com "owner/repo" for a remote URL, or null when it is not a GitHub remote.</summary>
-		private static string ParseGitHubRepository(string remoteUrl)
+		public static string ParseGitHubRepository(string remoteUrl)
 		{
 			var match = Regex.Match(remoteUrl, @"github\.com[:/]+([^/]+)/(.+?)(?:\.git)?/?$");
 			return match.Success ? $"{match.Groups[1].Value}/{match.Groups[2].Value}" : null;

@@ -33,6 +33,25 @@ namespace Voltage.Editor.Plugins
 		}
 
 		/// <summary>
+		/// Splits a version into its parts, tolerating a leading "v" and a "-prerelease" suffix. Missing
+		/// minor/patch read as 0, so "1" parses as 1.0.0.
+		/// </summary>
+		public static bool TryParse(string version, out int major, out int minor, out int patch, out string prerelease)
+		{
+			major = minor = patch = 0;
+			prerelease = null;
+
+			if (!TryParseVersion(version, out var parsed))
+				return false;
+
+			major = parsed.major;
+			minor = parsed.minor;
+			patch = parsed.patch;
+			prerelease = string.IsNullOrEmpty(parsed.pre) ? null : parsed.pre;
+			return true;
+		}
+
+		/// <summary>
 		/// Orders two versions, tolerating a leading "v". Returns false when either side is not a version
 		/// this understands - a registry ref like "main" has no ordering, and inventing one would be worse
 		/// than declining to answer.
