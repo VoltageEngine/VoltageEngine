@@ -198,8 +198,28 @@ namespace Voltage
 			}
 		}
 
-		private static void ReleaseSerializedTiles(TilemapRendererComponentData data)
+		/// <summary>
+		/// Drops the encoded copy only after proving this tilemap can be rebuilt from the decoded one.
+		///
+		/// <para>The saving depends on <see cref="SaveChunksTo"/> regenerating every group from runtime
+		/// state. If that ever stops being true - a field added to the data class and not written back, a
+		/// decode path that silently drops cells - the encoded copy is the only surviving record, and
+		/// discarding it turns a bug into lost work. So it is verified per load rather than assumed, and
+		/// anything unexpected keeps the original.</para>
+		/// </summary>
+		private void ReleaseSerializedTiles(TilemapRendererComponentData data)
 		{
+			var probe = new TilemapRendererComponentData();
+			SaveChunksTo(probe);
+
+			if (!CanRebuildFrom(data, probe))
+			{
+				Debug.Warn("[TilemapRenderer] Re-encoding this tilemap did not reproduce what was loaded, so " +
+				           "its serialized copy was kept. Tiles are intact; SaveChunksTo is not covering " +
+				           "everything LoadChunksFrom reads.");
+				return;
+			}
+
 			data.ChunkCoords = Array.Empty<int>();
 			data.ChunkData = Array.Empty<string>();
 			data.StackCoords = Array.Empty<int>();
@@ -209,6 +229,61 @@ namespace Voltage
 			data.CollisionCoords = Array.Empty<int>();
 			data.CollisionData = Array.Empty<string>();
 		}
+
+		/// <summary>
+		/// Whether re-encoding reproduced everything that was just loaded.
+		///
+		/// <para>Anchored on the loaded data, not on runtime state. Comparing the probe against memory
+		/// would agree with itself: if decoding silently dropped every cell, both sides are empty and the
+		/// check passes while the only real copy gets discarded.</para>
+		/// </summary>
+		private bool CanRebuildFrom(TilemapRendererComponentData original, TilemapRendererComponentData probe)
+		{
+			var originalCoords = original.ChunkCoords ?? Array.Empty<int>();
+			var originalData = original.ChunkData ?? Array.Empty<string>();
+			var probeCoords = probe.ChunkCoords ?? Array.Empty<int>();
+			var probeData = probe.ChunkData ?? Array.Empty<string>();
+
+			if (originalCoords.Length / 2 != originalData.Length || probeCoords.Length / 2 != probeData.Length)
+				return false;
+
+			var rebuilt = new Dictionary<long, int[]>(probeData.Length);
+			for (var i = 0; i < probeData.Length; i++)
+				rebuilt[Key(probeCoords[i * 2], probeCoords[i * 2 + 1])] = DecodeChunk(probeData[i]);
+
+			for (var i = 0; i < originalData.Length; i++)
+			{
+				var cells = DecodeChunk(originalData[i]);
+				if (cells == null)
+					return false;
+
+				// An all-empty chunk is dropped on write by design, so its absence is not a loss.
+				if (IsChunkEmpty(cells))
+					continue;
+
+				if (!rebuilt.TryGetValue(Key(originalCoords[i * 2], originalCoords[i * 2 + 1]), out var live) ||
+				    live == null || live.Length != cells.Length)
+				{
+					return false;
+				}
+
+				for (var cell = 0; cell < cells.Length; cell++)
+				{
+					if (live[cell] != cells[cell])
+						return false;
+				}
+			}
+
+			// The sparser groups are compared by presence and count: what matters is that a group which
+			// arrived with content did not come back empty.
+			return SameGroupSize(original.StackTiles, probe.StackTiles)
+			       && SameGroupSize(original.OrientationValues, probe.OrientationValues)
+			       && SameGroupSize(original.CollisionData, probe.CollisionData);
+		}
+
+		/// <summary>Both empty, or both carrying something. Collision regroups on write, so counts can differ.</summary>
+		private static bool SameGroupSize(Array original, Array rebuilt) =>
+			(original?.Length ?? 0) == 0 == ((rebuilt?.Length ?? 0) == 0);
 
 		public override RectangleF Bounds
 		{
