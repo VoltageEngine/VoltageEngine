@@ -87,6 +87,9 @@ namespace Voltage.Editor.Plugins
 
 		internal ProjectPluginEntry Entry;
 
+		/// <summary>Re-points an entry already in plugins.json rather than adding a new one.</summary>
+		internal bool IsUpdate;
+
 		/// <summary>0..1, or -1 when the server sent no Content-Length and the total is unknown.</summary>
 		public float Progress
 		{
@@ -181,7 +184,13 @@ namespace Voltage.Editor.Plugins
 			}
 		}
 
-		public static PluginInstallJob Start(ProjectPluginEntry entry, string displayName)
+		/// <summary>
+		/// Fetches a plugin on a worker and applies it on the next <see cref="Pump"/>. With
+		/// <paramref name="isUpdate"/> the entry is expected to be in plugins.json already and its source
+		/// is re-pointed instead of appended - the download itself is identical either way, which is why
+		/// updates go through here rather than blocking the UI thread for the length of a fetch.
+		/// </summary>
+		public static PluginInstallJob Start(ProjectPluginEntry entry, string displayName, bool isUpdate = false)
 		{
 			if (entry == null)
 				return null;
@@ -200,6 +209,7 @@ namespace Voltage.Editor.Plugins
 			}
 
 			job.Entry = entry;
+			job.IsUpdate = isUpdate;
 
 			Task.Run(() =>
 			{
@@ -254,8 +264,16 @@ namespace Voltage.Editor.Plugins
 
 			try
 			{
-				var result = PluginManager.Instance.CompleteAdd(ready.Entry, ready.Resolved);
-				var ok = result != null && result.StartsWith("Added", StringComparison.Ordinal);
+				// Both halves report their outcome in the message they return, so the state is read back
+				// off its prefix rather than duplicating the classification here.
+				var result = ready.IsUpdate
+					? PluginManager.Instance.CompleteUpdate(ready.Entry, ready.Resolved)
+					: PluginManager.Instance.CompleteAdd(ready.Entry, ready.Resolved);
+
+				var ok = result != null && (ready.IsUpdate
+					? !result.StartsWith("Update failed", StringComparison.Ordinal)
+					: result.StartsWith("Added", StringComparison.Ordinal));
+
 				ready.Finish(ok ? PluginInstallState.Succeeded : PluginInstallState.Failed, result);
 			}
 			catch (Exception ex)
