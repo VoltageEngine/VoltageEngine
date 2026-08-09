@@ -501,3 +501,36 @@ Listing an org's repositories and reading their `plugin.json` sounds simpler, an
 - **A fresh clone needs one editor open** before the game project will build with plugins from an IDE.
 - **Don't hand-edit `plugins.lock.json`.** Use *Update* in the Plugin Manager, or delete the entry and
   reopen.
+
+---
+
+## 12. Engine versions
+
+`VoltageVersion.Engine` is the single source of truth for every version check: whether a plugin's
+`EngineVersion` range is satisfied, and whether a project was written by a newer editor than the one
+opening it. All of it is inert if the constant is not bumped, so the release workflow refuses to build a
+tag that disagrees with it.
+
+Cutting an engine release:
+
+```bash
+# 1. Bump the constant in Voltage.Engine/VoltageVersion.cs, commit, push to main.
+# 2. Tag it identically.
+git tag -a v0.2.0 -m "Voltage 0.2.0"
+git push origin v0.2.0
+```
+
+CI on `main` builds both engine configurations and the editor, and asserts the source generator is copied
+next to `Voltage.dll` - a plugin shipping a compiled assembly references it from there, and if it stops
+being copied those plugins silently build without their generated `ComponentData` rather than failing.
+
+### Projects move forward, not back
+
+A project records the engine version it targets. Opening it with an older editor warns; opening with a
+newer one offers to move the project up, which rewrites the field and is committed like any other change.
+
+**Downgrading is refused.** It is not the reverse of an upgrade: the project may already contain scenes,
+assets and plugin pins the older build cannot read, and the version field is the only thing that would
+have warned about it. Lowering it removes the warning while leaving the unreadable content in place. The
+rule is enforced in `ProjectEngineVersion.StampCurrentVersion` rather than in whichever window draws the
+button, so a launcher gets the same guarantee.
