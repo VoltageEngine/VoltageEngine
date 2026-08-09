@@ -17,7 +17,7 @@ namespace Voltage.Editor.Plugins
 		/// <summary>Directory the payload is synced into PluginLibs from (cache entry, bundled folder, or dev folder).</summary>
 		public string PayloadDir;
 
-		/// <summary>"sha256:…" content hash; null for dev-mode path plugins.</summary>
+		/// <summary>"sha256:..." content hash; null for dev-mode path plugins.</summary>
 		public string ContentHash;
 
 		/// <summary>Resolved git commit SHA (git sources only).</summary>
@@ -29,7 +29,7 @@ namespace Voltage.Editor.Plugins
 		/// <summary>
 		/// Whether <see cref="ContentHash"/> may be recorded in plugins.lock.json. False for bundled plugins:
 		/// their payload is compiled locally by the editor build, and .NET assemblies embed absolute source
-		/// paths, so the bytes — and therefore the hash — differ per machine. Committing that hash makes the
+		/// paths, so the bytes - and therefore the hash - differ per machine. Committing that hash makes the
 		/// lockfile churn on every clone. Bundled plugins are pinned by editor version instead; the hash is
 		/// still computed and used locally as PluginSync's skip-marker (inside gitignored PluginLibs).
 		/// </summary>
@@ -62,7 +62,7 @@ namespace Voltage.Editor.Plugins
 		public static ResolvedPlugin Resolve(ProjectPluginEntry entry, PluginLockEntry lockEntry, string projectPath, bool allowRepin = false)
 		{
 			if (entry.Source == null || !entry.Source.IsValid())
-				throw new PluginResolveException($"Plugin '{entry.Id}' has an invalid source in plugins.json — exactly one of Bundled/Git/Zip/Path must be set.");
+				throw new PluginResolveException($"Plugin '{entry.Id}' has an invalid source in plugins.json - exactly one of Bundled/Git/Zip/Path must be set.");
 
 			if (entry.Source.Bundled)
 				return ResolveBundled(entry, lockEntry);
@@ -80,7 +80,7 @@ namespace Voltage.Editor.Plugins
 
 		/// <summary>
 		/// Bundled plugins live under the editor install ("&lt;editor&gt;/BundledPlugins/&lt;folder&gt;/") and are
-		/// versioned by the editor itself, so a content-hash change after an editor update is expected —
+		/// versioned by the editor itself, so a content-hash change after an editor update is expected -
 		/// the lock is refreshed with a log line instead of failing.
 		/// Their payload is compiled by the editor build on each machine, so the hash is not reproducible
 		/// across machines and is never written to the lockfile (see <see cref="ResolvedPlugin.IsPinnable"/>).
@@ -96,22 +96,22 @@ namespace Voltage.Editor.Plugins
 				if (listing != null && !string.IsNullOrWhiteSpace(listing.Git))
 				{
 					throw new PluginResolveException(
-						$"'{entry.Id}' is no longer bundled with the editor — it now ships separately. Remove the " +
-						$"entry and reinstall it from Plugin Manager ▸ Browse Plugins, or change its source in " +
+						$"'{entry.Id}' is no longer bundled with the editor - it now ships separately. Remove the " +
+						$"entry and reinstall it from Plugin Manager > Browse Plugins, or change its source in " +
 						$"plugins.json to {{ \"Git\": \"{listing.Git}\" }}.");
 				}
 
 				throw new PluginResolveException(
 					$"Bundled plugin '{entry.Id}' not found under {GetBundledPluginsRoot()}. The editor install " +
-					"may be incomplete, or the plugin may have moved to its own repository — check Plugin " +
-					"Manager ▸ Browse Plugins.");
+					"may be incomplete, or the plugin may have moved to its own repository - check Plugin " +
+					"Manager > Browse Plugins.");
 			}
 
 			var manifest = PluginManifest.LoadFrom(packageRoot);
 			EnsureManifestIdMatches(entry, manifest);
 
 			if (lockEntry != null && lockEntry.Version != manifest.Version)
-				EditorDebug.Log($"Bundled plugin '{entry.Id}' changed with the editor ({lockEntry.Version} → {manifest.Version}); lock updated.", "Plugins");
+				EditorDebug.Log($"Bundled plugin '{entry.Id}' changed with the editor ({lockEntry.Version} -> {manifest.Version}); lock updated.", "Plugins");
 
 			return new ResolvedPlugin
 			{
@@ -204,7 +204,7 @@ namespace Voltage.Editor.Plugins
 			EnsureManifestIdMatches(entry, manifest);
 
 			// Dev mode: sync straight from the working folder, unpinned. For iterating on a plugin
-			// while using it — the payload refreshes on every project open.
+			// while using it - the payload refreshes on every project open.
 			if (entry.Dev)
 			{
 				return new ResolvedPlugin
@@ -276,7 +276,7 @@ namespace Voltage.Editor.Plugins
 
 				var hash = PluginCache.ComputeContentHash(staging);
 				VerifyAgainstLock(entry, lockEntry, hash, allowRepin,
-					"The pinned commit's content changed unexpectedly — this should not happen for an immutable SHA; delete the lock entry to re-resolve.");
+					"The pinned commit's content changed unexpectedly - this should not happen for an immutable SHA; delete the lock entry to re-resolve.");
 
 				var cachePath = PluginCache.CommitToCache(staging, manifest.Id, manifest.Version, hash);
 
@@ -307,16 +307,8 @@ namespace Voltage.Editor.Plugins
 			var zipPath = staging + ".zip";
 			try
 			{
-				using (var http = new System.Net.Http.HttpClient())
-				{
-					http.Timeout = TimeSpan.FromMinutes(5);
-					using var response = http.GetAsync(url).GetAwaiter().GetResult();
-					if (!response.IsSuccessStatusCode)
-						throw new PluginResolveException($"Plugin '{entry.Id}': download failed ({(int)response.StatusCode} {response.ReasonPhrase}) from {url}");
-
-					using var file = File.Create(zipPath);
-					response.Content.CopyToAsync(file).GetAwaiter().GetResult();
-				}
+				DownloadZip(entry, url, zipPath);
+				PluginDownloadContext.EnterWorking();
 
 				System.IO.Compression.ZipFile.ExtractToDirectory(zipPath, staging);
 
@@ -413,7 +405,7 @@ namespace Voltage.Editor.Plugins
 				var sha = parts[0];
 				var refName = parts[1].Trim();
 
-				// Peeled annotated tags are the actual commit — always prefer them.
+				// Peeled annotated tags are the actual commit - always prefer them.
 				if (refName.EndsWith("^{}", StringComparison.Ordinal))
 					return sha.ToLowerInvariant();
 
@@ -482,7 +474,7 @@ namespace Voltage.Editor.Plugins
 
 		private static void EnsureManifestIdMatches(ProjectPluginEntry entry, PluginManifest manifest)
 		{
-			// Discovery mode (the Add-plugin flow): the entry has no id yet — it is taken from the
+			// Discovery mode (the Add-plugin flow): the entry has no id yet - it is taken from the
 			// resolved manifest by the caller, so there is nothing to cross-check.
 			if (string.IsNullOrEmpty(entry.Id))
 				return;
@@ -503,11 +495,78 @@ namespace Voltage.Editor.Plugins
 				return;
 
 			if (!lockEntry.Source.Matches(entry.Source))
-				return; // Source itself changed in plugins.json — treat as a new resolution, re-pin below.
+				return; // Source itself changed in plugins.json - treat as a new resolution, re-pin below.
 
 			if (lockEntry.ContentHash != actualHash)
 				throw new PluginResolveException(
 					$"Plugin '{entry.Id}': content does not match plugins.lock.json (expected {lockEntry.ContentHash}, got {actualHash}). " + remedyHint);
+		}
+
+		/// <summary>
+		/// Streams the archive to disk, reporting progress and honouring cancellation.
+		///
+		/// <para>Reads the response headers first rather than buffering the whole body, so the size is known
+		/// up front and bytes land on disk as they arrive. The timeout is per read, not for the whole
+		/// transfer: a large plugin on a slow line is fine, a server that accepts the connection and then
+		/// goes quiet is not, and a single overall timeout cannot tell those apart.</para>
+		/// </summary>
+		private static void DownloadZip(ProjectPluginEntry entry, string url, string zipPath)
+		{
+			var token = PluginDownloadContext.Token;
+
+			using var http = new System.Net.Http.HttpClient
+			{
+				// Per-read watchdog below governs a hang; this only bounds the initial response.
+				Timeout = TimeSpan.FromSeconds(60),
+			};
+
+			using var response = http
+				.GetAsync(url, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, token)
+				.GetAwaiter().GetResult();
+
+			if (!response.IsSuccessStatusCode)
+			{
+				throw new PluginResolveException(
+					$"Plugin '{entry.Id}': download failed ({(int)response.StatusCode} {response.ReasonPhrase}) from {url}");
+			}
+
+			var total = response.Content.Headers.ContentLength;
+			PluginDownloadContext.Report(0, total);
+
+			using var source = response.Content.ReadAsStreamAsync(token).GetAwaiter().GetResult();
+			using var file = File.Create(zipPath);
+
+			var buffer = new byte[81920];
+			long read = 0;
+
+			while (true)
+			{
+				token.ThrowIfCancellationRequested();
+
+				var readTask = source.ReadAsync(buffer, 0, buffer.Length, token);
+				if (!readTask.Wait(TimeSpan.FromSeconds(30), token))
+				{
+					throw new PluginResolveException(
+						$"Plugin '{entry.Id}': the download stopped responding after {read:N0} bytes. " +
+						"The server may be unreachable - try again.");
+				}
+
+				var count = readTask.Result;
+				if (count <= 0)
+					break;
+
+				file.Write(buffer, 0, count);
+				read += count;
+				PluginDownloadContext.Report(read, total);
+			}
+
+			// A truncated transfer is otherwise only caught later as a corrupt archive, which reads as the
+			// plugin being broken rather than the download being cut short.
+			if (total.HasValue && read != total.Value)
+			{
+				throw new PluginResolveException(
+					$"Plugin '{entry.Id}': download ended early ({read:N0} of {total.Value:N0} bytes). Try again.");
+			}
 		}
 
 		internal static string CreateStagingDir()
