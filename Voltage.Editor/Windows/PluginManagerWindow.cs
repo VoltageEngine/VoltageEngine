@@ -65,6 +65,16 @@ namespace Voltage.Editor.Windows
 		private readonly FolderBrowser _createLocationBrowser = new("create-location-picker");
 		private string _sdkBrowseTargetId;
 
+		// "Publish New Version" popup state. The plan is rebuilt whenever an input changes, so the
+		// blockers and the command preview always describe what the button would actually do.
+		private bool _showPublishPopup;
+		private string _publishPluginId;
+		private string _publishNewVersion = "";
+		private string _publishCommitMessage = "";
+		private bool _publishPush = true;
+		private PublishPlan _publishPlan;
+		private bool _publishInputsDirty;
+
 		// "Create New Plugin" popup state.
 		private bool _showCreatePopup;
 		private bool _newIdEdited;
@@ -121,6 +131,7 @@ namespace Voltage.Editor.Windows
 			DrawBrowsePluginsSection();
 			DrawAddPluginSection();
 			DrawCreatePluginPopup();
+			DrawPublishPopup(plugins);
 
 			// Drive the native/ImGui folder dialogs and apply their results.
 			_pluginFolderBrowser.Draw("Select Plugin Folder");
@@ -674,6 +685,264 @@ private void DrawAddPluginSection()
 			ImGui.EndPopup();
 		}
 
+		private void OpenPublishPopup(PluginInstance plugin)
+		{
+			_publishPluginId = plugin.Id;
+			_publishNewVersion = BumpVersion(plugin.Manifest?.Version, minor: true);
+			_publishCommitMessage = $"{plugin.DisplayName} {_publishNewVersion}";
+			_publishPush = true;
+			_publishPlan = null;
+			_publishInputsDirty = true;
+			_showPublishPopup = true;
+		}
+
+		/// <summary>
+		/// Bumps one part of a semver, keeping the parts below it at zero. Falls back to the current value
+		/// when it is not a version this understands - the popup blocks on that anyway, with an explanation.
+		/// </summary>
+		private static string BumpVersion(string current, bool major = false, bool minor = false)
+		{
+			if (!SemVerRange.TryParse(current, out var ma, out var mi, out var pa, out _))
+				return current ?? "0.1.0";
+
+			if (major)
+				return $"{ma + 1}.0.0";
+
+			return minor ? $"{ma}.{mi + 1}.0" : $"{ma}.{mi}.{pa + 1}";
+		}
+
+		/// <summary>
+		/// The publish sequence in one place: what version, what message, what will run, what stops it, and
+		/// - once started - how far it got. Everything destructive is behind this one dialog, and every
+		/// command is on screen before the button is pressable.
+		/// </summary>
+		private void DrawPublishPopup(IReadOnlyList<PluginInstance> plugins)
+		{
+			if (_showPublishPopup)
+			{
+				ImGui.OpenPopup("publish-plugin");
+				_showPublishPopup = false;
+			}
+
+			var center = ImGui.GetMainViewport().GetCenter();
+			ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
+			ImGui.SetNextWindowSize(new Num.Vector2(720, 0), ImGuiCond.Appearing);
+
+			var open = true;
+			if (!ImGui.BeginPopupModal("publish-plugin", ref open, ImGuiWindowFlags.None))
+				return;
+
+			var plugin = plugins.FirstOrDefault(p => string.Equals(p.Id, _publishPluginId, StringComparison.Ordinal));
+			if (plugin == null)
+			{
+				ImGui.TextColored(ColorError, "That plugin is no longer in this project.");
+				if (ImGui.Button("Close", new Num.Vector2(120, 0)))
+					ImGui.CloseCurrentPopup();
+				ImGui.EndPopup();
+				return;
+			}
+
+			ImGui.TextColored(new Num.Vector4(0.2f, 0.8f, 1f, 1f), $"Publish New Version - {plugin.DisplayName}");
+			ImGui.Separator();
+
+			var running = PluginPublisher.IsRunning;
+			var finished = _publishPlan is { Finished: true };
+
+			// Inputs lock once the sequence starts: the plan is already being executed.
+			if (running || finished)
+				ImGui.BeginDisabled();
+
+			ImGui.TextUnformatted("Current");
+			ImGui.SameLine(110);
+			ImGui.TextColored(ColorMuted, plugin.Manifest?.Version ?? "(none)");
+
+			ImGui.TextUnformatted("New version");
+			ImGui.SameLine(110);
+			ImGui.SetNextItemWidth(120);
+			ImGui.InputText("##newversion", ref _publishNewVersion, 32);
+			// On commit rather than per keystroke: rebuilding the plan shells out to git several times,
+			// one of them across the network.
+			if (ImGui.IsItemDeactivatedAfterEdit())
+				_publishInputsDirty = true;
+
+			ImGui.SameLine();
+			if (ImGui.SmallButton("major"))
+			{
+				_publishNewVersion = BumpVersion(plugin.Manifest?.Version, major: true);
+				_publishInputsDirty = true;
+			}
+			ImGui.SameLine();
+			if (ImGui.SmallButton("minor"))
+			{
+				_publishNewVersion = BumpVersion(plugin.Manifest?.Version, minor: true);
+				_publishInputsDirty = true;
+			}
+			ImGui.SameLine();
+			if (ImGui.SmallButton("patch"))
+			{
+				_publishNewVersion = BumpVersion(plugin.Manifest?.Version);
+				_publishInputsDirty = true;
+			}
+			ImGui.SameLine();
+			ImGui.TextColored(ColorMuted, $"tag: v{_publishNewVersion}");
+
+			ImGui.TextUnformatted("Commit message");
+			ImGui.SameLine(110);
+			ImGui.SetNextItemWidth(-1);
+			ImGui.InputText("##commitmessage", ref _publishCommitMessage, 512);
+			if (ImGui.IsItemDeactivatedAfterEdit())
+				_publishInputsDirty = true;
+
+			if (ImGui.Checkbox("Push the branch and the tag to origin", ref _publishPush))
+				_publishInputsDirty = true;
+			if (ImGui.IsItemHovered())
+			{
+				ImGui.SetTooltip(
+					"ON  - the full release: CI builds it and it becomes public. This is the point of no return;\n" +
+					"        a published version is permanent because installs pin it by URL.\n\n" +
+					"OFF - commits and tags locally only. Nothing leaves your machine until you push.");
+			}
+
+			if (running || finished)
+				ImGui.EndDisabled();
+
+			// Rebuilt on any edit rather than every frame: each Prepare shells out to git several times.
+			if (_publishInputsDirty && !running && !finished)
+			{
+				_publishInputsDirty = false;
+				_publishPlan = PluginPublisher.Prepare(plugin, _publishNewVersion, _publishCommitMessage, _publishPush);
+			}
+
+			var plan = _publishPlan;
+			if (plan == null)
+			{
+				ImGui.EndPopup();
+				return;
+			}
+
+			DrawPublishProblems(plan);
+
+			ImGui.Spacing();
+			ImGui.SeparatorText(plan.Running || plan.Finished ? "Progress" : "Will run");
+			DrawPublishSteps(plan);
+
+			if (!string.IsNullOrEmpty(plan.Summary))
+			{
+				ImGui.Spacing();
+				ImGui.PushStyleColor(ImGuiCol.Text, plan.Succeeded ? ColorOk : ColorError);
+				ImGui.TextWrapped(plan.Summary);
+				ImGui.PopStyleColor();
+
+				ImGui.SameLine();
+				if (ImGui.SmallButton("Copy##publish-summary"))
+					ImGui.SetClipboardText(plan.Summary);
+			}
+
+			ImGui.Separator();
+
+			if (plan.Finished)
+			{
+				if (ImGui.Button("Done", new Num.Vector2(120, 0)))
+				{
+					SetStatus(plan.Summary, isError: !plan.Succeeded);
+					if (plan.Succeeded)
+						PluginPublishReadiness.RefreshAsync(plugin);
+					ImGui.CloseCurrentPopup();
+				}
+
+				ImGui.EndPopup();
+				return;
+			}
+
+			if (!plan.CanPublish)
+				ImGui.BeginDisabled();
+
+			var label = plan.Push ? $"Publish v{plan.NewVersion}" : $"Commit and tag v{plan.NewVersion}";
+			if (ImGui.Button(plan.Running ? "Publishing..." : label, new Num.Vector2(180, 0)))
+				PluginPublisher.Start(plan);
+
+			if (!plan.CanPublish)
+				ImGui.EndDisabled();
+
+			ImGui.SameLine();
+			if (plan.Running)
+				ImGui.BeginDisabled();
+			if (ImGui.Button("Cancel", new Num.Vector2(120, 0)))
+				ImGui.CloseCurrentPopup();
+			if (plan.Running)
+				ImGui.EndDisabled();
+
+			ImGui.EndPopup();
+		}
+
+		private void DrawPublishProblems(PublishPlan plan)
+		{
+			foreach (var blocker in plan.Blockers)
+			{
+				ImGui.Spacing();
+				ImGui.TextColored(ColorError, "[x]");
+				ImGui.SameLine();
+				ImGui.TextColored(ColorError, blocker.Label);
+				ImGui.Indent();
+				ImGui.TextWrapped(blocker.Detail);
+				DrawPublishFix(blocker);
+				ImGui.Unindent();
+			}
+
+			foreach (var warning in plan.Warnings)
+			{
+				ImGui.Spacing();
+				ImGui.TextColored(ColorWarn, "[!]");
+				ImGui.SameLine();
+				ImGui.TextColored(ColorWarn, warning.Label);
+				ImGui.Indent();
+				ImGui.TextWrapped(warning.Detail);
+				DrawPublishFix(warning);
+				ImGui.Unindent();
+			}
+		}
+
+		private static void DrawPublishFix(PublishBlocker problem)
+		{
+			if (string.IsNullOrEmpty(problem.Fix))
+				return;
+
+			ImGui.TextColored(ColorMuted, problem.Fix);
+			ImGui.SameLine();
+			if (ImGui.SmallButton($"Copy##fix-{problem.Label}"))
+				ImGui.SetClipboardText(problem.Fix);
+		}
+
+		private static void DrawPublishSteps(PublishPlan plan)
+		{
+			foreach (var step in plan.Steps)
+			{
+				var (color, marker) = step.State switch
+				{
+					PublishStepState.Done => (ColorOk, "[ok]"),
+					PublishStepState.Running => (ColorWarn, "[..]"),
+					PublishStepState.Failed => (ColorError, "[x]"),
+					PublishStepState.Skipped => (ColorMuted, "[-]"),
+					_ => (ColorMuted, "[ ]"),
+				};
+
+				ImGui.TextColored(color, marker);
+				ImGui.SameLine();
+				ImGui.TextUnformatted(step.Label);
+				ImGui.SameLine();
+				ImGui.TextColored(ColorMuted, step.Command);
+
+				if (string.IsNullOrEmpty(step.Message))
+					continue;
+
+				ImGui.Indent();
+				ImGui.PushStyleColor(ImGuiCol.Text, step.State == PublishStepState.Failed ? ColorError : ColorMuted);
+				ImGui.TextWrapped(step.Message);
+				ImGui.PopStyleColor();
+				ImGui.Unindent();
+			}
+		}
+
 		private void DoCreatePlugin(bool canAutoAdd)
 		{
 			var result = PluginScaffolder.Create(new PluginScaffolder.Options
@@ -822,9 +1091,23 @@ private void DrawAddPluginSection()
 				// Own row, same reason as Install: a button sharing a tree node's row loses the click.
 				ImGui.Indent();
 				if (report is { Running: true })
+				{
 					ImGui.TextColored(ColorWarn, "checking...");
+				}
 				else if (ImGui.Button($"Check##check-{plugin.Id}", new Num.Vector2(110, 0)))
+				{
 					PluginPublishReadiness.RefreshAsync(plugin);
+				}
+
+				ImGui.SameLine();
+				if (PluginPublisher.IsRunning)
+					ImGui.BeginDisabled();
+				if (ImGui.Button($"Publish New Version...##publish-{plugin.Id}", new Num.Vector2(0, 0)))
+					OpenPublishPopup(plugin);
+				if (PluginPublisher.IsRunning)
+					ImGui.EndDisabled();
+				if (ImGui.IsItemHovered())
+					ImGui.SetTooltip("Bump plugin.json, commit, tag, and push - the whole release sequence, with every command shown before it runs.");
 				ImGui.Unindent();
 
 				if (expanded)
