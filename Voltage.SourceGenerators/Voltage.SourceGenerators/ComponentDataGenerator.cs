@@ -1105,6 +1105,16 @@ namespace Voltage
 			case "global::System.Int32": return $"{readerParam}.ReadInt()";
 			case "uint":
 			case "global::System.UInt32": return $"(uint){readerParam}.ReadInt()";
+			// The narrow integrals are rare but must not fall through to the "unsupported"
+			// default — that reads as a silent all-defaults load in a NativeAOT build.
+			case "byte":
+			case "global::System.Byte": return $"(byte){readerParam}.ReadInt()";
+			case "sbyte":
+			case "global::System.SByte": return $"(sbyte){readerParam}.ReadInt()";
+			case "short":
+			case "global::System.Int16": return $"(short){readerParam}.ReadInt()";
+			case "ushort":
+			case "global::System.UInt16": return $"(ushort){readerParam}.ReadInt()";
 			case "long":
 			case "global::System.Int64": return $"{readerParam}.ReadLong()";
 			case "float":
