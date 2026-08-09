@@ -11,6 +11,12 @@
 *.hlsl      text eol=crlf
 *.fx        text eol=crlf
 
+# Consumed by Linux CI runners: a CRLF here puts a stray \r on the end of every
+# shell command inside a `run:` block, so these must stay LF whatever the platform.
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.sh        text eol=lf
+
 # Treat compiled/asset files as binary — no diff attempted
 *.dll       binary
 *.exe       binary
