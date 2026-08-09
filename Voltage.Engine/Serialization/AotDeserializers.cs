@@ -31,6 +31,7 @@ namespace Voltage.Serialization
 			{
 				switch (key)
 				{
+					case "FormatVersion": data.FormatVersion = r.ReadInt(); break;
 					case "Name": data.Name = r.ReadString(); break;
 					case "FilePath": data.FilePath = r.ReadString(); break;
 					case "CreatedAt": data.CreatedAt = r.ReadDateTime(); break;

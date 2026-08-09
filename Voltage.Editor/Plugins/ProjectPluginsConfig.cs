@@ -37,6 +37,10 @@ namespace Voltage.Editor.Plugins
 
 		public void SaveTo(string projectPath)
 		{
+			// Sorted for the same reason as the lockfile: insertion order makes two teammates adding
+			// different plugins conflict positionally, over entries neither of them touched.
+			Plugins.Sort((a, b) => string.Compare(a?.Id, b?.Id, StringComparison.OrdinalIgnoreCase));
+
 			File.WriteAllText(GetPath(projectPath), Json.ToJson(this, prettyPrint: true));
 		}
 	}
