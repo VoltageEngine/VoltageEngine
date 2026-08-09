@@ -271,8 +271,11 @@ namespace Voltage.Editor.Plugins
 			sb.AppendLine("# Staged plugin package - release artifacts produced by `-t:PackagePlugin`.");
 			sb.AppendLine("# PluginResolver reads this layout from a release zip, not from the repository,");
 			sb.AppendLine("# so committing built DLLs would only add binary churn to git history.");
-			sb.AppendLine("lib/");
-			sb.AppendLine("editor/");
+			sb.AppendLine("# Anchored to the root on purpose: an unanchored `editor/` also matches a source");
+			sb.AppendLine("# folder named editor at any depth, which silently drops it from the repository.");
+			sb.AppendLine("/lib/");
+			sb.AppendLine("/editor-lib/");
+			sb.AppendLine("/editor/");
 			sb.AppendLine();
 			sb.AppendLine("# IDE / OS");
 			sb.AppendLine(".vs/");

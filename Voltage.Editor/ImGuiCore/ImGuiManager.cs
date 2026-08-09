@@ -401,6 +401,10 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_projectManager.OnProjectUnloaded += OnProjectUnloaded;
 		_projectManager.LoadLastProject();
 
+		// The OS centres the window title for us, which is the one place this can sit without competing
+		// with the menus for width.
+		Core.WindowTitleStatusProvider = ComposeWindowTitleStatus;
+
 		InitializeScriptManager();
 	}
 
@@ -864,11 +868,25 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			DrawBuildMenu();
 			DrawHelpMenu();
 
-			// Project indicator — centered in the menu bar.
-			DrawCurrentProjectIndicator();
+			// The project indicator lives on the Editor Tools bar. Centering it here only worked while the
+			// window was wide enough: the clamp that stops it overdrawing the menus puts it flush against
+			// Help on a 13-inch screen.
 
 			ImGui.EndMainMenuBar();
 		}
+	}
+
+	/// <summary>Project, scene and version for the window title. Asked for once a second.</summary>
+	private string ComposeWindowTitleStatus()
+	{
+		if (!_projectManager.HasActiveProject)
+			return "No Project";
+
+		var project = _projectManager.CurrentProject;
+		var sceneManager = SceneManager.Instance;
+		var scene = sceneManager.HasLoadedScene ? sceneManager.CurrentSceneName : "no scene";
+
+		return $"{project.ProjectName} | {scene} | v{project.Version}";
 	}
 
 	private void DrawEditorToolsBar()
@@ -877,6 +895,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		float spacing = 12f * FontSizeMultiplier;
 		float iconSize = 24f * FontSizeMultiplier;
+
 
 		System.Numerics.Vector4 normalButtonColor;
 		if (_cursorSelectionManager.SelectionMode == CursorSelectionMode.Normal)
