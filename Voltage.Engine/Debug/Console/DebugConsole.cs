@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Microsoft.Xna.Framework.Input;
 using System.Reflection;
 using Microsoft.Xna.Framework;
@@ -818,7 +819,10 @@ namespace Voltage.Console
 		{
 			try
 			{
-				return Convert.ToSingle(arg);
+				// Invariant, not the current culture: a console command is typed with a '.' decimal
+				// separator regardless of machine locale, and a comma-decimal culture would silently
+				// turn "1.5" into 0.
+				return Convert.ToSingle(arg, CultureInfo.InvariantCulture);
 			}
 			catch
 			{

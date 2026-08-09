@@ -1036,8 +1036,8 @@ namespace Voltage.UI
 			}
 			else
 			{
-				if (x + width > amountX + _areaWidth) amountX = x + width - _areaWidth;
-				if (x < amountX) amountX = x;
+				if (amountX < x + width - _areaWidth) amountX = x + width - _areaWidth;
+				if (amountX > x) amountX = x;
 			}
 
 			SetScrollX(amountX);
@@ -1045,12 +1045,12 @@ namespace Voltage.UI
 			var amountY = _amountY;
 			if (centerVertical)
 			{
-				amountY = _maxY - y + _areaHeight / 2 - height / 2;
+				amountY = y - _areaHeight / 2 + height / 2;
 			}
 			else
 			{
-				if (amountY > _maxY - y - height + _areaHeight) amountY = _maxY - y - height + _areaHeight;
-				if (amountY < _maxY - y) amountY = _maxY - y;
+				if (amountY < y + height - _areaHeight) amountY = y + height - _areaHeight;
+				if (amountY > y) amountY = y;
 			}
 
 			SetScrollY(amountY);
@@ -1241,7 +1241,7 @@ namespace Voltage.UI
 			else
 				eleY -= _visualAmountY;
 
-			float eleX = _widgetAreaBounds.Y;
+			float eleX = _widgetAreaBounds.X;
 			if (_scrollX)
 				eleX -= (int)_visualAmountX;
 
