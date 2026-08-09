@@ -356,6 +356,12 @@ namespace Voltage.Editor.Plugins
 			sb.AppendLine("jobs:");
 			sb.AppendLine("  package:");
 			sb.AppendLine("    runs-on: ubuntu-latest");
+			sb.AppendLine();
+			sb.AppendLine("    # Org repositories default the workflow token to read-only, which packages fine and then");
+			sb.AppendLine("    # 403s on release creation.");
+			sb.AppendLine("    permissions:");
+			sb.AppendLine("      contents: write");
+			sb.AppendLine();
 			sb.AppendLine("    steps:");
 			sb.AppendLine("      - uses: actions/checkout@v4");
 			sb.AppendLine("        with: { path: plugin }");
@@ -369,6 +375,11 @@ namespace Voltage.Editor.Plugins
 			sb.AppendLine();
 			sb.AppendLine("      - name: Build the engine");
 			sb.AppendLine("        run: dotnet build VoltageEngine/Voltage.Editor/Voltage.Editor.csproj -c Editor-Release");
+			sb.AppendLine();
+			sb.AppendLine("      # PackagePlugin drives msbuild directly, which does not restore on its own.");
+			sb.AppendLine("      - name: Restore the plugin");
+			sb.AppendLine("        working-directory: plugin");
+			sb.AppendLine("        run: dotnet restore package.proj");
 			sb.AppendLine();
 			sb.AppendLine("      - name: Stage the package");
 			sb.AppendLine("        working-directory: plugin");
