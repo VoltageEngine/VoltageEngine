@@ -43,7 +43,6 @@ public partial class ImGuiManager
 		set => _showMainInspectorWindow.Value = value;
 	}
 
-
 	private PersistentBool _showCoreWindow = new("ImGui_ShowCoreWindow", true);
 
 	public bool ShowCoreWindow
@@ -1131,107 +1130,6 @@ public partial class ImGuiManager
 			ImGui.PopStyleColor(3);
 	}
 
-	private void DrawCurrentProjectIndicator()
-	{
-		string displayText;
-		Vector4 iconColor;
-
-		if (_projectManager.HasActiveProject)
-		{
-			var project = _projectManager.CurrentProject;
-			var sceneManager = SceneManager.Instance;
-
-			// Get current scene name
-			string sceneName = sceneManager.HasLoadedScene
-				? sceneManager.CurrentSceneName
-				: "NONE";
-
-			displayText = $"[*] {project.ProjectName} | Scene: {sceneName} | v{project.Version}";
-			iconColor = new Vector4(0.4f, 0.8f, 0.4f, 1.0f);
-		}
-		else
-		{
-			displayText = "[ ] No Project";
-			iconColor = new Vector4(0.6f, 0.6f, 0.6f, 1.0f);
-		}
-
-		// Center the indicator within the menu bar.
-		// The play/stop/pause/reset cluster has moved to the Editor Tools bar so
-		// there is no longer any collision risk here.
-		var textSize = ImGui.CalcTextSize(displayText);
-		var windowWidth = ImGui.GetWindowWidth();
-		var centeredX = (windowWidth - textSize.X) * 0.5f;
-
-		// Clamp so we never overdraw content already placed to the left.
-		var safeX = Math.Max(ImGui.GetCursorPosX(), centeredX);
-
-		ImGui.SetCursorPosX(safeX);
-
-		if (_projectManager.HasActiveProject)
-		{
-			var project = _projectManager.CurrentProject;
-			var sceneManager = SceneManager.Instance;
-
-			ImGui.PushStyleColor(ImGuiCol.Text, iconColor);
-			ImGui.Text("[*]");
-			ImGui.PopStyleColor();
-
-			if (ImGui.IsItemHovered())
-			{
-				ImGui.BeginTooltip();
-				ImGui.Text("Active Project");
-				ImGui.Separator();
-				ImGuiSafe.TextColoredSafe(new Vector4(0.7f, 0.9f, 1.0f, 1.0f), project.ProjectName);
-				ImGuiSafe.TextSafe($"Version: {project.Version}");
-				ImGuiSafe.TextSafe($"Path: {project.ProjectPath}");
-				
-				if (sceneManager.HasLoadedScene)
-				{
-					ImGui.Separator();
-					ImGuiSafe.TextSafe($"Scene: {sceneManager.CurrentSceneName}");
-					ImGuiSafe.TextSafe($"Scene Path: {sceneManager.CurrentScenePath}");
-				}
-				
-				ImGui.EndTooltip();
-			}
-
-			ImGui.SameLine();
-			ImGuiSafe.TextColoredSafe(new Vector4(0.9f, 0.9f, 1.0f, 1.0f), project.ProjectName);
-
-			ImGui.SameLine();
-			ImGui.TextDisabled("|");
-			
-			ImGui.SameLine();
-			if (sceneManager.HasLoadedScene)
-			{
-				ImGuiSafe.TextColoredSafe(new Vector4(0.7f, 0.9f, 0.7f, 1.0f), $"Scene: {sceneManager.CurrentSceneName}");
-			}
-			else
-			{
-				ImGui.TextDisabled("Scene: NONE");
-			}
-
-			ImGui.SameLine();
-			ImGui.TextDisabled("|");
-			
-			ImGui.SameLine();
-			ImGuiSafe.TextDisabledSafe($"v{project.Version}");
-		}
-		else
-		{
-			ImGui.PushStyleColor(ImGuiCol.Text, iconColor);
-			ImGui.Text("[ ]");
-			ImGui.PopStyleColor();
-
-			if (ImGui.IsItemHovered())
-			{
-				ImGui.SetTooltip("No project loaded");
-			}
-
-			ImGui.SameLine();
-			ImGui.TextDisabled("No Project");
-		}
-	}
 
 	private void DrawEffectsMenu()
 	{
