@@ -480,24 +480,40 @@ namespace Voltage.Editor.Plugins
 		/// resolved manifest (except bundled, where the caller supplies the id from the dropdown), so
 		/// the caller does not need to know it in advance. Returns a user-facing status message.
 		/// </summary>
-		public string AddPlugin(ProjectPluginEntry entry)
+		/// <summary>
+		/// The slow half of an add: fetch and unpack into the cache. Touches no manager state and loads no
+		/// assemblies, so it is safe to run off the UI thread - which is what
+		/// <see cref="PluginInstaller"/> does so a download can show progress and be cancelled.
+		/// Throws on failure.
+		/// </summary>
+		public ResolvedPlugin ResolveForAdd(ProjectPluginEntry entry)
 		{
-			var project = ProjectManager.Instance.CurrentProject;
-			if (project == null || _projectPath == null)
-				return "No project open.";
+			if (ProjectManager.Instance.CurrentProject == null || _projectPath == null)
+				throw new PluginResolveException("No project open.");
 			if (entry?.Source == null || !entry.Source.IsValid())
-				return "Choose exactly one source (bundled, local folder, git URL, or zip URL).";
+				throw new PluginResolveException("Choose exactly one source (local folder, git URL, or zip URL).");
 
 			// Dev mode only makes sense for a local folder source.
 			entry.Dev = entry.Dev && !string.IsNullOrWhiteSpace(entry.Source.Path);
 
-			// Never let an exception escape into the ImGui frame (it would be swallowed and the user
-			// would see nothing). Any failure — expected validation error or unexpected IO/parse error —
-			// comes back as a "Could not add plugin: …" message the window renders in red.
+			return PluginResolver.Resolve(entry, null, _projectPath, allowRepin: true);
+		}
+
+		/// <summary>
+		/// The second half: record the plugin and load it. Must run on the UI thread - the restore it
+		/// triggers loads editor-plugin assemblies and calls their Initialize, which registers windows and
+		/// menu items the UI is meanwhile enumerating.
+		/// </summary>
+		public string CompleteAdd(ProjectPluginEntry entry, ResolvedPlugin resolved)
+		{
+			var project = ProjectManager.Instance.CurrentProject;
+			if (project == null || _projectPath == null)
+				return "No project open.";
+			if (resolved?.Manifest == null)
+				return "Could not add plugin: nothing was resolved.";
+
 			try
 			{
-				var resolved = PluginResolver.Resolve(entry, null, _projectPath, allowRepin: true);
-
 				entry.Id = resolved.Manifest.Id;
 
 				var config = ProjectPluginsConfig.LoadFrom(_projectPath) ?? new ProjectPluginsConfig();
@@ -525,6 +541,25 @@ namespace Voltage.Editor.Plugins
 					PluginState.Failed => $"Added '{entry.Id}', but it failed to load: {added.Error}",
 					_ => $"Added plugin '{entry.Id}'.",
 				};
+			}
+			catch (Exception ex)
+			{
+				EditorDebug.Warn($"Add plugin failed: {ex.Message}", "Plugins");
+				return $"Could not add plugin: {ex.Message}";
+			}
+		}
+
+		/// <summary>
+		/// Resolve and add in one call, on the calling thread. Kept for callers that are already on the UI
+		/// thread and have nothing to show progress with.
+		/// </summary>
+		public string AddPlugin(ProjectPluginEntry entry)
+		{
+			// Never let an exception escape into the ImGui frame (it would be swallowed and the user would
+			// see nothing); every failure comes back as a message the window renders in red.
+			try
+			{
+				return CompleteAdd(entry, ResolveForAdd(entry));
 			}
 			catch (Exception ex)
 			{
