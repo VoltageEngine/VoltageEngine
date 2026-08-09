@@ -85,10 +85,13 @@ namespace Voltage
     /// its C# type name, so renaming the class or moving its namespace does not break them.
     /// The id is assigned once and frozen; renaming the class never changes it. Emitted by
     /// Voltage.SourceGenerators so it is always available without an engine reference.
+    /// Internal on purpose: every compilation gets its own copy, so a public one would collide with
+    /// Voltage.dll's and raise CS0436 at every use site in a game or plugin project. Identity never
+    /// crosses an assembly boundary — the id is registered as a string.
     /// </summary>
     [global::System.AttributeUsage(global::System.AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
     [global::System.CodeDom.Compiler.GeneratedCode(""Voltage.SourceGenerators"", ""1.0"")]
-    public sealed class ComponentIdAttribute : global::System.Attribute
+    internal sealed class ComponentIdAttribute : global::System.Attribute
     {
         public string Id { get; }
         public ComponentIdAttribute(string id) { Id = id; }
