@@ -24,12 +24,23 @@ namespace Voltage.Editor.Windows
 		private static readonly Num.Vector4 ColorError = new(1f, 0.2f, 0.2f, 1f);
 		private static readonly Num.Vector4 ColorMuted = new(0.6f, 0.6f, 0.6f, 1f);
 
-		private string _statusMessage;
-		private bool _statusIsError;
+		/// <summary>
+		/// Results of plugin actions, oldest first. A list rather than one slot because these arrive from
+		/// several places - installs finishing on a worker, table actions, SDK edits - and a single slot
+		/// meant the last one silently erased whichever you had not read yet.
+		/// </summary>
+		private sealed class StatusMessage
+		{
+			public int Id;
+			public string Text;
+			public bool IsError;
+		}
 
-		// Result of the last Add attempt, shown in red/green right inside the Add section.
-		private string _addStatusMessage;
-		private bool _addStatusIsError;
+		private readonly List<StatusMessage> _messages = new();
+		private int _nextMessageId;
+
+		/// <summary>Enough to see a burst of results; beyond that the oldest are dropped.</summary>
+		private const int MaxMessages = 20;
 
 		/// <summary>Edit buffers for SDK path inputs, keyed by sdk id.</summary>
 		private readonly Dictionary<string, string> _sdkPathBuffers = new();
@@ -100,11 +111,7 @@ namespace Voltage.Editor.Windows
 				ImGui.Separator();
 			}
 
-			if (!string.IsNullOrEmpty(_statusMessage))
-			{
-				ImGui.TextColored(_statusIsError ? ColorError : ColorOk, _statusMessage);
-				ImGui.Separator();
-			}
+			DrawMessages();
 
 			DrawInstallJobs();
 
@@ -528,12 +535,10 @@ namespace Voltage.Editor.Windows
 				var started = PluginInstaller.Start(entry, entry.Source?.Describe() ?? "plugin");
 				if (started == null)
 				{
-					_addStatusMessage = "Another install is already running.";
-					_addStatusIsError = true;
+					SetStatus("Another install is already running.", isError: true);
 				}
 				else
 				{
-					_addStatusMessage = null;
 					_addPath = _addGitUrl = _addGitRef = _addZipUrl = "";
 					_addDev = false;
 				}
@@ -545,15 +550,8 @@ namespace Voltage.Editor.Windows
 			ImGui.SameLine();
 			ImGui.TextColored(ColorMuted, "Fetches, verifies, and loads the plugin. Private git repos use your local credentials.");
 
-			// Show the add result right here (red on failure) so it's next to the button, not buried
-			// above the plugin list.
-			if (!string.IsNullOrEmpty(_addStatusMessage))
-			{
-				ImGui.Spacing();
-				ImGui.PushStyleColor(ImGuiCol.Text, _addStatusIsError ? ColorError : ColorOk);
-				ImGui.TextWrapped(_addStatusMessage);
-				ImGui.PopStyleColor();
-			}
+			// The result goes to the message list at the top rather than here: the install runs on a
+			// worker now, so it does not arrive while this section is still on screen.
 
 			ImGui.Unindent();
 			ImGui.Separator();
@@ -918,11 +916,58 @@ namespace Voltage.Editor.Windows
 			}
 		}
 
-		// Records a table-action status message and classifies whether it reads as an error (red).
-		private void SetStatus(string message)
+		// Records a plugin action result and classifies whether it reads as an error (red).
+		private void SetStatus(string message) => SetStatus(message, IsErrorStatus(message));
+
+		private void SetStatus(string message, bool isError)
 		{
-			_statusMessage = message;
-			_statusIsError = IsErrorStatus(message);
+			if (string.IsNullOrWhiteSpace(message))
+				return;
+
+			_messages.Add(new StatusMessage { Id = _nextMessageId++, Text = message, IsError = isError });
+
+			if (_messages.Count > MaxMessages)
+				_messages.RemoveRange(0, _messages.Count - MaxMessages);
+		}
+
+		/// <summary>Each result dismissable on its own, plus one button to clear the lot.</summary>
+		private void DrawMessages()
+		{
+			if (_messages.Count == 0)
+				return;
+
+			for (var i = _messages.Count - 1; i >= 0; i--)
+			{
+				var message = _messages[i];
+				ImGui.PushID(message.Id);
+
+				if (ImGui.SmallButton("x"))
+				{
+					_messages.RemoveAt(i);
+					ImGui.PopID();
+					continue;
+				}
+
+				ImGui.SameLine();
+				ImGui.PushStyleColor(ImGuiCol.Text, message.IsError ? ColorError : ColorOk);
+				ImGui.TextWrapped(message.Text);
+				ImGui.PopStyleColor();
+
+				ImGui.PopID();
+			}
+
+			// Finished installs are results too, and each has its own Dismiss, so Clear All takes them as
+			// well - otherwise it clears the list and leaves a row of them sitting underneath.
+			var finishedJobs = PluginInstaller.Jobs.Where(j => j.IsFinished).ToList();
+
+			if ((_messages.Count > 1 || finishedJobs.Count > 0) && ImGui.SmallButton("Clear All"))
+			{
+				_messages.Clear();
+				foreach (var job in finishedJobs)
+					PluginInstaller.Dismiss(job);
+			}
+
+			ImGui.Separator();
 		}
 
 		/// <summary>
