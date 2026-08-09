@@ -1,0 +1,46 @@
+name: CI
+
+# Every plugin's release workflow checks out this repository at main and builds it, so a broken main
+# breaks every downstream plugin release, not just this build.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # Both engine configurations: EDITOR changes the engine's public surface, so a change can compile
+      # in one and not the other.
+      - name: Build the engine
+        run: |
+          dotnet build Voltage.Engine/Voltage.Engine.csproj -c Release
+          dotnet build Voltage.Engine/Voltage.Engine.csproj -c Editor-Release
+
+      - name: Build the editor
+        run: dotnet build Voltage.Editor/Voltage.Editor.csproj -c Editor-Release
+
+      # A plugin that ships a compiled assembly references this from the engine's output directory. If it
+      # stops being copied there, plugins silently lose their generated ComponentData rather than failing.
+      - name: The generator must ship beside Voltage.dll
+        run: |
+          for cfg in Release Editor-Release; do
+            f="Voltage.Engine/bin/$cfg/net8.0/Voltage.SourceGenerators.dll"
+            test -f "$f" || { echo "::error::$f is missing - plugins would build without the generator"; exit 1; }
+          done
+
+      - name: Check the version is a version
+        run: |
+          VERSION=$(grep -o 'Engine = "[^"]*"' Voltage.Engine/VoltageVersion.cs | head -1 | sed 's/.*"\(.*\)"/\1/')
+          echo "VoltageVersion.Engine = $VERSION"
+          echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' \
+            || { echo "::error::VoltageVersion.Engine ('$VERSION') is not semver"; exit 1; }
