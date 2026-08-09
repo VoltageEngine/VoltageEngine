@@ -153,6 +153,9 @@ public class ProjectManager : GlobalManager
 				return false;
 			}
 
+			// Before anything loads: an editor older than the project cannot be trusted to round-trip it.
+			ProjectEngineVersion.Evaluate(metadata);
+
 			// Create a RuntimeGameProject from the metadata
 			metadata.ProjectPath = ResolveAndCacheProjectPath(voltageFilePath);
 			var project = new RuntimeGameProject(metadata);

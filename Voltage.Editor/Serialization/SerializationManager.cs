@@ -342,6 +342,7 @@ public partial class SerializationManager : GlobalManager
 			newSceneData.FilePath = filePath;
 			newSceneData.CreatedAt = scene.SceneData.CreatedAt;
 			newSceneData.ModifiedAt = DateTime.Now;
+			newSceneData.FormatVersion = Voltage.Data.SceneData.CurrentFormatVersion;
 			newSceneData.TiledMapFileName = scene.SceneData.TiledMapFileName;
 			newSceneData.EditorData = scene.SceneData.EditorData;
 		}
@@ -351,6 +352,7 @@ public partial class SerializationManager : GlobalManager
 			newSceneData.FilePath = filePath;
 			newSceneData.CreatedAt = oldSceneData.CreatedAt;
 			newSceneData.ModifiedAt = DateTime.Now;
+			newSceneData.FormatVersion = Voltage.Data.SceneData.CurrentFormatVersion;
 			newSceneData.TiledMapFileName = oldSceneData.TiledMapFileName;
 			newSceneData.EditorData = oldSceneData.EditorData;
 		}
@@ -360,6 +362,7 @@ public partial class SerializationManager : GlobalManager
 			newSceneData.FilePath = filePath;
 			newSceneData.CreatedAt = DateTime.Now;
 			newSceneData.ModifiedAt = DateTime.Now;
+			newSceneData.FormatVersion = Voltage.Data.SceneData.CurrentFormatVersion;
 		}
 
 		var oldEntitiesByName = new Dictionary<string, SceneData.SceneEntityData>(StringComparer.OrdinalIgnoreCase);
