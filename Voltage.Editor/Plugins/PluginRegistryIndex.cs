@@ -44,6 +44,66 @@ namespace Voltage.Editor.Plugins
 		/// <summary>True when this listing can actually be installed.</summary>
 		public bool IsInstallable => !string.IsNullOrWhiteSpace(Zip) || !string.IsNullOrWhiteSpace(Git);
 
+		/// <summary>
+		/// What pressing Install would actually fetch, as a short label. A registry listing carries no
+		/// version field of its own - the version is whatever the source points at - so this reports the
+		/// source rather than guessing: the ref if the listing pins one, otherwise the tag embedded in a
+		/// release zip URL, otherwise an honest "default branch".
+		/// </summary>
+		public string VersionLabel
+		{
+			get
+			{
+				if (!string.IsNullOrWhiteSpace(Ref))
+					return Ref.Trim();
+
+				var fromZip = VersionFromZipUrl(Zip);
+				if (fromZip != null)
+					return fromZip;
+
+				if (!string.IsNullOrWhiteSpace(Zip))
+					return "unversioned zip";
+
+				return !string.IsNullOrWhiteSpace(Git) ? "default branch" : "no source";
+			}
+		}
+
+		/// <summary>
+		/// Pulls the tag out of a GitHub release asset URL (".../releases/download/&lt;tag&gt;/&lt;file&gt;"),
+		/// falling back to a version-looking suffix on the file name ("voltage.farseer-1.2.0.zip").
+		/// Returns null when the URL says nothing about a version.
+		/// </summary>
+		private static string VersionFromZipUrl(string zip)
+		{
+			if (string.IsNullOrWhiteSpace(zip))
+				return null;
+
+			var url = zip.Trim();
+
+			const string marker = "/releases/download/";
+			var at = url.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+			if (at >= 0)
+			{
+				var rest = url.Substring(at + marker.Length);
+				var slash = rest.IndexOf('/');
+				var tag = slash >= 0 ? rest.Substring(0, slash) : rest;
+				if (tag.Length > 0)
+					return tag;
+			}
+
+			var name = url.Substring(url.LastIndexOf('/') + 1);
+			if (!name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+				return null;
+
+			name = name.Substring(0, name.Length - 4);
+			var dash = name.LastIndexOf('-');
+			if (dash < 0 || dash + 1 >= name.Length)
+				return null;
+
+			var candidate = name.Substring(dash + 1);
+			return char.IsDigit(candidate[0]) ? candidate : null;
+		}
+
 		public bool Matches(string search)
 		{
 			if (string.IsNullOrWhiteSpace(search))

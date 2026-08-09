@@ -278,6 +278,13 @@ namespace Voltage.Editor.Windows
 
 				var expanded = ImGui.TreeNodeEx(listing.Name ?? listing.Id, ImGuiTreeNodeFlags.FramePadding);
 
+				// On the collapsed row, not just inside: what Install downloads has to be readable before
+				// anyone reaches for the button.
+				ImGui.SameLine();
+				ImGui.TextColored(ColorMuted, listing.VersionLabel);
+				if (ImGui.IsItemHovered())
+					ImGui.SetTooltip(VersionTooltip(listing));
+
 				ImGui.Indent();
 
 				var job = FindJob(listing.Id);
@@ -290,8 +297,11 @@ namespace Voltage.Editor.Windows
 					if (PluginInstaller.IsBusy)
 						ImGui.BeginDisabled();
 
-					if (ImGui.Button($"Install##install-{listing.Id}", new Num.Vector2(110, 0)))
+					if (ImGui.Button($"Install {listing.VersionLabel}##install-{listing.Id}", new Num.Vector2(0, 0)))
 						InstallFromRegistry(listing);
+
+					if (ImGui.IsItemHovered())
+						ImGui.SetTooltip(VersionTooltip(listing));
 
 					if (PluginInstaller.IsBusy)
 						ImGui.EndDisabled();
@@ -342,6 +352,29 @@ namespace Voltage.Editor.Windows
 
 			if (started == null)
 				SetStatus("Another install is already running.");
+		}
+
+		/// <summary>
+		/// Spells out what the version label means for this listing, since "v1.2.0" and "default branch"
+		/// promise very different things, and names the URL it came from.
+		/// </summary>
+		private static string VersionTooltip(PluginRegistryEntry listing)
+		{
+			var source = !string.IsNullOrWhiteSpace(listing.Zip) ? listing.Zip : listing.Git;
+
+			var what = !string.IsNullOrWhiteSpace(listing.Ref)
+				? $"Installs {listing.Ref.Trim()}, the ref this listing pins."
+				: !string.IsNullOrWhiteSpace(listing.Zip)
+					? $"Installs {listing.VersionLabel}, read from the release URL."
+					: "This listing pins no ref, so you get whatever the default branch holds right now.";
+
+			var engine = string.IsNullOrWhiteSpace(listing.EngineVersion) || listing.EngineVersion == "*"
+				? "Claims no engine requirement."
+				: $"Claims engine {listing.EngineVersion}.";
+
+			return string.IsNullOrWhiteSpace(source)
+				? what + "\n" + engine
+				: what + "\n" + engine + "\n\n" + source;
 		}
 
 		private static PluginInstallJob FindJob(string pluginId) =>
