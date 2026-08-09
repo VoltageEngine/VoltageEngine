@@ -229,7 +229,16 @@ resolves straight to your folder, unpinned, and there is nothing to publish or r
 the project — or restart the editor, if it is an editor plugin, because editor assemblies cannot be swapped
 in place.
 
-To publish:
+To publish, use **Plugin Manager → Publish Readiness → Publish New Version**. It runs the whole sequence
+from the editor: bump `plugin.json`, `git add`/`commit`, `git tag -a vX.Y.Z`, push the branch, push the tag.
+Every command is shown before it runs, and anything that would stop it — a version that is not a step
+forward, a tag that already exists, no `origin`, unconfigured git identity, or a plugin id that a registry
+already publishes from a *different* repository — is listed with the command that clears it.
+
+Turning off "Push the branch and the tag" commits and tags locally only, so nothing becomes public until
+you push by hand.
+
+The same steps by hand:
 
 1. Bump `Version` in `plugin.json`.
 2. Commit and push.
@@ -237,6 +246,9 @@ To publish:
    and push the tag. CI builds, packages, and attaches `<id>-<version>.zip` to the release.
 4. Update the registry entry's `Zip`, `Ref`, and `EngineVersion`. With a `REGISTRY_TOKEN` secret on the
    plugin repo this is an automatic pull request; without one, edit `registry.json` by hand.
+
+Steps 1-3 are what the button does; step 4 still needs the token or a hand-edit, and Publish Readiness's
+**Check** reports both it and whether CI finished.
 
 Projects pick it up from Plugin Manager. Once the registry lists a newer version than the one installed, the
 plugins table shows `1.0.0 -> v1.2.0` and its button becomes **Update to v1.2.0**; the same listing also
