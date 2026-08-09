@@ -604,35 +604,140 @@ namespace Voltage.Editor.Plugins
 		/// <summary>Explicit user-driven update: re-resolves accepting new content and re-pins the lock.</summary>
 		public string UpdatePlugin(string id)
 		{
+			var entry = PrepareUpdate(id, out var message);
+			if (entry == null)
+				return message;
+
+			try
+			{
+				var lockEntry = PluginLockFile.LoadFrom(_projectPath).FindById(id);
+				return CompleteUpdate(entry, PluginResolver.Resolve(entry, lockEntry, _projectPath, allowRepin: true));
+			}
+			catch (Exception ex) when (ex is PluginResolveException or PluginManifestException)
+			{
+				return $"Update failed: {ex.Message}";
+			}
+		}
+
+		/// <summary>
+		/// First half of an update: validates the plugin and decides what to fetch.
+		///
+		/// <para>An entry installed from the catalogue pins the URL of the version it was installed from,
+		/// so re-resolving it can only ever return the same bytes - which is why Update used to look like
+		/// it did nothing. When the registry advertises something newer, the returned entry carries the
+		/// catalogue's current source instead.</para>
+		///
+		/// <para>Returns a detached copy: plugins.json is not touched until the fetch succeeds, so a failed
+		/// update cannot leave the project pointing at a source it never managed to download.</para>
+		/// </summary>
+		public ProjectPluginEntry PrepareUpdate(string id, out string message)
+		{
+			message = null;
+
 			if (_projectPath == null)
-				return "No project open.";
+			{
+				message = "No project open.";
+				return null;
+			}
 
 			var config = ProjectPluginsConfig.LoadFrom(_projectPath);
 			var entry = config?.Plugins.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
 			if (entry == null)
-				return $"Plugin '{id}' not found in plugins.json.";
+			{
+				message = $"Plugin '{id}' not found in plugins.json.";
+				return null;
+			}
+
+			var candidate = new ProjectPluginEntry
+			{
+				Id = entry.Id,
+				Source = entry.Source,
+				Dev = entry.Dev,
+				Disabled = entry.Disabled,
+			};
+
+			TryAdoptRegistrySource(candidate, FindById(id)?.Manifest?.Version);
+			return candidate;
+		}
+
+		/// <summary>
+		/// Points a registry-sourced entry at the catalogue's current release, when the catalogue has
+		/// something newer than what is installed. A local folder is the author's own working copy and a
+		/// bundled entry ships with the editor, so neither is the registry's to redirect.
+		/// </summary>
+		private static void TryAdoptRegistrySource(ProjectPluginEntry entry, string installedVersion)
+		{
+			if (entry.Dev || entry.Source == null || entry.Source.Bundled
+			    || !string.IsNullOrWhiteSpace(entry.Source.Path))
+				return;
+
+			var listing = PluginRegistryIndex.FindUpdateFor(entry.Id, installedVersion);
+			if (listing == null)
+				return;
+
+			var adopted = listing.ToSourceSpec();
+			if (adopted.IsValid() && !adopted.Matches(entry.Source))
+				entry.Source = adopted;
+		}
+
+		/// <summary>
+		/// Second half of an update: records the (possibly repointed) source, re-pins the lock, and syncs
+		/// the new payload. Must run on the UI thread for the same reason as <see cref="CompleteAdd"/>.
+		///
+		/// <para>The loaded assembly is not replaced - it cannot be, since assemblies never unload - so the
+		/// message says what still has to happen for the new code to run.</para>
+		/// </summary>
+		public string CompleteUpdate(ProjectPluginEntry entry, ResolvedPlugin resolved)
+		{
+			if (_projectPath == null)
+				return "Update failed: no project open.";
+			if (resolved?.Manifest == null)
+				return "Update failed: nothing was resolved.";
 
 			try
 			{
-				var lockFile = PluginLockFile.LoadFrom(_projectPath);
-				var resolved = PluginResolver.Resolve(entry, lockFile.FindById(id), _projectPath, allowRepin: true);
+				var id = entry.Id ?? resolved.Manifest.Id;
+				var instance = FindById(id);
+				var previousVersion = instance?.Manifest?.Version;
+
+				// Persist the repointed source only now that we know it actually resolves.
+				var config = ProjectPluginsConfig.LoadFrom(_projectPath);
+				var stored = config?.Plugins.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
+				if (stored != null && !stored.Source.Matches(entry.Source))
+				{
+					stored.Source = entry.Source;
+					config.SaveTo(_projectPath);
+				}
+
 				PluginSync.SyncPlugin(_projectPath, resolved);
 
+				var lockFile = PluginLockFile.LoadFrom(_projectPath);
 				if (UpdateLockEntry(lockFile, entry, resolved))
 					lockFile.SaveTo(_projectPath);
 
-				var instance = FindById(id);
 				if (instance != null)
 				{
+					instance.Entry = stored ?? instance.Entry;
 					instance.Resolved = resolved;
 					instance.Manifest = resolved.Manifest;
 					instance.PayloadPath = PluginSync.GetPluginPayloadPath(_projectPath, id);
 				}
 
-				return $"Plugin '{id}' updated to {resolved.Manifest.Version}. Reopen the project to load the new version.";
+				var newVersion = resolved.Manifest.Version;
+				if (previousVersion != null && string.Equals(previousVersion, newVersion, StringComparison.Ordinal))
+					return $"'{id}' is already at {newVersion} - its source has nothing newer.";
+
+				var reload = resolved.Manifest.IsEditor
+					? "Restart the editor to load it (editor assemblies cannot be swapped in place)."
+					: "Reopen the project to load it.";
+
+				return previousVersion == null
+					? $"Updated '{id}' to {newVersion}. {reload}"
+					: $"Updated '{id}' {previousVersion} -> {newVersion}. {reload}";
 			}
-			catch (Exception ex) when (ex is PluginResolveException or PluginManifestException)
+			catch (Exception ex)
 			{
+				EditorDebug.Warn($"Update of '{entry.Id}' failed while applying: {ex.Message}", "Plugins");
 				return $"Update failed: {ex.Message}";
 			}
 		}

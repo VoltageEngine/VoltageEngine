@@ -149,7 +149,7 @@ namespace Voltage.Editor.Windows
 			{
 				ImGui.TableSetupColumn("Plugin", ImGuiTableColumnFlags.WidthStretch, 1.8f);
 				ImGui.TableSetupColumn("Description", ImGuiTableColumnFlags.WidthStretch, 2.4f);
-				ImGui.TableSetupColumn("Version", ImGuiTableColumnFlags.WidthStretch, 0.7f);
+				ImGui.TableSetupColumn("Version", ImGuiTableColumnFlags.WidthStretch, 1.1f);
 				ImGui.TableSetupColumn("Source", ImGuiTableColumnFlags.WidthStretch, 1.8f);
 				ImGui.TableSetupColumn("Status", ImGuiTableColumnFlags.WidthStretch, 0.8f);
 				ImGui.TableSetupColumn("Actions", ImGuiTableColumnFlags.WidthStretch, 1.6f);
@@ -185,6 +185,16 @@ namespace Voltage.Editor.Windows
 
 					ImGui.TableNextColumn();
 					ImGui.TextUnformatted(plugin.Manifest?.Version ?? "-");
+
+					// The one place you would look to find out you are behind.
+					var newer = PluginRegistryIndex.FindUpdateFor(plugin.Id, plugin.Manifest?.Version);
+					if (newer != null)
+					{
+						ImGui.SameLine();
+						ImGui.TextColored(ColorWarn, "-> " + newer.VersionLabel);
+						if (ImGui.IsItemHovered())
+							ImGui.SetTooltip($"{newer.RegistryName ?? "The registry"} lists {newer.VersionLabel}. Press Update to fetch it.");
+					}
 
 					ImGui.TableNextColumn();
 					ImGui.TextUnformatted(plugin.Entry?.Source?.Describe() ?? "-");
@@ -260,13 +270,21 @@ namespace Voltage.Editor.Windows
 			if (PluginRegistryIndex.LastError != null)
 				ImGui.TextColored(ColorWarn, "Showing a cached list - the registry could not be reached.");
 
-			var installed = PluginManager.Instance.Plugins.Select(p => p.Id);
-			var results = PluginRegistryIndex.Search(_browseSearch, installed);
+			// Built with the indexer rather than ToDictionary: a malformed plugins.json can list an id
+			// twice, and a duplicate key would throw here instead of anywhere useful.
+			var installedVersions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+			foreach (var installed in PluginManager.Instance.Plugins)
+			{
+				if (!string.IsNullOrEmpty(installed.Id))
+					installedVersions[installed.Id] = installed.Manifest?.Version;
+			}
+
+			var results = PluginRegistryIndex.Search(_browseSearch, installedVersions);
 
 			if (results.Count == 0)
 			{
 				ImGui.TextColored(ColorMuted, PluginRegistryIndex.HasEntries
-					? "No matches (plugins already in this project are hidden)."
+					? "No matches (plugins already in this project are hidden unless the registry has a newer version)."
 					: "The registry list is empty.");
 				ImGui.Unindent();
 				return;
@@ -294,17 +312,33 @@ namespace Voltage.Editor.Windows
 				}
 				else if (listing.IsInstallable)
 				{
+					// Present only when this listing is an upgrade: Search keeps an installed plugin
+					// visible for exactly that case, and adding it again would be rejected as a duplicate.
+					var isUpgrade = installedVersions.TryGetValue(listing.Id, out var installedVersion);
+
 					if (PluginInstaller.IsBusy)
 						ImGui.BeginDisabled();
 
-					if (ImGui.Button($"Install {listing.VersionLabel}##install-{listing.Id}", new Num.Vector2(0, 0)))
-						InstallFromRegistry(listing);
+					var verb = isUpgrade ? "Update to" : "Install";
+					if (ImGui.Button($"{verb} {listing.VersionLabel}##install-{listing.Id}", new Num.Vector2(0, 0)))
+					{
+						if (isUpgrade)
+							StartUpdate(listing.Id, listing.Name ?? listing.Id);
+						else
+							InstallFromRegistry(listing);
+					}
 
 					if (ImGui.IsItemHovered())
 						ImGui.SetTooltip(VersionTooltip(listing));
 
 					if (PluginInstaller.IsBusy)
 						ImGui.EndDisabled();
+
+					if (isUpgrade)
+					{
+						ImGui.SameLine();
+						ImGui.TextColored(ColorWarn, $"installed: {installedVersion ?? "unknown"}");
+					}
 
 					if (!string.IsNullOrEmpty(listing.Author))
 					{
@@ -342,15 +376,28 @@ namespace Voltage.Editor.Windows
 
 		private void InstallFromRegistry(PluginRegistryEntry listing)
 		{
-			var source = !string.IsNullOrWhiteSpace(listing.Zip)
-				? new PluginSourceSpec { Zip = listing.Zip.Trim() }
-				: new PluginSourceSpec { Git = listing.Git.Trim(), Ref = listing.Ref?.Trim() };
-
 			var started = PluginInstaller.Start(
-				new ProjectPluginEntry { Id = listing.Id, Source = source },
+				new ProjectPluginEntry { Id = listing.Id, Source = listing.ToSourceSpec() },
 				listing.Name ?? listing.Id);
 
 			if (started == null)
+				SetStatus("Another install is already running.");
+		}
+
+		/// <summary>
+		/// Runs an update through the same worker as an install. The fetch is identical in size, and doing
+		/// it inline would freeze the editor for its duration.
+		/// </summary>
+		private void StartUpdate(string pluginId, string displayName)
+		{
+			var entry = PluginManager.Instance.PrepareUpdate(pluginId, out var message);
+			if (entry == null)
+			{
+				SetStatus(message, isError: true);
+				return;
+			}
+
+			if (PluginInstaller.Start(entry, displayName, isUpdate: true) == null)
 				SetStatus("Another install is already running.");
 		}
 
@@ -698,11 +745,32 @@ private void DrawAddPluginSection()
 			var canUpdate = plugin.Entry is { Dev: false, Source.Bundled: false };
 			if (canUpdate)
 			{
+				var newer = PluginRegistryIndex.FindUpdateFor(plugin.Id, plugin.Manifest?.Version);
+
 				ImGui.SameLine();
-				if (ImGui.SmallButton("Update"))
-					SetStatus(PluginManager.Instance.UpdatePlugin(plugin.Id));
+				if (PluginInstaller.IsBusy)
+					ImGui.BeginDisabled();
+
+				if (newer != null)
+					ImGui.PushStyleColor(ImGuiCol.Text, ColorWarn);
+
+				if (ImGui.SmallButton(newer != null ? $"Update to {newer.VersionLabel}" : "Update"))
+					StartUpdate(plugin.Id, plugin.DisplayName);
+
+				if (newer != null)
+					ImGui.PopStyleColor();
+
+				if (PluginInstaller.IsBusy)
+					ImGui.EndDisabled();
+
 				if (ImGui.IsItemHovered())
-					ImGui.SetTooltip("Re-resolves the source (latest ref/zip/folder content) and re-pins plugins.lock.json.");
+				{
+					ImGui.SetTooltip(newer != null
+						? $"Re-points this plugin at {newer.VersionLabel} in {newer.RegistryName ?? "the registry"}, fetches it, and re-pins plugins.lock.json."
+						: "Re-resolves the source (latest ref/zip/folder content) and re-pins plugins.lock.json.\n\n" +
+						  "A source pinned to a fixed tag or a versioned zip has nothing newer to give, so this\n" +
+						  "only changes anything once the registry lists a newer release.");
+				}
 			}
 
 			ImGui.SameLine();
@@ -958,6 +1026,8 @@ private void DrawAddPluginSection()
 
 				var text = job.State switch
 				{
+					// An update's message already names the plugin and both versions.
+					PluginInstallState.Succeeded when job.IsUpdate => job.Message,
 					PluginInstallState.Succeeded => $"Installed {job.DisplayName}. {job.Message}",
 					PluginInstallState.Failed => $"{job.DisplayName} failed: {job.Message ?? "unknown error"}",
 					_ => $"{job.DisplayName}: {job.Message}",
@@ -1012,7 +1082,7 @@ private void DrawAddPluginSection()
 			foreach (var job in running)
 			{
 				ImGui.PushID("active-" + job.PluginId);
-				ImGui.TextUnformatted($"Installing {job.DisplayName}");
+				ImGui.TextUnformatted($"{(job.IsUpdate ? "Updating" : "Installing")} {job.DisplayName}");
 				ImGui.SameLine();
 				DrawInstallProgress(job, compact: false);
 				ImGui.PopID();

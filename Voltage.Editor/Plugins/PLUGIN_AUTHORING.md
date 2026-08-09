@@ -222,6 +222,31 @@ The manifest/package is source-agnostic, so the same folder can be installed as:
 Pin a stable git tag (or a versioned zip) so `plugins.lock.json` records an exact commit/hash and every
 teammate restores identical bytes.
 
+### Shipping a new version
+
+While you are building the plugin, add it as a **local folder with "I'm editing this plugin" ticked**. That
+resolves straight to your folder, unpinned, and there is nothing to publish or re-pin. Rebuild, then reopen
+the project — or restart the editor, if it is an editor plugin, because editor assemblies cannot be swapped
+in place.
+
+To publish:
+
+1. Bump `Version` in `plugin.json`.
+2. Commit and push.
+3. Tag `vX.Y.Z` — it must equal `plugin.json`'s `Version` exactly, and CI fails the release if it does not —
+   and push the tag. CI builds, packages, and attaches `<id>-<version>.zip` to the release.
+4. Update the registry entry's `Zip`, `Ref`, and `EngineVersion`. With a `REGISTRY_TOKEN` secret on the
+   plugin repo this is an automatic pull request; without one, edit `registry.json` by hand.
+
+Projects pick it up from Plugin Manager. Once the registry lists a newer version than the one installed, the
+plugins table shows `1.0.0 -> v1.2.0` and its button becomes **Update to v1.2.0**; the same listing also
+reappears under Browse Plugins with an Update button. Pressing it re-points `plugins.json` at the
+catalogue's current release, fetches it, and re-pins `plugins.lock.json`.
+
+Note what Update does *not* do: a source pinned to a fixed tag or a versioned zip URL has nothing newer to
+give, so Update only moves you when the **registry** advertises a newer release. That is deliberate — the
+pin is what makes teammates' restores reproducible.
+
 ---
 
 ## Manifest field reference (quick)
