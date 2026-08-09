@@ -287,50 +287,45 @@ namespace Voltage.Editor.Windows
 				return;
 			}
 
-			// One collapsed row per plugin: a catalogue is for scanning, and a dozen expanded entries
-			// buries the list. Install stays on the header so it never needs expanding.
 			foreach (var listing in results)
 			{
 				ImGui.PushID(listing.Id);
 
-				var expanded = ImGui.TreeNodeEx(listing.Name ?? listing.Id,
-					ImGuiTreeNodeFlags.SpanAvailWidth | ImGuiTreeNodeFlags.FramePadding);
+				var expanded = ImGui.TreeNodeEx(listing.Name ?? listing.Id, ImGuiTreeNodeFlags.FramePadding);
 
-				// SpanAvailWidth stretches the node's hit box across the whole row, so without this the
-				// node swallows the click meant for the button sitting on top of it and the row just
-				// expands instead of installing.
-				ImGui.SetItemAllowOverlap();
+				ImGui.Indent();
 
 				var job = FindJob(listing.Id);
 				if (job is { IsFinished: false })
 				{
-					// SameLine takes an offset from the content start, not from what is left of the row.
-					ImGui.SameLine(ImGui.GetContentRegionMax().X - 120);
-					DrawInstallProgress(job, compact: true);
+					DrawInstallProgress(job, compact: false);
 				}
 				else if (listing.IsInstallable)
 				{
-					ImGui.SameLine(ImGui.GetContentRegionMax().X - 70);
 					if (PluginInstaller.IsBusy)
 						ImGui.BeginDisabled();
 
-					if (ImGui.SmallButton("Install"))
+					if (ImGui.Button($"Install##install-{listing.Id}", new Num.Vector2(110, 0)))
 						InstallFromRegistry(listing);
 
 					if (PluginInstaller.IsBusy)
 						ImGui.EndDisabled();
+
+					if (!string.IsNullOrEmpty(listing.Author))
+					{
+						ImGui.SameLine();
+						ImGui.TextColored(ColorMuted, $"by {listing.Author}");
+					}
 				}
 				else
 				{
-					ImGui.SameLine();
-					ImGui.TextColored(ColorWarn, "[no source]");
+					ImGui.TextColored(ColorWarn, "[no source] - this listing has no Zip or Git source.");
 				}
+
+				ImGui.Unindent();
 
 				if (expanded)
 				{
-					if (!string.IsNullOrEmpty(listing.Author))
-						ImGui.TextColored(ColorMuted, $"by {listing.Author}");
-
 					if (!string.IsNullOrEmpty(listing.Description))
 						ImGui.TextWrapped(listing.Description);
 
@@ -340,12 +335,10 @@ namespace Voltage.Editor.Windows
 					if (!string.IsNullOrEmpty(listing.RegistryName))
 						ImGui.TextColored(ColorMuted, $"from {listing.RegistryName}");
 
-					if (!listing.IsInstallable)
-						ImGui.TextColored(ColorWarn, "This listing has no Zip or Git source and cannot be installed.");
-
 					ImGui.TreePop();
 				}
 
+				ImGui.Separator();
 				ImGui.PopID();
 			}
 
@@ -800,14 +793,15 @@ namespace Voltage.Editor.Windows
 				ImGui.PushID("publish-" + plugin.Id);
 
 				var report = PluginPublishReadiness.Get(plugin.Id);
-				var expanded = ImGui.TreeNodeEx(plugin.DisplayName ?? plugin.Id,
-					ImGuiTreeNodeFlags.SpanAvailWidth | ImGuiTreeNodeFlags.DefaultOpen);
+				var expanded = ImGui.TreeNodeEx(plugin.DisplayName ?? plugin.Id, ImGuiTreeNodeFlags.DefaultOpen);
 
-				ImGui.SameLine(ImGui.GetContentRegionAvail().X - 60);
+				// Own row, same reason as Install: a button sharing a tree node's row loses the click.
+				ImGui.Indent();
 				if (report is { Running: true })
-					ImGui.TextColored(ColorWarn, "checking");
-				else if (ImGui.SmallButton("Check"))
+					ImGui.TextColored(ColorWarn, "checking...");
+				else if (ImGui.Button($"Check##check-{plugin.Id}", new Num.Vector2(110, 0)))
 					PluginPublishReadiness.RefreshAsync(plugin);
+				ImGui.Unindent();
 
 				if (expanded)
 				{
