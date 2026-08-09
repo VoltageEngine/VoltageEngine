@@ -423,9 +423,11 @@ public class Core : Game
 			var totalMemory = (GC.GetTotalMemory(false) / 1048576f).ToString("F");
 			var status = WindowTitleStatusProvider?.Invoke();
 
+			// The status already names the project, so repeating the window title in front of it is just
+			// noise in the one strip of screen the OS centres for us.
 			Window.Title = string.IsNullOrEmpty(status)
 				? string.Format("{0} {1} fps - {2} MB", _windowTitle, _frameCounter, totalMemory)
-				: string.Format("{0} - {1} - {2} fps - {3} MB", _windowTitle, status, _frameCounter, totalMemory);
+				: string.Format("{0} - {1} fps - {2} MB", status, _frameCounter, totalMemory);
 			_frameCounter = 0;
 			_frameCounterElapsedTime -= TimeSpan.FromSeconds(1);
 		}
