@@ -85,7 +85,13 @@ namespace Voltage.Editor.Windows
 				return;
 			}
 
-			var plugins = PluginManager.Instance.Plugins;
+			// Finish any completed download on this thread before reading the list, so the new plugin is
+			// visible in the same frame it lands.
+			PluginInstaller.Pump();
+
+			// Snapshot once: an install runs on a background thread and can add to this list mid-frame,
+			// which would otherwise throw part-way through drawing.
+			var plugins = PluginManager.Instance.Plugins.ToList();
 
 			if (PluginManager.Instance.HasProblems)
 			{
@@ -99,6 +105,8 @@ namespace Voltage.Editor.Windows
 				ImGui.TextColored(_statusIsError ? ColorError : ColorOk, _statusMessage);
 				ImGui.Separator();
 			}
+
+			DrawInstallJobs();
 
 			if (ImGui.Button("Create New Plugin..."))
 			{
@@ -145,7 +153,7 @@ namespace Voltage.Editor.Windows
 				ImGui.TableSetupColumn("Actions", ImGuiTableColumnFlags.WidthStretch, 1.6f);
 				ImGui.TableHeadersRow();
 
-				foreach (var plugin in plugins.ToList())
+				foreach (var plugin in plugins)
 				{
 					ImGui.PushID(plugin.Id ?? "?");
 					ImGui.TableNextRow();
@@ -288,11 +296,29 @@ namespace Voltage.Editor.Windows
 				var expanded = ImGui.TreeNodeEx(listing.Name ?? listing.Id,
 					ImGuiTreeNodeFlags.SpanAvailWidth | ImGuiTreeNodeFlags.FramePadding);
 
-				if (listing.IsInstallable)
+				// SpanAvailWidth stretches the node's hit box across the whole row, so without this the
+				// node swallows the click meant for the button sitting on top of it and the row just
+				// expands instead of installing.
+				ImGui.SetItemAllowOverlap();
+
+				var job = FindJob(listing.Id);
+				if (job is { IsFinished: false })
 				{
-					ImGui.SameLine(ImGui.GetContentRegionAvail().X - 60);
+					// SameLine takes an offset from the content start, not from what is left of the row.
+					ImGui.SameLine(ImGui.GetContentRegionMax().X - 120);
+					DrawInstallProgress(job, compact: true);
+				}
+				else if (listing.IsInstallable)
+				{
+					ImGui.SameLine(ImGui.GetContentRegionMax().X - 70);
+					if (PluginInstaller.IsBusy)
+						ImGui.BeginDisabled();
+
 					if (ImGui.SmallButton("Install"))
 						InstallFromRegistry(listing);
+
+					if (PluginInstaller.IsBusy)
+						ImGui.EndDisabled();
 				}
 				else
 				{
@@ -332,8 +358,116 @@ namespace Voltage.Editor.Windows
 				? new PluginSourceSpec { Zip = listing.Zip.Trim() }
 				: new PluginSourceSpec { Git = listing.Git.Trim(), Ref = listing.Ref?.Trim() };
 
-			SetStatus(PluginManager.Instance.AddPlugin(
-				new ProjectPluginEntry { Id = listing.Id, Source = source }));
+			var started = PluginInstaller.Start(
+				new ProjectPluginEntry { Id = listing.Id, Source = source },
+				listing.Name ?? listing.Id);
+
+			if (started == null)
+				SetStatus("Another install is already running.");
+		}
+
+		private static PluginInstallJob FindJob(string pluginId) =>
+			PluginInstaller.Jobs.FirstOrDefault(j => string.Equals(j.PluginId, pluginId, StringComparison.Ordinal));
+
+		private static string Bytes(long value) => value switch
+		{
+			>= 1024 * 1024 => $"{value / (1024f * 1024f):0.0} MB",
+			>= 1024 => $"{value / 1024f:0} KB",
+			_ => $"{value} B",
+		};
+
+		/// <summary>Progress for a running install, with a way out when it stops responding.</summary>
+		private void DrawInstallProgress(PluginInstallJob job, bool compact)
+		{
+			if (job.State is PluginInstallState.Working or PluginInstallState.ReadyToApply)
+			{
+				ImGui.TextColored(ColorWarn, job.State == PluginInstallState.Working ? "unpacking..." : "installing...");
+				return;
+			}
+
+			var progress = job.Progress;
+			var width = compact ? 90f : 220f;
+
+			if (progress >= 0f)
+			{
+				ImGui.PushItemWidth(width);
+				ImGui.ProgressBar(progress, new Num.Vector2(width, 0), $"{progress * 100f:0}%");
+				ImGui.PopItemWidth();
+			}
+			else
+			{
+				// No Content-Length, so a bar would be a lie; show what has actually arrived.
+				ImGui.TextColored(ColorMuted, Bytes(job.BytesRead));
+			}
+
+			if (!compact && job.TotalBytes > 0)
+			{
+				ImGui.SameLine();
+				ImGui.TextColored(ColorMuted, $"{Bytes(job.BytesRead)} / {Bytes(job.TotalBytes)}");
+			}
+
+			if (job.Stalled)
+			{
+				ImGui.SameLine();
+				ImGui.TextColored(ColorWarn, compact ? "stalled" : $"stalled for {job.SecondsSinceProgress}s");
+			}
+
+			ImGui.SameLine();
+			if (ImGui.SmallButton($"Cancel##{job.PluginId}"))
+				job.Cancel();
+		}
+
+		/// <summary>
+		/// Running and just-finished installs, above the plugin table so a result cannot be missed when the
+		/// Browse section is collapsed or scrolled away.
+		/// </summary>
+		private void DrawInstallJobs()
+		{
+			var jobs = PluginInstaller.Jobs;
+			if (jobs.Count == 0)
+				return;
+
+			foreach (var job in jobs)
+			{
+				ImGui.PushID("job-" + job.PluginId);
+
+				switch (job.State)
+				{
+					case PluginInstallState.Downloading:
+					case PluginInstallState.Working:
+					case PluginInstallState.ReadyToApply:
+						ImGui.TextUnformatted($"Installing {job.DisplayName}");
+						ImGui.SameLine();
+						DrawInstallProgress(job, compact: false);
+						break;
+
+					case PluginInstallState.Succeeded:
+						ImGui.TextColored(ColorOk, $"Installed {job.DisplayName}. {job.Message}");
+						ImGui.SameLine();
+						if (ImGui.SmallButton("Dismiss"))
+							PluginInstaller.Dismiss(job);
+						break;
+
+					case PluginInstallState.Cancelled:
+						ImGui.TextColored(ColorWarn, $"{job.DisplayName}: {job.Message}");
+						ImGui.SameLine();
+						if (ImGui.SmallButton("Dismiss"))
+							PluginInstaller.Dismiss(job);
+						break;
+
+					case PluginInstallState.Failed:
+						ImGui.TextColored(ColorError, $"{job.DisplayName} failed:");
+						ImGui.SameLine();
+						ImGui.TextWrapped(job.Message ?? "unknown error");
+						if (ImGui.SmallButton("Dismiss"))
+							PluginInstaller.Dismiss(job);
+						break;
+				}
+
+				ImGui.PopID();
+			}
+
+			ImGui.Separator();
 		}
 
 		private void DrawAddPluginSection()
@@ -396,19 +530,17 @@ namespace Voltage.Editor.Windows
 
 			if (ImGui.Button("Add Plugin", new Num.Vector2(140, 0)))
 			{
-				var result = PluginManager.Instance.AddPlugin(entry);
-				// A successful add is the only message that starts with "Added"; everything else
-				// (missing plugin.json, invalid source, duplicate, unavailable, ...) is an error.
-				var success = result != null && result.StartsWith("Added");
-				_addStatusMessage = result;
-				_addStatusIsError = !success;
-
-				// Also surface it in the always-visible top banner so it can't be missed even if this
-				// section is collapsed/scrolled away.
-				SetStatus(result);
-
-				if (success)
+				// Same path as Browse: a zip or git URL here would otherwise freeze the editor for the
+				// length of the fetch. The result lands in the install-jobs list above.
+				var started = PluginInstaller.Start(entry, entry.Source?.Describe() ?? "plugin");
+				if (started == null)
 				{
+					_addStatusMessage = "Another install is already running.";
+					_addStatusIsError = true;
+				}
+				else
+				{
+					_addStatusMessage = null;
 					_addPath = _addGitUrl = _addGitRef = _addZipUrl = "";
 					_addDev = false;
 				}
