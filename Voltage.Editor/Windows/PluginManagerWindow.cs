@@ -34,16 +34,16 @@ namespace Voltage.Editor.Windows
 		/// <summary>Edit buffers for SDK path inputs, keyed by sdk id.</summary>
 		private readonly Dictionary<string, string> _sdkPathBuffers = new();
 
-		// "Add Plugin" form state.
-		private static readonly string[] SourceTypes = { "Bundled", "Local folder", "Git URL", "Zip URL" };
+		// "Add Plugin" form state. No "Bundled" source: nothing ships inside the editor any more, so the
+		// option could only ever list a leftover from an older build. PluginResolver still resolves
+		// Bundled entries, so a plugins.json written before the change keeps loading.
+		private static readonly string[] SourceTypes = { "Local folder", "Git URL", "Zip URL" };
 		private int _addSourceType;
 		private string _addPath = "";
 		private bool _addDev;
 		private string _addGitUrl = "";
 		private string _addGitRef = "";
 		private string _addZipUrl = "";
-		private int _addBundledIndex;
-		private string[] _bundledIds;
 
 		// OS-native folder dialogs (with ImGui fallback) for the local-folder source and SDK paths.
 		private readonly FolderBrowser _pluginFolderBrowser = new("plugin-folder-picker");
@@ -164,7 +164,7 @@ namespace Voltage.Editor.Windows
 					var description = plugin.Manifest?.Description;
 					if (string.IsNullOrWhiteSpace(description))
 					{
-						ImGui.TextColored(ColorMuted, "—");
+						ImGui.TextColored(ColorMuted, "-");
 					}
 					else
 					{
@@ -174,10 +174,10 @@ namespace Voltage.Editor.Windows
 					}
 
 					ImGui.TableNextColumn();
-					ImGui.TextUnformatted(plugin.Manifest?.Version ?? "—");
+					ImGui.TextUnformatted(plugin.Manifest?.Version ?? "-");
 
 					ImGui.TableNextColumn();
-					ImGui.TextUnformatted(plugin.Entry?.Source?.Describe() ?? "—");
+					ImGui.TextUnformatted(plugin.Entry?.Source?.Describe() ?? "-");
 					if (plugin.Entry is { Dev: true })
 					{
 						ImGui.SameLine();
@@ -264,7 +264,7 @@ namespace Voltage.Editor.Windows
 			}
 
 			if (PluginRegistryIndex.LastError != null)
-				ImGui.TextColored(ColorWarn, "Showing a cached list — the registry could not be reached.");
+				ImGui.TextColored(ColorWarn, "Showing a cached list - the registry could not be reached.");
 
 			var installed = PluginManager.Instance.Plugins.Select(p => p.Id);
 			var results = PluginRegistryIndex.Search(_browseSearch, installed);
@@ -278,46 +278,61 @@ namespace Voltage.Editor.Windows
 				return;
 			}
 
+			// One collapsed row per plugin: a catalogue is for scanning, and a dozen expanded entries
+			// buries the list. Install stays on the header so it never needs expanding.
 			foreach (var listing in results)
 			{
 				ImGui.PushID(listing.Id);
-				ImGui.Separator();
 
-				ImGui.TextColored(ColorOk, listing.Name ?? listing.Id);
-				if (!string.IsNullOrEmpty(listing.Author))
+				var expanded = ImGui.TreeNodeEx(listing.Name ?? listing.Id,
+					ImGuiTreeNodeFlags.SpanAvailWidth | ImGuiTreeNodeFlags.FramePadding);
+
+				if (listing.IsInstallable)
+				{
+					ImGui.SameLine(ImGui.GetContentRegionAvail().X - 60);
+					if (ImGui.SmallButton("Install"))
+						InstallFromRegistry(listing);
+				}
+				else
 				{
 					ImGui.SameLine();
-					ImGui.TextColored(ColorMuted, $"by {listing.Author}");
+					ImGui.TextColored(ColorWarn, "[no source]");
 				}
 
-				if (!string.IsNullOrEmpty(listing.Description))
-					ImGui.TextWrapped(listing.Description);
-
-				if (listing.Tags is { Count: > 0 })
-					ImGui.TextColored(ColorMuted, string.Join("  ", listing.Tags.Select(t => "#" + t)));
-
-				if (!string.IsNullOrEmpty(listing.RegistryName))
-					ImGui.TextColored(ColorMuted, $"from {listing.RegistryName}");
-
-				if (!listing.IsInstallable)
+				if (expanded)
 				{
-					ImGui.TextColored(ColorWarn, "This listing has no Zip or Git source and cannot be installed.");
-				}
-				else if (ImGui.Button("Install"))
-				{
-					var source = !string.IsNullOrWhiteSpace(listing.Zip)
-						? new PluginSourceSpec { Zip = listing.Zip.Trim() }
-						: new PluginSourceSpec { Git = listing.Git.Trim(), Ref = listing.Ref?.Trim() };
+					if (!string.IsNullOrEmpty(listing.Author))
+						ImGui.TextColored(ColorMuted, $"by {listing.Author}");
 
-					_statusMessage = PluginManager.Instance.AddPlugin(
-						new ProjectPluginEntry { Id = listing.Id, Source = source });
-					_statusIsError = false;
+					if (!string.IsNullOrEmpty(listing.Description))
+						ImGui.TextWrapped(listing.Description);
+
+					if (listing.Tags is { Count: > 0 })
+						ImGui.TextColored(ColorMuted, string.Join("  ", listing.Tags.Select(t => "#" + t)));
+
+					if (!string.IsNullOrEmpty(listing.RegistryName))
+						ImGui.TextColored(ColorMuted, $"from {listing.RegistryName}");
+
+					if (!listing.IsInstallable)
+						ImGui.TextColored(ColorWarn, "This listing has no Zip or Git source and cannot be installed.");
+
+					ImGui.TreePop();
 				}
 
 				ImGui.PopID();
 			}
 
 			ImGui.Unindent();
+		}
+
+		private void InstallFromRegistry(PluginRegistryEntry listing)
+		{
+			var source = !string.IsNullOrWhiteSpace(listing.Zip)
+				? new PluginSourceSpec { Zip = listing.Zip.Trim() }
+				: new PluginSourceSpec { Git = listing.Git.Trim(), Ref = listing.Ref?.Trim() };
+
+			SetStatus(PluginManager.Instance.AddPlugin(
+				new ProjectPluginEntry { Id = listing.Id, Source = source }));
 		}
 
 		private void DrawAddPluginSection()
@@ -334,25 +349,7 @@ namespace Voltage.Editor.Windows
 
 			switch (_addSourceType)
 			{
-				case 0: // Bundled
-					_bundledIds ??= PluginResolver.GetAvailableBundledPluginIds().ToArray();
-					if (_bundledIds.Length == 0)
-					{
-						ImGui.TextColored(ColorMuted, "No bundled plugins ship with this editor build.");
-					}
-					else
-					{
-						ImGui.SetNextItemWidth(320);
-						ImGui.Combo("Plugin##bundled", ref _addBundledIndex, _bundledIds, _bundledIds.Length);
-						entry = new ProjectPluginEntry
-						{
-							Id = _bundledIds[System.Math.Clamp(_addBundledIndex, 0, _bundledIds.Length - 1)],
-							Source = new PluginSourceSpec { Bundled = true },
-						};
-					}
-					break;
-
-				case 1: // Local folder
+				case 0: // Local folder
 					ImGui.SetNextItemWidth(-100);
 					ImGui.InputText("##addpath", ref _addPath, 1024);
 					ImGui.SameLine();
@@ -362,16 +359,16 @@ namespace Voltage.Editor.Windows
 					if (ImGui.IsItemHovered())
 						ImGui.SetTooltip(
 							"Turn this ON only if you are building or editing this plugin yourself.\n\n" +
-							"ON  – the editor uses your folder directly and picks up your changes\n" +
+							"ON  - the editor uses your folder directly and picks up your changes\n" +
 							"        automatically (scripts reload live). Best while developing.\n\n" +
-							"OFF – the editor takes a fixed snapshot of the folder now. Later edits\n" +
+							"OFF - the editor takes a fixed snapshot of the folder now. Later edits\n" +
 							"        won't apply until you press \"Update\". Best for a plugin you only\n" +
 							"        want to use, not change.");
 					if (!string.IsNullOrWhiteSpace(_addPath))
 						entry = new ProjectPluginEntry { Source = new PluginSourceSpec { Path = _addPath.Trim() }, Dev = _addDev };
 					break;
 
-				case 2: // Git URL
+				case 1: // Git URL
 					ImGui.SetNextItemWidth(-160);
 					ImGui.InputText("Git URL", ref _addGitUrl, 1024);
 					ImGui.SetNextItemWidth(220);
@@ -382,7 +379,7 @@ namespace Voltage.Editor.Windows
 						entry = new ProjectPluginEntry { Source = new PluginSourceSpec { Git = _addGitUrl.Trim(), Ref = _addGitRef.Trim() } };
 					break;
 
-				case 3: // Zip URL
+				case 2: // Zip URL
 					ImGui.SetNextItemWidth(-160);
 					ImGui.InputText("Zip URL", ref _addZipUrl, 1024);
 					if (!string.IsNullOrWhiteSpace(_addZipUrl))
@@ -489,7 +486,7 @@ namespace Voltage.Editor.Windows
 			if (ImGui.InputText("##id", ref _newId, 128))
 				_newIdEdited = true;
 			if (ImGui.IsItemHovered())
-				ImGui.SetTooltip("A unique, permanent id in reverse-domain style (e.g. com.you.myplugin). Don't change it later — saved scenes rely on it.");
+				ImGui.SetTooltip("A unique, permanent id in reverse-domain style (e.g. com.you.myplugin). Don't change it later - saved scenes rely on it.");
 
 			ImGui.TextUnformatted("Description");
 			ImGui.SetNextItemWidth(-1);
@@ -527,7 +524,7 @@ namespace Voltage.Editor.Windows
 			if (!canAutoAdd)
 				ImGui.EndDisabled();
 			if (_newEditor && ImGui.IsItemHovered())
-				ImGui.SetTooltip("Editor plugins must be built first, then added manually — see the generated README.");
+				ImGui.SetTooltip("Editor plugins must be built first, then added manually - see the generated README.");
 
 			if (!string.IsNullOrEmpty(_createStatusMessage))
 			{
@@ -615,7 +612,7 @@ namespace Voltage.Editor.Windows
 			if (ImGui.SmallButton(disabled ? "Enable" : "Disable"))
 				SetStatus(PluginManager.Instance.SetPluginDisabled(plugin.Id, !disabled));
 
-			// Bundled plugins version with the editor; dev plugins re-sync automatically — neither updates.
+			// Bundled plugins version with the editor; dev plugins re-sync automatically - neither updates.
 			var canUpdate = plugin.Entry is { Dev: false, Source.Bundled: false };
 			if (canUpdate)
 			{
@@ -658,7 +655,7 @@ namespace Voltage.Editor.Windows
 
 			ImGui.Spacing();
 			ImGui.SeparatorText("External SDKs");
-			ImGui.TextColored(ColorMuted, "These SDKs cannot be redistributed with plugins — point the editor at your local installs. Paths are per-user (never committed).");
+			ImGui.TextColored(ColorMuted, "These SDKs cannot be redistributed with plugins - point the editor at your local installs. Paths are per-user (never committed).");
 			ImGui.Spacing();
 
 			foreach (var (plugin, sdk) in sdks)
@@ -673,7 +670,7 @@ namespace Voltage.Editor.Windows
 				if (resolvedRoot != null)
 					ImGui.TextColored(ColorOk, "(found)");
 				else
-					ImGui.TextColored(ColorError, sdk.Required ? "(missing — plugin unavailable)" : "(missing — optional)");
+					ImGui.TextColored(ColorError, sdk.Required ? "(missing - plugin unavailable)" : "(missing - optional)");
 
 				if (!_sdkPathBuffers.TryGetValue(sdk.Id, out var buffer))
 					buffer = PluginUserSettings.GetConfiguredSdkPath(sdk.Id);
