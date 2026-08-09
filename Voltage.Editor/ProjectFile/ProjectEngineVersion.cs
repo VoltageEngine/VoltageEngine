@@ -93,8 +93,19 @@ namespace Voltage.Editor.ProjectFile
 		/// <summary>
 		/// Records this editor's version in the project file. Deliberate, and committed like any other
 		/// change, so the team agrees on the move rather than each machine rewriting the file on open.
+		///
+		/// <para><b>Upgrades only.</b> Moving a project to a newer engine is a normal, if notable, step.
+		/// Moving it to an older one is not the reverse: the project may already contain scenes, assets and
+		/// plugin pins the older build cannot read, and the version field is the only thing that would have
+		/// warned about it. Lowering it silently removes that warning while leaving the unreadable content
+		/// in place, which is worse than the mismatch it appears to resolve.</para>
+		///
+		/// <para>The rule lives here rather than in whichever window happens to draw the button, so a
+		/// future launcher gets the same guarantee. <paramref name="allowDowngrade"/> exists only so a
+		/// caller that has genuinely established it is safe can say so explicitly.</para>
 		/// </summary>
-		public static bool StampCurrentVersion(IGameProject project, string voltageFilePath, out string message)
+		public static bool StampCurrentVersion(IGameProject project, string voltageFilePath, out string message,
+			bool allowDowngrade = false)
 		{
 			message = null;
 
@@ -107,6 +118,20 @@ namespace Voltage.Editor.ProjectFile
 			if (!File.Exists(voltageFilePath))
 			{
 				message = $"Project file not found: {voltageFilePath}";
+				return false;
+			}
+
+			var recorded = runtime.Metadata?.EngineVersion;
+			if (!allowDowngrade &&
+			    TryParse(recorded, out var recordedVersion) &&
+			    TryParse(EditorVersion, out var editorVersion) &&
+			    recordedVersion > editorVersion)
+			{
+				message = $"This project targets Voltage {recorded} and this editor is {EditorVersion}. " +
+				          "Lowering the recorded version would not make the project readable here - it would " +
+				          "only remove the warning telling you it is not. Open it with " +
+				          $"{recorded} or newer instead.";
+				EditorDebug.Warn(message, "Project");
 				return false;
 			}
 
