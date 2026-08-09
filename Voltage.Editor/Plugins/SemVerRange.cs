@@ -32,6 +32,28 @@ namespace Voltage.Editor.Plugins
 			return true;
 		}
 
+		/// <summary>
+		/// Orders two versions, tolerating a leading "v". Returns false when either side is not a version
+		/// this understands - a registry ref like "main" has no ordering, and inventing one would be worse
+		/// than declining to answer.
+		/// </summary>
+		public static bool TryCompare(string a, string b, out int comparison)
+		{
+			comparison = 0;
+			if (!TryParseVersion(a, out var va) || !TryParseVersion(b, out var vb))
+				return false;
+
+			comparison = Compare(va, vb);
+			return true;
+		}
+
+		/// <summary>
+		/// True when <paramref name="candidate"/> is strictly newer than <paramref name="current"/>.
+		/// Unorderable input is not newer, so an unpinned source never claims an update.
+		/// </summary>
+		public static bool IsNewer(string candidate, string current) =>
+			TryCompare(candidate, current, out var comparison) && comparison > 0;
+
 		private static bool ClauseSatisfied((int major, int minor, int patch, string pre) v, string clause)
 		{
 			string op;
