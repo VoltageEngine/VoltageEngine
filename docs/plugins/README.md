@@ -458,6 +458,23 @@ prints the exact JSON entry in the run summary so you can open the pull request 
 existing entry keeps hand-curated `Tags`, `Homepage` and `Description`; only the release-derived fields
 are overwritten.
 
+### Publish Readiness
+
+The Plugin Manager has a **Publish Readiness** panel for any plugin added from a local folder. Press
+**Check** and it reports which step is missing and the command that fixes it: working tree, tag, tag
+pushed, release asset, registry listing. It is read-only - it runs your own `git` and makes at most one
+anonymous GitHub request per check, holds no credentials, and never writes anything.
+
+Its first check is **ownership**, and that is the one worth understanding. Having a plugin as a local
+folder proves nothing about authorship: it is equally true of someone else's plugin you cloned to modify.
+**The `Id` is the identity.** If a registry already publishes that id from a different repository, this
+checkout is a fork, and releasing under the same id would shadow the original everywhere the id is
+resolved - in `plugins.json`, the lockfile, and every scene reference. In that case the panel blocks and
+tells you to choose your own id first.
+
+There is no "author" flag anywhere, because a flag would be self-asserted and worth nothing. Ownership is
+whoever controls the repository the registry points at, and the registry is curated by pull request.
+
 ### Why a registry rather than scanning an organisation
 
 Listing an org's repositories and reading their `plugin.json` sounds simpler, and it is worse:
