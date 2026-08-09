@@ -104,6 +104,15 @@ namespace Voltage.Editor.Plugins
 			return char.IsDigit(candidate[0]) ? candidate : null;
 		}
 
+		/// <summary>
+		/// The source a fresh install of this listing would record in plugins.json. Zip wins over Git for
+		/// the same reason the resolver prefers it: a zip is a built package, a clone is not.
+		/// </summary>
+		public PluginSourceSpec ToSourceSpec() =>
+			!string.IsNullOrWhiteSpace(Zip)
+				? new PluginSourceSpec { Zip = Zip.Trim() }
+				: new PluginSourceSpec { Git = Git?.Trim(), Ref = Ref?.Trim() };
+
 		public bool Matches(string search)
 		{
 			if (string.IsNullOrWhiteSpace(search))
@@ -163,18 +172,61 @@ namespace Voltage.Editor.Plugins
 			get { lock (_lock) return _entries.ToList(); }
 		}
 
-		/// <summary>Entries matching <paramref name="search"/>, minus anything already in the project.</summary>
-		public static IReadOnlyList<PluginRegistryEntry> Search(string search, IEnumerable<string> installedIds)
+		/// <summary>
+		/// Entries matching <paramref name="search"/>. A plugin already in the project is hidden - except
+		/// when the catalogue advertises a newer version than the one installed, which is the one case
+		/// where you still want to see it.
+		/// </summary>
+		/// <param name="installedVersionsById">
+		/// Installed plugin id to its manifest version. A null version means "installed, version unknown",
+		/// which hides the listing rather than guessing.
+		/// </param>
+		public static IReadOnlyList<PluginRegistryEntry> Search(
+			string search, IReadOnlyDictionary<string, string> installedVersionsById)
 		{
-			var installed = new HashSet<string>(installedIds ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+			var installed = installedVersionsById ?? EmptyInstalled;
 
 			lock (_lock)
 			{
 				return _entries
-					.Where(e => !string.IsNullOrEmpty(e.Id) && !installed.Contains(e.Id) && e.Matches(search))
+					.Where(e => !string.IsNullOrEmpty(e.Id) && e.Matches(search) && !IsHiddenAsInstalled(e, installed))
 					.OrderBy(e => e.Name ?? e.Id, StringComparer.OrdinalIgnoreCase)
 					.ToList();
 			}
+		}
+
+		private static readonly Dictionary<string, string> EmptyInstalled = new(StringComparer.OrdinalIgnoreCase);
+
+		private static bool IsHiddenAsInstalled(
+			PluginRegistryEntry entry, IReadOnlyDictionary<string, string> installedVersionsById) =>
+			installedVersionsById.TryGetValue(entry.Id, out var installedVersion)
+			&& !SemVerRange.IsNewer(entry.VersionLabel, installedVersion);
+
+		/// <summary>The listing for <paramref name="id"/>, or null when no registry advertises it.</summary>
+		public static PluginRegistryEntry FindById(string id)
+		{
+			if (string.IsNullOrEmpty(id))
+				return null;
+
+			lock (_lock)
+				return _entries.FirstOrDefault(e => string.Equals(e.Id, id, StringComparison.OrdinalIgnoreCase));
+		}
+
+		/// <summary>
+		/// The catalogue's listing for an installed plugin when it advertises something strictly newer.
+		/// Null when there is no listing, when it has no installable source, or when its version is not
+		/// orderable against the installed one (an unpinned branch cannot claim to be an update).
+		///
+		/// <para>This compares the listing's release tag against the installed manifest version, which is
+		/// sound because the release workflow refuses to publish a tag that disagrees with plugin.json.</para>
+		/// </summary>
+		public static PluginRegistryEntry FindUpdateFor(string id, string installedVersion)
+		{
+			var listing = FindById(id);
+			if (listing == null || !listing.IsInstallable)
+				return null;
+
+			return SemVerRange.IsNewer(listing.VersionLabel, installedVersion) ? listing : null;
 		}
 
 		/// <summary>
