@@ -127,7 +127,7 @@ All JSON keys are **PascalCase** (`Voltage.Persistence.Json` matches field names
 | --- | --- | --- |
 | `Assemblies` | string[] | Editor-plugin DLLs containing `IEditorPlugin` implementations (windows, menu items). |
 
-### The real thing — bundled Farseer
+### The real thing — Farseer
 
 ```json
 {
@@ -407,7 +407,11 @@ For a Path source, dev mode is the live-edit workflow. It means:
 
 `Plugins → Plugin Manager`. From here you can:
 
-- **Add Plugin** — pick a source: bundled (dropdown), local folder, git URL + ref, or zip URL.
+- **Browse Plugins** — search the registries and install with one click. Each result is a collapsed row;
+  expand it for the description, tags and source registry.
+- **Add Plugin** — pick a source: local folder, git URL + ref, or zip URL. There is no bundled option:
+  nothing ships inside the editor. `PluginResolver` still resolves `Bundled` entries so an older
+  `plugins.json` keeps working.
 - **Create New Plugin…** — scaffold a fresh plugin package (`plugin.json` + starter code), optionally adding
   it to the project as a live-edit (dev) plugin.
 - **Enable / Disable** — flips `Disabled` in `plugins.json` without removing the entry.
@@ -417,6 +421,55 @@ For a Path source, dev mode is the live-edit workflow. It means:
 - **Remove** — drops the plugin. Scenes using its components show missing-component entries; **the data is
   preserved**, so re-adding the plugin restores them.
 - **Configure SDK paths** — for plugins with `ExternalSdks`.
+
+---
+
+## 11. Publishing a release
+
+Pushing source is not publishing. A plugin appears in **Browse Plugins** only once it is listed in a
+registry, and it can only be installed once that listing points at a release asset. Three steps:
+
+**1. Bump `plugin.json` and tag.** The tag must equal `Version` exactly — the release workflow compares
+them and fails the build otherwise, because a tag that disagrees with the manifest ships a mislabelled
+package.
+
+```bash
+# plugin.json says "Version": "0.1.0"
+git push origin main
+git tag -a v0.1.0 -m "MyPlugin 0.1.0"
+git push origin v0.1.0
+```
+
+**2. CI builds and attaches the package.** `.github/workflows/release.yml` checks out the engine, runs
+`PackagePlugin`, and attaches `<id>-<version>.zip` to the release. Watch it:
+
+```bash
+gh run watch --repo <owner>/<repo> --exit-status
+gh release view v0.1.0 --repo <owner>/<repo> --json assets
+```
+
+**3. The registry entry.** `.github/workflows/registry.yml` fires on *release published* and opens a pull
+request against the registry with an entry derived from `plugin.json` and the release asset. Merge it and
+the plugin shows up in Browse Plugins.
+
+That workflow needs a `REGISTRY_TOKEN` secret on the plugin repository — a fine-grained PAT with
+`Contents: write` and `Pull requests: write` on the registry repo. Without it the job does not fail: it
+prints the exact JSON entry in the run summary so you can open the pull request by hand. An update to an
+existing entry keeps hand-curated `Tags`, `Homepage` and `Description`; only the release-derived fields
+are overwritten.
+
+### Why a registry rather than scanning an organisation
+
+Listing an org's repositories and reading their `plugin.json` sounds simpler, and it is worse:
+
+- It only ever covers one organisation. A registry is a list of URLs, and the editor reads **several**, so
+  a studio's internal catalogue sits beside the official one and a community plugin can live anywhere.
+- The unauthenticated GitHub API allows 60 requests an hour per IP. Discovery needs the repo list plus a
+  manifest and a release lookup per repo; an office behind one NAT is throttled almost immediately. A
+  registry is one request for a static file.
+- A repository having a `plugin.json` does not mean there is anything installable. Discovery would list
+  plugins whose Install always fails.
+- Nothing distinguishes a production plugin from an experiment or an abandoned fork.
 
 ---
 
