@@ -32,6 +32,7 @@ namespace Voltage.Editor.Plugins
 			public string[] PathSegments;
 			public Action OnClick;
 			public string OwnerId;
+			public EditorMenu Menu = EditorMenu.Plugins;
 		}
 
 		private static readonly List<ActivePlugin> _active = new();
@@ -169,13 +170,20 @@ namespace Voltage.Editor.Plugins
 		}
 
 		/// <summary>Draws the plugin-registered entries of the Plugins menu (supports "A/B/C" nesting).</summary>
-		public static void DrawMenuItems()
+		public static void DrawMenuItems() => DrawMenuItems(EditorMenu.Plugins);
+
+		/// <summary>
+		/// Draws the plugin contributions for one menu. Called at the end of each host menu, so plugin
+		/// entries always appear below the editor's own commands rather than interleaved with them.
+		/// </summary>
+		public static void DrawMenuItems(EditorMenu menu)
 		{
-			if (_menuItems.Count == 0)
+			var items = _menuItems.Where(i => i.Menu == menu).ToList();
+			if (items.Count == 0)
 				return;
 
 			ImGui.Separator();
-			DrawMenuLevel(_menuItems, 0);
+			DrawMenuLevel(items, 0);
 		}
 
 		private static void DrawMenuLevel(List<PluginMenuItem> items, int depth)
@@ -229,7 +237,10 @@ namespace Voltage.Editor.Plugins
 					_windows.Add(window);
 			}
 
-			public void AddMenuItem(string path, Action onClick)
+			public void AddMenuItem(string path, Action onClick) =>
+				AddMenuItem(EditorMenu.Plugins, path, onClick);
+
+			public void AddMenuItem(EditorMenu menu, string path, Action onClick)
 			{
 				if (string.IsNullOrWhiteSpace(path))
 					throw new ArgumentException("Menu path cannot be empty.", nameof(path));
@@ -239,6 +250,7 @@ namespace Voltage.Editor.Plugins
 					PathSegments = path.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
 					OnClick = onClick,
 					OwnerId = CurrentOwnerId,
+					Menu = menu,
 				});
 			}
 

@@ -13,7 +13,29 @@ namespace Voltage.Editor.Plugins
 	/// </summary>
 	public static class EditorPluginApi
 	{
-		public const int Version = 1;
+		/// <summary>
+		/// v2 added <see cref="EditorMenu"/> placement to <see cref="IEditorPluginContext.AddMenuItem(EditorMenu, string, Action)"/>.
+		/// A plugin calling it against a v1 editor would fail at the call site, which is what this gate exists to prevent.
+		/// </summary>
+		public const int Version = 2;
+	}
+
+	/// <summary>
+	/// Menus a plugin may contribute to. Anything host-owned is deliberately absent: a plugin can add to a
+	/// menu, never restructure one.
+	/// </summary>
+	public enum EditorMenu
+	{
+		/// <summary>Under Plugins, grouped per plugin. The default, and the right answer for most tools.</summary>
+		Plugins,
+
+		File,
+		Project,
+		View,
+		Scripting,
+		Effects,
+		Build,
+		Help,
 	}
 
 	/// <summary>
@@ -52,6 +74,14 @@ namespace Voltage.Editor.Plugins
 		/// "FMOD/Event Browser". The action runs when the item is clicked.
 		/// </summary>
 		void AddMenuItem(string path, Action onClick);
+
+		/// <summary>
+		/// Adds an entry to a specific editor menu. Use this when a tool belongs beside the host's own
+		/// commands - an importer under File, a build step under Build - rather than in the Plugins list.
+		/// Prefer <see cref="EditorMenu.Plugins"/> otherwise: it keeps a plugin's commands together and
+		/// makes them easy to find when several are installed.
+		/// </summary>
+		void AddMenuItem(EditorMenu menu, string path, Action onClick);
 
 		/// <summary>The editor's ImGui manager (texture binding, layout services, …).</summary>
 		ImGuiManager ImGuiManager { get; }
