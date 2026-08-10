@@ -64,6 +64,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		PreserveGameWindowAspectRatio =
 			KeyValueDataStore.Default.GetBool(kPreserveGameWindowAspectRatio, PreserveGameWindowAspectRatio);
 
+		// Registered BEFORE PersistSettings deliberately. Emitter invokes its observers in reverse
+		// registration order, so this runs last - the replacement editor is only started once this
+		// process has written the settings and layout it is about to read.
+		Core.Emitter.AddObserver(CoreEvents.Exiting, SpawnRelaunchIfRequested);
+
 		Core.Emitter.AddObserver(CoreEvents.Exiting, PersistSettings);
 	}
 

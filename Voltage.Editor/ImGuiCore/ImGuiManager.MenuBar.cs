@@ -1282,6 +1282,17 @@ public partial class ImGuiManager
 			if (ImGui.IsItemHovered() && hasProblems)
 				ImGui.SetTooltip("Some plugins are unavailable or failed to load.");
 
+			if (ImGui.MenuItem("Reload Plugins (Restarts Editor)"))
+				RequestEditorRelaunch();
+
+			if (ImGui.IsItemHovered())
+			{
+				ImGuiSafe.SetTooltipSafe(
+					"Restarts the editor on the same project, which is the only way to pick up a rebuilt\n" +
+					"plugin: .NET cannot unload an assembly from a running process. You will be asked to\n" +
+					"confirm, and to save the scene first if it has unsaved changes.");
+			}
+
 			// Entries registered by editor plugins via IEditorPluginContext.AddMenuItem.
 			Plugins.EditorPluginHost.DrawMenuItems();
 
