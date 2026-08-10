@@ -63,15 +63,15 @@ namespace Voltage.Editor.Plugins
 	}
 
 	/// <summary>
-	/// Discriminated source of a plugin package — exactly one of the fields is set:
+	/// Discriminated source of a plugin package - exactly one of the fields is set:
 	/// <list type="bullet">
-	///   <item><see cref="Bundled"/> — ships with the editor (BundledPlugins folder)</item>
-	///   <item><see cref="Git"/> (+ <see cref="Ref"/>) — cloned at a pinned tag/commit; private repos use the
+	///   <item><see cref="Bundled"/> - ships with the editor (BundledPlugins folder)</item>
+	///   <item><see cref="Git"/> (+ <see cref="Ref"/>) - cloned at a pinned tag/commit; private repos use the
 	///     user's ambient git credentials, which is how NDA plugins stay off public infrastructure</item>
-	///   <item><see cref="Zip"/> — https zip archive, verified by content hash</item>
-	///   <item><see cref="Path"/> — local folder, relative to the project root or absolute</item>
+	///   <item><see cref="Zip"/> - https zip archive, verified by content hash</item>
+	///   <item><see cref="Path"/> - local folder, relative to the project root or absolute</item>
 	/// </list>
-	/// A future registry becomes one more field here (name → git/zip lookup) with no format change.
+	/// A future registry becomes one more field here (name -> git/zip lookup) with no format change.
 	/// </summary>
 	public class PluginSourceSpec
 	{
@@ -94,7 +94,7 @@ namespace Voltage.Editor.Plugins
 			return set == 1;
 		}
 
-		/// <summary>Short human-readable description for UI ("bundled", "git: …", …).</summary>
+		/// <summary>Short human-readable description for UI ("bundled", "git: ...", ...).</summary>
 		public string Describe()
 		{
 			if (Bundled) return "bundled";
@@ -104,7 +104,7 @@ namespace Voltage.Editor.Plugins
 			return "(invalid source)";
 		}
 
-		/// <summary>Value equality — used to detect that a lock entry no longer matches plugins.json.</summary>
+		/// <summary>Value equality - used to detect that a lock entry no longer matches plugins.json.</summary>
 		public bool Matches(PluginSourceSpec other)
 		{
 			if (other == null) return false;

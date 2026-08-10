@@ -5,7 +5,7 @@ using Voltage.Editor.Persistence;
 namespace Voltage.Editor.Plugins
 {
 	/// <summary>
-	/// Per-user, per-machine plugin settings — primarily the local install paths of external SDKs
+	/// Per-user, per-machine plugin settings - primarily the local install paths of external SDKs
 	/// (FMOD, console SDKs) whose files cannot be redistributed. Stored via EditorSettingsLoader in
 	/// the editor's user storage: never inside the project, never in source control.
 	/// </summary>

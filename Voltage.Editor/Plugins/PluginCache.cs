@@ -11,7 +11,7 @@ namespace Voltage.Editor.Plugins
 	/// <summary>
 	/// Per-user, cross-project download cache for plugin packages, NuGet-style:
 	/// <c>&lt;storage root&gt;/PluginCache/&lt;id&gt;/&lt;version&gt;+&lt;hash8&gt;/</c>. Entries are written once
-	/// (acquire → hash → move into place) and treated as immutable afterwards, so restores are cheap
+	/// (acquire -> hash -> move into place) and treated as immutable afterwards, so restores are cheap
 	/// cache hits verified purely by the lockfile's content hash.
 	/// </summary>
 	public static class PluginCache
@@ -24,7 +24,7 @@ namespace Voltage.Editor.Plugins
 			return Path.Combine(Storage.GetStorageRoot(), CacheFolderName);
 		}
 
-		/// <summary>Cache directory for a given plugin id + version + content hash ("sha256:…").</summary>
+		/// <summary>Cache directory for a given plugin id + version + content hash ("sha256:...").</summary>
 		public static string GetEntryPath(string id, string version, string contentHash)
 		{
 			return Path.Combine(GetCacheRoot(), id, $"{version}+{ShortHash(contentHash)}");
@@ -58,7 +58,7 @@ namespace Voltage.Editor.Plugins
 			}
 			catch (IOException)
 			{
-				// Cross-volume move (temp on a different drive than storage) — fall back to copy.
+				// Cross-volume move (temp on a different drive than storage) - fall back to copy.
 				CopyDirectory(stagingDir, entryPath);
 				TryDeleteDirectory(stagingDir);
 			}
@@ -142,7 +142,7 @@ namespace Voltage.Editor.Plugins
 			}
 			catch (Exception ex)
 			{
-				EditorDebug.Warn($"Could not clean up directory '{dir}': {ex.Message}", "PluginCache");
+				PluginLog.Warn($"Could not clean up directory '{dir}': {ex.Message}");
 			}
 		}
 	}

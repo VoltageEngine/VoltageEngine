@@ -148,9 +148,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private bool _pendingRelaunch = false;
 	private bool _pendingRelaunchConfirm = false;
 
-	/// <summary>Set once the relaunch is committed; started by the exit handler, after settings are flushed.</summary>
-	private System.Diagnostics.ProcessStartInfo _relaunchOnExit;
-
 	private Scene _pendingPrefabScene = null;
 	private Voltage.Data.PrefabData _pendingPrefabData;
 	private string _pendingPrefabName = null;
@@ -1566,8 +1563,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	/// </summary>
 	private void RelaunchEditor()
 	{
-		// Resolved before committing to the exit, so the one failure that would leave the user with no
-		// editor at all - not knowing how to start one - happens while this one is still running.
 		System.Diagnostics.ProcessStartInfo startInfo;
 		try
 		{
@@ -1577,42 +1572,67 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			// An exception escaping here would be swallowed by the ImGui frame, and the button would look
 			// like it did nothing at all - which is the bug this whole feature exists to avoid.
-			EditorDebug.Error($"Could not prepare the relaunch, so nothing was closed: {ex.Message}", "Editor");
+			Plugins.PluginLog.Error($"Could not prepare the relaunch, so nothing was closed: {ex.Message}");
 			return;
 		}
 
 		if (startInfo == null)
 		{
-			EditorDebug.Error(
-				"Could not work out how to relaunch the editor, so nothing was closed. Restart it manually.", "Editor");
+			Plugins.PluginLog.Error(
+				"Could not work out how to relaunch the editor, so nothing was closed. Restart it manually.");
 			return;
 		}
 
-		// Started from the exit handler rather than here: this process writes its settings and window
-		// layout on the way out, and a child started now would read them before they were written.
-		_relaunchOnExit = startInfo;
-		EditorDebug.Log("Relaunching the editor...", "Editor");
-		Core.ConfirmAndExit();
-	}
-
-	/// <summary>Last thing this process does: hand over to its replacement.</summary>
-	private void SpawnRelaunchIfRequested()
-	{
-		if (_relaunchOnExit == null)
-			return;
-
-		var startInfo = _relaunchOnExit;
-		_relaunchOnExit = null;
-
+		// The new editor reads the settings and window layout this one writes on shutdown, so they are
+		// written now rather than left to the exit handler - otherwise the replacement starts from
+		// whatever the previous session left behind.
 		try
 		{
-			System.Diagnostics.Process.Start(startInfo);
+			PersistSettings();
 		}
 		catch (Exception ex)
 		{
-			// Too late to stay open; say enough that the user knows to start it again themselves.
-			Debug.Error($"[Editor] Could not start the replacement editor: {ex.Message}");
+			Plugins.PluginLog.Warn($"Could not save editor settings before relaunching: {ex.Message}");
 		}
+
+		var command = DescribeRelaunch(startInfo);
+
+		System.Diagnostics.Process child;
+		try
+		{
+			child = System.Diagnostics.Process.Start(startInfo);
+		}
+		catch (Exception ex)
+		{
+			Plugins.PluginLog.Error($"Relaunch failed, so nothing was closed: {ex.Message}\nCommand: {command}");
+			return;
+		}
+
+		if (child == null)
+		{
+			Plugins.PluginLog.Error($"Relaunch failed: no process started, so nothing was closed.\nCommand: {command}");
+			return;
+		}
+
+		// A GUI editor does not exit in a quarter of a second. If this one did, it failed to start - and
+		// closing this editor too would leave nothing running, which is exactly what happened before.
+		if (child.WaitForExit(400))
+		{
+			Plugins.PluginLog.Error(
+				$"The new editor exited immediately (code {child.ExitCode}), so this one was left open.\n" +
+				$"Command: {command}");
+			return;
+		}
+
+		Plugins.PluginLog.Log($"Relaunching the editor: {command}");
+		Core.ConfirmAndExit();
+	}
+
+	/// <summary>The command being run, so a failed relaunch can be reproduced from a terminal.</summary>
+	private static string DescribeRelaunch(System.Diagnostics.ProcessStartInfo startInfo)
+	{
+		var args = string.Join(" ", startInfo.ArgumentList);
+		return string.IsNullOrEmpty(args) ? startInfo.FileName : $"{startInfo.FileName} {args}";
 	}
 
 	/// <summary>

@@ -8,7 +8,7 @@ using Voltage.Persistence;
 namespace Voltage.Editor.Plugins
 {
 	/// <summary>
-	/// Scaffolds a brand-new plugin package on disk from a few user inputs (Plugin Manager → "Create New
+	/// Scaffolds a brand-new plugin package on disk from a few user inputs (Plugin Manager -> "Create New
 	/// Plugin"). Writes a valid <c>plugin.json</c> plus starter code for the chosen kinds:
 	/// a source-form <c>Component</c> under <c>src/</c> for gameplay, and a ready-to-build editor project
 	/// with a sample <see cref="IEditorPlugin"/> under <c>editor-src/</c> for editor plugins.
@@ -32,7 +32,7 @@ namespace Voltage.Editor.Plugins
 			public bool Editor;
 
 			/// <summary>
-			/// Emit the files a standalone repository needs — .gitignore, a release workflow, and a PackagePlugin target.
+			/// Emit the files a standalone repository needs - .gitignore, a release workflow, and a PackagePlugin target.
 			/// </summary>
 			public bool RepositoryFiles = true;
 
@@ -164,12 +164,12 @@ namespace Voltage.Editor.Plugins
 			sb.AppendLine("{");
 			sb.AppendLine($"\t/// <summary>{EscapeXml(FirstLine(opt.Description, opt.Name + " component."))}</summary>");
 			sb.AppendLine("\t// The class is `partial` so the ComponentData source generator emits AOT-safe");
-			sb.AppendLine("\t// serialization for it. The [ComponentId] is its stable on-disk identity — keep it");
+			sb.AppendLine("\t// serialization for it. The [ComponentId] is its stable on-disk identity - keep it");
 			sb.AppendLine("\t// even if you rename the class, so saved scenes keep resolving this component.");
 			sb.AppendLine($"\t[ComponentId(\"{componentId}\")]");
 			sb.AppendLine($"\tpublic partial class {type} : Component");
 			sb.AppendLine("\t{");
-			sb.AppendLine("\t\t/// <summary>An example serialized field — replace with your own.</summary>");
+			sb.AppendLine("\t\t/// <summary>An example serialized field - replace with your own.</summary>");
 			sb.AppendLine("\t\tpublic float ExampleValue = 1f;");
 			sb.AppendLine("\t}");
 			sb.AppendLine("}");
@@ -607,15 +607,15 @@ jobs:
 			if (opt.Gameplay)
 			{
 				sb.AppendLine("## Gameplay");
-				sb.AppendLine("- `src/` — C# that compiles together with the game. Edit the starter component and add more.");
-				sb.AppendLine("- Add this folder in the editor (Plugin Manager → Add Plugin → Local folder) with");
+				sb.AppendLine("- `src/` - C# that compiles together with the game. Edit the starter component and add more.");
+				sb.AppendLine("- Add this folder in the editor (Plugin Manager -> Add Plugin -> Local folder) with");
 				sb.AppendLine("  \"I'm editing this plugin\" ticked to hot-reload your changes while you work.");
 				sb.AppendLine();
 			}
 			if (opt.Editor)
 			{
 				sb.AppendLine("## Editor tools");
-				sb.AppendLine("- `editor-src/` — a C# project for your editor window. Point its Reference HintPaths at");
+				sb.AppendLine("- `editor-src/` - a C# project for your editor window. Point its Reference HintPaths at");
 				sb.AppendLine("  your Voltage editor build, then `dotnet build` it; the DLL lands in `editor/` where");
 				sb.AppendLine("  `plugin.json` expects it. Reopen the project (or restart the editor) to load it.");
 				sb.AppendLine();
@@ -625,7 +625,7 @@ jobs:
 
 		#region Naming helpers
 
-		/// <summary>Suggests a reverse-domain id from a display name, e.g. "My Cool Plugin" → "com.example.mycoolplugin".</summary>
+		/// <summary>Suggests a reverse-domain id from a display name, e.g. "My Cool Plugin" -> "com.example.mycoolplugin".</summary>
 		public static string SuggestId(string name)
 		{
 			var slug = SanitizeId(name);
@@ -647,7 +647,7 @@ jobs:
 			return string.IsNullOrWhiteSpace(cleaned) ? "NewPlugin" : cleaned;
 		}
 
-		/// <summary>PascalCase C# namespace/type stem from the name (letters/digits only), e.g. "My Plugin" → "MyPlugin".</summary>
+		/// <summary>PascalCase C# namespace/type stem from the name (letters/digits only), e.g. "My Plugin" -> "MyPlugin".</summary>
 		private static string NamespaceOf(Options opt)
 		{
 			var parts = (opt.Name ?? "")

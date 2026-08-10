@@ -16,7 +16,7 @@ namespace Voltage.Editor.Plugins
 	/// initializes each in isolation (a throwing plugin is disabled and surfaced, never crashing the
 	/// editor), and owns the window/menu registries the ImGui loop draws from.
 	///
-	/// Assemblies load into the default ALC and cannot unload — updating an editor plugin requires an
+	/// Assemblies load into the default ALC and cannot unload - updating an editor plugin requires an
 	/// editor restart (deliberate v1 trade-off, same as the script pipeline's accumulation).
 	/// </summary>
 	public static class EditorPluginHost
@@ -65,7 +65,7 @@ namespace Voltage.Editor.Plugins
 					plugin.State = PluginState.Failed;
 					plugin.Error = $"Editor plugin was built for editor-plugin API v{plugin.Manifest.EditorPluginApiVersion}, " +
 						$"but this editor provides v{EditorPluginApi.Version}. Update the plugin (or the editor).";
-					EditorDebug.Error($"Plugin '{plugin.Id}': {plugin.Error}", "Plugins");
+					PluginLog.Error($"Plugin '{plugin.Id}': {plugin.Error}");
 					continue;
 				}
 
@@ -78,7 +78,7 @@ namespace Voltage.Editor.Plugins
 				{
 					plugin.State = PluginState.Failed;
 					plugin.Error = $"Editor plugin failed to initialize: {ex.Message}";
-					EditorDebug.Error($"Plugin '{plugin.Id}': {plugin.Error}", "Plugins");
+					PluginLog.Error($"Plugin '{plugin.Id}': {plugin.Error}");
 				}
 			}
 		}
@@ -107,7 +107,7 @@ namespace Voltage.Editor.Plugins
 						$"{assembly.Location}, so the code running is still the previous build. .NET cannot " +
 						"unload an assembly - restart the editor to pick up this one.";
 
-					EditorDebug.Warn($"Plugin '{plugin.Id}': {plugin.StaleAssemblyWarning}", "Plugins");
+					PluginLog.Warn($"Plugin '{plugin.Id}': {plugin.StaleAssemblyWarning}");
 				}
 
 				var pluginTypes = assembly.GetTypes()
@@ -118,14 +118,14 @@ namespace Voltage.Editor.Plugins
 
 				if (pluginTypes.Count == 0)
 				{
-					EditorDebug.Warn($"Plugin '{plugin.Id}': no IEditorPlugin implementation found in {Path.GetFileName(dllPath)}.", "Plugins");
+					PluginLog.Warn($"Plugin '{plugin.Id}': no IEditorPlugin implementation found in {Path.GetFileName(dllPath)}.");
 					continue;
 				}
 
 				foreach (var type in pluginTypes)
 				{
 					// A previously-initialized instance survives project switches within a session
-					// (assemblies never unload) — don't double-initialize the same plugin type.
+					// (assemblies never unload) - don't double-initialize the same plugin type.
 					if (_active.Any(a => a.Instance.GetType() == type))
 					{
 						if (plugin.StaleAssemblyWarning == null)
@@ -135,7 +135,7 @@ namespace Voltage.Editor.Plugins
 								"was not initialized again and any new windows or menu items it registers are " +
 								"absent. Restart the editor.";
 
-							EditorDebug.Warn($"Plugin '{plugin.Id}': {plugin.StaleAssemblyWarning}", "Plugins");
+							PluginLog.Warn($"Plugin '{plugin.Id}': {plugin.StaleAssemblyWarning}");
 						}
 
 						continue;
@@ -147,7 +147,7 @@ namespace Voltage.Editor.Plugins
 					_context.CurrentOwnerId = null;
 
 					_active.Add(new ActivePlugin { Instance = instance, Owner = plugin });
-					EditorDebug.Log($"Initialized editor plugin: {type.FullName} ({plugin.Id})", "Plugins");
+					PluginLog.Log($"Initialized editor plugin: {type.FullName} ({plugin.Id})");
 				}
 			}
 		}
@@ -177,7 +177,7 @@ namespace Voltage.Editor.Plugins
 				}
 				catch (Exception ex)
 				{
-					EditorDebug.Warn($"Editor plugin {active.Instance.GetType().Name} threw during Shutdown: {ex.Message}", "Plugins");
+					PluginLog.Warn($"Editor plugin {active.Instance.GetType().Name} threw during Shutdown: {ex.Message}");
 				}
 			}
 
@@ -204,7 +204,7 @@ namespace Voltage.Editor.Plugins
 				{
 					// One broken window must not take the editor's UI loop down; close it and surface.
 					window.IsOpen = false;
-					EditorDebug.Error($"Plugin window '{window.Title}' threw during Draw and was closed: {ex.Message}", "Plugins");
+					PluginLog.Error($"Plugin window '{window.Title}' threw during Draw and was closed: {ex.Message}");
 				}
 			}
 		}
@@ -239,7 +239,7 @@ namespace Voltage.Editor.Plugins
 					}
 					catch (Exception ex)
 					{
-						EditorDebug.Error($"Plugin menu item '{string.Join("/", item.PathSegments)}' threw: {ex.Message}", "Plugins");
+						PluginLog.Error($"Plugin menu item '{string.Join("/", item.PathSegments)}' threw: {ex.Message}");
 					}
 				}
 			}
@@ -261,7 +261,7 @@ namespace Voltage.Editor.Plugins
 		{
 			public IGameProject Project;
 
-			/// <summary>Plugin id being initialized right now — stamps ownership onto registrations.</summary>
+			/// <summary>Plugin id being initialized right now - stamps ownership onto registrations.</summary>
 			public string CurrentOwnerId;
 
 			public ImGuiManager ImGuiManager => Core.GetGlobalManager<ImGuiManager>();
@@ -302,7 +302,7 @@ namespace Voltage.Editor.Plugins
 				}
 				catch (Exception ex)
 				{
-					EditorDebug.Warn($"A plugin ProjectClosing handler threw: {ex.Message}", "Plugins");
+					PluginLog.Warn($"A plugin ProjectClosing handler threw: {ex.Message}");
 				}
 			}
 		}
