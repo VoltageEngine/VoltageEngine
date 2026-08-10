@@ -143,6 +143,14 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private bool _pendingProjectClose = false;
 	private ExitPromptType _pendingActionAfterSave;
 
+	// Relaunch has two prompts: the shared unsaved-changes one when the scene is dirty, and a plain
+	// confirmation when it is not - restarting is disruptive enough to be worth confirming either way.
+	private bool _pendingRelaunch = false;
+	private bool _pendingRelaunchConfirm = false;
+
+	/// <summary>Set once the relaunch is committed; started by the exit handler, after settings are flushed.</summary>
+	private System.Diagnostics.ProcessStartInfo _relaunchOnExit;
+
 	private Scene _pendingPrefabScene = null;
 	private Voltage.Data.PrefabData _pendingPrefabData;
 	private string _pendingPrefabName = null;
@@ -1390,6 +1398,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			_pendingProjectClose = false;
 		}
 
+		// Handle editor relaunch prompt
+		if (_pendingRelaunch)
+		{
+			ImGui.OpenPopup("Save Changes?##Relaunch");
+			_pendingRelaunch = false;
+		}
+
 		DrawSavePromptModal("Save Changes?##Exit", () =>
 		{
 			Core.ConfirmAndExit();
@@ -1425,6 +1440,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			CloseCurrentProject();
 		});
+
+		DrawSavePromptModal("Save Changes?##Relaunch", () =>
+		{
+			RelaunchEditor();
+		});
+
+		DrawRelaunchConfirmPrompt();
 	}
 
 	private void DrawSavePromptModal(string popupId, Action onDiscardChanges)
@@ -1446,6 +1468,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				actionContext = "resetting the scene";
 			else if (popupId.Contains("ProjectClose"))
 				actionContext = "closing the project";
+			else if (popupId.Contains("Relaunch"))
+				actionContext = "restarting the editor";
 
 			ImGui.Text("You have unsaved changes!");
 			ImGui.Spacing();
@@ -1519,6 +1543,171 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 			ImGui.EndPopup();
 		}
+	}
+
+	/// <summary>
+	/// Restarts the editor in place, reopening the current project.
+	///
+	/// <para>The only way to pick up a rebuilt plugin or script assembly: .NET cannot unload one, so an
+	/// assembly loaded in this process stays loaded until the process ends. A fresh process is correct by
+	/// construction, where reloading in place would leave the old code running with nothing to say so.</para>
+	/// </summary>
+	public void RequestEditorRelaunch()
+	{
+		if (EditorChangeTracker.IsDirty)
+			_pendingRelaunch = true;
+		else
+			_pendingRelaunchConfirm = true;
+	}
+
+	/// <summary>
+	/// Starts a second instance pointed at the current project, then exits this one. Ordering matters: if
+	/// the new process cannot be started we must not exit, or the editor simply disappears.
+	/// </summary>
+	private void RelaunchEditor()
+	{
+		// Resolved before committing to the exit, so the one failure that would leave the user with no
+		// editor at all - not knowing how to start one - happens while this one is still running.
+		System.Diagnostics.ProcessStartInfo startInfo;
+		try
+		{
+			startInfo = BuildRelaunchStartInfo();
+		}
+		catch (Exception ex)
+		{
+			// An exception escaping here would be swallowed by the ImGui frame, and the button would look
+			// like it did nothing at all - which is the bug this whole feature exists to avoid.
+			EditorDebug.Error($"Could not prepare the relaunch, so nothing was closed: {ex.Message}", "Editor");
+			return;
+		}
+
+		if (startInfo == null)
+		{
+			EditorDebug.Error(
+				"Could not work out how to relaunch the editor, so nothing was closed. Restart it manually.", "Editor");
+			return;
+		}
+
+		// Started from the exit handler rather than here: this process writes its settings and window
+		// layout on the way out, and a child started now would read them before they were written.
+		_relaunchOnExit = startInfo;
+		EditorDebug.Log("Relaunching the editor...", "Editor");
+		Core.ConfirmAndExit();
+	}
+
+	/// <summary>Last thing this process does: hand over to its replacement.</summary>
+	private void SpawnRelaunchIfRequested()
+	{
+		if (_relaunchOnExit == null)
+			return;
+
+		var startInfo = _relaunchOnExit;
+		_relaunchOnExit = null;
+
+		try
+		{
+			System.Diagnostics.Process.Start(startInfo);
+		}
+		catch (Exception ex)
+		{
+			// Too late to stay open; say enough that the user knows to start it again themselves.
+			Debug.Error($"[Editor] Could not start the replacement editor: {ex.Message}");
+		}
+	}
+
+	/// <summary>
+	/// Resolves how this editor was launched so the same form can be started again. Running through the
+	/// dotnet host (dotnet run, or an IDE) needs the managed dll passed back as the first argument;
+	/// a normal apphost launch does not.
+	/// </summary>
+	private static System.Diagnostics.ProcessStartInfo BuildRelaunchStartInfo()
+	{
+		var executable = Environment.ProcessPath;
+		if (string.IsNullOrEmpty(executable))
+			executable = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+
+		if (string.IsNullOrEmpty(executable) || !File.Exists(executable))
+			return null;
+
+		var startInfo = new System.Diagnostics.ProcessStartInfo
+		{
+			FileName = executable,
+			UseShellExecute = false,
+			WorkingDirectory = AppContext.BaseDirectory,
+		};
+
+		var host = Path.GetFileNameWithoutExtension(executable);
+		if (host.Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+		{
+			var managedDll = System.Reflection.Assembly.GetEntryAssembly()?.Location;
+			if (string.IsNullOrEmpty(managedDll) || !File.Exists(managedDll))
+				return null;
+
+			startInfo.ArgumentList.Add(managedDll);
+		}
+
+		// The project is passed explicitly rather than left to the "last project" setting, so the new
+		// editor opens the one that was actually in front of you. Failing to work it out is not worth
+		// abandoning the relaunch over - the new editor still starts, just at the project picker.
+		try
+		{
+			var project = ProjectManager.Instance?.LastProjectPath;
+			if (!string.IsNullOrWhiteSpace(project) && File.Exists(project))
+				startInfo.ArgumentList.Add(project);
+		}
+		catch (Exception ex)
+		{
+			EditorDebug.Warn($"Relaunching without a project argument: {ex.Message}", "Editor");
+		}
+
+		return startInfo;
+	}
+
+	/// <summary>The plain "are you sure" shown when there is nothing unsaved to lose.</summary>
+	private void DrawRelaunchConfirmPrompt()
+	{
+		if (_pendingRelaunchConfirm)
+		{
+			ImGui.OpenPopup("Restart Editor?##Relaunch");
+			_pendingRelaunchConfirm = false;
+		}
+
+		var center = new System.Numerics.Vector2(Screen.Width * 0.5f, Screen.Height * 0.4f);
+		ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new System.Numerics.Vector2(0.5f, 0.5f));
+		ImGui.SetNextWindowSize(new System.Numerics.Vector2(460, 0), ImGuiCond.Appearing);
+
+		bool open = true;
+		if (!ImGui.BeginPopupModal("Restart Editor?##Relaunch", ref open, ImGuiWindowFlags.AlwaysAutoResize))
+			return;
+
+		ImGui.Text("Restart the editor?");
+		ImGui.Spacing();
+		ImGuiSafe.TextWrappedSafe(
+			"This closes the editor and opens it again on the same project. It is the only way to pick up a " +
+			"rebuilt plugin or script assembly, because .NET cannot unload one from a running process.");
+
+		ImGui.Spacing();
+		ImGuiSafe.TextColoredSafe(new System.Numerics.Vector4(0.6f, 0.6f, 0.6f, 1f),
+			"Your scene has no unsaved changes. Window layout and the open project are restored.");
+
+		VoltageEditorUtils.MediumVerticalSpace();
+
+		var buttonWidth = 120f;
+		var totalButtonWidth = (buttonWidth * 2) + 10f;
+		ImGui.SetCursorPosX((ImGui.GetWindowSize().X - totalButtonWidth) * 0.5f);
+
+		if (ImGui.Button("Restart", new System.Numerics.Vector2(buttonWidth, 0)))
+		{
+			ImGui.CloseCurrentPopup();
+			RelaunchEditor();
+		}
+
+		ImGui.SameLine();
+
+		if (ImGui.Button("Cancel", new System.Numerics.Vector2(buttonWidth, 0)))
+			ImGui.CloseCurrentPopup();
+
+		ImGui.EndPopup();
 	}
 
 	public void RequestResetScene()
