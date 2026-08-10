@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using ImGuiNET;
 using Voltage.Editor.FilePickers;
+using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Plugins;
 using Voltage.Editor.ProjectFile;
 using Num = System.Numerics;
@@ -130,6 +131,29 @@ namespace Voltage.Editor.Windows
 			}
 			if (ImGui.IsItemHovered())
 				ImGui.SetTooltip("Scaffold a new plugin folder (plugin.json + starter code) and optionally add it to this project.");
+
+			// Beside the plugin list, because this is where you find out a plugin needs one.
+			ImGui.SameLine();
+			var needsRestart = plugins.Any(p => p.StaleAssemblyWarning != null);
+			if (needsRestart)
+				ImGui.PushStyleColor(ImGuiCol.Text, ColorWarn);
+
+			if (ImGui.Button("Reload Plugins..."))
+				Core.GetGlobalManager<ImGuiManager>()?.RequestEditorRelaunch();
+
+			if (needsRestart)
+				ImGui.PopStyleColor();
+
+			if (ImGui.IsItemHovered())
+			{
+				ImGui.SetTooltip(needsRestart
+					? "A plugin is running code from an earlier load and needs a restart to take effect.\n\n" +
+					  "Restarts the editor on the same project. You will be asked to confirm, and to save\n" +
+					  "the scene first if it has unsaved changes."
+					: "Restarts the editor on the same project - the only way to pick up a rebuilt plugin,\n" +
+					  "because .NET cannot unload an assembly from a running process.\n\n" +
+					  "You will be asked to confirm, and to save the scene first if it has unsaved changes.");
+			}
 
 			DrawBrowsePluginsSection();
 			DrawAddPluginSection();
