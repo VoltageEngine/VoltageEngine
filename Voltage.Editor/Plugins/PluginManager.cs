@@ -46,6 +46,13 @@ namespace Voltage.Editor.Plugins
 		/// </summary>
 		public string CompatibilityWarning;
 
+		/// <summary>
+		/// Set when this plugin's editor assembly was already loaded in this session, so the code running
+		/// is not the code that was just installed. Only restarting the editor clears it - .NET cannot
+		/// unload an assembly, which is the whole reason this state exists.
+		/// </summary>
+		public string StaleAssemblyWarning;
+
 		/// <summary>The plugin's synced folder under the project's PluginLibs (null when not synced).</summary>
 		public string PayloadPath;
 
