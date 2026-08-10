@@ -16,7 +16,7 @@ namespace Voltage.Editor.Plugins
 	/// </summary>
 	public static class PluginNativeResolver
 	{
-		/// <summary>SetDllImportResolver throws if called twice for the same assembly — remember who has one.</summary>
+		/// <summary>SetDllImportResolver throws if called twice for the same assembly - remember who has one.</summary>
 		private static readonly HashSet<Assembly> _registered = new();
 
 		/// <summary>Native search directories per registered assembly.</summary>
@@ -61,9 +61,9 @@ namespace Voltage.Editor.Plugins
 						continue;
 
 					if (NativeLibrary.TryLoad(file, out _))
-						EditorDebug.Log($"Preloaded plugin native: {Path.GetFileName(file)}", "Plugins");
+						PluginLog.Log($"Preloaded plugin native: {Path.GetFileName(file)}");
 					else
-						EditorDebug.Warn($"Could not preload plugin native '{file}' — P/Invoke resolution will still be attempted on demand.", "Plugins");
+						PluginLog.Warn($"Could not preload plugin native '{file}' - P/Invoke resolution will still be attempted on demand.");
 				}
 			}
 		}
@@ -140,7 +140,7 @@ namespace Voltage.Editor.Plugins
 				if (!string.Equals(set.Rid, currentRid, StringComparison.OrdinalIgnoreCase))
 					continue;
 
-				// Files are globs like "native/win-x64/*.dll" — probe their parent directories.
+				// Files are globs like "native/win-x64/*.dll" - probe their parent directories.
 				foreach (var glob in set.Files ?? Enumerable.Empty<string>())
 				{
 					var relDir = Path.GetDirectoryName(PluginManifest.NormalizeRelative(glob));
@@ -156,7 +156,7 @@ namespace Voltage.Editor.Plugins
 			return result;
 		}
 
-		/// <summary>Portable RID for the running editor process ("win-x64", "osx-arm64", "linux-x64", …).</summary>
+		/// <summary>Portable RID for the running editor process ("win-x64", "osx-arm64", "linux-x64", ...).</summary>
 		public static string GetCurrentPortableRid()
 		{
 			string os;

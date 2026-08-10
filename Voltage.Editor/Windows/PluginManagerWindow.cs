@@ -138,7 +138,7 @@ namespace Voltage.Editor.Windows
 			if (needsRestart)
 				ImGui.PushStyleColor(ImGuiCol.Text, ColorWarn);
 
-			if (ImGui.Button("Reload Plugins..."))
+			if (ImGui.Button("Reload Plugins"))
 				Core.GetGlobalManager<ImGuiManager>()?.RequestEditorRelaunch();
 
 			if (needsRestart)
@@ -354,7 +354,12 @@ namespace Voltage.Editor.Windows
 					// visible for exactly that case, and adding it again would be rejected as a duplicate.
 					var isUpgrade = installedVersions.TryGetValue(listing.Id, out var installedVersion);
 
-					if (PluginInstaller.IsBusy)
+					// Read once. IsBusy is backed by a list a worker thread mutates, so re-reading it for
+					// EndDisabled can return a different answer than BeginDisabled did - which leaves the
+					// disabled stack pushed and silently greys out every widget drawn after this, in this
+					// window, for the rest of the frame.
+					var installBusy = PluginInstaller.IsBusy;
+					if (installBusy)
 						ImGui.BeginDisabled();
 
 					var verb = isUpgrade ? "Update to" : "Install";
@@ -369,7 +374,7 @@ namespace Voltage.Editor.Windows
 					if (ImGui.IsItemHovered())
 						ImGui.SetTooltip(VersionTooltip(listing));
 
-					if (PluginInstaller.IsBusy)
+					if (installBusy)
 						ImGui.EndDisabled();
 
 					if (isUpgrade)
@@ -1056,8 +1061,11 @@ private void DrawAddPluginSection()
 			{
 				var newer = PluginRegistryIndex.FindUpdateFor(plugin.Id, plugin.Manifest?.Version);
 
+				// Read once - see the note in DrawBrowsePluginsSection about the disabled stack.
+				var updateBusy = PluginInstaller.IsBusy;
+
 				ImGui.SameLine();
-				if (PluginInstaller.IsBusy)
+				if (updateBusy)
 					ImGui.BeginDisabled();
 
 				if (newer != null)
@@ -1069,7 +1077,7 @@ private void DrawAddPluginSection()
 				if (newer != null)
 					ImGui.PopStyleColor();
 
-				if (PluginInstaller.IsBusy)
+				if (updateBusy)
 					ImGui.EndDisabled();
 
 				if (ImGui.IsItemHovered())
@@ -1139,12 +1147,15 @@ private void DrawAddPluginSection()
 					PluginPublishReadiness.RefreshAsync(plugin);
 				}
 
+				// Read once - see the note in DrawBrowsePluginsSection about the disabled stack.
+				var publishRunning = PluginPublisher.IsRunning;
+
 				ImGui.SameLine();
-				if (PluginPublisher.IsRunning)
+				if (publishRunning)
 					ImGui.BeginDisabled();
 				if (ImGui.Button($"Publish New Version...##publish-{plugin.Id}", new Num.Vector2(0, 0)))
 					OpenPublishPopup(plugin);
-				if (PluginPublisher.IsRunning)
+				if (publishRunning)
 					ImGui.EndDisabled();
 				if (ImGui.IsItemHovered())
 					ImGui.SetTooltip("Bump plugin.json, commit, tag, and push - the whole release sequence, with every command shown before it runs.");
@@ -1302,13 +1313,17 @@ private void DrawAddPluginSection()
 				.Where(x => !_dismissedProblems.Contains(ProblemKey(x.Plugin.Id, x.Text)))
 				.ToList();
 
-			var total = _messages.Count + finishedJobs.Count + problems.Count;
+			// Everything the plugin subsystem reported, from any thread and any stage.
+			var logged = PluginLog.Entries;
+
+			var total = _messages.Count + finishedJobs.Count + problems.Count + logged.Count;
 			if (total == 0)
 				return;
 
 			var anyError = _messages.Any(m => m.IsError)
 			               || finishedJobs.Any(j => j.State == PluginInstallState.Failed)
-			               || problems.Any(p => p.IsError);
+			               || problems.Any(p => p.IsError)
+			               || logged.Any(e => e.IsError);
 
 			// Open it whenever something new arrives. Collapsed-by-default meant the result of pressing
 			// Add Plugin - success or failure - was written somewhere nobody was looking, which reads as
@@ -1333,6 +1348,7 @@ private void DrawAddPluginSection()
 			if (ImGui.SmallButton("Clear All"))
 			{
 				_messages.Clear();
+				PluginLog.Clear();
 				foreach (var job in finishedJobs)
 					PluginInstaller.Dismiss(job);
 				foreach (var problem in problems)
@@ -1370,6 +1386,18 @@ private void DrawAddPluginSection()
 				ImGui.PopID();
 			}
 
+			// Newest first, matching the action messages above.
+			for (var i = logged.Count - 1; i >= 0; i--)
+			{
+				var entry = logged[i];
+				ImGui.PushID("log-" + entry.Id);
+
+				if (DrawDismissableMessage(entry.Text, LogColour(entry.Level)))
+					PluginLog.Remove(entry.Id);
+
+				ImGui.PopID();
+			}
+
 			foreach (var problem in problems)
 			{
 				ImGui.PushID("problem-" + problem.Plugin.Id + problem.IsError);
@@ -1388,17 +1416,27 @@ private void DrawAddPluginSection()
 		}
 
 		/// <summary>Returns true when the x was pressed this frame.</summary>
-		private bool DrawDismissableMessage(string text, bool isError)
+		private bool DrawDismissableMessage(string text, bool isError) =>
+			DrawDismissableMessage(text, isError ? ColorError : ColorOk);
+
+		private bool DrawDismissableMessage(string text, Num.Vector4 colour)
 		{
 			var dismissed = ImGui.SmallButton("x");
 
 			ImGui.SameLine();
-			ImGui.PushStyleColor(ImGuiCol.Text, isError ? ColorError : ColorOk);
+			ImGui.PushStyleColor(ImGuiCol.Text, colour);
 			ImGui.TextWrapped(text);
 			ImGui.PopStyleColor();
 
 			return dismissed;
 		}
+
+		private static Num.Vector4 LogColour(PluginLogLevel level) => level switch
+		{
+			PluginLogLevel.Error => ColorError,
+			PluginLogLevel.Warning => ColorWarn,
+			_ => ColorMuted,
+		};
 
 		private static string ProblemKey(string pluginId, string text) => pluginId + "\u0000" + text;
 

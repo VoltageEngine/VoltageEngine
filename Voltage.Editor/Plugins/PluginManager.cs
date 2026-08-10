@@ -12,7 +12,7 @@ namespace Voltage.Editor.Plugins
 	/// <summary>Lifecycle state of one plugins.json entry within the current editor session.</summary>
 	public enum PluginState
 	{
-		/// <summary>Listed in plugins.json with Disabled=true — not synced, not loaded.</summary>
+		/// <summary>Listed in plugins.json with Disabled=true - not synced, not loaded.</summary>
 		Disabled,
 
 		/// <summary>Payload resolved, verified, and synced into PluginLibs.</summary>
@@ -21,7 +21,7 @@ namespace Voltage.Editor.Plugins
 		/// <summary>Restored and its assemblies are loaded into the editor.</summary>
 		Loaded,
 
-		/// <summary>Could not be acquired/verified (missing source, no repo access, SDK not configured…). The project still opens.</summary>
+		/// <summary>Could not be acquired/verified (missing source, no repo access, SDK not configured...). The project still opens.</summary>
 		Unavailable,
 
 		/// <summary>Restored but loading/initializing its assemblies failed.</summary>
@@ -75,9 +75,9 @@ namespace Voltage.Editor.Plugins
 
 	/// <summary>
 	/// Orchestrates the project plugin system: on project open it restores every plugins.json entry
-	/// (resolve → verify against plugins.lock.json → sync into PluginLibs), records per-plugin state for
+	/// (resolve -> verify against plugins.lock.json -> sync into PluginLibs), records per-plugin state for
 	/// the Plugin Manager window, and exposes what the rest of the editor needs (payload paths, assembly
-	/// lists). A failing plugin never blocks the project from opening — it is surfaced as Unavailable.
+	/// lists). A failing plugin never blocks the project from opening - it is surfaced as Unavailable.
 	/// </summary>
 	public class PluginManager
 	{
@@ -118,7 +118,7 @@ namespace Voltage.Editor.Plugins
 			}
 			catch (Exception ex)
 			{
-				EditorDebug.Error($"Failed to read {ProjectPluginsConfig.FileName}: {ex.Message}", "Plugins");
+				PluginLog.Error($"Failed to read {ProjectPluginsConfig.FileName}: {ex.Message}");
 				OnPluginsRestored?.Invoke();
 				return;
 			}
@@ -164,13 +164,13 @@ namespace Voltage.Editor.Plugins
 				{
 					instance.State = PluginState.Unavailable;
 					instance.Error = ex.Message;
-					EditorDebug.Warn($"Plugin '{entry.Id}' unavailable: {ex.Message}", "Plugins");
+					PluginLog.Warn($"Plugin '{entry.Id}' unavailable: {ex.Message}");
 				}
 				catch (Exception ex)
 				{
 					instance.State = PluginState.Unavailable;
 					instance.Error = $"Unexpected error: {ex.Message}";
-					EditorDebug.Error($"Plugin '{entry.Id}' failed to restore: {ex}", "Plugins");
+					PluginLog.Error($"Plugin '{entry.Id}' failed to restore: {ex}");
 				}
 			}
 
@@ -187,18 +187,18 @@ namespace Voltage.Editor.Plugins
 				}
 				catch (Exception ex)
 				{
-					EditorDebug.Error($"Failed to write {PluginLockFile.FileName}: {ex.Message}", "Plugins");
+					PluginLog.Error($"Failed to write {PluginLockFile.FileName}: {ex.Message}");
 				}
 			}
 
 			var restoredCount = _plugins.Count(p => p.State == PluginState.Restored);
 			if (restoredCount > 0 || HasProblems)
-				EditorDebug.Log($"Plugins restored: {restoredCount} ok, {_plugins.Count(p => p.State == PluginState.Unavailable)} unavailable.", "Plugins");
+				PluginLog.Log($"Plugins restored: {restoredCount} ok, {_plugins.Count(p => p.State == PluginState.Unavailable)} unavailable.");
 
 			LoadGameplayAssemblies();
 
 			// Editor-kind plugins: discover and initialize their IEditorPlugin implementations
-			// (windows/menu items). Each initializes in isolation — a throwing plugin is disabled.
+			// (windows/menu items). Each initializes in isolation - a throwing plugin is disabled.
 			EditorPluginHost.InitializePlugins(_plugins, project);
 
 			// Keep the game build glue (Plugins.g.props / bootstrap / trimmer roots) in step with the
@@ -207,7 +207,7 @@ namespace Voltage.Editor.Plugins
 			{
 				PluginSync.GenerateBuildFiles(project.ProjectPath, _plugins);
 
-				// Older projects predate the plugin system — give their csproj the (Exists-conditioned)
+				// Older projects predate the plugin system - give their csproj the (Exists-conditioned)
 				// Plugins.g.props import so IDE and publish builds pick the plugins up.
 				var csprojPath = Path.Combine(project.ProjectPath, $"{project.ProjectName}.csproj");
 				if (File.Exists(csprojPath))
@@ -215,7 +215,7 @@ namespace Voltage.Editor.Plugins
 			}
 			catch (Exception ex)
 			{
-				EditorDebug.Error($"Failed to generate plugin build files: {ex.Message}", "Plugins");
+				PluginLog.Error($"Failed to generate plugin build files: {ex.Message}");
 			}
 
 			OnPluginsRestored?.Invoke();
@@ -226,8 +226,8 @@ namespace Voltage.Editor.Plugins
 		/// <summary>
 		/// Loads every restored gameplay plugin's managed assemblies into the editor so their Components
 		/// exist for the Add Component menu, inspectors, and scene deserialization. Prefers the plugin's
-		/// EDITOR-flavored twins (editor-lib) when declared. Mirrors the script pipeline: LoadFrom →
-		/// RunModuleConstructor (fires the source-generated [ModuleInitializer] registrations) →
+		/// EDITOR-flavored twins (editor-lib) when declared. Mirrors the script pipeline: LoadFrom ->
+		/// RunModuleConstructor (fires the source-generated [ModuleInitializer] registrations) ->
 		/// invalidate the component type cache once at the end.
 		/// </summary>
 		private void LoadGameplayAssemblies()
@@ -262,7 +262,7 @@ namespace Voltage.Editor.Plugins
 
 						var assembly = Assembly.LoadFrom(dllPath);
 
-						// Natives must be resolvable before module initializers run — an initializer
+						// Natives must be resolvable before module initializers run - an initializer
 						// could touch P/Invoke (e.g. an SDK version query).
 						PluginNativeResolver.Register(assembly, plugin.PayloadPath, plugin.Manifest);
 
@@ -282,10 +282,10 @@ namespace Voltage.Editor.Plugins
 							if (rootType != null)
 								plugin.DetectedRootTypes.Add(rootType);
 							else
-								EditorDebug.Warn($"Plugin '{plugin.Id}': no public type found in {Path.GetFileName(dllPath)} to use as an AOT root — declare Gameplay.RootTypes in plugin.json.", "Plugins");
+								PluginLog.Warn($"Plugin '{plugin.Id}': no public type found in {Path.GetFileName(dllPath)} to use as an AOT root - declare Gameplay.RootTypes in plugin.json.");
 						}
 
-						EditorDebug.Log($"Loaded plugin assembly: {Path.GetFileName(dllPath)} ({plugin.Id})", "Plugins");
+						PluginLog.Log($"Loaded plugin assembly: {Path.GetFileName(dllPath)} ({plugin.Id})");
 					}
 
 					plugin.State = PluginState.Loaded;
@@ -295,7 +295,7 @@ namespace Voltage.Editor.Plugins
 				{
 					plugin.State = PluginState.Failed;
 					plugin.Error = $"Failed to load assemblies: {ex.Message}";
-					EditorDebug.Error($"Plugin '{plugin.Id}' assembly load failed: {ex.Message}", "Plugins");
+					PluginLog.Error($"Plugin '{plugin.Id}' assembly load failed: {ex.Message}");
 				}
 			}
 
@@ -327,7 +327,7 @@ namespace Voltage.Editor.Plugins
 
 		/// <summary>
 		/// A plugin assembly whose simple name matches an engine DLL (or another plugin's) would be
-		/// silently shadowed by the already-loaded engine copy — surface it as a hard failure instead.
+		/// silently shadowed by the already-loaded engine copy - surface it as a hard failure instead.
 		/// Exception: an EDITOR-flavored twin of the plugin's own runtime DLL shares its name by design.
 		/// </summary>
 		private void ValidateNoAssemblyNameCollision(PluginInstance plugin, string dllPath)
@@ -349,7 +349,7 @@ namespace Voltage.Editor.Plugins
 
 		/// <summary>
 		/// Full paths of plugin managed DLLs the Roslyn script compiler should reference so game scripts
-		/// can use plugin types. Explicit manifest-listed DLLs only — callers must never glob PluginLibs.
+		/// can use plugin types. Explicit manifest-listed DLLs only - callers must never glob PluginLibs.
 		/// </summary>
 		public IReadOnlyCollection<string> GetEditorReferenceAssemblyPaths()
 		{
@@ -390,7 +390,7 @@ namespace Voltage.Editor.Plugins
 
 		/// <summary>
 		/// True when the file lives inside a read-only (non-dev) plugin's source root. Such files must
-		/// never be mutated on disk (e.g. by the ComponentIdStamper) — the package is an immutable,
+		/// never be mutated on disk (e.g. by the ComponentIdStamper) - the package is an immutable,
 		/// hash-pinned install.
 		/// </summary>
 		public bool IsReadOnlyPluginSource(string filePath)
@@ -551,7 +551,7 @@ namespace Voltage.Editor.Plugins
 			}
 			catch (Exception ex)
 			{
-				EditorDebug.Warn($"Add plugin failed: {ex.Message}", "Plugins");
+				PluginLog.Warn($"Add plugin failed: {ex.Message}");
 				return $"Could not add plugin: {ex.Message}";
 			}
 		}
@@ -570,7 +570,7 @@ namespace Voltage.Editor.Plugins
 			}
 			catch (Exception ex)
 			{
-				EditorDebug.Warn($"Add plugin failed: {ex.Message}", "Plugins");
+				PluginLog.Warn($"Add plugin failed: {ex.Message}");
 				return $"Could not add plugin: {ex.Message}";
 			}
 		}
@@ -744,7 +744,7 @@ namespace Voltage.Editor.Plugins
 			}
 			catch (Exception ex)
 			{
-				EditorDebug.Warn($"Update of '{entry.Id}' failed while applying: {ex.Message}", "Plugins");
+				PluginLog.Warn($"Update of '{entry.Id}' failed while applying: {ex.Message}");
 				return $"Update failed: {ex.Message}";
 			}
 		}
@@ -777,7 +777,7 @@ namespace Voltage.Editor.Plugins
 			}
 			catch (Exception ex)
 			{
-				EditorDebug.Warn($"Could not regenerate plugin build files after removal: {ex.Message}", "Plugins");
+				PluginLog.Warn($"Could not regenerate plugin build files after removal: {ex.Message}");
 			}
 
 			var instance = FindById(id);
@@ -800,7 +800,7 @@ namespace Voltage.Editor.Plugins
 				.ToList();
 
 			foreach (var dup in duplicates)
-				EditorDebug.Error($"plugins.json lists plugin '{dup}' more than once — only the first entry is honored.", "Plugins");
+				PluginLog.Error($"plugins.json lists plugin '{dup}' more than once - only the first entry is honored.");
 		}
 
 		/// <summary>
@@ -815,7 +815,7 @@ namespace Voltage.Editor.Plugins
 				$"Plugin '{manifest.Id}' declares EngineVersion '{manifest.EngineVersion}' but this engine is " +
 				$"{VoltageVersion.Engine}. It may not work correctly.";
 
-			EditorDebug.Warn(message, "Plugins");
+			PluginLog.Warn(message);
 			return message;
 		}
 
@@ -860,7 +860,7 @@ namespace Voltage.Editor.Plugins
 				return true;
 			}
 
-			// Bundled payloads are built locally, so their hash differs per machine — recording it would
+			// Bundled payloads are built locally, so their hash differs per machine - recording it would
 			// churn the lockfile on every clone. They pin on editor-provided Version instead.
 			var contentHash = resolved.IsPinnable ? resolved.ContentHash : null;
 

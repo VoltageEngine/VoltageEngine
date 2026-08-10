@@ -10,7 +10,7 @@ namespace Voltage.Editor.Plugins
 {
 	/// <summary>
 	/// Syncs resolved plugin payloads from their immutable source (cache / bundled / dev folder) into the
-	/// project's gitignored <c>PluginLibs/&lt;id&gt;/</c> folder — the per-project, on-disk home of everything
+	/// project's gitignored <c>PluginLibs/&lt;id&gt;/</c> folder - the per-project, on-disk home of everything
 	/// a plugin contributes (managed DLLs, natives, sources, content). The game csproj and the editor both
 	/// consume plugins exclusively from here, mirroring the EngineLibs precedent.
 	/// </summary>
@@ -47,7 +47,7 @@ namespace Voltage.Editor.Plugins
 
 			if (!upToDate)
 			{
-				// SDK-pulled files and generated trimmer roots are not part of the package payload —
+				// SDK-pulled files and generated trimmer roots are not part of the package payload -
 				// preserve them across the mirror; the pulls below refresh them anyway.
 				MirrorDirectory(resolved.PayloadDir, destDir, new HashSet<string>(StringComparer.OrdinalIgnoreCase)
 				{
@@ -57,9 +57,9 @@ namespace Voltage.Editor.Plugins
 				if (!resolved.IsDev && resolved.ContentHash != null)
 					File.WriteAllText(markerPath, resolved.ContentHash);
 				else if (File.Exists(markerPath))
-					File.Delete(markerPath); // Dev payloads are unpinned — never claim a hash.
+					File.Delete(markerPath); // Dev payloads are unpinned - never claim a hash.
 
-				EditorDebug.Log($"Synced plugin '{resolved.Manifest.Id}' ({resolved.Manifest.Version}) to PluginLibs.", "Plugins");
+				PluginLog.Log($"Synced plugin '{resolved.Manifest.Id}' ({resolved.Manifest.Version}) to PluginLibs.");
 			}
 
 			// External SDK pulls run on EVERY sync call (even when the payload itself is up to date):
@@ -73,7 +73,7 @@ namespace Voltage.Editor.Plugins
 		/// <summary>
 		/// Copies files from the user's locally installed external SDKs (FMOD etc.) into the plugin's
 		/// project payload, per the manifest's ExternalSdks.Pulls. NDA-protected files therefore only
-		/// ever exist inside the gitignored PluginLibs — never in the package, cache, or repository.
+		/// ever exist inside the gitignored PluginLibs - never in the package, cache, or repository.
 		/// A required SDK that is not configured makes the plugin Unavailable (throws).
 		/// </summary>
 		private static void ApplyExternalSdkPulls(PluginManifest manifest, string payloadDir)
@@ -94,7 +94,7 @@ namespace Voltage.Editor.Plugins
 							$"Set its install path in the Plugin Manager{hint}.");
 					}
 
-					EditorDebug.Warn($"Plugin '{manifest.Id}': optional SDK '{sdk.Id}' not configured — related files skipped.", "Plugins");
+					PluginLog.Warn($"Plugin '{manifest.Id}': optional SDK '{sdk.Id}' not configured - related files skipped.");
 					continue;
 				}
 
@@ -133,9 +133,9 @@ namespace Voltage.Editor.Plugins
 				}
 
 				if (pulled > 0)
-					EditorDebug.Log($"Plugin '{manifest.Id}': pulled {pulled} file(s) from SDK '{sdk.Id}' at {sdkRoot}.", "Plugins");
+					PluginLog.Log($"Plugin '{manifest.Id}': pulled {pulled} file(s) from SDK '{sdk.Id}' at {sdkRoot}.");
 
-				// After pulls, every manifest-listed payload file must exist — a pull list that doesn't
+				// After pulls, every manifest-listed payload file must exist - a pull list that doesn't
 				// actually produce the promised files is a packaging bug worth failing loudly on.
 				if (sdk.Required)
 					VerifySdkProducedFiles(manifest, payloadDir, sdk);
@@ -178,12 +178,12 @@ namespace Voltage.Editor.Plugins
 				try
 				{
 					Directory.Delete(dir, recursive: true);
-					EditorDebug.Log($"Removed stale plugin payload: {name}", "Plugins");
+					PluginLog.Log($"Removed stale plugin payload: {name}");
 				}
 				catch (Exception ex)
 				{
-					// Locked DLLs (already loaded this session) can block deletion — harmless, retried next open.
-					EditorDebug.Warn($"Could not remove stale plugin payload '{name}': {ex.Message}", "Plugins");
+					// Locked DLLs (already loaded this session) can block deletion - harmless, retried next open.
+					PluginLog.Warn($"Could not remove stale plugin payload '{name}': {ex.Message}");
 				}
 			}
 		}
@@ -214,7 +214,7 @@ namespace Voltage.Editor.Plugins
 				}
 				catch (Exception ex)
 				{
-					EditorDebug.Warn($"Could not delete stale file '{rel}': {ex.Message}", "Plugins");
+					PluginLog.Warn($"Could not delete stale file '{rel}': {ex.Message}");
 				}
 			}
 
@@ -263,13 +263,13 @@ namespace Voltage.Editor.Plugins
 		/// Regenerates the MSBuild/bootstrap glue that wires plugins into the game build, all inside the
 		/// gitignored PluginLibs folder (never touching the user's csproj beyond its one-time Import line):
 		/// <list type="bullet">
-		///   <item><c>PluginLibs/Plugins.g.props</c> — References (runtime-flavor DLLs), Compile items for
+		///   <item><c>PluginLibs/Plugins.g.props</c> - References (runtime-flavor DLLs), Compile items for
 		///     source roots + bootstrap, TrimmerRootDescriptors, and per-RID native copy targets</item>
-		///   <item><c>PluginLibs/PluginBootstrap.g.cs</c> — module initializer that AOT-roots each plugin
+		///   <item><c>PluginLibs/PluginBootstrap.g.cs</c> - module initializer that AOT-roots each plugin
 		///     assembly and forces its registrations on CoreCLR</item>
-		///   <item><c>PluginLibs/&lt;id&gt;/PluginTrimmerRoots.xml</c> — preserve-all for plugin assemblies</item>
+		///   <item><c>PluginLibs/&lt;id&gt;/PluginTrimmerRoots.xml</c> - preserve-all for plugin assemblies</item>
 		/// </list>
-		/// Skips plugins that are Disabled/Unavailable/Failed — the build gate in
+		/// Skips plugins that are Disabled/Unavailable/Failed - the build gate in
 		/// <see cref="SyncForBuild"/> decides whether that is fatal.
 		/// </summary>
 		public static void GenerateBuildFiles(string projectPath, IReadOnlyList<PluginInstance> plugins)
@@ -296,7 +296,7 @@ namespace Voltage.Editor.Plugins
 				var id = plugin.Manifest.Id;
 
 				// Prebuilt managed DLLs: statically referenced (runtime flavor) so they compile into the
-				// AOT image — published games cannot Assembly.LoadFrom.
+				// AOT image - published games cannot Assembly.LoadFrom.
 				// Forward slashes throughout: MSBuild on Windows accepts them everywhere, while
 				// backslashes inside Exists()/globs are unreliable on macOS/Linux.
 				foreach (var rel in gameplay.ManagedAssemblies ?? Enumerable.Empty<string>())
@@ -422,7 +422,7 @@ namespace Voltage.Editor.Plugins
 			props.AppendLine("\t</PropertyGroup>");
 
 			// NOTE: the naive one-liner (`<ResolvedFileToPublish Include="glob" RelativePath="%(Filename)%(Extension)" ...`)
-			// is a trap — the bare %(Filename) batches over EXISTING ResolvedFileToPublish items and copies
+			// is a trap - the bare %(Filename) batches over EXISTING ResolvedFileToPublish items and copies
 			// natives onto their names (observed: a dylib landing on the game's .pdb). Collect into a scratch
 			// item first, then transform with item-qualified metadata, which is per-item and unambiguous.
 			props.AppendLine("\t<Target Name=\"CopyVoltagePluginNativesToPublish\" AfterTargets=\"ComputeFilesToPublish\">");
@@ -450,7 +450,7 @@ namespace Voltage.Editor.Plugins
 
 		/// <summary>
 		/// Pre-publish gate: verifies every enabled plugin restored successfully and regenerates the build
-		/// glue from current state. A missing/failed plugin fails the build here with a clear message —
+		/// glue from current state. A missing/failed plugin fails the build here with a clear message -
 		/// silently shipping a game without a plugin the scenes depend on is worse than a red build.
 		/// </summary>
 		public static bool SyncForBuild(IGameProject project, out string error)
@@ -464,7 +464,7 @@ namespace Voltage.Editor.Plugins
 
 			if (broken.Count > 0)
 			{
-				error = "Cannot build: plugin(s) unavailable — " +
+				error = "Cannot build: plugin(s) unavailable - " +
 					string.Join("; ", broken.Select(p => $"'{p.Id}' ({p.Error})")) +
 					". Fix or disable them in the Plugin Manager.";
 				return false;
@@ -476,7 +476,7 @@ namespace Voltage.Editor.Plugins
 			try
 			{
 				// Dev plugins compile from their working folder in the editor, but game builds consume
-				// the PluginLibs copy — re-mirror them now so the build sees the latest sources/DLLs.
+				// the PluginLibs copy - re-mirror them now so the build sees the latest sources/DLLs.
 				foreach (var plugin in manager.Plugins)
 				{
 					if (plugin.Entry is { Dev: true } && plugin.Resolved != null)
@@ -529,14 +529,14 @@ namespace Voltage.Editor.Plugins
 					}
 
 					if (copied > 0)
-						EditorDebug.Log($"Copied {copied} content file(s) from plugin '{plugin.Id}'.", "Plugins");
+						PluginLog.Log($"Copied {copied} content file(s) from plugin '{plugin.Id}'.");
 				}
 
 				return true;
 			}
 			catch (Exception ex)
 			{
-				EditorDebug.Error($"Failed to copy plugin content: {ex.Message}", "Plugins");
+				PluginLog.Error($"Failed to copy plugin content: {ex.Message}");
 				return false;
 			}
 		}
