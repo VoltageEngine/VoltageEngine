@@ -111,7 +111,7 @@ namespace Voltage.Editor.Plugins
 			EnsureManifestIdMatches(entry, manifest);
 
 			if (lockEntry != null && lockEntry.Version != manifest.Version)
-				EditorDebug.Log($"Bundled plugin '{entry.Id}' changed with the editor ({lockEntry.Version} -> {manifest.Version}); lock updated.", "Plugins");
+				PluginLog.Log($"Bundled plugin '{entry.Id}' changed with the editor ({lockEntry.Version} -> {manifest.Version}); lock updated.");
 
 			return new ResolvedPlugin
 			{
@@ -152,7 +152,7 @@ namespace Voltage.Editor.Plugins
 				}
 				catch (Exception ex)
 				{
-					EditorDebug.Warn($"Skipping bundled plugin folder '{dir}': {ex.Message}", "Plugins");
+					PluginLog.Warn($"Skipping bundled plugin folder '{dir}': {ex.Message}");
 				}
 			}
 
@@ -180,7 +180,7 @@ namespace Voltage.Editor.Plugins
 				}
 				catch (Exception ex)
 				{
-					EditorDebug.Warn($"Skipping bundled plugin folder '{dir}': {ex.Message}", "Plugins");
+					PluginLog.Warn($"Skipping bundled plugin folder '{dir}': {ex.Message}");
 				}
 			}
 

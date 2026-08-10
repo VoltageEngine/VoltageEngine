@@ -106,7 +106,7 @@ namespace Voltage.Editor.Plugins
 				catch (Exception ex)
 				{
 					report.FatalError = ex.Message;
-					EditorDebug.Warn($"Publish check for '{id}' failed: {ex.Message}", "Plugins");
+					PluginLog.Warn($"Publish check for '{id}' failed: {ex.Message}");
 				}
 				finally
 				{

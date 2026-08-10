@@ -44,7 +44,7 @@ namespace Voltage.Editor.Plugins
 	/// parameterless constructor at project open.
 	///
 	/// Editor plugins reference <c>Voltage.Editor.dll</c> directly (Unity-style: full access to
-	/// windows, inspectors, undo, ImGui). The API is unstable by contract — pin the editor version
+	/// windows, inspectors, undo, ImGui). The API is unstable by contract - pin the editor version
 	/// your plugin targets and declare <c>EditorPluginApiVersion</c> in plugin.json.
 	/// </summary>
 	public interface IEditorPlugin
@@ -83,7 +83,7 @@ namespace Voltage.Editor.Plugins
 		/// </summary>
 		void AddMenuItem(EditorMenu menu, string path, Action onClick);
 
-		/// <summary>The editor's ImGui manager (texture binding, layout services, …).</summary>
+		/// <summary>The editor's ImGui manager (texture binding, layout services, ...).</summary>
 		ImGuiManager ImGuiManager { get; }
 
 		/// <summary>The currently open project.</summary>
@@ -95,12 +95,12 @@ namespace Voltage.Editor.Plugins
 
 	/// <summary>
 	/// Base class for plugin-provided editor windows. The host calls <see cref="Draw"/> every frame
-	/// while <see cref="IsOpen"/> — implementations do their own ImGui.Begin/End and should pass
+	/// while <see cref="IsOpen"/> - implementations do their own ImGui.Begin/End and should pass
 	/// <c>ref IsOpen</c> to Begin so the window's close button works.
 	/// </summary>
 	public abstract class EditorPluginWindow
 	{
-		/// <summary>Window title (also used as the ImGui id — keep it unique within your plugin).</summary>
+		/// <summary>Window title (also used as the ImGui id - keep it unique within your plugin).</summary>
 		public string Title = "Plugin Window";
 
 		public bool IsOpen;

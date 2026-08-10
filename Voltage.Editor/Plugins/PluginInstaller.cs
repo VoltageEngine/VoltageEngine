@@ -229,7 +229,7 @@ namespace Voltage.Editor.Plugins
 				catch (Exception ex)
 				{
 					job.Finish(PluginInstallState.Failed, ex.Message);
-					EditorDebug.Warn($"Install of '{job.PluginId}' failed: {ex.Message}", "Plugins");
+					PluginLog.Warn($"Install of '{job.PluginId}' failed: {ex.Message}");
 				}
 				finally
 				{
@@ -279,7 +279,7 @@ namespace Voltage.Editor.Plugins
 			catch (Exception ex)
 			{
 				ready.Finish(PluginInstallState.Failed, ex.Message);
-				EditorDebug.Warn($"Install of '{ready.PluginId}' failed while applying: {ex.Message}", "Plugins");
+				PluginLog.Warn($"Install of '{ready.PluginId}' failed while applying: {ex.Message}");
 			}
 			finally
 			{
@@ -351,11 +351,11 @@ namespace Voltage.Editor.Plugins
 				}
 
 				if (removed > 0)
-					EditorDebug.Log($"Cleaned {removed} abandoned plugin download(s) from {root}.", "Plugins");
+					PluginLog.Log($"Cleaned {removed} abandoned plugin download(s) from {root}.");
 			}
 			catch (Exception ex)
 			{
-				EditorDebug.Warn($"Could not sweep plugin staging: {ex.Message}", "Plugins");
+				PluginLog.Warn($"Could not sweep plugin staging: {ex.Message}");
 			}
 		}
 	}

@@ -256,7 +256,7 @@ namespace Voltage.Editor.Plugins
 			}
 			catch (Exception ex)
 			{
-				EditorDebug.Log($"PluginRegistry: could not read the cached index: {ex.Message}", "Plugins");
+				PluginLog.Log($"PluginRegistry: could not read the cached index: {ex.Message}");
 			}
 		}
 
@@ -307,7 +307,7 @@ namespace Voltage.Editor.Plugins
 				lock (_lock)
 					_entries = merged;
 
-				EditorDebug.Log($"PluginRegistry: {merged.Count} plugin(s) available.", "Plugins");
+				PluginLog.Log($"PluginRegistry: {merged.Count} plugin(s) available.");
 			}
 
 			LastError = failures.Count == 0
@@ -315,16 +315,16 @@ namespace Voltage.Editor.Plugins
 				: $"Could not reach {failures.Count} registry/registries: {string.Join("; ", failures)}.";
 
 			if (LastError != null)
-				EditorDebug.Log($"PluginRegistry: {LastError}", "Plugins");
+				PluginLog.Log($"PluginRegistry: {LastError}");
 		}
 
 		private static void WarnOnNewerSchema(PluginRegistryDocument document)
 		{
 			if (document.SchemaVersion > 1)
 			{
-				EditorDebug.Log(
+				PluginLog.Log(
 					$"PluginRegistry: '{document.Name}' declares schema {document.SchemaVersion}, newer than " +
-					"this editor understands. Unknown fields are ignored.", "Plugins");
+					"this editor understands. Unknown fields are ignored.");
 			}
 		}
 
@@ -354,7 +354,7 @@ namespace Voltage.Editor.Plugins
 			}
 			catch (Exception ex)
 			{
-				EditorDebug.Log($"PluginRegistry: could not cache the index: {ex.Message}", "Plugins");
+				PluginLog.Log($"PluginRegistry: could not cache the index: {ex.Message}");
 			}
 		}
 
