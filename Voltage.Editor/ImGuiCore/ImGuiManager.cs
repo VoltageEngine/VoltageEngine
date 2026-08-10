@@ -1614,13 +1614,15 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			return;
 		}
 
-		// A GUI editor does not exit in a quarter of a second. If this one did, it failed to start - and
-		// closing this editor too would leave nothing running, which is exactly what happened before.
-		if (child.WaitForExit(400))
+		// Long enough to cover graphics and content initialization, which is where a replacement that
+		// starts and then dies actually dies. Blocking the UI for it is fine - the editor is closing.
+		if (child.WaitForExit(2500))
 		{
+			var reason = ReadRelaunchLogTail();
 			Plugins.PluginLog.Error(
-				$"The new editor exited immediately (code {child.ExitCode}), so this one was left open.\n" +
-				$"Command: {command}");
+				$"The new editor started and then exited (code {child.ExitCode}), so this one was left open." +
+				$"\nCommand: {command}" +
+				(reason == null ? $"\nNothing was written to {RelaunchLogPath}." : $"\nIt reported:\n{reason}"));
 			return;
 		}
 
@@ -1633,6 +1635,24 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	{
 		var args = string.Join(" ", startInfo.ArgumentList);
 		return string.IsNullOrEmpty(args) ? startInfo.FileName : $"{startInfo.FileName} {args}";
+	}
+
+	/// <summary>The last few lines the failed replacement wrote, or null when it wrote nothing.</summary>
+	private static string ReadRelaunchLogTail()
+	{
+		try
+		{
+			if (!File.Exists(RelaunchLogPath))
+				return null;
+
+			var lines = File.ReadAllLines(RelaunchLogPath);
+			var tail = lines.Where(l => !string.IsNullOrWhiteSpace(l)).TakeLast(12).ToArray();
+			return tail.Length == 0 ? null : string.Join("\n", tail);
+		}
+		catch (Exception ex)
+		{
+			return $"(could not read {RelaunchLogPath}: {ex.Message})";
+		}
 	}
 
 	/// <summary>
@@ -1649,12 +1669,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (string.IsNullOrEmpty(executable) || !File.Exists(executable))
 			return null;
 
-		var startInfo = new System.Diagnostics.ProcessStartInfo
-		{
-			FileName = executable,
-			UseShellExecute = false,
-			WorkingDirectory = AppContext.BaseDirectory,
-		};
+		var arguments = new List<string>();
 
 		var host = Path.GetFileNameWithoutExtension(executable);
 		if (host.Equals("dotnet", StringComparison.OrdinalIgnoreCase))
@@ -1663,7 +1678,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			if (string.IsNullOrEmpty(managedDll) || !File.Exists(managedDll))
 				return null;
 
-			startInfo.ArgumentList.Add(managedDll);
+			arguments.Add(managedDll);
 		}
 
 		// The project is passed explicitly rather than left to the "last project" setting, so the new
@@ -1673,15 +1688,46 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			var project = ProjectManager.Instance?.LastProjectPath;
 			if (!string.IsNullOrWhiteSpace(project) && File.Exists(project))
-				startInfo.ArgumentList.Add(project);
+				arguments.Add(project);
 		}
 		catch (Exception ex)
 		{
-			EditorDebug.Warn($"Relaunching without a project argument: {ex.Message}", "Editor");
+			Plugins.PluginLog.Warn($"Relaunching without a project argument: {ex.Message}");
 		}
+
+		var startInfo = new System.Diagnostics.ProcessStartInfo
+		{
+			UseShellExecute = false,
+			WorkingDirectory = AppContext.BaseDirectory,
+		};
+
+		// On Unix the replacement is launched through a shell so its output can be redirected to a file.
+		// Without that, a new editor that fails during startup - native graphics init, a missing content
+		// folder - dies with nothing written anywhere, which is indistinguishable from never starting.
+		// 'exec' matters: the shell is replaced by the editor, so the returned process really is it and
+		// its exit code is the editor's.
+		if (!OperatingSystem.IsWindows())
+		{
+			var quoted = string.Join(" ", new[] { executable }.Concat(arguments).Select(ShellQuote));
+
+			startInfo.FileName = "/bin/sh";
+			startInfo.ArgumentList.Add("-c");
+			startInfo.ArgumentList.Add($"exec {quoted} > {ShellQuote(RelaunchLogPath)} 2>&1");
+			return startInfo;
+		}
+
+		startInfo.FileName = executable;
+		foreach (var argument in arguments)
+			startInfo.ArgumentList.Add(argument);
 
 		return startInfo;
 	}
+
+	/// <summary>Where a relaunched editor's own output goes, so a failed restart leaves evidence.</summary>
+	private static string RelaunchLogPath =>
+		Path.Combine(AppContext.BaseDirectory, "relaunch.log");
+
+	private static string ShellQuote(string value) => "'" + (value ?? string.Empty).Replace("'", "'\\''") + "'";
 
 	/// <summary>The plain "are you sure" shown when there is nothing unsaved to lose.</summary>
 	private void DrawRelaunchConfirmPrompt()
