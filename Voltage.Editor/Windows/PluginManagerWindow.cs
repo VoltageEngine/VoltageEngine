@@ -39,6 +39,9 @@ namespace Voltage.Editor.Windows
 		private readonly List<StatusMessage> _messages = new();
 		private int _nextMessageId;
 
+		/// <summary>Message count as of last frame, so a newly arrived one can pop the panel open.</summary>
+		private int _lastMessageTotal;
+
 		/// <summary>Plugin problems the user has dismissed, keyed by id and text.</summary>
 		private readonly HashSet<string> _dismissedProblems = new(StringComparer.Ordinal);
 
@@ -563,8 +566,21 @@ private void DrawAddPluginSection()
 			if (!canAdd)
 				ImGui.EndDisabled();
 
+			// A disabled button and a button whose click did nothing look the same, so say which it is.
+			if (!canAdd && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+			{
+				ImGui.SetTooltip(_addSourceType switch
+				{
+					0 => "Choose the plugin's folder first - the one containing plugin.json.",
+					1 => "Enter both a git URL and a ref (tag, branch or commit).",
+					_ => "Enter the URL of the plugin's release zip.",
+				});
+			}
+
 			ImGui.SameLine();
-			ImGui.TextColored(ColorMuted, "Fetches, verifies, and loads the plugin. Private git repos use your local credentials.");
+			ImGui.TextColored(ColorMuted, canAdd
+				? "Fetches, verifies, and loads the plugin. Private git repos use your local credentials."
+				: "Fill in the source above to enable this.");
 
 			// The result goes to the message list at the top rather than here: the install runs on a
 			// worker now, so it does not arrive while this section is still on screen.
@@ -1256,6 +1272,7 @@ private void DrawAddPluginSection()
 				{
 					(Plugin: p, Text: p.Error, IsError: true),
 					(Plugin: p, Text: p.CompatibilityWarning, IsError: false),
+					(Plugin: p, Text: p.StaleAssemblyWarning, IsError: false),
 				})
 				.Where(x => !string.IsNullOrWhiteSpace(x.Text))
 				.Where(x => !_dismissedProblems.Contains(ProblemKey(x.Plugin.Id, x.Text)))
@@ -1268,6 +1285,13 @@ private void DrawAddPluginSection()
 			var anyError = _messages.Any(m => m.IsError)
 			               || finishedJobs.Any(j => j.State == PluginInstallState.Failed)
 			               || problems.Any(p => p.IsError);
+
+			// Open it whenever something new arrives. Collapsed-by-default meant the result of pressing
+			// Add Plugin - success or failure - was written somewhere nobody was looking, which reads as
+			// the button having done nothing at all.
+			if (total > _lastMessageTotal)
+				ImGui.SetNextItemOpen(true, ImGuiCond.Always);
+			_lastMessageTotal = total;
 
 			ImGui.PushStyleColor(ImGuiCol.Text, anyError ? ColorError : ColorOk);
 			var open = ImGui.CollapsingHeader($"Messages ({total})###plugin-messages");
@@ -1326,9 +1350,8 @@ private void DrawAddPluginSection()
 			{
 				ImGui.PushID("problem-" + problem.Plugin.Id + problem.IsError);
 
-				var label = problem.IsError
-					? $"{problem.Plugin.Id}: {problem.Text}"
-					: $"{problem.Plugin.Id} (version mismatch): {problem.Text}";
+				// The text explains itself; a fixed "version mismatch" label was wrong for anything else.
+				var label = $"{problem.Plugin.Id}: {problem.Text}";
 
 				if (DrawDismissableMessage(label, problem.IsError))
 					_dismissedProblems.Add(ProblemKey(problem.Plugin.Id, problem.Text));
