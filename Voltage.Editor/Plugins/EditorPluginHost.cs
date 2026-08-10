@@ -94,6 +94,22 @@ namespace Voltage.Editor.Plugins
 				var assembly = Assembly.LoadFrom(dllPath);
 				_loadedAssemblyPaths.Add(dllPath);
 
+				// LoadFrom resolves by assembly IDENTITY, not by path. If this assembly is already loaded
+				// - the same plugin installed earlier in this session, then removed and re-added from a
+				// different source - the runtime hands back the old one and ignores dllPath entirely.
+				// The type guard below then matches the old instance and skips Initialize, so the new
+				// build contributes nothing and says nothing. Name it instead of letting it look like a
+				// no-op, because "I re-added it and nothing happened" has no other explanation.
+				if (!string.IsNullOrEmpty(assembly.Location) && !SamePath(assembly.Location, dllPath))
+				{
+					plugin.StaleAssemblyWarning =
+						$"'{Path.GetFileName(dllPath)}' was already loaded in this session from " +
+						$"{assembly.Location}, so the code running is still the previous build. .NET cannot " +
+						"unload an assembly - restart the editor to pick up this one.";
+
+					EditorDebug.Warn($"Plugin '{plugin.Id}': {plugin.StaleAssemblyWarning}", "Plugins");
+				}
+
 				var pluginTypes = assembly.GetTypes()
 					.Where(t => typeof(IEditorPlugin).IsAssignableFrom(t)
 					            && t is { IsAbstract: false, IsInterface: false }
@@ -111,7 +127,19 @@ namespace Voltage.Editor.Plugins
 					// A previously-initialized instance survives project switches within a session
 					// (assemblies never unload) — don't double-initialize the same plugin type.
 					if (_active.Any(a => a.Instance.GetType() == type))
+					{
+						if (plugin.StaleAssemblyWarning == null)
+						{
+							plugin.StaleAssemblyWarning =
+								$"'{type.Name}' is already running from an earlier load in this session, so it " +
+								"was not initialized again and any new windows or menu items it registers are " +
+								"absent. Restart the editor.";
+
+							EditorDebug.Warn($"Plugin '{plugin.Id}': {plugin.StaleAssemblyWarning}", "Plugins");
+						}
+
 						continue;
+					}
 
 					var instance = (IEditorPlugin)Activator.CreateInstance(type);
 					_context.CurrentOwnerId = plugin.Id;
@@ -121,6 +149,18 @@ namespace Voltage.Editor.Plugins
 					_active.Add(new ActivePlugin { Instance = instance, Owner = plugin });
 					EditorDebug.Log($"Initialized editor plugin: {type.FullName} ({plugin.Id})", "Plugins");
 				}
+			}
+		}
+
+		private static bool SamePath(string a, string b)
+		{
+			try
+			{
+				return string.Equals(Path.GetFullPath(a), Path.GetFullPath(b), StringComparison.OrdinalIgnoreCase);
+			}
+			catch
+			{
+				return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 			}
 		}
 
