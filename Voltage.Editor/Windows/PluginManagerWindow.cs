@@ -124,7 +124,7 @@ namespace Voltage.Editor.Windows
 			DrawMessages(plugins);
 			DrawActiveInstalls(); // Live progress stays outside the dropdown
 
-			if (ImGui.Button("Create New Plugin..."))
+			if (ImGui.Button("Create New Plugin"))
 			{
 				ResetCreateForm();
 				_showCreatePopup = true;
@@ -163,7 +163,10 @@ namespace Voltage.Editor.Windows
 			// Drive the native/ImGui folder dialogs and apply their results.
 			_pluginFolderBrowser.Draw("Select Plugin Folder");
 			if (_pluginFolderBrowser.TryTakeResult(out var pluginFolder))
+			{
 				_addPath = MakeProjectRelativeIfReasonable(pluginFolder);
+				PluginLog.Log($"Plugin folder chosen: {_addPath}");
+			}
 
 			_sdkFolderBrowser.Draw("Select SDK Folder");
 			if (_sdkFolderBrowser.TryTakeResult(out var sdkFolder) && _sdkBrowseTargetId != null)
@@ -523,6 +526,11 @@ private void DrawAddPluginSection()
 			if (!ImGui.CollapsingHeader("Add Plugin"))
 				return;
 
+			// Scoped so nothing inside can collide with the header's own id. ImGui derives an item's id
+			// from its label, and the "Add Plugin" button below hashed to exactly the same id as this
+			// header - which handed the button's clicks to the header and meant the button never
+			// reported one. That is why adding a plugin from this form never did anything.
+			ImGui.PushID("add-plugin-section");
 			ImGui.Indent();
 
 			ImGui.SetNextItemWidth(220);
@@ -536,7 +544,7 @@ private void DrawAddPluginSection()
 					ImGui.SetNextItemWidth(-100);
 					ImGui.InputText("##addpath", ref _addPath, 1024);
 					ImGui.SameLine();
-					if (ImGui.Button("Browse...", new Num.Vector2(85, 0)))
+					if (ImGui.Button("Browse", new Num.Vector2(85, 0)))
 						_pluginFolderBrowser.Open("Select plugin folder", _addPath, this);
 					ImGui.Checkbox("I'm editing this plugin", ref _addDev);
 					if (ImGui.IsItemHovered())
@@ -578,12 +586,18 @@ private void DrawAddPluginSection()
 
 			if (ImGui.Button("Add Plugin", new Num.Vector2(140, 0)))
 			{
+				var source = entry.Source?.Describe() ?? "plugin";
+
+				// Logged before anything can go wrong, so pressing this always leaves a trace - the
+				// absence of one is itself the diagnosis.
+				PluginLog.Log($"Adding plugin from {source}{(entry.Dev ? " (live edit)" : "")}...");
+
 				// Same path as Browse: a zip or git URL here would otherwise freeze the editor for the
 				// length of the fetch. The result lands in the install-jobs list above.
-				var started = PluginInstaller.Start(entry, entry.Source?.Describe() ?? "plugin");
+				var started = PluginInstaller.Start(entry, source);
 				if (started == null)
 				{
-					SetStatus("Another install is already running.", isError: true);
+					PluginLog.Error("Could not start: another install is already running.");
 				}
 				else
 				{
@@ -615,6 +629,7 @@ private void DrawAddPluginSection()
 			// worker now, so it does not arrive while this section is still on screen.
 
 			ImGui.Unindent();
+			ImGui.PopID();
 			ImGui.Separator();
 		}
 
@@ -695,7 +710,7 @@ private void DrawAddPluginSection()
 			ImGui.SetNextItemWidth(-90);
 			ImGui.InputText("##location", ref _newLocation, 1024);
 			ImGui.SameLine();
-			if (ImGui.Button("Browse...", new Num.Vector2(80, 0)))
+			if (ImGui.Button("Browse", new Num.Vector2(80, 0)))
 				_createLocationBrowser.Open("Select where to create the plugin", _newLocation, this);
 			if (ImGui.IsItemHovered())
 				ImGui.SetTooltip("The new plugin folder is created inside this location.");
@@ -1153,7 +1168,7 @@ private void DrawAddPluginSection()
 				ImGui.SameLine();
 				if (publishRunning)
 					ImGui.BeginDisabled();
-				if (ImGui.Button($"Publish New Version...##publish-{plugin.Id}", new Num.Vector2(0, 0)))
+				if (ImGui.Button($"Publish New Version##publish-{plugin.Id}", new Num.Vector2(0, 0)))
 					OpenPublishPopup(plugin);
 				if (publishRunning)
 					ImGui.EndDisabled();
@@ -1254,7 +1269,7 @@ private void DrawAddPluginSection()
 					_sdkPathBuffers[sdk.Id] = buffer;
 
 				ImGui.SameLine();
-				if (ImGui.Button("Browse..."))
+				if (ImGui.Button("Browse"))
 				{
 					_sdkBrowseTargetId = sdk.Id;
 					_sdkFolderBrowser.Open($"Select {sdk.DisplayName ?? sdk.Id} folder", buffer, this);
