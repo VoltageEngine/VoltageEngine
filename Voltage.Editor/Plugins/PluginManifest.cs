@@ -10,12 +10,12 @@ namespace Voltage.Editor.Plugins
 	/// In-memory model of a plugin package's <c>plugin.json</c> manifest. A plugin package is a folder
 	/// (or git repo / zip) whose root contains this manifest plus the payload folders it references:
 	/// <list type="bullet">
-	///   <item><c>lib/</c> — gameplay managed DLLs (net8.0, built WITHOUT the EDITOR symbol)</item>
-	///   <item><c>editor-lib/</c> — optional EDITOR-flavored twins of lib/ (first-party engine modules only)</item>
-	///   <item><c>editor/</c> — editor-plugin DLLs (reference Voltage.Editor.dll, implement IEditorPlugin)</item>
-	///   <item><c>src/</c> — source-form gameplay code, compiled together with the game's Scripts/</item>
-	///   <item><c>native/&lt;rid&gt;/</c> — per-RID native libraries</item>
-	///   <item><c>content/</c> — runtime content copied into the game build's Content folder</item>
+	///   <item><c>lib/</c> - gameplay managed DLLs (net8.0, built WITHOUT the EDITOR symbol)</item>
+	///   <item><c>editor-lib/</c> - optional EDITOR-flavored twins of lib/ (first-party engine modules only)</item>
+	///   <item><c>editor/</c> - editor-plugin DLLs (reference Voltage.Editor.dll, implement IEditorPlugin)</item>
+	///   <item><c>src/</c> - source-form gameplay code, compiled together with the game's Scripts/</item>
+	///   <item><c>native/&lt;rid&gt;/</c> - per-RID native libraries</item>
+	///   <item><c>content/</c> - runtime content copied into the game build's Content folder</item>
 	/// </list>
 	/// All JSON keys are PascalCase (Voltage.Persistence.Json field-name matching).
 	/// </summary>
@@ -121,7 +121,7 @@ namespace Voltage.Editor.Plugins
 				throw new PluginManifestException($"Plugin '{Id}' declares kind '{KindEditor}' but has no 'Editor.Assemblies'.");
 
 			// Payload files must exist relative to the package root. Files produced later by external SDK
-			// pulls are exempt — they only exist after sync applies the pulls into PluginLibs.
+			// pulls are exempt - they only exist after sync applies the pulls into PluginLibs.
 			var sdkProducedPaths = GetExternalSdkProducedPrefixes();
 
 			if (Gameplay != null)
@@ -257,7 +257,7 @@ namespace Voltage.Editor.Plugins
 	}
 
 	/// <summary>
-	/// An SDK the user must install themselves because its files cannot be redistributed (NDA, licensing —
+	/// An SDK the user must install themselves because its files cannot be redistributed (NDA, licensing -
 	/// e.g. FMOD, console SDKs). At sync time the listed pulls copy files from the user's locally configured
 	/// SDK root into the project's PluginLibs payload; those files never enter the package, cache, or git.
 	/// </summary>

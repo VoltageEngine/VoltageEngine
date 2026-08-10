@@ -8,7 +8,7 @@ namespace Voltage.Editor.Plugins
 {
 	/// <summary>
 	/// Model of the committed <c>&lt;project&gt;/plugins.lock.json</c> file: the exact resolution of every
-	/// plugins.json entry — resolved version, git commit SHA, and a sha256 content hash of the payload.
+	/// plugins.json entry - resolved version, git commit SHA, and a sha256 content hash of the payload.
 	/// Restore verifies acquired payloads against these pins so every teammate (and CI) gets identical
 	/// bytes; a mismatch is a hard error rather than silent drift.
 	/// </summary>

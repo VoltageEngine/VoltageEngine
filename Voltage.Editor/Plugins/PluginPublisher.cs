@@ -410,7 +410,7 @@ namespace Voltage.Editor.Plugins
 				{
 					plan.Succeeded = false;
 					plan.Summary = "Publish stopped unexpectedly: " + ex.Message;
-					EditorDebug.Warn($"Publish of '{plan.PluginId}' threw: {ex}", "Plugins");
+					PluginLog.Warn($"Publish of '{plan.PluginId}' threw: {ex}");
 				}
 				finally
 				{
@@ -551,7 +551,7 @@ namespace Voltage.Editor.Plugins
 				later.Message = "Not reached.";
 			}
 
-			EditorDebug.Warn($"Publish of '{plan.PluginId}' failed at {step.Label}: {message}", "Plugins");
+			PluginLog.Warn($"Publish of '{plan.PluginId}' failed at {step.Label}: {message}");
 		}
 
 		/// <summary>
