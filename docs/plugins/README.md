@@ -272,6 +272,26 @@ what goes in the lock — so a force-pushed tag can never silently hand your tea
 **Zip** accepts both common layouts: `plugin.json` at the archive root, or nested inside a single top-level
 folder (GitHub's "Download ZIP" shape).
 
+**Path also accepts a source checkout, not just a built package.** A published plugin is `plugin.json`
+next to the assemblies it declares; a plugin *repository* is the same `plugin.json` next to the
+**sources**, with `/lib/`, `/editor-lib/` and `/editor/` gitignored because CI builds them for a tagged
+release. Clone one and add it as a local folder and every declared assembly is missing, so the manifest
+cannot validate.
+
+So when — and only when — a local folder is missing exactly the files its own packaging target produces,
+the editor runs that target first (`PluginSourceBuild`): `dotnet restore` on each project at the plugin
+root, then `dotnet msbuild <project> -t:PackagePlugin`, with `VoltageEnginePath` and `VoltageEditorPath`
+pointed at the running editor's own folder — so a plugin can never be built against a different Voltage
+than the one about to load it. The first build takes a few minutes; progress and failures go to the Plugin
+Manager's **Messages**.
+
+It triggers on files being *absent*, never on them looking stale. Rebuilding whenever a `.cs` looked newer
+would mean an unpredictable multi-minute build on project open; picking up your own edits stays an
+explicit rebuild plus a restart, exactly as it is for every other plugin (assemblies cannot unload).
+
+If the folder has no project exposing `PackagePlugin`, the error says the folder is a source checkout and
+what to do about it, instead of reporting a missing file as though the plugin were broken.
+
 **Bundled plugins are deliberately not content-pinned.** Their payload is compiled by the editor build on
 each machine, and .NET assemblies embed absolute source paths, so the bytes — and therefore the hash —
 differ per machine. Recording that hash would make `plugins.lock.json` churn on every clone. They pin on the
@@ -448,15 +468,23 @@ gh run watch --repo <owner>/<repo> --exit-status
 gh release view v0.1.0 --repo <owner>/<repo> --json assets
 ```
 
-**3. The registry entry.** `.github/workflows/registry.yml` fires on *release published* and opens a pull
-request against the registry with an entry derived from `plugin.json` and the release asset. Merge it and
-the plugin shows up in Browse Plugins.
+**3. The registry entry.** `release.yml` calls `.github/workflows/registry.yml` as a final job, which
+opens a pull request against the registry with an entry derived from `plugin.json` and the release asset.
+Merge it and the plugin shows up in Browse Plugins.
 
 That workflow needs a `REGISTRY_TOKEN` secret on the plugin repository — a fine-grained PAT with
 `Contents: write` and `Pull requests: write` on the registry repo. Without it the job does not fail: it
-prints the exact JSON entry in the run summary so you can open the pull request by hand. An update to an
-existing entry keeps hand-curated `Tags`, `Homepage` and `Description`; only the release-derived fields
-are overwritten.
+warns and prints the exact JSON entry in the run summary so you can open the pull request by hand. An
+update to an existing entry keeps hand-curated `Tags`, `Homepage` and `Description`; only the
+release-derived fields are overwritten.
+
+> **Why it is *called* rather than triggered.** `registry.yml` also declares `release: published`, and
+> that trigger does not fire for a release the Release workflow created: GitHub raises no workflow events
+> for anything done with the default `GITHUB_TOKEN`, so that a workflow cannot trigger itself. A plugin
+> whose release workflow succeeded would therefore still never reach the catalogue, and the only visible
+> symptom is Browse Plugins quietly continuing to offer the previous version. Chaining the job with
+> `uses:` is what makes it run. The `release: published` trigger is still worth keeping for a release
+> published by hand, which does fire.
 
 ### Publish Readiness
 
