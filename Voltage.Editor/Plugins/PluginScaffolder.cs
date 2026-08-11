@@ -407,6 +407,16 @@ namespace Voltage.Editor.Plugins
 			sb.AppendLine("        if: startsWith(github.ref, 'refs/tags/v')");
 			sb.AppendLine("        uses: softprops/action-gh-release@v2");
 			sb.AppendLine("        with: { files: plugin/*.zip }");
+			sb.AppendLine();
+			sb.AppendLine("  # Called from here rather than left to trigger on its own. The release above is created with");
+			sb.AppendLine("  # the default GITHUB_TOKEN, and GitHub does not raise workflow events for what that token does,");
+			sb.AppendLine("  # so the `release: published` trigger the submit workflow declares never fires for it. The");
+			sb.AppendLine("  # symptom is a published version that never reaches the catalogue.");
+			sb.AppendLine("  submit-to-registry:");
+			sb.AppendLine("    needs: package");
+			sb.AppendLine("    if: startsWith(github.ref, 'refs/tags/v')");
+			sb.AppendLine("    uses: ./.github/workflows/registry.yml");
+			sb.AppendLine("    secrets: inherit");
 
 			File.WriteAllText(Path.Combine(dir, "release.yml"), sb.ToString());
 		}
@@ -432,9 +442,15 @@ namespace Voltage.Editor.Plugins
 # the release itself, so the PR is usually a one-click merge.
 #
 # Needs a REGISTRY_TOKEN secret - a fine-grained PAT with Contents:write and Pull requests:write on the
-# registry repository. Without it the job does not fail; it prints the exact entry to paste instead, so a
-# third-party plugin with no token still gets a usable result.
+# registry repository. Without it the job does not fail; it warns and prints the exact entry to paste
+# instead, so a third-party plugin with no token still gets a usable result.
+#
+# `workflow_call` is how this actually runs. A release created by the Release workflow using the default
+# GITHUB_TOKEN raises no workflow events - GitHub blocks that to stop workflows triggering themselves - so
+# `release: published` never fires for it and the catalogue silently keeps the previous version. Release
+# calls this directly instead. The release trigger stays for a release published by hand, which does fire.
 on:
+  workflow_call:
   release:
     types: [published]
   workflow_dispatch:
@@ -481,6 +497,8 @@ jobs:
           echo ""tag=$TAG""  >> ""$GITHUB_OUTPUT""
           echo ""zip=$ZIP""  >> ""$GITHUB_OUTPUT""
 
+      # A missing token used to be entirely silent, which is indistinguishable from a successful submit
+      # when all you can see is a green tick. Warn, so the run is annotated and the author finds out.
       - name: Do we have a registry token?
         id: token
         run: |
@@ -488,6 +506,9 @@ jobs:
             echo ""present=true"" >> ""$GITHUB_OUTPUT""
           else
             echo ""present=false"" >> ""$GITHUB_OUTPUT""
+            echo ""::warning::No REGISTRY_TOKEN secret, so no registry pull request was opened. The release \
+            is published but Browse Plugins will keep showing the previous version until registry.json is \
+            updated. See the job summary for the entry to add.""
           fi
 
       - name: Check out the registry

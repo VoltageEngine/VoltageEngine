@@ -455,7 +455,9 @@ namespace Voltage.Editor.Plugins
 					Label = "Registry listing",
 					State = PublishCheckState.Blocked,
 					Detail = "Not listed in any registry, so it cannot appear in Browse Plugins.",
-					Fix = "The registry workflow opens a pull request when a release is published - merge it.",
+					Fix = "The release runs a submit job that opens a pull request against the registry - merge it. " +
+					      "That job needs a REGISTRY_TOKEN secret on this repository; without one it only prints the " +
+					      "entry to add by hand, and says so in the run's warnings.",
 				});
 				return;
 			}
@@ -473,7 +475,8 @@ namespace Voltage.Editor.Plugins
 					Label = "Registry listing",
 					State = PublishCheckState.Warning,
 					Detail = $"Listed at {listedTag ?? "(no ref)"}, but this plugin is at {report.Tag}. Installs get the older version.",
-					Fix = "Merge the registry pull request for this release.",
+					Fix = "Merge the registry pull request for this release. If the release ran without opening one, " +
+					      "check the run for a warning about a missing REGISTRY_TOKEN secret.",
 				});
 		}
 
