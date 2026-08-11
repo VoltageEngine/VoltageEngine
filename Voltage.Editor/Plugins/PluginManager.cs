@@ -503,7 +503,9 @@ namespace Voltage.Editor.Plugins
 			// Dev mode only makes sense for a local folder source.
 			entry.Dev = entry.Dev && !string.IsNullOrWhiteSpace(entry.Source.Path);
 
-			return PluginResolver.Resolve(entry, null, _projectPath, allowRepin: true);
+			// The only caller that may build an unbuilt source checkout: this runs on the install worker,
+			// which reports progress and is not the thread drawing the editor.
+			return PluginResolver.Resolve(entry, null, _projectPath, allowRepin: true, allowSourceBuild: true);
 		}
 
 		/// <summary>

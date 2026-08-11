@@ -43,6 +43,21 @@ namespace Voltage.Editor.FilePickers
 		private static bool Show(Guid clsid, string title, string startPath, string fileName,
 			FilterSpec[] filters, string defaultExtension, uint options, out string result)
 		{
+			// Owning the dialog to the editor's window hangs the editor outright, and this is the whole
+			// reason for the check. Showing a modal dialog disables its owner, which the shell does by
+			// sending messages to the thread that owns that window - and that thread is the one sitting in
+			// the Join below. A blocked STA thread still pumps, so the messages land and the dialog opens;
+			// a blocked MTA thread does not, so the send never returns, Show never displays anything, and
+			// the editor freezes with no dialog to close. Voltage's Main declares no [STAThread], so it is
+			// MTA and takes the second path.
+			//
+			// Unowned, the dialog opens normally. It loses the tie to the editor window - it can fall behind
+			// it - which is a far smaller price than a hang, and matches what the previous tinyfd dialogs
+			// did anyway.
+			var owner = Thread.CurrentThread.GetApartmentState() == ApartmentState.STA
+				? GetForegroundWindow()
+				: IntPtr.Zero;
+
 			string picked = null;
 			Exception failure = null;
 
@@ -50,7 +65,7 @@ namespace Voltage.Editor.FilePickers
 			{
 				try
 				{
-					picked = ShowOnStaThread(clsid, title, startPath, fileName, filters, defaultExtension, options);
+					picked = ShowOnStaThread(clsid, title, startPath, fileName, filters, defaultExtension, options, owner);
 				}
 				catch (Exception ex)
 				{
@@ -71,7 +86,7 @@ namespace Voltage.Editor.FilePickers
 		}
 
 		private static string ShowOnStaThread(Guid clsid, string title, string startPath, string fileName,
-			FilterSpec[] filters, string defaultExtension, uint options)
+			FilterSpec[] filters, string defaultExtension, uint options, IntPtr owner)
 		{
 			var iid = IidFileDialog;
 			var hr = CoCreateInstance(ref clsid, IntPtr.Zero, ClsCtxInprocServer, ref iid, out var instance);
@@ -104,8 +119,8 @@ namespace Voltage.Editor.FilePickers
 				if (!string.IsNullOrEmpty(defaultExtension))
 					dialog.SetDefaultExtension(defaultExtension);
 
-				// Owned by the editor window so the dialog cannot end up behind it.
-				hr = dialog.Show(GetForegroundWindow());
+				// Zero unless the caller's thread will pump while it waits - see the note in Show.
+				hr = dialog.Show(owner);
 				if (hr == HresultCancelled)
 					return null;
 				if (hr < 0)

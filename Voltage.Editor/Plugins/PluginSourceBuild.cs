@@ -44,6 +44,12 @@ namespace Voltage.Editor.Plugins
 			/// <summary>Files are missing and no project here knows how to produce them.</summary>
 			NoPackagingProject,
 
+			/// <summary>
+			/// Buildable, but not from this call. Building shells out to MSBuild for minutes; on the thread
+			/// that draws the editor that is indistinguishable from a hang, so only the install worker does it.
+			/// </summary>
+			NotBuilt,
+
 			/// <summary>The packaging target ran and failed, or produced less than the manifest declares.</summary>
 			Failed,
 		}
@@ -73,7 +79,12 @@ namespace Voltage.Editor.Plugins
 		/// does not have. Never throws: the caller's manifest validation is what reports a folder that is
 		/// still incomplete, and this only adds the context for why.
 		/// </summary>
-		public static Result EnsureBuilt(string pluginFolder)
+		/// <param name="allowBuild">
+		/// False on any path that must stay responsive. The build takes minutes, so running it from the
+		/// thread that draws the editor looks exactly like a crash; those callers report what is missing
+		/// instead and leave the building to the install worker.
+		/// </param>
+		public static Result EnsureBuilt(string pluginFolder, bool allowBuild)
 		{
 			var result = new Result();
 
@@ -92,6 +103,13 @@ namespace Voltage.Editor.Plugins
 			if (result.ProjectPath == null)
 			{
 				result.Outcome = Outcome.NoPackagingProject;
+				result.MissingAfter = result.MissingBefore;
+				return result;
+			}
+
+			if (!allowBuild)
+			{
+				result.Outcome = Outcome.NotBuilt;
 				result.MissingAfter = result.MissingBefore;
 				return result;
 			}
@@ -129,6 +147,16 @@ namespace Voltage.Editor.Plugins
 
 			switch (result.Outcome)
 			{
+				case Outcome.NotBuilt:
+					return
+						$"This is a plugin source checkout and its assemblies are not built yet: plugin.json " +
+						$"declares {missing}, which a plugin repository gitignores because CI builds them for a " +
+						"tagged release.\n\n" +
+						"Add it again from Plugin Manager > Add Plugin - that builds it in the background, with " +
+						"progress, instead of stalling the editor. Or build it yourself:\n" +
+						$"    dotnet build \"{result.ProjectPath}\" -t:{PackageTarget} " +
+						$"-p:VoltageEnginePath=\"{EngineAssembliesPath()}\"";
+
 				case Outcome.NoPackagingProject:
 					return
 						$"This looks like a plugin source checkout rather than a built package: plugin.json declares " +

@@ -60,7 +60,13 @@ namespace Voltage.Editor.Plugins
 		/// editor's version). Pass <paramref name="allowRepin"/> for an explicit user-driven update, which
 		/// accepts new content and returns fresh pins.
 		/// </summary>
-		public static ResolvedPlugin Resolve(ProjectPluginEntry entry, PluginLockEntry lockEntry, string projectPath, bool allowRepin = false)
+		/// <param name="allowSourceBuild">
+		/// Whether a local folder that is an unbuilt source checkout may be built here. Off by default
+		/// because the build takes minutes: only the install worker, which has a progress UI and is not the
+		/// thread drawing the editor, passes true. Everywhere else reports what is missing instead.
+		/// </param>
+		public static ResolvedPlugin Resolve(ProjectPluginEntry entry, PluginLockEntry lockEntry, string projectPath,
+			bool allowRepin = false, bool allowSourceBuild = false)
 		{
 			if (entry.Source == null || !entry.Source.IsValid())
 				throw new PluginResolveException($"Plugin '{entry.Id}' has an invalid source in plugins.json - exactly one of Bundled/Git/Zip/Path must be set.");
@@ -69,7 +75,7 @@ namespace Voltage.Editor.Plugins
 				return ResolveBundled(entry, lockEntry);
 
 			if (!string.IsNullOrWhiteSpace(entry.Source.Path))
-				return ResolvePath(entry, lockEntry, projectPath, allowRepin);
+				return ResolvePath(entry, lockEntry, projectPath, allowRepin, allowSourceBuild);
 
 			if (!string.IsNullOrWhiteSpace(entry.Source.Git))
 				return ResolveGit(entry, lockEntry, allowRepin);
@@ -192,7 +198,8 @@ namespace Voltage.Editor.Plugins
 
 		#region Local path
 
-		private static ResolvedPlugin ResolvePath(ProjectPluginEntry entry, PluginLockEntry lockEntry, string projectPath, bool allowRepin)
+		private static ResolvedPlugin ResolvePath(ProjectPluginEntry entry, PluginLockEntry lockEntry, string projectPath,
+			bool allowRepin, bool allowSourceBuild)
 		{
 			var sourceDir = entry.Source.Path;
 			if (!System.IO.Path.IsPathRooted(sourceDir))
@@ -203,7 +210,7 @@ namespace Voltage.Editor.Plugins
 
 			// A local folder is the one source that can be a source checkout rather than a built package,
 			// so it is the one that may need building before its manifest can even be validated.
-			var build = PluginSourceBuild.EnsureBuilt(sourceDir);
+			var build = PluginSourceBuild.EnsureBuilt(sourceDir, allowSourceBuild);
 
 			PluginManifest manifest;
 			try
