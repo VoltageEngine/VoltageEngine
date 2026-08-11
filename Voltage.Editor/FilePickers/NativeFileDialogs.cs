@@ -1,15 +1,22 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using Voltage.Editor.DebugUtils;
 
 namespace Voltage.Editor.FilePickers
 {
 	/// <summary>
-	/// Thin P/Invoke wrapper over the vendored <c>tinyfiledialogs</c> native library, exposing the
-	/// OS-native open-file / save-file / select-folder dialogs. Every entry point is a <c>Try…</c> that
-	/// returns <c>false</c> (rather than throwing) when the native library is unavailable for the current
-	/// platform — callers then fall back to the editor's built-in ImGui picker. The result strings point
-	/// into a tinyfd-owned static buffer, so we marshal the return as <see cref="IntPtr"/> and copy it.
+	/// The editor's one door to the OS-native open-file / save-file / select-folder dialogs. Every entry
+	/// point is a <c>Try…</c> that returns <c>false</c> (rather than throwing) when the dialog is cancelled
+	/// or unavailable for the current platform — callers then fall back to the editor's built-in ImGui
+	/// picker.
+	///
+	/// <para>Two implementations sit behind it. Windows goes to <see cref="WindowsFileDialogs"/>, which
+	/// shows the modern Explorer dialog every other Windows application uses. Everywhere else this is a
+	/// thin P/Invoke over the vendored <c>tinyfiledialogs</c> native library, whose GTK/Cocoa paths are the
+	/// system dialogs — it is only the Windows half of tinyfd that is the pre-Vista one, which is exactly
+	/// why Windows does not go through it. The tinyfd result strings point into a library-owned static
+	/// buffer, so we marshal the return as <see cref="IntPtr"/> and copy it.</para>
 	/// </summary>
 	public static class NativeFileDialogs
 	{
@@ -19,11 +26,29 @@ namespace Voltage.Editor.FilePickers
 		private static bool _unavailable;
 		private static bool _initialized;
 
+		/// <summary>Windows always has IFileDialog (Vista+), so there is nothing to probe there.</summary>
+		[SupportedOSPlatformGuard("windows")]
+		private static bool UseWindowsDialogs => OperatingSystem.IsWindows();
+
+		/// <summary>
+		/// A dialog that refuses to open is reported rather than swallowed: IFileDialog is present on every
+		/// supported Windows, so a failure here is a real fault, not a platform difference. Voltage.Debug
+		/// rather than EditorDebug, which compiles out unless EDITOR_DEBUG is defined.
+		/// </summary>
+		private static bool WindowsDialogFailed(Exception ex)
+		{
+			Voltage.Debug.Warn($"The Windows file dialog failed: {ex.Message}");
+			return false;
+		}
+
 		/// <summary>True when the native dialogs are usable on this platform (probed lazily, once).</summary>
 		public static bool IsAvailable
 		{
 			get
 			{
+				if (UseWindowsDialogs)
+					return true;
+
 				EnsureInitialized();
 				return !_unavailable;
 			}
@@ -57,6 +82,19 @@ namespace Voltage.Editor.FilePickers
 		public static bool TryPickFolder(string title, string startPath, out string folder)
 		{
 			folder = null;
+
+			if (UseWindowsDialogs)
+			{
+				try
+				{
+					return WindowsFileDialogs.TryPickFolder(title, startPath, out folder);
+				}
+				catch (Exception ex)
+				{
+					return WindowsDialogFailed(ex);
+				}
+			}
+
 			if (!IsAvailable)
 				return false;
 
@@ -80,6 +118,19 @@ namespace Voltage.Editor.FilePickers
 		public static bool TryOpenFile(string title, string startPathOrFile, string[] filterPatterns, string filterDescription, out string file)
 		{
 			file = null;
+
+			if (UseWindowsDialogs)
+			{
+				try
+				{
+					return WindowsFileDialogs.TryOpenFile(title, startPathOrFile, filterPatterns, filterDescription, out file);
+				}
+				catch (Exception ex)
+				{
+					return WindowsDialogFailed(ex);
+				}
+			}
+
 			if (!IsAvailable)
 				return false;
 
@@ -106,6 +157,19 @@ namespace Voltage.Editor.FilePickers
 		public static bool TrySaveFile(string title, string startPathOrFile, string[] filterPatterns, string filterDescription, out string file)
 		{
 			file = null;
+
+			if (UseWindowsDialogs)
+			{
+				try
+				{
+					return WindowsFileDialogs.TrySaveFile(title, startPathOrFile, filterPatterns, filterDescription, out file);
+				}
+				catch (Exception ex)
+				{
+					return WindowsDialogFailed(ex);
+				}
+			}
+
 			if (!IsAvailable)
 				return false;
 

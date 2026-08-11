@@ -376,7 +376,7 @@ namespace Voltage.Editor.Tools
 				if (NativeFileDialogs.IsAvailable)
 				{
 					var start = Path.Combine(Environment.CurrentDirectory, "Content");
-					if (NativeFileDialogs.TryOpenFile("Open atlas or PNG", start, new[] { "png", "atlas" }, "Atlas / PNG", out var file)
+					if (NativeFileDialogs.TryOpenFile("Open atlas or PNG", start, new[] { "*.png", "*.atlas" }, "Atlas / PNG", out var file)
 					    && !string.IsNullOrEmpty(file))
 						SetSourceFromPickedFile(file);
 				}
