@@ -2,8 +2,7 @@
 
 Documentation for the engine's audio system (mixer, spatial, zones, voice management, backends & DSP).
 
-- **Feature overview (visual):** [`audio-features.html`](audio-features.html) — open in a browser. Also hosted at
-  <[redacted]>.
+- **Feature overview (visual):** [`audio-features.html`](audio-features.html) — open in a browser.
 - **Diagram sources:** [`audio-architecture.mmd`](audio-architecture.mmd), [`audio-setup.mmd`](audio-setup.mmd)
   (Mermaid — both are embedded below so they render on GitHub).
 
