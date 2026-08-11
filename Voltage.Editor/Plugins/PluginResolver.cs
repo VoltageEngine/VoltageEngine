@@ -27,11 +27,12 @@ namespace Voltage.Editor.Plugins
 		public bool IsDev;
 
 		/// <summary>
-		/// Whether <see cref="ContentHash"/> may be recorded in plugins.lock.json. False for bundled plugins:
-		/// their payload is compiled locally by the editor build, and .NET assemblies embed absolute source
-		/// paths, so the bytes - and therefore the hash - differ per machine. Committing that hash makes the
-		/// lockfile churn on every clone. Bundled plugins are pinned by editor version instead; the hash is
-		/// still computed and used locally as PluginSync's skip-marker (inside gitignored PluginLibs).
+		/// Whether <see cref="ContentHash"/> may be recorded in plugins.lock.json. False for anything built
+		/// on this machine rather than fetched: bundled plugins, and a local folder that is a plugin source
+		/// checkout. .NET assemblies embed absolute source paths, so the bytes - and therefore the hash -
+		/// differ per machine, and committing that hash makes the lockfile churn on every clone, or worse
+		/// hard-fails a teammate who built the same commit themselves. Those pin on version instead; the
+		/// hash is still computed and used locally as PluginSync's skip-marker (inside gitignored PluginLibs).
 		/// </summary>
 		public bool IsPinnable = true;
 	}
@@ -200,7 +201,24 @@ namespace Voltage.Editor.Plugins
 			if (!Directory.Exists(sourceDir))
 				throw new PluginResolveException($"Source folder not found: {sourceDir}");
 
-			var manifest = PluginManifest.LoadFrom(sourceDir);
+			// A local folder is the one source that can be a source checkout rather than a built package,
+			// so it is the one that may need building before its manifest can even be validated.
+			var build = PluginSourceBuild.EnsureBuilt(sourceDir);
+
+			PluginManifest manifest;
+			try
+			{
+				manifest = PluginManifest.LoadFrom(sourceDir);
+			}
+			catch (PluginManifestException ex) when (build.IsSourceCheckout)
+			{
+				// "file 'lib/X.dll' not found in the package" is true and useless when the reason is that
+				// nobody has built it yet. Say which it is, and what to run.
+				var explanation = PluginSourceBuild.Explain(build, sourceDir);
+				throw new PluginResolveException(
+					explanation == null ? ex.Message : ex.Message + "\n\n" + explanation);
+			}
+
 			EnsureManifestIdMatches(entry, manifest);
 
 			// Dev mode: sync straight from the working folder, unpinned. For iterating on a plugin
@@ -216,9 +234,18 @@ namespace Voltage.Editor.Plugins
 				};
 			}
 
+			// A source checkout carries assemblies this machine compiled, and .NET embeds absolute source
+			// paths in them, so its hash is not reproducible anywhere else - exactly the reason bundled
+			// plugins are not content-pinned either. Pinning it would hard-fail every teammate who opened
+			// the project, on nothing worse than having built the same commit themselves.
+			var isSourceCheckout = PluginSourceBuild.FindPackagingProject(sourceDir) != null;
+
 			var hash = PluginCache.ComputeContentHash(sourceDir);
-			VerifyAgainstLock(entry, lockEntry, hash, allowRepin,
-				$"Update the plugin via the Plugin Manager, or mark the entry \"Dev\": true in plugins.json to iterate unpinned.");
+			if (!isSourceCheckout)
+			{
+				VerifyAgainstLock(entry, lockEntry, hash, allowRepin,
+					$"Update the plugin via the Plugin Manager, or mark the entry \"Dev\": true in plugins.json to iterate unpinned.");
+			}
 
 			// Immutable copy into the cache so later restores don't depend on the folder still existing.
 			// Cache is keyed by the MANIFEST id (authoritative), so this also works in discovery mode
@@ -235,6 +262,7 @@ namespace Voltage.Editor.Plugins
 				Manifest = manifest,
 				PayloadDir = PluginCache.GetEntryPath(manifest.Id, manifest.Version, hash),
 				ContentHash = hash,
+				IsPinnable = !isSourceCheckout,
 			};
 		}
 
