@@ -53,6 +53,15 @@ namespace Voltage.Editor.Plugins
 		/// </summary>
 		public string StaleAssemblyWarning;
 
+		/// <summary>This machine resolves the plugin from a folder of its own, whatever the project declares.</summary>
+		public bool IsLocalOverride;
+
+		/// <summary>
+		/// The plugin exists only as a local override - nothing in the committed config names it, so no
+		/// teammate has any way to get it until it is published or vendored.
+		/// </summary>
+		public bool IsLocalOnly;
+
 		/// <summary>The plugin's synced folder under the project's PluginLibs (null when not synced).</summary>
 		public string PayloadPath;
 
@@ -85,6 +94,9 @@ namespace Voltage.Editor.Plugins
 		public static PluginManager Instance => _instance ??= new PluginManager();
 
 		private readonly List<PluginInstance> _plugins = new();
+
+		/// <summary>Plugins present only as a local override, so no teammate can restore them.</summary>
+		private HashSet<string> _localOnlyIds = new(StringComparer.OrdinalIgnoreCase);
 		private string _projectPath;
 
 		/// <summary>Full paths of plugin managed DLLs loaded this session (editor flavor when present).</summary>
@@ -123,7 +135,37 @@ namespace Voltage.Editor.Plugins
 				return;
 			}
 
-			if (config == null || config.Plugins.Count == 0)
+			config ??= new ProjectPluginsConfig();
+
+			// What the project declares, and what this machine substitutes for it. Loaded before the
+			// nothing-to-do check below: a project whose only plugins are local to this machine has an empty
+			// plugins.json and is not an empty project.
+			var overrides = PluginLocalOverrides.LoadFrom(project.ProjectPath);
+
+			var configChanged = PluginLocalOverrides.Migrate(config, overrides, project.ProjectPath);
+
+			// A plugin nobody can fetch is still a plugin this project uses. Recording the id - and only the id,
+			// never the path - is what lets a fresh clone say "this project needs DialogueMaker" instead of
+			// opening with no plugins and no explanation.
+			configChanged |= PluginLocalOverrides.DeclareLocalOnly(config, overrides);
+
+			if (configChanged)
+			{
+				try
+				{
+					config.SaveTo(project.ProjectPath);
+					overrides.SaveIfMeaningful(project.ProjectPath);
+				}
+				catch (Exception ex)
+				{
+					PluginLog.Error($"Could not split local plugin paths out of the project config: {ex.Message}");
+				}
+			}
+
+			var entries = PluginLocalOverrides.Apply(config, overrides, project.ProjectPath);
+			_localOnlyIds = PluginLocalOverrides.LocalOnlyIds(config, overrides);
+
+			if (entries.Count == 0)
 			{
 				OnPluginsRestored?.Invoke();
 				return;
@@ -134,9 +176,21 @@ namespace Voltage.Editor.Plugins
 
 			ValidateNoDuplicateIds(config);
 
-			foreach (var entry in config.Plugins)
+			// Before anything is resolved, synced or loaded: assemblies load with LoadFrom, which is not
+			// collectible, so a plugin rebuilt after this point could not be swapped in without restarting the
+			// editor. Only checkouts that have actually fallen behind are built, so the usual cost here is a
+			// directory walk - and when the editor's own build already rebuilt them, none at all.
+			PluginDevRebuild.RebuildStale(entries, project.ProjectPath);
+
+			foreach (var entry in entries)
 			{
-				var instance = new PluginInstance { Entry = entry };
+				var instance = new PluginInstance
+				{
+					Entry = entry,
+					IsLocalOverride = overrides.FindById(entry.Id) != null,
+					IsLocalOnly = _localOnlyIds.Contains(entry.Id ?? string.Empty),
+				};
+
 				_plugins.Add(instance);
 
 				if (entry.Disabled)
@@ -177,7 +231,7 @@ namespace Voltage.Editor.Plugins
 			CheckDependencies();
 
 			// Reflect removals/renames on disk, then persist any new pins.
-			PluginSync.RemoveStalePayloads(project.ProjectPath, config.Plugins.Select(p => p.Id));
+			PluginSync.RemoveStalePayloads(project.ProjectPath, entries.Select(p => p.Id));
 
 			if (lockChanged)
 			{
@@ -526,16 +580,36 @@ namespace Voltage.Editor.Plugins
 				entry.Id = resolved.Manifest.Id;
 
 				var config = ProjectPluginsConfig.LoadFrom(_projectPath) ?? new ProjectPluginsConfig();
-				if (config.Plugins.Any(p => string.Equals(p.Id, entry.Id, StringComparison.OrdinalIgnoreCase)))
+				var overrides = PluginLocalOverrides.LoadFrom(_projectPath);
+
+				if (config.Plugins.Any(p => string.Equals(p.Id, entry.Id, StringComparison.OrdinalIgnoreCase))
+				    || overrides.FindById(entry.Id) != null)
+				{
 					return $"Could not add plugin: '{entry.Id}' is already in this project.";
+				}
 
-				config.Plugins.Add(entry);
-				config.SaveTo(_projectPath);
+				// A folder on this machine goes in the gitignored file, never the committed one: it would
+				// resolve to nothing on every other machine and break their restore on a path only you have.
+				// The id is still declared, with no source - so a teammate is told the project uses this
+				// plugin, rather than opening it to an empty list and a scene full of missing components.
+				if (PluginLocalOverrides.IsMachineLocal(entry.Source, _projectPath))
+				{
+					overrides.Upsert(entry.Id, entry.Source.Path);
+					overrides.SaveTo(_projectPath);
 
-				// Pre-write the lock pin so the restore below is a cache hit rather than a second git/zip fetch.
-				var lockFile = PluginLockFile.LoadFrom(_projectPath);
-				UpdateLockEntry(lockFile, entry, resolved);
-				lockFile.SaveTo(_projectPath);
+					config.Plugins.Add(new ProjectPluginEntry { Id = entry.Id, Source = new PluginSourceSpec() });
+					config.SaveTo(_projectPath);
+				}
+				else
+				{
+					config.Plugins.Add(entry);
+					config.SaveTo(_projectPath);
+
+					// Pre-write the lock pin so the restore below is a cache hit rather than a second fetch.
+					var lockFile = PluginLockFile.LoadFrom(_projectPath);
+					UpdateLockEntry(lockFile, entry, resolved);
+					lockFile.SaveTo(_projectPath);
+				}
 
 				// Full restore: re-resolves everything (cache hits), syncs, regenerates build files, and
 				// loads the new plugin live. Already-loaded plugins re-load idempotently.
@@ -608,6 +682,198 @@ namespace Voltage.Editor.Plugins
 			return disabled
 				? $"Plugin '{id}' disabled. Reopen the project to unload it fully."
 				: $"Plugin '{id}' enabled. Reopen the project to load it.";
+		}
+
+		/// <summary>
+		/// Turns a plugin this machine resolves from a folder into one the project declares from git, at the
+		/// tag that was just published. This is the step that makes a plugin you wrote available to the rest of
+		/// the team: until it exists somewhere they can fetch from, no amount of project config can help them.
+		/// </summary>
+		public string ShareLocalPluginAsGit(string id, string gitUrl, string tag)
+		{
+			if (_projectPath == null)
+				return "No project open.";
+
+			if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(gitUrl) || string.IsNullOrWhiteSpace(tag))
+				return "Need a plugin id, a git URL and a tag to share a plugin.";
+
+			try
+			{
+				var config = ProjectPluginsConfig.LoadFrom(_projectPath) ?? new ProjectPluginsConfig();
+				var overrides = PluginLocalOverrides.LoadFrom(_projectPath);
+
+				var existing = config.Plugins.FirstOrDefault(p =>
+					string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
+
+				if (existing == null)
+				{
+					config.Plugins.Add(new ProjectPluginEntry
+					{
+						Id = id,
+						Source = new PluginSourceSpec { Git = gitUrl, Ref = tag },
+					});
+				}
+				else
+				{
+					existing.Source = new PluginSourceSpec { Git = gitUrl, Ref = tag };
+					existing.Dev = false;
+				}
+
+				config.SaveTo(_projectPath);
+
+				// The override stays: you keep working on your copy, and the project now names a source your
+				// teammates can restore from. Removing it would swap you onto the published build mid-session.
+				return overrides.FindById(id) != null
+					? $"'{id}' is now declared from {gitUrl} @ {tag}. You keep using your local folder; teammates get the published tag."
+					: $"'{id}' is now declared from {gitUrl} @ {tag}.";
+			}
+			catch (Exception ex)
+			{
+				return $"Could not share '{id}': {ex.Message}";
+			}
+		}
+
+		/// <summary>
+		/// Copies a plugin's payload into the repository at <c>Plugins/&lt;id&gt;/</c> and declares it from
+		/// there with a relative path.
+		///
+		/// <para>The answer for a plugin that will never be published - an internal tool, or something under an
+		/// NDA. A path inside the repository travels with the checkout, so it is shareable in a way an absolute
+		/// folder never is. This is what Unreal and Godot do with every plugin by default.</para>
+		/// </summary>
+		public string VendorPluginIntoProject(string id)
+		{
+			if (_projectPath == null)
+				return "No project open.";
+
+			var instance = FindById(id);
+			var payload = instance?.Resolved?.PayloadDir ?? instance?.PayloadPath;
+
+			if (string.IsNullOrWhiteSpace(payload) || !Directory.Exists(payload))
+				return $"'{id}' has no resolved payload to copy - restore it first.";
+
+			try
+			{
+				var relative = Path.Combine("Plugins", id);
+				var destination = Path.Combine(_projectPath, relative);
+
+				if (Directory.Exists(destination))
+					Directory.Delete(destination, recursive: true);
+
+				PluginCache.CopyDirectory(payload, destination);
+
+				var config = ProjectPluginsConfig.LoadFrom(_projectPath) ?? new ProjectPluginsConfig();
+				var overrides = PluginLocalOverrides.LoadFrom(_projectPath);
+
+				var existing = config.Plugins.FirstOrDefault(p =>
+					string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
+
+				// Forward slashes: this path is committed, and a backslash means nothing on a teammate's Mac.
+				var source = new PluginSourceSpec { Path = relative.Replace('\\', '/') };
+
+				if (existing == null)
+					config.Plugins.Add(new ProjectPluginEntry { Id = id, Source = source });
+				else
+					existing.Source = source;
+
+				config.SaveTo(_projectPath);
+
+				if (overrides.RemoveById(id))
+					overrides.SaveTo(_projectPath);
+
+				return $"'{id}' is now vendored at {relative}. Commit that folder and the whole team has it.";
+			}
+			catch (Exception ex)
+			{
+				return $"Could not vendor '{id}': {ex.Message}";
+			}
+		}
+
+		/// <summary>
+		/// Points this machine's override for a plugin at a different folder - what you need after moving or
+		/// renaming a plugin checkout, which otherwise leaves the project pointing at somewhere that is gone.
+		/// </summary>
+		public string RepointLocalOverride(string id, string folder)
+		{
+			if (_projectPath == null)
+				return "No project open.";
+
+			if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+				return $"'{folder}' is not a folder.";
+
+			// Checked here, where the folder was just chosen. Pointing a plugin at the wrong folder otherwise
+			// fails much later and much less clearly, as a manifest id that does not match the entry.
+			var manifestPath = Path.Combine(folder, PluginManifest.FileName);
+
+			if (!File.Exists(manifestPath))
+				return $"No {PluginManifest.FileName} there - '{folder}' is not a plugin folder.";
+
+			try
+			{
+				var manifest = Voltage.Persistence.Json.FromJson<PluginManifest>(File.ReadAllText(manifestPath));
+
+				if (manifest != null && !string.IsNullOrWhiteSpace(manifest.Id)
+				    && !string.Equals(manifest.Id, id, StringComparison.OrdinalIgnoreCase))
+				{
+					return $"That folder holds '{manifest.Id}', not '{id}'.";
+				}
+			}
+			catch
+			{
+				// Unreadable manifest: let the restore below report it properly rather than guessing here.
+			}
+
+			try
+			{
+				var overrides = PluginLocalOverrides.LoadFrom(_projectPath);
+				overrides.Upsert(id, folder);
+				overrides.SaveTo(_projectPath);
+
+				RestoreCurrentProject();
+				return $"'{id}' now resolves from {folder}.";
+			}
+			catch (Exception ex)
+			{
+				return $"Could not re-point '{id}': {ex.Message}";
+			}
+		}
+
+		/// <summary>
+		/// Drops this machine's override for a plugin, falling back to whatever the project declares - the way
+		/// out when the folder is gone for good and the project's own source is the one you want.
+		/// </summary>
+		public string ForgetLocalOverride(string id)
+		{
+			if (_projectPath == null)
+				return "No project open.";
+
+			try
+			{
+				var overrides = PluginLocalOverrides.LoadFrom(_projectPath);
+
+				if (!overrides.RemoveById(id))
+					return $"'{id}' has no local folder set on this machine.";
+
+				overrides.SaveIfMeaningful(_projectPath);
+
+				RestoreCurrentProject();
+				return $"'{id}' no longer resolves from a local folder here.";
+			}
+			catch (Exception ex)
+			{
+				return $"Could not forget the local folder for '{id}': {ex.Message}";
+			}
+		}
+
+		/// <summary>
+		/// Re-runs a restore for the open project. Safe for a plugin that never loaded; a plugin whose
+		/// assemblies are already in the process still needs a restart, which the restore itself reports.
+		/// </summary>
+		private void RestoreCurrentProject()
+		{
+			var project = ProjectManager.Instance?.CurrentProject;
+			if (project != null)
+				RestoreForProject(project);
 		}
 
 		/// <summary>Explicit user-driven update: re-resolves accepting new content and re-pins the lock.</summary>
@@ -757,15 +1023,22 @@ namespace Voltage.Editor.Plugins
 			if (_projectPath == null)
 				return "No project open.";
 
-			var config = ProjectPluginsConfig.LoadFrom(_projectPath);
-			if (config == null)
-				return "This project has no plugins.json.";
+			var config = ProjectPluginsConfig.LoadFrom(_projectPath) ?? new ProjectPluginsConfig();
+			var overrides = PluginLocalOverrides.LoadFrom(_projectPath);
 
+			// A plugin can be declared by the project, overridden here, or only here - removing it has to clear
+			// whichever of the two files actually names it.
 			var removedCount = config.Plugins.RemoveAll(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
-			if (removedCount == 0)
-				return $"Plugin '{id}' not found in plugins.json.";
+			var removedLocal = overrides.RemoveById(id);
 
-			config.SaveTo(_projectPath);
+			if (removedCount == 0 && !removedLocal)
+				return $"Plugin '{id}' is not in this project.";
+
+			if (removedCount > 0)
+				config.SaveTo(_projectPath);
+
+			if (removedLocal)
+				overrides.SaveTo(_projectPath);
 
 			var lockFile = PluginLockFile.LoadFrom(_projectPath);
 			lockFile.RemoveById(id);

@@ -94,6 +94,18 @@ namespace Voltage.Editor.Plugins
 			return set == 1;
 		}
 
+		/// <summary>
+		/// No source at all: the project records that it uses this plugin, but nowhere anyone can fetch it
+		/// from. Written when a plugin exists only as a folder on somebody's machine - the id is shareable
+		/// information, the folder is not - and replaced by a real source the moment it is published or
+		/// vendored.
+		/// </summary>
+		public bool IsUnset =>
+			!Bundled
+			&& string.IsNullOrWhiteSpace(Git)
+			&& string.IsNullOrWhiteSpace(Zip)
+			&& string.IsNullOrWhiteSpace(Path);
+
 		/// <summary>Short human-readable description for UI ("bundled", "git: ...", ...).</summary>
 		public string Describe()
 		{
@@ -101,6 +113,7 @@ namespace Voltage.Editor.Plugins
 			if (!string.IsNullOrWhiteSpace(Git)) return string.IsNullOrWhiteSpace(Ref) ? $"git: {Git}" : $"git: {Git} @ {Ref}";
 			if (!string.IsNullOrWhiteSpace(Zip)) return $"zip: {Zip}";
 			if (!string.IsNullOrWhiteSpace(Path)) return $"path: {Path}";
+			if (IsUnset) return "not published yet";
 			return "(invalid source)";
 		}
 

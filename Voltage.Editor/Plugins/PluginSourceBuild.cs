@@ -136,6 +136,22 @@ namespace Voltage.Editor.Plugins
 		}
 
 		/// <summary>
+		/// Runs the packaging target regardless of what is already built - the entry point for picking up local
+		/// edits, where the declared files all exist but are behind the sources that produced them.
+		/// </summary>
+		/// <returns>False when this folder has no packaging project, or when the build failed.</returns>
+		public static bool Rebuild(string pluginFolder, out string log)
+		{
+			log = null;
+
+			var project = FindPackagingProject(pluginFolder);
+			if (project == null)
+				return false;
+
+			return RunPackaging(pluginFolder, project, out log);
+		}
+
+		/// <summary>
 		/// What the user should do about it, in the terms of their own checkout. Every one of these
 		/// otherwise surfaces as "file 'lib/Whatever.dll' not found in the package", which reads as the
 		/// plugin being broken rather than unbuilt.

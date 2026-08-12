@@ -1282,6 +1282,27 @@ public partial class ImGuiManager
 			if (ImGui.IsItemHovered() && hasProblems)
 				ImGui.SetTooltip("Some plugins are unavailable or failed to load.");
 
+			// The way back to the prompt after dismissing it - and the way to ask for it deliberately after
+			// pulling a branch that changed which plugins the project needs.
+			var missing = Plugins.PluginRestorePrompt.MissingCount;
+
+			ImGui.BeginDisabled(missing == 0);
+
+			if (ImGui.MenuItem(missing > 0 ? $"Restore Plugins ({missing})" : "Restore Plugins"))
+				Plugins.PluginRestorePrompt.Show();
+
+			ImGui.EndDisabled();
+
+			if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+			{
+				ImGui.SetTooltip(missing > 0
+					? $"{missing} plugin(s) this project declares are not on this machine. Fetch them from the\n" +
+					  "source the project names."
+					: "Every plugin this project declares is present.");
+			}
+
+			ImGui.Separator();
+
 			// Entries registered by editor plugins via IEditorPluginContext.AddMenuItem.
 			Plugins.EditorPluginHost.DrawMenuItems();
 
