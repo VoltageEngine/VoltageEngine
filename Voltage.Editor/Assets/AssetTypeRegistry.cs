@@ -27,6 +27,11 @@ namespace Voltage.Editor.Assets
     public delegate void AssetDropAction(AssetReference reference, Microsoft.Xna.Framework.Vector2? worldPosition = null);
 
     /// <summary>
+    /// Opens an asset that was activated (double-clicked) in the Asset Browser, given its absolute path.
+    /// </summary>
+    public delegate void AssetOpenAction(string absolutePath);
+
+    /// <summary>
     /// Broad classification of a project asset.
     /// Used to select the icon shown in the Asset Browser and to gate drag-drop behaviour.
     /// </summary>
@@ -68,7 +73,20 @@ namespace Voltage.Editor.Assets
         /// <c>null</c> for kinds that cannot be dropped (Script, Effect, Tiled, Unsupported).
         /// </summary>
         AssetDropAction DropFactory = null
-    );
+    )
+    {
+        /// <summary>
+        /// What double-clicking this asset does. Without one, activation falls back to the behaviour for its
+        /// <see cref="Kind"/> - which is right for the kinds the editor owns, and wrong for anything a plugin
+        /// brings: a plugin file registered as Data would otherwise be handed to the built-in data-asset
+        /// viewer, which can only read the format that viewer writes.
+        ///
+        /// <para>Declared as an init-only property rather than another constructor parameter on purpose:
+        /// adding a parameter would change the record's constructor signature and break every plugin binary
+        /// already compiled against this assembly.</para>
+        /// </summary>
+        public AssetOpenAction Open { get; init; }
+    }
 
     /// <summary>
     /// Maps file extensions to <see cref="AssetTypeDescriptor"/>s, resolving unknown ones to the
