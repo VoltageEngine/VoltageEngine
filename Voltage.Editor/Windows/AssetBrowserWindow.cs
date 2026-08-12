@@ -686,7 +686,12 @@ public class AssetBrowserWindow : IDisposable
             _selectedFilePath = item.AbsolutePath;
 
             var reference = _db.GetReference(item.AbsolutePath);
-            if (item.Descriptor.Kind == AssetKind.Scene)
+
+            // A type that says how it opens wins over the fallback for its kind - that is the only way a
+            // plugin's own file type can be opened by the tool that understands it.
+            if (item.Descriptor.Open != null)
+                item.Descriptor.Open(item.AbsolutePath);
+            else if (item.Descriptor.Kind == AssetKind.Scene)
                 DropHandlers.DropScene(reference);
             else if (item.Descriptor.Kind == AssetKind.Prefab)
                 DropHandlers.OpenPrefabIsolated(reference);
@@ -1858,7 +1863,11 @@ public class AssetBrowserWindow : IDisposable
         if (clicked && ImGui.IsMouseDoubleClicked(ImGuiMouseButton.Left))
         {
             var reference = _db.GetReference(abs);
-            if (descriptor.Kind == AssetKind.Scene)
+
+            // Same precedence as the grid above: the type's own opener first, its kind only as a fallback.
+            if (descriptor.Open != null)
+                descriptor.Open(abs);
+            else if (descriptor.Kind == AssetKind.Scene)
                 DropHandlers.DropScene(reference);
             else if (descriptor.Kind == AssetKind.Prefab)
                 DropHandlers.OpenPrefabIsolated(reference);
