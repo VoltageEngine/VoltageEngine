@@ -7,6 +7,7 @@ using Voltage.Editor.Gizmos;
 using Voltage.Editor.Hotkeys;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Persistence;
+using Voltage.Editor.Undo.ComponentActions;
 using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Utils;
 using Voltage.Tilesets;
@@ -40,6 +41,25 @@ namespace Voltage.Editor.Tools.Tilemap
 		private string _newLayerName = "Tilemap";
 
 		private string _layerSearch = string.Empty;
+
+		// Layer-order panel: the rows a drag or a "Move to" acts on. Held by reference and pruned every frame against
+		// the live scene, so a deleted layer cannot linger in the pick.
+		private readonly HashSet<TilemapRenderer> _selectedLayers = new();
+		private TilemapRenderer _layerRangeAnchor;
+		private int _moveToOrder = 1;
+
+		// Drag-to-reorder feedback: the rows slide open a landing strip where the block will drop. Shared with the
+		// scene graph's entity tree, which uses the same component with inner drops turned on for reparenting.
+		private readonly DragReorderStrip _layerReorder = new(LayerOrderPayloadId)
+		{
+			// Faster and starting sooner than the shared default. This scrolls the whole palette window - the
+			// atlas and every control below the table come with it - so there is far more travel to cover than in
+			// the scene graph's short pane, and the default creep reads as barely moving.
+			ScrollSpeed = 900f,
+			ScrollMargin = 52f,
+		};
+
+		private const string LayerOrderPayloadId = "TILEMAP_LAYER_ORDER";
 
 		// Atlas selection, in tile coordinates. Several boxes can be active at once; the gaps between them
 		// are preserved as holes in the stamp so the tiles land with the same spacing they were picked at.
@@ -113,10 +133,15 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			ImGui.SetNextWindowSize(new Num.Vector2(420, 640), ImGuiCond.FirstUseEver);
 
+			// The wheel only scrolls this window while it has focus: rolling it over an unfocused palette on the way
+			// somewhere else should leave it where it is. IsFocused is last frame's answer, which is what we want -
+			// the click that focuses the window comes before any wheel it is meant to catch.
+			var windowFlags = IsFocused ? ImGuiWindowFlags.None : ImGuiWindowFlags.NoScrollWithMouse;
+
 			// "###TilePaletteWindow" pins the ImGui ID independently of the label; it keys the docking entry in the
 			// layout .ini. Without it the docked position is not restored.
 			var open = IsOpen;
-			if (!ImGui.Begin("Tile Palette ###TilePaletteWindow", ref open))
+			if (!ImGui.Begin("Tile Palette ###TilePaletteWindow", ref open, windowFlags))
 			{
 				IsOpen = open;
 				IsFocused = false;
@@ -505,6 +530,28 @@ namespace Voltage.Editor.Tools.Tilemap
 			EditorChangeTracker.MarkChanged(map.Entity, "Toggle tilemap layer visibility");
 		}
 
+		/// <summary>
+		/// Moves one layer into another render layer, as its own undo step. Depth is left alone: it is the
+		/// tie-breaker inside the layer, and the picker is not what the user is aiming at when they change it.
+		/// </summary>
+		private static void SetRenderLayer(TilemapRenderer map, int renderLayer)
+		{
+			if (map?.Entity == null || map.RenderLayer == renderLayer)
+				return;
+
+			const string description = "Change tilemap render layer";
+
+			var change = new List<TilemapLayerOrderUndoAction.LayerOrder>
+			{
+				new(map, map.RenderLayer, map.LayerDepth, renderLayer, map.LayerDepth)
+			};
+
+			map.RenderLayer = renderLayer;
+
+			EditorChangeTracker.MarkChanged(map.Entity, description);
+			EditorChangeTracker.PushUndo(new TilemapLayerOrderUndoAction(change, description));
+		}
+
 		private static void SetDebugRender(TilemapRenderer map, bool enabled)
 		{
 			if (map?.Entity == null || map.Entity.DebugRenderEnabled == enabled)
@@ -558,8 +605,8 @@ namespace Voltage.Editor.Tools.Tilemap
 		}
 
 		/// <summary>
-		/// Draw order across every tilemap layer, front-most first. A LOWER RenderLayer draws IN FRONT (engine
-		/// convention, inverted from intuition), and it is the same layer space sprites use.
+		/// Draw order across every tilemap layer, front-most first. Order 1 is the front. A LOWER RenderLayer draws IN
+		/// FRONT (engine convention, inverted from intuition), and it is the same layer space sprites use.
 		/// </summary>
 		private void DrawLayerOrder(TilePaintTool tool)
 		{
@@ -570,11 +617,24 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			if (maps.Count == 0)
 			{
+				_selectedLayers.Clear();
+				_layerRangeAnchor = null;
 				ImGui.TextDisabled("No tilemap layers in this scene.");
 				return;
 			}
 
-			ImGui.TextDisabled("Top of the list draws in front of the ones below it.");
+			PruneLayerSelection(maps);
+
+			ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled]);
+			ImGui.TextWrapped(
+				"Order 1 draws in front. Click a row to paint that layer, drag rows to reorder - Shift or Ctrl " +
+				"click picks several, right-click for \"Move to\".");
+			ImGui.PopStyleColor();
+
+			// Green marks the layer being painted, which is only ever one - without this there is nothing telling you
+			// a multi-layer pick took.
+			if (_selectedLayers.Count > 1)
+				ImGui.TextDisabled($"{_selectedLayers.Count} layers picked - they move as one block.");
 
 			ImGui.Spacing();
 			DrawAllLayersDebugRender(maps);
@@ -582,14 +642,25 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			RenderLayerOptions(out var layerNames, out var layerValues);
 
+			_layerReorder.BeginFrame(_selectedLayers.Count,
+				ImGui.GetFrameHeight() + ImGui.GetStyle().CellPadding.Y * 2f);
+
+			// Resizable: drag any column border to re-balance the row. Widths are keyed to the table's id and kept
+			// in the layout .ini, so they survive a restart the same way the docking does.
 			if (ImGui.BeginTable("tilemap-layer-order", 6,
-				    ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersInnerV | ImGuiTableFlags.SizingFixedFit))
+				    ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersInnerV | ImGuiTableFlags.SizingFixedFit |
+				    ImGuiTableFlags.Resizable))
 			{
-				ImGui.TableSetupColumn("Sort", ImGuiTableColumnFlags.WidthFixed, 54f);
+				ImGui.TableSetupColumn("Order", ImGuiTableColumnFlags.WidthFixed, 46f);
+				ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.WidthStretch, 1f);
 				ImGui.TableSetupColumn("Visible", ImGuiTableColumnFlags.WidthFixed, 52f);
 				ImGui.TableSetupColumn("Debug", ImGuiTableColumnFlags.WidthFixed, 52f);
-				ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.WidthStretch);
-				ImGui.TableSetupColumn("Render Layer", ImGuiTableColumnFlags.WidthFixed, 140f);
+
+				// Stretch rather than fixed: a fixed column keeps its full width no matter how narrow the panel
+				// gets, and every pixel it refuses to give up comes out of the only stretching column - which is
+				// why the name was the first thing to disappear. Sharing the squeeze costs the picker some width
+				// in a narrow panel and keeps the name readable, which is the better trade.
+				ImGui.TableSetupColumn("Render Layer", ImGuiTableColumnFlags.WidthStretch, 0.85f);
 				ImGui.TableSetupColumn("Info", ImGuiTableColumnFlags.WidthFixed, 86f);
 				ImGui.TableHeadersRow();
 
@@ -599,30 +670,63 @@ namespace Voltage.Editor.Tools.Tilemap
 					if (map.Entity == null)
 						continue;
 
+					if (_layerReorder.TryGetGap(i, out var gapHeight) && _layerReorder.DrawStrip(i, gapHeight, true))
+						DropPickedLayersAt(maps, i);
+
 					ImGui.PushID(i);
 					ImGui.TableNextRow();
 
 					ImGui.TableSetColumnIndex(0);
 
-					ImGui.BeginDisabled(i == 0);
-					if (ImGui.ArrowButton("up", ImGuiDir.Up))
-						MoveLayer(maps, i, -1);
-					ImGui.EndDisabled();
+					// The order number doubles as the row's hit box: it spans every column so a drag can start
+					// anywhere on the row, and AllowItemOverlap hands clicks back to the widgets sitting on top of it.
+					ImGui.PushStyleVar(ImGuiStyleVar.SelectableTextAlign, new Num.Vector2(0f, 0.5f));
 
-					if (ImGui.IsItemHovered())
-						ImGui.SetTooltip("Move in front of the layer above.");
+					var picked = _selectedLayers.Contains(map);
+					var rowClicked = ImGui.Selectable($"{i + 1}##layerrow", picked,
+						ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap,
+						new Num.Vector2(0f, ImGui.GetFrameHeight()));
 
-					ImGui.SameLine();
+					ImGui.PopStyleVar();
+					ImGui.SetItemAllowOverlap();
 
-					ImGui.BeginDisabled(i == maps.Count - 1);
-					if (ImGui.ArrowButton("down", ImGuiDir.Down))
-						MoveLayer(maps, i, 1);
-					ImGui.EndDisabled();
+					// Read before the drag-drop calls below: they push their own windows, which moves "last item" on.
+					var rowRightClicked = ImGui.IsItemClicked(ImGuiMouseButton.Right);
 
-					if (ImGui.IsItemHovered())
-						ImGui.SetTooltip("Move behind the layer below.");
+					if (rowClicked)
+						ClickLayerRow(tool, maps, map);
+
+					HandleLayerRowDragDrop(maps, map, i);
+
+					if (rowRightClicked)
+					{
+						// Right-clicking outside the pick acts on that row alone, so the menu never moves something
+						// off-screen that was picked minutes ago.
+						if (!_selectedLayers.Contains(map))
+						{
+							_selectedLayers.Clear();
+							_selectedLayers.Add(map);
+							_layerRangeAnchor = map;
+						}
+
+						_moveToOrder = FirstPickedOrder(maps);
+						ImGui.OpenPopup("layer-order-menu");
+					}
+
+					DrawLayerOrderMenu(maps);
 
 					ImGui.TableSetColumnIndex(1);
+
+					// The row itself is the click target now, so the name is plain text - green when it is the layer
+					// being painted.
+					ImGui.AlignTextToFramePadding();
+
+					if (ReferenceEquals(map, tool.Target))
+						ImGui.TextColored(new Num.Vector4(0.4f, 0.9f, 0.5f, 1f), map.Entity.Name);
+					else
+						ImGui.TextUnformatted(map.Entity.Name);
+
+					ImGui.TableSetColumnIndex(2);
 
 					var visible = map.Enabled;
 					if (VoltageEditorUtils.EyeToggle("layervis", ref visible,
@@ -635,7 +739,7 @@ namespace Voltage.Editor.Tools.Tilemap
 						SetLayerVisible(map, visible);
 					}
 
-					ImGui.TableSetColumnIndex(2);
+					ImGui.TableSetColumnIndex(3);
 
 					// The column header names it, so the checkbox itself carries no label.
 					var debug = map.Entity.DebugRenderEnabled;
@@ -645,15 +749,6 @@ namespace Voltage.Editor.Tools.Tilemap
 					if (ImGui.IsItemHovered())
 						ImGui.SetTooltip("Debug rendering for this layer only - collider outlines and gizmos.");
 
-					ImGui.TableSetColumnIndex(3);
-
-					var isTarget = ReferenceEquals(map, tool.Target);
-					if (ImGui.Selectable($"{map.Entity.Name}##layer", isTarget))
-					{
-						tool.Target = map;
-						SyncTilesetFromTarget(tool);
-					}
-
 					ImGui.TableSetColumnIndex(4);
 
 					var layerIndex = Array.IndexOf(layerValues, map.RenderLayer);
@@ -662,10 +757,7 @@ namespace Voltage.Editor.Tools.Tilemap
 
 					ImGui.SetNextItemWidth(-1);
 					if (ImGui.Combo("##renderlayer", ref layerIndex, layerNames, layerNames.Length))
-					{
-						map.RenderLayer = layerValues[layerIndex];
-						EditorChangeTracker.MarkChanged(map.Entity, "Change tilemap render layer");
-					}
+						SetRenderLayer(map, layerValues[layerIndex]);
 
 					if (ImGui.IsItemHovered())
 					{
@@ -677,22 +769,34 @@ namespace Voltage.Editor.Tools.Tilemap
 
 					ImGui.TableSetColumnIndex(5);
 
-					// Depth, not render layer: the arrows fall back to depth whenever two layers share a render
-					// layer, which is the default, so it is the number a reorder actually moves.
+					// Depth, not render layer: a reorder falls back to depth whenever two layers share a render
+					// layer, which is the default, so it is the number a move actually changes.
+					ImGui.AlignTextToFramePadding();
 					ImGui.TextDisabled($"depth {map.LayerDepth:0.00}");
 
 					if (ImGui.IsItemHovered())
 					{
 						ImGui.SetTooltip(
 							"Tie-breaker within one render layer: 0 = front, 1 = back.\n" +
-							"The arrows set this for you when two layers share a render layer.");
+							"Reordering sets this for you when two layers share a render layer.");
 					}
 
 					ImGui.PopID();
 				}
 
+				// The seam past the last row, for dropping a block at the very back.
+				if (_layerReorder.TryGetGap(maps.Count, out var tailHeight) &&
+				    _layerReorder.DrawStrip(maps.Count, tailHeight, true))
+				{
+					DropPickedLayersAt(maps, maps.Count);
+				}
+
 				ImGui.EndTable();
 			}
+
+			// Holding a dragged layer against the top or bottom of the palette scrolls it, so a layer can be moved
+			// past the rows that fit on screen without letting go. Shared with the scene graph's entity tree.
+			_layerReorder.AutoScroll();
 		}
 
 		/// <summary>The project's named render layers, matching the picker the Entity Inspector uses.</summary>
@@ -720,37 +824,385 @@ namespace Voltage.Editor.Tools.Tilemap
 			maps.Sort((a, b) =>
 			{
 				var byLayer = a.RenderLayer.CompareTo(b.RenderLayer);
-				return byLayer != 0 ? byLayer : a.LayerDepth.CompareTo(b.LayerDepth);
+				if (byLayer != 0)
+					return byLayer;
+
+				var byDepth = a.LayerDepth.CompareTo(b.LayerDepth);
+				if (byDepth != 0)
+					return byDepth;
+
+				// Fresh layers all share the default layer AND depth, and List.Sort is unstable - without a final
+				// tie-break the rows would shuffle between frames and drag them out from under the cursor.
+				return (a.Entity?.Id ?? 0).CompareTo(b.Entity?.Id ?? 0);
 			});
 
 			return maps;
 		}
 
-		// The arrows reorder by RenderLayer — the same axis that positions a tilemap against sprites — by swapping
-		// the two neighbours' values (never renumbering, so other layers are untouched). Only when the two share a
-		// render layer does it fall back to the fine LayerDepth tie-breaker.
-		private static void MoveLayer(List<TilemapRenderer> sorted, int index, int direction)
+		/// <summary>Drops rows that left the scene, so a stale reference can never be dragged or moved.</summary>
+		private void PruneLayerSelection(List<TilemapRenderer> maps)
 		{
-			var other = index + direction;
-			if (other < 0 || other >= sorted.Count)
+			if (_selectedLayers.Count > 0)
+				_selectedLayers.RemoveWhere(map => map?.Entity == null || !maps.Contains(map));
+
+			if (_layerRangeAnchor != null && !maps.Contains(_layerRangeAnchor))
+				_layerRangeAnchor = null;
+		}
+
+		/// <summary>
+		/// Plain click picks one row and paints it; Ctrl toggles a row in and out of the pick; Shift takes the run
+		/// between the anchor and this row.
+		/// </summary>
+		private void ClickLayerRow(TilePaintTool tool, List<TilemapRenderer> maps, TilemapRenderer map)
+		{
+			var io = ImGui.GetIO();
+
+			if (io.KeyShift && _layerRangeAnchor != null)
+			{
+				SelectLayerRange(maps, _layerRangeAnchor, map);
+				return;
+			}
+
+			if (io.KeyCtrl || io.KeySuper)
+			{
+				if (!_selectedLayers.Add(map))
+					_selectedLayers.Remove(map);
+
+				_layerRangeAnchor = map;
+				return;
+			}
+
+			_selectedLayers.Clear();
+			_selectedLayers.Add(map);
+			_layerRangeAnchor = map;
+
+			// Re-picking the layer already being painted would otherwise reload the tileset and drop the brush.
+			if (!ReferenceEquals(tool.Target, map))
+			{
+				tool.Target = map;
+				SyncTilesetFromTarget(tool);
+			}
+		}
+
+		private void SelectLayerRange(List<TilemapRenderer> maps, TilemapRenderer anchor, TilemapRenderer map)
+		{
+			var from = maps.IndexOf(anchor);
+			var to = maps.IndexOf(map);
+
+			if (from < 0 || to < 0)
 				return;
 
-			var a = sorted[index];
-			var b = sorted[other];
+			if (from > to)
+				(from, to) = (to, from);
 
-			if (a.RenderLayer != b.RenderLayer)
+			_selectedLayers.Clear();
+			for (var i = from; i <= to; i++)
+				_selectedLayers.Add(maps[i]);
+		}
+
+		/// <summary>Order number (1-based) of the front-most picked row, 1 when nothing is picked.</summary>
+		private int FirstPickedOrder(List<TilemapRenderer> maps)
+		{
+			for (var i = 0; i < maps.Count; i++)
 			{
-				(a.RenderLayer, b.RenderLayer) = (b.RenderLayer, a.RenderLayer);
-			}
-			else
-			{
-				// Same render layer: give this group distinct depths (preserving order), then swap the pair.
-				SpreadDepthsWithinLayers(sorted);
-				(a.LayerDepth, b.LayerDepth) = (b.LayerDepth, a.LayerDepth);
+				if (_selectedLayers.Contains(maps[i]))
+					return i + 1;
 			}
 
-			EditorChangeTracker.MarkChanged(a.Entity, "Reorder tilemap layers");
-			EditorChangeTracker.MarkChanged(b.Entity, "Reorder tilemap layers");
+			return 1;
+		}
+
+		/// <summary>
+		/// Makes the row a drag source and a drop target. A drop lands the block in the seam the strip opened, above
+		/// or below this row depending on which half the cursor is over - "put it here", not "make it order N". The
+		/// "Move to" menu is the one that speaks in order numbers.
+		/// </summary>
+		private void HandleLayerRowDragDrop(List<TilemapRenderer> maps, TilemapRenderer map, int index)
+		{
+			var io = ImGui.GetIO();
+
+			// A modifier click picks, it never drags. ImGui starts a drag after about three pixels of travel, which
+			// an ordinary Ctrl-click wobbles past easily - and starting one here would both swallow the click and
+			// collapse the pick to this row, which is precisely what "Ctrl-click will not add a second layer" looks
+			// like. An already-running drag keeps going, so grabbing a modifier mid-drag does not cancel it.
+			var modifierHeld = io.KeyShift || io.KeyCtrl || io.KeySuper;
+
+			if ((!modifierHeld || _layerReorder.IsDragging) &&
+			    ImGui.BeginDragDropSource(ImGuiDragDropFlags.SourceNoHoldToOpenOthers))
+			{
+				// Dragging a row outside the pick drags that row alone - a drag never moves rows you are not touching.
+				if (!_selectedLayers.Contains(map))
+				{
+					_selectedLayers.Clear();
+					_selectedLayers.Add(map);
+					_layerRangeAnchor = map;
+				}
+
+				_layerReorder.SetPayload();
+
+				ImGui.TextUnformatted(_selectedLayers.Count == 1
+					? $"Move {map.Entity.Name}"
+					: $"Move {_selectedLayers.Count} layers");
+
+				ImGui.EndDragDropSource();
+			}
+
+			// Layers have no nesting, so there is no "drop inside a row" here - only the seams between them.
+			var zone = _layerReorder.HandleRow(index, false, out var dropped);
+
+			if (dropped && zone != DragReorderStrip.RowZone.None)
+				DropPickedLayersAt(maps, zone == DragReorderStrip.RowZone.Above ? index : index + 1);
+		}
+
+		/// <summary>
+		/// Drops the picked layers into the seam above display row <paramref name="slot"/>. The order handed to the
+		/// move counts only the layers that are STAYING: counting the picked rows above the seam as well would push
+		/// the block that many rows past the gap the user was aiming at.
+		/// </summary>
+		private void DropPickedLayersAt(List<TilemapRenderer> maps, int slot)
+		{
+			var insert = 0;
+			for (var i = 0; i < slot && i < maps.Count; i++)
+			{
+				if (!_selectedLayers.Contains(maps[i]))
+					insert++;
+			}
+
+			// The gaps are keyed by display row, and the rows are about to renumber - keeping them would leave a
+			// strip open in the middle of the new order.
+			_layerReorder.Reset();
+
+			MoveSelectedLayersTo(maps, insert + 1);
+		}
+
+		/// <summary>Right-click menu for the picked rows: send them to an order number, to the front or to the back.</summary>
+		private void DrawLayerOrderMenu(List<TilemapRenderer> maps)
+		{
+			if (!ImGui.BeginPopup("layer-order-menu"))
+				return;
+
+			var count = _selectedLayers.Count;
+
+			ImGui.TextDisabled(count == 1 ? "1 layer picked" : $"{count} layers picked");
+			ImGui.Separator();
+
+			// Past this the block would hang off the end, so it is where a larger number lands anyway.
+			var lastStart = Math.Max(1, maps.Count - count + 1);
+
+			ImGui.SetNextItemWidth(120f);
+			var entered = ImGui.InputInt("Move to order", ref _moveToOrder, 1, 1,
+				ImGuiInputTextFlags.EnterReturnsTrue);
+
+			_moveToOrder = Math.Clamp(_moveToOrder, 1, Math.Max(1, maps.Count));
+
+			if (ImGui.IsItemHovered())
+				ImGui.SetTooltip($"1 draws in front, {lastStart} is as far back as this block still fits.");
+
+			var confirm = ImGui.Button("Move", new Num.Vector2(90f, 0)) || entered;
+
+			if (ImGui.IsItemHovered())
+			{
+				// Where the block actually lands, not what is typed: a number past the end is pulled back to fit.
+				var start = Math.Clamp(_moveToOrder, 1, lastStart);
+
+				ImGui.SetTooltip(count == 1
+					? $"Moves this layer to order {start}."
+					: $"The front-most picked layer takes order {start} and the rest follow directly underneath it\n" +
+					  $"in the order they are in now, so the pick ends up as orders {start}-{start + count - 1}.\n" +
+					  "Every other layer renumbers around the block.");
+			}
+
+			ImGui.SameLine();
+			var cancel = ImGui.Button("Cancel", new Num.Vector2(90f, 0));
+
+			if (confirm)
+			{
+				MoveSelectedLayersTo(maps, _moveToOrder);
+				ImGui.CloseCurrentPopup();
+			}
+			else if (cancel)
+			{
+				ImGui.CloseCurrentPopup();
+			}
+
+			ImGui.Separator();
+
+			// These change what the menu acts on, so it stays open for the move that follows.
+			if (ImGui.Selectable("Select all layers", false, ImGuiSelectableFlags.DontClosePopups))
+			{
+				_selectedLayers.Clear();
+				foreach (var other in maps)
+					_selectedLayers.Add(other);
+			}
+
+			if (ImGui.Selectable("Clear pick", false, ImGuiSelectableFlags.DontClosePopups))
+			{
+				_selectedLayers.Clear();
+				_layerRangeAnchor = null;
+			}
+
+			ImGui.EndPopup();
+		}
+
+		/// <summary>
+		/// Pulls the picked layers out of the order and drops them back in as one block whose first layer gets
+		/// <paramref name="targetOrder"/> (1 = front). Their relative order is kept, the rest close the gap and take
+		/// the numbers left over: moving 3 and 4 to 5 leaves 1 2 5 6 3 4 7 reading as orders 1..7.
+		/// </summary>
+		private void MoveSelectedLayersTo(List<TilemapRenderer> sorted, int targetOrder)
+		{
+			if (_selectedLayers.Count == 0)
+				return;
+
+			var picked = new List<TilemapRenderer>();
+			var rest = new List<TilemapRenderer>();
+
+			foreach (var map in sorted)
+				(_selectedLayers.Contains(map) ? picked : rest).Add(map);
+
+			if (picked.Count == 0)
+				return;
+
+			// Clamped against what is left over, so a block aimed past the end simply lands at the end.
+			var insert = Math.Clamp(targetOrder - 1, 0, rest.Count);
+
+			var order = new List<TilemapRenderer>(sorted.Count);
+
+			for (var i = 0; i < insert; i++)
+				order.Add(rest[i]);
+
+			order.AddRange(picked);
+
+			for (var i = insert; i < rest.Count; i++)
+				order.Add(rest[i]);
+
+			// A click that wobbled past the drag threshold arrives here as a drop on the row it started from. Nothing
+			// moved, so there is nothing to record - and an undo step for a gesture that did nothing is worse than none.
+			var moved = false;
+			for (var i = 0; i < order.Count && !moved; i++)
+				moved = !ReferenceEquals(order[i], sorted[i]);
+
+			if (!moved)
+				return;
+
+			ApplyLayerOrder(sorted, order, picked);
+		}
+
+		/// <summary>
+		/// Writes <paramref name="order"/> back onto the layers without inventing render layers: the render-layer
+		/// values already in play are handed out by position, so the bands the tilemaps occupy against sprites are
+		/// untouched and only which layer sits in which slot changes. LayerDepth breaks the ties inside a band.
+		/// </summary>
+		/// <param name="moved">
+		/// The layers the user actually moved, as opposed to the ones renumbered by being passed over. Only these
+		/// are named in the change description and marked as unsaved.
+		/// </param>
+		private static void ApplyLayerOrder(List<TilemapRenderer> sorted, List<TilemapRenderer> order,
+			List<TilemapRenderer> moved)
+		{
+			if (order.Count != sorted.Count || order.Count == 0)
+				return;
+
+			// Snapshot first: the assignment loop below overwrites values still to be read.
+			var slotLayers = new int[sorted.Count];
+			for (var i = 0; i < sorted.Count; i++)
+				slotLayers[i] = sorted[i].RenderLayer;
+
+			var wasLayer = new int[order.Count];
+			var wasDepth = new float[order.Count];
+
+			for (var i = 0; i < order.Count; i++)
+			{
+				wasLayer[i] = order[i].RenderLayer;
+				wasDepth[i] = order[i].LayerDepth;
+			}
+
+			for (var i = 0; i < order.Count; i++)
+				order[i].RenderLayer = slotLayers[i];
+
+			SpreadDepthsWithinLayers(order);
+
+			var changes = new List<TilemapLayerOrderUndoAction.LayerOrder>();
+
+			for (var i = 0; i < order.Count; i++)
+			{
+				var map = order[i];
+
+				if (map.RenderLayer == wasLayer[i] && Math.Abs(map.LayerDepth - wasDepth[i]) < 0.0001f)
+					continue;
+
+				changes.Add(new TilemapLayerOrderUndoAction.LayerOrder(map, wasLayer[i], wasDepth[i],
+					map.RenderLayer, map.LayerDepth));
+			}
+
+			if (changes.Count == 0)
+				return;
+
+			// Only the layers actually moved are listed as unsaved changes. Everything the block passed over got
+			// new numbers too, and all of it is in the undo step - which has to put every one of them back - but
+			// listing them turns "I moved one layer" into a dozen identical lines in the close-without-saving
+			// dialog, none of which say which layer was moved or where it went.
+			var marked = 0;
+
+			if (moved != null)
+			{
+				foreach (var map in moved)
+				{
+					var from = sorted.IndexOf(map) + 1;
+					var to = order.IndexOf(map) + 1;
+
+					if (map?.Entity == null || from <= 0 || to <= 0)
+						continue;
+
+					EditorChangeTracker.MarkChanged(map.Entity, $"Reorder '{map.Entity.Name}': {from} -> {to}");
+					marked++;
+				}
+			}
+
+			// A move that only renumbered other layers still has to read as unsaved.
+			if (marked == 0)
+				EditorChangeTracker.MarkChanged(changes[0].Map.Entity, "Reorder tilemap layers");
+
+			// One step for the whole move: a move renumbers everything it passes, and undoing half of that would
+			// leave an order nobody asked for.
+			EditorChangeTracker.PushUndo(
+				new TilemapLayerOrderUndoAction(changes, DescribeReorder(sorted, order, moved)));
+		}
+
+		/// <summary>
+		/// One line naming what the move did - "Reorder tilemap layers: Ground 3-&gt;5, Walls 4-&gt;6" - capped so a
+		/// large block stays readable. This is what the undo history and the unsaved-changes dialog show, and a
+		/// bare "Reorder tilemap layers" tells you neither which layer moved nor where it ended up.
+		/// </summary>
+		private static string DescribeReorder(List<TilemapRenderer> sorted, List<TilemapRenderer> order,
+			List<TilemapRenderer> moved)
+		{
+			if (moved == null || moved.Count == 0)
+				return "Reorder tilemap layers";
+
+			const int maxNamed = 3;
+			var parts = new List<string>();
+
+			foreach (var map in moved)
+			{
+				if (parts.Count == maxNamed)
+				{
+					parts.Add($"+{moved.Count - maxNamed} more");
+					break;
+				}
+
+				var from = sorted.IndexOf(map) + 1;
+				var to = order.IndexOf(map) + 1;
+
+				if (map?.Entity == null || from <= 0 || to <= 0)
+					continue;
+
+				parts.Add($"{map.Entity.Name} {from}->{to}");
+			}
+
+			return parts.Count == 0
+				? "Reorder tilemap layers"
+				: "Reorder tilemap layers: " + string.Join(", ", parts);
 		}
 
 		private static void SpreadDepthsWithinLayers(List<TilemapRenderer> sorted)
@@ -1175,11 +1627,14 @@ namespace Voltage.Editor.Tools.Tilemap
 		private Num.Vector2 _panStartMouse;
 		private Num.Vector2 _panStartScroll;
 
-		/// <summary>Wheel over the atlas: Ctrl zooms at the cursor, Shift pans sideways, plain scrolls.</summary>
+		/// <summary>
+		/// Wheel over the atlas: Ctrl zooms at the cursor, Shift pans sideways, plain scrolls. Ignored while the
+		/// palette is unfocused, so the wheel never moves it in passing - click it first.
+		/// </summary>
 		private void HandleAtlasWheel()
 		{
 			var io = ImGui.GetIO();
-			if (!ImGui.IsWindowHovered())
+			if (!IsFocused || !ImGui.IsWindowHovered())
 				return;
 
 			var wheel = io.MouseWheel;
