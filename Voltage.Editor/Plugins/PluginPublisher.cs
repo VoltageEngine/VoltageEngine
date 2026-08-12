@@ -61,6 +61,13 @@ namespace Voltage.Editor.Plugins
 		public string NewVersion;
 		public string Tag;
 		public string CommitMessage;
+
+		/// <summary>
+		/// What changed, in the author's words. Becomes the commit body and the annotated tag's body, which is
+		/// what GitHub shows under the commit subject and uses for the release notes.
+		/// </summary>
+		public string ChangeDescription;
+
 		public bool Push;
 		public string Branch;
 		public string Repository;
@@ -102,7 +109,8 @@ namespace Voltage.Editor.Plugins
 		/// Builds the plan and everything that stops it. Read-only: it runs git queries and touches no
 		/// file, so it is safe to call while the popup is open and the version field is still being typed.
 		/// </summary>
-		public static PublishPlan Prepare(PluginInstance plugin, string newVersion, string commitMessage, bool push)
+		public static PublishPlan Prepare(PluginInstance plugin, string newVersion, string commitMessage, bool push,
+			string changeDescription = null)
 		{
 			var plan = new PublishPlan
 			{
@@ -112,6 +120,7 @@ namespace Voltage.Editor.Plugins
 				CurrentVersion = plugin?.Manifest?.Version,
 				NewVersion = newVersion?.Trim(),
 				CommitMessage = string.IsNullOrWhiteSpace(commitMessage) ? null : commitMessage.Trim(),
+				ChangeDescription = string.IsNullOrWhiteSpace(changeDescription) ? null : changeDescription.Trim(),
 				Push = push,
 			};
 
@@ -461,26 +470,40 @@ namespace Voltage.Editor.Plugins
 			if (!RunGitStep(plan, stage, "add -A -- ."))
 				return;
 
-			// 3. commit
-			var commit = steps[i++];
-			commit.State = PublishStepState.Running;
-			var staged = Git(plan.FolderPath, "diff --cached --name-only");
-			if (!staged.Failed && string.IsNullOrWhiteSpace(staged.Output))
-			{
-				// The version bump is itself a change, so this only happens if plugin.json already said
-				// the new version - a retry after a failure part-way through.
-				commit.State = PublishStepState.Skipped;
-				commit.Message = "Nothing to commit; the working tree already matches. Continuing to the tag.";
-			}
-			else if (!RunGitStep(plan, commit, $"commit -m {Quote(plan.CommitMessage)}"))
-			{
-				return;
-			}
+			// 3 + 4. commit and tag, both taking their message from a file. A change description is free text -
+			// newlines, quotes, backslashes - and quoting that through a process argument loses to the first one
+			// of them. The file also keeps the subject and the body in one place, so the commit and the tag say
+			// exactly the same thing.
+			var messageFile = WriteMessageFile(plan);
 
-			// 4. tag
-			var tag = steps[i++];
-			if (!RunGitStep(plan, tag, $"tag -a {plan.Tag} -m {Quote(plan.CommitMessage)}"))
-				return;
+			try
+			{
+				var commit = steps[i++];
+				commit.State = PublishStepState.Running;
+				var staged = Git(plan.FolderPath, "diff --cached --name-only");
+				if (!staged.Failed && string.IsNullOrWhiteSpace(staged.Output))
+				{
+					// The version bump is itself a change, so this only happens if plugin.json already said
+					// the new version - a retry after a failure part-way through.
+					commit.State = PublishStepState.Skipped;
+					commit.Message = "Nothing to commit; the working tree already matches. Continuing to the tag.";
+				}
+				else if (!RunGitStep(plan, commit, CommitArguments(plan, messageFile)))
+				{
+					return;
+				}
+
+				var tag = steps[i++];
+				if (!RunGitStep(plan, tag, TagArguments(plan, messageFile)))
+					return;
+			}
+			finally
+			{
+				if (messageFile != null)
+				{
+					try { File.Delete(messageFile); } catch { /* a temp file left behind is not worth a failure */ }
+				}
+			}
 
 			if (!plan.Push)
 			{
@@ -521,6 +544,44 @@ namespace Voltage.Editor.Plugins
 				"install it, and the registry entry has to point at the new version before it shows up in " +
 				"Browse Plugins. Press Check below to follow both.";
 		}
+
+		/// <summary>
+		/// Writes the commit/tag message: the subject line, then the change description as the body, separated by
+		/// the blank line git expects - which is what makes GitHub show the first line as the title and the rest
+		/// as the description underneath it.
+		/// </summary>
+		/// <returns>The temp file, or null when it could not be written - the caller then falls back to -m.</returns>
+		private static string WriteMessageFile(PublishPlan plan)
+		{
+			var subject = plan.CommitMessage ?? $"{plan.DisplayName} {plan.NewVersion}";
+
+			var message = string.IsNullOrWhiteSpace(plan.ChangeDescription)
+				? subject
+				: subject + "\n\n" + plan.ChangeDescription.Replace("\r\n", "\n").Trim();
+
+			try
+			{
+				var path = Path.Combine(Path.GetTempPath(), $"voltage-publish-{Guid.NewGuid():N}.txt");
+				File.WriteAllText(path, message + "\n", new System.Text.UTF8Encoding(false));
+				return path;
+			}
+			catch
+			{
+				return null;
+			}
+		}
+
+		// --cleanup=whitespace, not the default: the default strips '#' lines, and a description may legitimately
+		// start one ("#42 fixed"). Whitespace-only cleanup keeps every line the author wrote.
+		private static string CommitArguments(PublishPlan plan, string messageFile) =>
+			messageFile != null
+				? $"commit --cleanup=whitespace --file {Quote(messageFile)}"
+				: $"commit -m {Quote(plan.CommitMessage)}";
+
+		private static string TagArguments(PublishPlan plan, string messageFile) =>
+			messageFile != null
+				? $"tag -a {plan.Tag} --cleanup=whitespace --file {Quote(messageFile)}"
+				: $"tag -a {plan.Tag} -m {Quote(plan.CommitMessage)}";
 
 		private static bool RunGitStep(PublishPlan plan, PublishStep step, string arguments)
 		{

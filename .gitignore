@@ -93,3 +93,6 @@ Voltage.Editor/Content/
 # Plugin package staging — release artifacts, never committed.
 Voltage.FarseerPhysics/lib/
 Voltage.FarseerPhysics/editor-lib/
+
+# Local plugin checkouts rebuilt alongside the editor - per-machine, never committed.
+Voltage.Editor/dev-plugins.txt

@@ -68,6 +68,17 @@ namespace Voltage.Editor.Plugins
 		public static ResolvedPlugin Resolve(ProjectPluginEntry entry, PluginLockEntry lockEntry, string projectPath,
 			bool allowRepin = false, bool allowSourceBuild = false)
 		{
+			// A declaration with no source is not a broken entry - it is a plugin somebody on the team has as a
+			// folder of their own and has never published. Saying so is the whole point of recording the id.
+			if (entry.Source != null && entry.Source.IsUnset)
+			{
+				throw new PluginResolveException(
+					$"This project uses '{entry.Id}', but no one has published it anywhere this editor can fetch " +
+					"from - it exists as a local folder on whoever added it. Ask them to publish it (Plugin " +
+					"Manager > Publish New Version, then \"Declare for the team\") or to vendor it into the " +
+					"repository. If it is yours, add your copy from Plugin Manager > Add Plugin.");
+			}
+
 			if (entry.Source == null || !entry.Source.IsValid())
 				throw new PluginResolveException($"Plugin '{entry.Id}' has an invalid source in plugins.json - exactly one of Bundled/Git/Zip/Path must be set.");
 

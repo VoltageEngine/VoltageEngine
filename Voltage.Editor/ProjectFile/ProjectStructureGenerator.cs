@@ -461,6 +461,10 @@ EngineLibs/
 # which ARE committed). Never commit binaries or NDA SDK files from here.
 PluginLibs/
 
+# Voltage Engine - which plugins THIS machine resolves from a folder of its own. Paths here mean
+# nothing on anyone else's machine, which is exactly why they are kept out of plugins.json.
+plugins.local.json
+
 # Rider
 .idea/
 

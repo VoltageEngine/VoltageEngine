@@ -176,6 +176,70 @@
 	     the plugin registry. "Bundled" remains a supported source kind for offline/enterprise distribution,
 	     it just has no default contents. See docs/plugins/README.md. -->
 
+	<!-- Rebuild local plugin checkouts against the editor that was just built.
+
+	     A plugin added from its own source checkout is built once and then left alone, so an editor built
+	     after it keeps loading a plugin compiled against the previous one. Running the plugin's own
+	     PackagePlugin target here means the next launch has fresh assemblies already staged; the editor
+	     repeats the same check at project open (PluginDevRebuild) for edits made between builds.
+
+	     Which checkouts, in either order, both optional:
+	       -p:VoltageDevPlugins="C:\src\PluginA;C:\src\PluginB"
+	       dev-plugins.txt next to this project - one folder per line, '#' comments, gitignored.
+
+	     Never fails the editor build: a plugin that will not compile is the plugin author's problem to see
+	     in the log, not a reason to withhold the editor they need in order to fix it. -->
+	<Target Name="RebuildDevPlugins" AfterTargets="Build" Condition="'$(VoltageSkipDevPlugins)' != 'true'">
+		<PropertyGroup>
+			<_DevPluginList>$(MSBuildThisFileDirectory)dev-plugins.txt</_DevPluginList>
+
+			<!-- TargetDir ends in a separator, and a trailing backslash inside a quoted argument escapes the
+			     quote instead of ending the path. -->
+			<_EditorOutDir>$([System.IO.Path]::GetDirectoryName($(TargetDir)))</_EditorOutDir>
+		</PropertyGroup>
+
+		<ReadLinesFromFile File="$(_DevPluginList)" Condition="Exists('$(_DevPluginList)')">
+			<Output TaskParameter="Lines" ItemName="_DevPluginLine" />
+		</ReadLinesFromFile>
+
+		<ItemGroup>
+			<_DevPluginFolder Include="$(VoltageDevPlugins)" />
+			<_DevPluginFolder Include="@(_DevPluginLine)"
+			                  Condition="'%(Identity)' != '' And !$([System.String]::Copy('%(Identity)').StartsWith('#'))" />
+		</ItemGroup>
+
+		<!-- The packaging target lives in a project at the plugin root, and a repository may hold several
+		     projects - so pick the one that actually declares it rather than guessing.
+
+		     CreateItem rather than an item transform: a transform produces the glob as a literal string and
+		     never expands it, while CreateItem globs and batches over the folders in one step. -->
+		<!-- A listed folder that has been moved, renamed or deleted is worth a line in the log and nothing
+		     more. It must never fail the editor build: the editor is what you need in order to fix it. -->
+		<Message Importance="high" Text="Local plugin folder not found, skipping: %(_DevPluginFolder.Identity)"
+		         Condition="'@(_DevPluginFolder)' != '' And !Exists('%(_DevPluginFolder.Identity)')" />
+
+		<CreateItem Include="%(_DevPluginFolder.Identity)\*.*proj"
+		            Condition="'@(_DevPluginFolder)' != '' And Exists('%(_DevPluginFolder.Identity)')">
+			<Output TaskParameter="Include" ItemName="_DevPluginRootProject" />
+		</CreateItem>
+
+		<!-- Guarded: with no projects found, the condition below would still be evaluated once against an
+		     empty identity, and ReadAllText('') is an error rather than a no-match. -->
+		<ItemGroup Condition="'@(_DevPluginRootProject)' != ''">
+			<_DevPluginPackagingProject Include="@(_DevPluginRootProject)"
+			                            Condition="$([System.IO.File]::ReadAllText('%(Identity)').Contains('PackagePlugin'))" />
+		</ItemGroup>
+
+		<Message Importance="high" Text="Rebuilding local plugin: %(_DevPluginPackagingProject.Identity)"
+		         Condition="'@(_DevPluginPackagingProject)' != ''" />
+
+		<!-- Both properties point at this editor's output, exactly as PluginSourceBuild does at runtime: a
+		     plugin must never be built against a different Voltage than the one that will load it. -->
+		<Exec Command="dotnet msbuild &quot;%(_DevPluginPackagingProject.Identity)&quot; -t:PackagePlugin -p:VoltageEnginePath=&quot;$(_EditorOutDir)&quot; -p:VoltageEditorPath=&quot;$(_EditorOutDir)&quot; -nologo -verbosity:minimal"
+		      Condition="'@(_DevPluginPackagingProject)' != ''"
+		      ContinueOnError="WarnAndContinue" />
+	</Target>
+
 	<!-- Copy DefaultContent to output, but exclude the Effects folder (since we compile them) -->
 	<ItemGroup>
 		<Content Include="DefaultContent\**\*" Exclude="DefaultContent\Effects\**\*">

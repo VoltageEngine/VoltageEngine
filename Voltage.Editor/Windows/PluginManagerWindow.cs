@@ -25,6 +25,9 @@ namespace Voltage.Editor.Windows
 		private static readonly Num.Vector4 ColorError = new(1f, 0.2f, 0.2f, 1f);
 		private static readonly Num.Vector4 ColorMuted = new(0.6f, 0.6f, 0.6f, 1f);
 
+		/// <summary>Deliberately not one of the status colours: "local" is a fact about a plugin, not a problem.</summary>
+		private static readonly Num.Vector4 ColorLocal = new(0.35f, 0.8f, 1f, 1f);
+
 		/// <summary>
 		/// Results of plugin actions, oldest first. A list rather than one slot because these arrive from
 		/// several places - installs finishing on a worker, table actions, SDK edits - and a single slot
@@ -58,7 +61,10 @@ namespace Voltage.Editor.Windows
 		private static readonly string[] SourceTypes = { "Local folder", "Git URL", "Zip URL" };
 		private int _addSourceType;
 		private string _addPath = "";
-		private bool _addDev;
+		// Whether the folder being added is a source checkout, cached: the probe reads project files off disk and
+		// the popup redraws every frame.
+		private string _addPathProbed;
+		private bool _addPathIsCheckout;
 		private string _addGitUrl = "";
 		private string _addGitRef = "";
 		private string _addZipUrl = "";
@@ -75,6 +81,13 @@ namespace Voltage.Editor.Windows
 		private string _publishPluginId;
 		private string _publishNewVersion = "";
 		private string _publishCommitMessage = "";
+
+		// The message this last generated. It is what tells an untouched message from one the user typed, and so
+		// whether changing the version is allowed to rewrite it.
+		private string _publishAutoCommitMessage = "";
+
+		/// <summary>Free-text "what changed", published as the commit and tag body.</summary>
+		private string _publishChangeDescription = "";
 		private bool _publishPush = true;
 		private PublishPlan _publishPlan;
 		private bool _publishInputsDirty;
@@ -96,6 +109,16 @@ namespace Voltage.Editor.Windows
 
 		public void Draw()
 		{
+			// Ahead of the IsOpen check on purpose. A teammate who is missing plugins may never open this
+			// window - the prompt is precisely for them - and an install in flight has to be finished on the UI
+			// thread whether or not anyone is looking at the list.
+			if (ProjectManager.Instance?.HasActiveProject == true)
+			{
+				PluginInstaller.Pump();
+				PluginRestorePrompt.Update(PluginManager.Instance?.Plugins);
+				PluginRestorePrompt.Draw();
+			}
+
 			if (!IsOpen)
 				return;
 
@@ -112,10 +135,6 @@ namespace Voltage.Editor.Windows
 				ImGui.End();
 				return;
 			}
-
-			// Finish any completed download on this thread before reading the list, so the new plugin is
-			// visible in the same frame it lands.
-			PluginInstaller.Pump();
 
 			// Snapshot once: an install runs on a background thread and can add to this list mid-frame,
 			// which would otherwise throw part-way through drawing.
@@ -211,6 +230,31 @@ namespace Voltage.Editor.Windows
 						ImGui.TextColored(ColorMuted, $"({plugin.Id})");
 					}
 
+					// A plugin resolved from a folder on this machine is one you are editing, not one you are
+					// consuming - and if the project does not also declare it from somewhere fetchable, nobody
+					// else on the team can get it at all. That distinction is worth saying out loud.
+					var localPath = plugin.Entry?.Source?.Path;
+					if (!string.IsNullOrWhiteSpace(localPath))
+					{
+						ImGui.SameLine();
+						ImGui.TextColored(plugin.IsLocalOnly ? ColorWarn : ColorLocal,
+							plugin.IsLocalOnly ? "LOCAL ONLY" : "LOCAL");
+
+						if (ImGui.IsItemHovered())
+						{
+							ImGui.SetTooltip(plugin.IsLocalOnly
+								? $"Only on this machine:\n{localPath}\n\n" +
+								  "Nothing in plugins.json names this plugin, so no teammate can restore it - the " +
+								  "path is kept out of git precisely because it would only break for them.\n\n" +
+								  "Publish it (and press \"Declare for the team\"), or vendor it into the repository, " +
+								  "to share it."
+								: $"Resolved from your own folder:\n{localPath}\n\n" +
+								  "The project declares this plugin from a source your teammates can fetch; you are " +
+								  "just running your own copy of it. Rebuilt from source when the editor is built and " +
+								  "again when this project opens.");
+						}
+					}
+
 					ImGui.TableNextColumn();
 					var description = plugin.Manifest?.Description;
 					if (string.IsNullOrWhiteSpace(description))
@@ -239,13 +283,6 @@ namespace Voltage.Editor.Windows
 
 					ImGui.TableNextColumn();
 					ImGui.TextUnformatted(plugin.Entry?.Source?.Describe() ?? "-");
-					if (plugin.Entry is { Dev: true })
-					{
-						ImGui.SameLine();
-						ImGui.TextColored(ColorWarn, "[live edit]");
-						if (ImGui.IsItemHovered())
-							ImGui.SetTooltip("You're editing this plugin: the editor uses its folder directly and picks up your changes automatically.");
-					}
 
 					ImGui.TableNextColumn();
 					DrawStatus(plugin);
@@ -546,17 +583,35 @@ private void DrawAddPluginSection()
 					ImGui.SameLine();
 					if (ImGui.Button("Browse", new Num.Vector2(85, 0)))
 						_pluginFolderBrowser.Open("Select plugin folder", _addPath, this);
-					ImGui.Checkbox("I'm editing this plugin", ref _addDev);
-					if (ImGui.IsItemHovered())
-						ImGui.SetTooltip(
-							"Turn this ON only if you are building or editing this plugin yourself.\n\n" +
-							"ON  - the editor uses your folder directly and picks up your changes\n" +
-							"        automatically (scripts reload live). Best while developing.\n\n" +
-							"OFF - the editor takes a fixed snapshot of the folder now. Later edits\n" +
-							"        won't apply until you press \"Update\". Best for a plugin you only\n" +
-							"        want to use, not change.");
+					// No question asked any more: a folder holding a packaging project is a source checkout -
+					// something being worked on rather than a built package - and the editor rebuilds one either
+					// way now. Asking only invited the answer that makes the editor copy a fresh snapshot into the
+					// cache on every rebuild and pin an artifact whose hash no other machine can reproduce.
 					if (!string.IsNullOrWhiteSpace(_addPath))
-						entry = new ProjectPluginEntry { Source = new PluginSourceSpec { Path = _addPath.Trim() }, Dev = _addDev };
+					{
+						var isCheckout = LooksLikeSourceCheckout(_addPath.Trim());
+
+						ImGui.TextColored(isCheckout ? ColorLocal : ColorMuted, isCheckout
+							? "Source checkout - used in place, rebuilt with the editor, never pinned."
+							: "Built package - snapshotted into the plugin cache and pinned.");
+
+						if (ImGui.IsItemHovered())
+						{
+							ImGui.SetTooltip(isCheckout
+								? "This folder has a project that can package it, so your edits are yours to keep:\n" +
+								  "the editor builds it from source when the editor itself is built and again when\n" +
+								  "this project opens, and loads the result straight out of the folder."
+								: "No packaging project here, so this is treated as a finished package: the editor\n" +
+								  "takes a snapshot now and later edits to the folder need an Update.");
+						}
+
+						entry = new ProjectPluginEntry
+						{
+							Source = new PluginSourceSpec { Path = _addPath.Trim() },
+							Dev = isCheckout,
+						};
+					}
+
 					break;
 
 				case 1: // Git URL
@@ -602,7 +657,7 @@ private void DrawAddPluginSection()
 				else
 				{
 					_addPath = _addGitUrl = _addGitRef = _addZipUrl = "";
-					_addDev = false;
+					_addPathProbed = null;
 				}
 			}
 
@@ -749,11 +804,58 @@ private void DrawAddPluginSection()
 		{
 			_publishPluginId = plugin.Id;
 			_publishNewVersion = BumpVersion(plugin.Manifest?.Version, minor: true);
-			_publishCommitMessage = $"{plugin.DisplayName} {_publishNewVersion}";
+			_publishCommitMessage = DefaultCommitMessage(plugin, _publishNewVersion);
+			_publishAutoCommitMessage = _publishCommitMessage;
+			_publishChangeDescription = "";
 			_publishPush = true;
 			_publishPlan = null;
 			_publishInputsDirty = true;
 			_showPublishPopup = true;
+		}
+
+		/// <summary>
+		/// True when this folder holds a project that can package it, which is what separates a plugin someone is
+		/// working on from a built package they only mean to use.
+		/// </summary>
+		private bool LooksLikeSourceCheckout(string path)
+		{
+			if (!string.Equals(_addPathProbed, path, StringComparison.Ordinal))
+			{
+				_addPathProbed = path;
+
+				try
+				{
+					_addPathIsCheckout = Directory.Exists(path) &&
+					                     Plugins.PluginSourceBuild.FindPackagingProject(path) != null;
+				}
+				catch
+				{
+					_addPathIsCheckout = false;
+				}
+			}
+
+			return _addPathIsCheckout;
+		}
+
+		private static string DefaultCommitMessage(PluginInstance plugin, string version) =>
+			$"{plugin.DisplayName} {version}";
+
+		/// <summary>
+		/// Sets the version being published and keeps the commit message in step with it. The message is only
+		/// rewritten while it is still the one generated here - once it has been typed in it is the user's, and
+		/// changing the version leaves it alone. Without this the message keeps the version it was first built
+		/// from, so a release of 0.2.2 lands in git as a commit announcing the default 0.3.0.
+		/// </summary>
+		private void SetPublishVersion(PluginInstance plugin, string version)
+		{
+			_publishNewVersion = version;
+			_publishInputsDirty = true;
+
+			if (!string.Equals(_publishCommitMessage, _publishAutoCommitMessage, StringComparison.Ordinal))
+				return;
+
+			_publishCommitMessage = DefaultCommitMessage(plugin, version);
+			_publishAutoCommitMessage = _publishCommitMessage;
 		}
 
 		/// <summary>
@@ -821,28 +923,21 @@ private void DrawAddPluginSection()
 			ImGui.SetNextItemWidth(120);
 			ImGui.InputText("##newversion", ref _publishNewVersion, 32);
 			// On commit rather than per keystroke: rebuilding the plan shells out to git several times,
-			// one of them across the network.
+			// one of them across the network. The message re-syncs here too, so it is on screen before Publish.
 			if (ImGui.IsItemDeactivatedAfterEdit())
-				_publishInputsDirty = true;
+				SetPublishVersion(plugin, _publishNewVersion);
 
 			ImGui.SameLine();
 			if (ImGui.SmallButton("major"))
-			{
-				_publishNewVersion = BumpVersion(plugin.Manifest?.Version, major: true);
-				_publishInputsDirty = true;
-			}
+				SetPublishVersion(plugin, BumpVersion(plugin.Manifest?.Version, major: true));
+
 			ImGui.SameLine();
 			if (ImGui.SmallButton("minor"))
-			{
-				_publishNewVersion = BumpVersion(plugin.Manifest?.Version, minor: true);
-				_publishInputsDirty = true;
-			}
+				SetPublishVersion(plugin, BumpVersion(plugin.Manifest?.Version, minor: true));
+
 			ImGui.SameLine();
 			if (ImGui.SmallButton("patch"))
-			{
-				_publishNewVersion = BumpVersion(plugin.Manifest?.Version);
-				_publishInputsDirty = true;
-			}
+				SetPublishVersion(plugin, BumpVersion(plugin.Manifest?.Version));
 			ImGui.SameLine();
 			ImGui.TextColored(ColorMuted, $"tag: v{_publishNewVersion}");
 
@@ -852,6 +947,27 @@ private void DrawAddPluginSection()
 			ImGui.InputText("##commitmessage", ref _publishCommitMessage, 512);
 			if (ImGui.IsItemDeactivatedAfterEdit())
 				_publishInputsDirty = true;
+
+			if (ImGui.IsItemHovered())
+				ImGui.SetTooltip("The commit's first line - what GitHub shows as its title.");
+
+			ImGui.TextUnformatted("What changed");
+			ImGui.SameLine(110);
+			ImGui.SetNextItemWidth(-1);
+
+			ImGui.InputTextMultiline("##changedescription", ref _publishChangeDescription, 4000,
+				new Num.Vector2(-1, 90));
+
+			if (ImGui.IsItemDeactivatedAfterEdit())
+				_publishInputsDirty = true;
+
+			if (ImGui.IsItemHovered())
+			{
+				ImGui.SetTooltip(
+					"What was added or changed, in your own words. It becomes the body of the commit and of the\n" +
+					"tag, so GitHub shows it under the commit title and uses it for the release notes.\n\n" +
+					"Optional, and free text - blank lines and bullet lists survive as typed.");
+			}
 
 			if (ImGui.Checkbox("Push the branch and the tag to origin", ref _publishPush))
 				_publishInputsDirty = true;
@@ -870,7 +986,8 @@ private void DrawAddPluginSection()
 			if (_publishInputsDirty && !running && !finished)
 			{
 				_publishInputsDirty = false;
-				_publishPlan = PluginPublisher.Prepare(plugin, _publishNewVersion, _publishCommitMessage, _publishPush);
+				_publishPlan = PluginPublisher.Prepare(plugin, _publishNewVersion, _publishCommitMessage,
+					_publishPush, _publishChangeDescription);
 			}
 
 			var plan = _publishPlan;
@@ -902,6 +1019,28 @@ private void DrawAddPluginSection()
 
 			if (plan.Finished)
 			{
+				// A plugin you were only running locally is now fetchable, so this is the moment it can become
+				// something the project declares - until a version exists somewhere teammates can reach, no
+				// amount of project config gets it to them.
+				if (plan.Succeeded && plan.Push && !string.IsNullOrWhiteSpace(plan.Repository)
+				    && (plugin.IsLocalOnly || plugin.IsLocalOverride))
+				{
+					var gitUrl = $"https://github.com/{plan.Repository}.git";
+
+					if (ImGui.Button("Declare for the team", new Num.Vector2(180, 0)))
+						SetStatus(PluginManager.Instance.ShareLocalPluginAsGit(plugin.Id, gitUrl, plan.Tag), false);
+
+					if (ImGui.IsItemHovered())
+					{
+						ImGui.SetTooltip(
+							$"Writes this plugin into plugins.json as {gitUrl} @ {plan.Tag}, so opening the\n" +
+							"project prompts your teammates to fetch it. Your own copy keeps resolving from\n" +
+							"your folder - you do not get swapped onto the published build mid-session.");
+					}
+
+					ImGui.SameLine();
+				}
+
 				if (ImGui.Button("Done", new Num.Vector2(120, 0)))
 				{
 					SetStatus(plan.Summary, isError: !plan.Succeeded);
@@ -1069,6 +1208,25 @@ private void DrawAddPluginSection()
 
 			if (ImGui.SmallButton(disabled ? "Enable" : "Disable"))
 				SetStatus(PluginManager.Instance.SetPluginDisabled(plugin.Id, !disabled));
+
+			// The escape hatch for a plugin that will never be published: copy it into the repository, where a
+			// relative path travels with the checkout. What Unreal and Godot do with every plugin by default.
+			if (plugin.IsLocalOnly && plugin.State is PluginState.Restored or PluginState.Loaded)
+			{
+				ImGui.SameLine();
+
+				if (ImGui.SmallButton("Vendor"))
+					SetStatus(PluginManager.Instance.VendorPluginIntoProject(plugin.Id), false);
+
+				if (ImGui.IsItemHovered())
+				{
+					ImGui.SetTooltip(
+						"Copies this plugin into the repository at Plugins/<id>/ and declares it from there.\n" +
+						"Commit that folder and your teammates have it - no publishing needed.\n\n" +
+						"For a plugin you do intend to publish, publish it instead: the repository stays the\n" +
+						"one source of truth rather than a copy that drifts.");
+				}
+			}
 
 			// Bundled plugins version with the editor; dev plugins re-sync automatically - neither updates.
 			var canUpdate = plugin.Entry is { Dev: false, Source.Bundled: false };
