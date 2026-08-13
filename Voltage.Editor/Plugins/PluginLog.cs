@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Voltage.Editor.DebugUtils;
 
 namespace Voltage.Editor.Plugins
 {
@@ -99,7 +100,7 @@ namespace Voltage.Editor.Plugins
 					Debug.Warn($"[Plugins] {message}");
 					break;
 				default:
-					Debug.Log($"[Plugins] {message}");
+					EditorDebug.Log($"[Plugins] {message}");
 					break;
 			}
 		}

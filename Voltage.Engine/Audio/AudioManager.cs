@@ -95,8 +95,8 @@ namespace Voltage.Audio
 				try
 				{
 					if (SoftwareMixingAudioBackend.IsSupported)
-					{
-						Debug.Log("[Audio] Using SoftwareMixingAudioBackend (software mixing + DSP-ready).");
+					{ 
+						Debug.Info("[Audio] Using SoftwareMixingAudioBackend (software mixing + DSP-ready).");
 						return new SoftwareMixingAudioBackend();
 					}
 					Debug.Warn("[Audio] Software backend unsupported on this platform; using MonoGameAudioBackend.");
