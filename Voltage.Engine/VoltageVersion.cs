@@ -14,6 +14,6 @@ namespace Voltage
 		/// than the one opening it. All of those are inert if this is not bumped, so the release workflow
 		/// refuses to build a tag that disagrees with it.</para>
 		/// </summary>
-		public const string Engine = "0.2.0";
+		public const string Engine = "0.2.1";
 	}
 }

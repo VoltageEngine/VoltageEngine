@@ -153,13 +153,40 @@ files that an external SDK pull is expected to produce.
 
 ---
 
-## 4. The three project files
+## 4. The four project files
 
 | File | Committed? | Written by | Purpose |
 | --- | --- | --- | --- |
 | `plugins.json` | **yes** | you / Plugin Manager | The wish list: which plugins this project wants, and from where. |
 | `plugins.lock.json` | **yes** | the editor | The pins: exactly what was resolved (version, commit, content hash). |
+| `plugins.local.json` | **no — gitignored** | the editor | Which plugins *this machine* resolves from a folder of its own. |
 | `PluginLibs/` | **no — gitignored** | the editor | The materialized payloads + generated build glue. Regenerated on project open. |
+
+### A folder on your machine is not a fact about the project
+
+A path only means something on the machine that wrote it. Committing one makes every teammate's restore
+fail on a folder only you have, so the two halves are kept apart:
+
+* **`plugins.json`** carries the plugin's `Id` and a source a teammate can actually fetch — git, zip,
+  bundled, or a path *inside the repository* (a vendored plugin travels with the checkout, so it is
+  shareable).
+* **`plugins.local.json`** carries your folder, and never leaves your machine.
+
+The editor writes the split for you. Adding a plugin from a folder records the path locally and the **id**
+in `plugins.json` with no source at all — so a teammate opening the project is told *"this project uses
+`voltage.dialoguemaker`, and nobody has published it"* rather than opening to an empty plugin list and a
+scene full of missing components. An older project with an absolute path in `plugins.json` migrates itself
+on open, and the `.gitignore` rule is added at the same time.
+
+This is the split npm draws between a dependency and `npm link`, and Cargo between a dependency and a
+`paths` override. It accepts the same trade they do: two people can be running different code for one
+plugin id with nothing in git recording it — which is why the Plugin Manager marks such a plugin **LOCAL**,
+and **LOCAL ONLY** when nothing in `plugins.json` names it.
+
+To make a local plugin shareable, either **publish** it (Plugin Manager → *Publish New Version*, then
+*Declare for the team*, which rewrites the entry to the published tag) or **vendor** it (*Vendor*, which
+copies it to `Plugins/<id>/` and declares it by relative path — what Unreal and Godot do with every plugin
+by default).
 
 `plugins.json` — the source of truth you edit:
 
@@ -408,6 +435,11 @@ first, then add the folder.
 
 ### Dev mode (`"Dev": true`)
 
+You no longer ask for this. Adding a folder that holds a project exposing the `PackagePlugin` target — a
+plugin *source checkout* rather than a built package — sets it automatically, because the alternative is
+strictly worse for a checkout: a fresh cache copy on every rebuild, and a pin on an artifact whose hash no
+other machine can reproduce. The flag still exists in `plugins.local.json`, and hand-editing it works.
+
 For a Path source, dev mode is the live-edit workflow. It means:
 
 - **Unpinned.** No `ContentHash` is recorded and any stale pin is dropped from the lockfile — no hash
@@ -420,6 +452,41 @@ For a Path source, dev mode is the live-edit workflow. It means:
 - **Writable.** Non-dev plugin sources are treated as immutable installs, so the ComponentIdStamper won't
   rewrite them; dev sources it will.
 - Game builds re-mirror dev plugins right before building, so the build always sees your latest code.
+
+### Rebuilding a checkout against the editor
+
+A source checkout is built once, when its declared assemblies are found missing. After that, every edit you
+make to it — and every rebuild of the editor — used to leave those assemblies exactly as they were, so the
+plugin you were writing was the one plugin guaranteed not to be running your code.
+
+A checkout is now rebuilt when its sources are newer than what was built from them, **or when the editor's
+own assemblies are newer than the plugin's** — the second is what makes a plugin come back rebuilt against
+the editor after you rebuild the editor. It happens at two moments:
+
+* **When the editor is built.** List your checkouts in `Voltage.Editor/dev-plugins.txt` (one folder per
+  line, `#` comments, gitignored) or pass `-p:VoltageDevPlugins="C:\src\A;C:\src\B"`. Skip it for one build
+  with `-p:VoltageSkipDevPlugins=true`. A folder that has moved is logged and skipped, never a build failure.
+* **At project open**, before anything is resolved or loaded — because plugin assemblies load through
+  `Assembly.LoadFrom`, which is not collectible, so a rebuild after that point could not be swapped in.
+  Only stale checkouts build, so the usual cost is a directory walk.
+
+Editing a plugin while the editor is *running* still needs a restart. That is the same limitation, not an
+oversight.
+
+### When a teammate is missing a plugin
+
+Opening a project that declares plugins the machine cannot use raises one dialog listing them, with
+**Install All** for anything fetchable. It distinguishes what it cannot fix from what it can:
+
+| What it says | What it means | What to do |
+| --- | --- | --- |
+| a git/zip source | a download | **Install All** |
+| *not published yet* | somebody has it as a folder and never shared it | publish or vendor it, or **Browse** to a copy you have |
+| *your own folder is missing* | your `plugins.local.json` points somewhere that has gone | **Browse** to it, or **Forget local folder** |
+| missing from the repository | a vendored folder that is not in the checkout | pull; the checkout is short of files |
+
+It is raised whether or not the Plugin Manager is open, dismissal is remembered until the set of missing
+plugins actually changes, and `Plugins → Restore Plugins` brings it back.
 
 ---
 
