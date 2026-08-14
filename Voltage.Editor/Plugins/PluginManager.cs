@@ -159,6 +159,8 @@ namespace Voltage.Editor.Plugins
 
 			foreach (var entry in entries)
 			{
+				Utils.ProjectLoadProgress.Report($"Plugin: {entry.Id}");
+
 				var instance = new PluginInstance
 				{
 					Entry = entry,

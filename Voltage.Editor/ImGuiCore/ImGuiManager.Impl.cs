@@ -499,6 +499,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	public override void Update()
 	{
+		// Before the frame is begun: a load drives frames of its own to stay responsive.
+		ProcessPendingProjectLoad();
+
 		// we have to do our layout in update so that if the game window is not focused or being displayed we can wipe
 		// the Input, essentially letting ImGui consume it
 		_renderer.BeforeLayout(Time.DeltaTime);

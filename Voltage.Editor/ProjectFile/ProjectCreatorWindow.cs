@@ -509,7 +509,8 @@ namespace Voltage.Editor.ProjectFile
 				
 				CreateDefaultScene(scenesPath);
 				var projectManager = ProjectManager.Instance;
-				bool projectLoaded = projectManager.LoadProject(metadataPath);
+				ImGuiCore.ImGuiManager.RequestProjectLoad(metadataPath);
+				bool projectLoaded = true;
 				
 				if (projectLoaded)
 				{

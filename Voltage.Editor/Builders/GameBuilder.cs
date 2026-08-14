@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Voltage.Editor.DebugUtils;
@@ -233,6 +234,7 @@ public static class GameBuilder
 			// Without it, NativeAOT strips type metadata needed by the JSON serializer.
 			EngineLibsSync.SyncTrimmerRoots(project.ProjectPath);
 			EnsureTrimmerRootsInCsproj(csprojPath);
+			EnsurePluginLibsExcludedInCsproj(csprojPath);
 			EnsurePluginsImportInCsproj(csprojPath);
 
 			// Linux NativeAOT binaries are linked against the build machine's glibc. The editor often
@@ -413,6 +415,54 @@ public static class GameBuilder
 		catch (Exception ex)
 		{
 			EditorDebug.Warn($"Could not patch .csproj for TrimmerRoots: {ex.Message}", "GameBuilder");
+		}
+	}
+
+	/// <summary>
+	/// Keeps PluginLibs out of the SDK's default item globs. Plugins.g.props adds back exactly the
+	/// files a game build needs, so without this a plugin's sources compile alongside the DLL that
+	/// already contains them (CS0436), its editor-only sources come too and fail on ImGuiNET and
+	/// Voltage.Editor, and the generated bootstrap is included twice (CS2002).
+	/// </summary>
+	public static void EnsurePluginLibsExcludedInCsproj(string csprojPath)
+	{
+		const string exclude = @"PluginLibs\**";
+
+		try
+		{
+			var content = File.ReadAllText(csprojPath);
+
+			var existing = Regex.Match(content, @"<DefaultItemExcludes>(?<value>.*?)</DefaultItemExcludes>",
+				RegexOptions.Singleline);
+
+			if (existing.Success)
+			{
+				if (existing.Groups["value"].Value.Contains("PluginLibs", StringComparison.OrdinalIgnoreCase))
+					return;
+
+				content = content.Remove(existing.Index, existing.Length)
+					.Insert(existing.Index, $"<DefaultItemExcludes>{existing.Groups["value"].Value};{exclude}</DefaultItemExcludes>");
+			}
+			else
+			{
+				const string marker = "</Project>";
+				var insertIndex = content.LastIndexOf(marker, StringComparison.Ordinal);
+				if (insertIndex < 0)
+					return;
+
+				content = content.Insert(insertIndex,
+					"\n  <!-- PluginLibs is populated by Plugins.g.props, never by the SDK's default globs -->\n" +
+					"  <PropertyGroup>\n" +
+					$"    <DefaultItemExcludes>$(DefaultItemExcludes);{exclude}</DefaultItemExcludes>\n" +
+					"  </PropertyGroup>\n");
+			}
+
+			File.WriteAllText(csprojPath, content);
+			EditorDebug.Log("Patched .csproj to keep PluginLibs out of the default compile glob.", "GameBuilder");
+		}
+		catch (Exception ex)
+		{
+			EditorDebug.Warn($"Could not patch .csproj for the PluginLibs exclude: {ex.Message}", "GameBuilder");
 		}
 	}
 
