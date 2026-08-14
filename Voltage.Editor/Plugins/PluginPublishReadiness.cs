@@ -45,18 +45,7 @@ namespace Voltage.Editor.Plugins
 		public readonly List<PublishCheck> Checks = new();
 	}
 
-	/// <summary>
-	/// Read-only "is this plugin actually published?" check for a plugin you are authoring.
-	///
-	/// <para>Every failure in the publish sequence is otherwise silent: a tag that disagrees with
-	/// plugin.json, a tag that was never pushed, a release whose CI has not finished, an entry missing from
-	/// the registry. All of them present identically - the plugin simply does not appear in Browse Plugins.
-	/// This names which step is missing and the command that fixes it.</para>
-	///
-	/// <para>Deliberately does no authentication and never writes: it shells out to the user's own git and
-	/// makes at most one anonymous GitHub request per refresh. Refresh is explicit, because the
-	/// unauthenticated API allows 60 requests an hour per address.</para>
-	/// </summary>
+	/// <summary>Names which step of the publish sequence is missing, and the command that fixes it: every one of them otherwise presents as the plugin simply not appearing in Browse Plugins. Never writes, and makes at most one anonymous GitHub request per explicit refresh.</summary>
 	public static class PluginPublishReadiness
 	{
 		private static readonly Dictionary<string, PublishReport> _reports = new(StringComparer.Ordinal);
@@ -156,8 +145,6 @@ namespace Voltage.Editor.Plugins
 				return;
 			}
 
-			// Identity first. Everything below is about mechanics; this is about whether you should be
-			// publishing this id at all.
 			var hasRemote = ResolveRemote(report, checks);
 			if (!CheckIdentity(report, checks, hasRemote))
 				return;
@@ -169,17 +156,7 @@ namespace Voltage.Editor.Plugins
 			CheckRegistry(report, checks);
 		}
 
-		/// <summary>
-		/// Whether this checkout is the one that owns the plugin's id.
-		///
-		/// <para>Having a plugin as a local folder proves nothing - it is equally true of someone else's
-		/// plugin you cloned to modify. The id is the identity: if a registry already publishes it from a
-		/// different repository, then this checkout is a fork, and releasing it under the same id would
-		/// shadow the original everywhere that id is resolved.</para>
-		///
-		/// <para>Returns false when publishing should not be attempted at all, so the remaining checks are
-		/// not offered as if they were the next step.</para>
-		/// </summary>
+		/// <summary>Whether this checkout owns the plugin's id. A registry already publishing it from a different repository makes this a fork, and releasing under the same id would shadow the original. False means publishing should not be attempted at all.</summary>
 		private static bool CheckIdentity(PublishReport report, List<PublishCheck> checks, bool hasRemote)
 		{
 			var listed = PluginRegistryIndex.HasEntries
@@ -248,7 +225,6 @@ namespace Voltage.Editor.Plugins
 				{
 					Label = "Working tree",
 					State = PublishCheckState.Warning,
-					// A tag points at a commit, so anything uncommitted is simply not in the release.
 					Detail = $"{dirty} uncommitted change(s). A release is built from the tagged commit, so these would not be in it.",
 					Fix = "git add -A && git commit -m \"...\"",
 				});
@@ -275,8 +251,7 @@ namespace Voltage.Editor.Plugins
 				return true;
 			}
 
-			// The release workflow compares the tag against plugin.json and fails on a mismatch, so a
-			// near-miss like v1.0 for 1.0.0 is worth calling out separately from having no tag at all.
+			// A near-miss like v1.0 for 1.0.0 is worth calling out separately from having no tag.
 			var near = all.FirstOrDefault(t => t.TrimStart('v').Split('-')[0] != report.Version &&
 			                                   t.StartsWith("v", StringComparison.Ordinal) &&
 			                                   report.Version.StartsWith(t.TrimStart('v'), StringComparison.Ordinal));

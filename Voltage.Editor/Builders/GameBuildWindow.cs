@@ -190,7 +190,6 @@ public class GameBuildWindow
 			ImGui.SameLine();
 			ImGuiSafe.TextDisabledSafe(project.Version.ToString());
 
-			// Straight from the builder, so the preview cannot drift from where the publish actually lands.
 			var buildDir = GameBuilder.GetBuildOutputDirectory(project, selectedPlatform, _debugBuild.Value);
 			ImGui.Text("Output:");
 			ImGui.SameLine();
@@ -530,9 +529,7 @@ public class GameBuildWindow
 			showSuppressOption: true);
 	}
 
-	/// <summary>
-	/// Warns about any <c>.vasset</c> that will not ship.
-	/// </summary>
+	/// <summary>Warns about any .vasset that will not ship.</summary>
 	private static void WarnAboutUnshippedDataAssets(IGameProject project)
 	{
 		if (project == null || string.IsNullOrEmpty(project.ProjectPath))

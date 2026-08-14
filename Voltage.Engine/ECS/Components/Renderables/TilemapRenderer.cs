@@ -198,15 +198,7 @@ namespace Voltage
 			}
 		}
 
-		/// <summary>
-		/// Drops the encoded copy only after proving this tilemap can be rebuilt from the decoded one.
-		///
-		/// <para>The saving depends on <see cref="SaveChunksTo"/> regenerating every group from runtime
-		/// state. If that ever stops being true - a field added to the data class and not written back, a
-		/// decode path that silently drops cells - the encoded copy is the only surviving record, and
-		/// discarding it turns a bug into lost work. So it is verified per load rather than assumed, and
-		/// anything unexpected keeps the original.</para>
-		/// </summary>
+		/// <summary>Drops the encoded copy only after proving the tilemap rebuilds from the decoded one. If SaveChunksTo ever stops regenerating everything, the encoded copy is the only surviving record, so this is verified per load rather than assumed.</summary>
 		private void ReleaseSerializedTiles(TilemapRendererComponentData data)
 		{
 			var probe = new TilemapRendererComponentData();
@@ -230,13 +222,7 @@ namespace Voltage
 			data.CollisionData = Array.Empty<string>();
 		}
 
-		/// <summary>
-		/// Whether re-encoding reproduced everything that was just loaded.
-		///
-		/// <para>Anchored on the loaded data, not on runtime state. Comparing the probe against memory
-		/// would agree with itself: if decoding silently dropped every cell, both sides are empty and the
-		/// check passes while the only real copy gets discarded.</para>
-		/// </summary>
+		/// <summary>Whether re-encoding reproduced what was loaded. Anchored on the loaded data, not runtime state, which would agree with itself if decoding dropped every cell.</summary>
 		private bool CanRebuildFrom(TilemapRendererComponentData original, TilemapRendererComponentData probe)
 		{
 			var originalCoords = original.ChunkCoords ?? Array.Empty<int>();
@@ -257,7 +243,6 @@ namespace Voltage
 				if (cells == null)
 					return false;
 
-				// An all-empty chunk is dropped on write by design, so its absence is not a loss.
 				if (IsChunkEmpty(cells))
 					continue;
 
@@ -274,8 +259,7 @@ namespace Voltage
 				}
 			}
 
-			// The sparser groups are compared by presence and count: what matters is that a group which
-			// arrived with content did not come back empty.
+			// Presence and count only: what matters is that a group with content did not come back empty.
 			return SameGroupSize(original.StackTiles, probe.StackTiles)
 			       && SameGroupSize(original.OrientationValues, probe.OrientationValues)
 			       && SameGroupSize(original.CollisionData, probe.CollisionData);

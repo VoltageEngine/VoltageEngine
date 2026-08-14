@@ -20,17 +20,7 @@ namespace Voltage.Editor.Plugins
 		public bool IsError => Level == PluginLogLevel.Error;
 	}
 
-	/// <summary>
-	/// Everything the plugin system has to say, kept where the user is already looking: the Plugin
-	/// Manager's Messages panel.
-	///
-	/// <para>This exists because the subsystem used to log through <c>EditorDebug</c>, which is
-	/// <c>[Conditional("EDITOR_DEBUG")]</c> - a symbol the shipped Editor-Release build does not define.
-	/// Every explanation of why a plugin failed to resolve, load or install was therefore compiled out of
-	/// the build people actually run, which is how a failed install came to look like a button that did
-	/// nothing. Messages here are always compiled, and mirrored to the console for anyone running from a
-	/// terminal.</para>
-	/// </summary>
+	/// <summary>The plugin system's messages, shown in the Plugin Manager. Always compiled, unlike EditorDebug, which is conditional on EDITOR_DEBUG and so was absent from release builds.</summary>
 	public static class PluginLog
 	{
 		/// <summary>Enough to cover a burst of install/restore output; beyond that the oldest go.</summary>
@@ -90,7 +80,6 @@ namespace Voltage.Editor.Plugins
 					_entries.RemoveRange(0, _entries.Count - MaxEntries);
 			}
 
-			// Mirrored so a terminal launch still shows it, and so it survives the editor closing.
 			switch (level)
 			{
 				case PluginLogLevel.Error:

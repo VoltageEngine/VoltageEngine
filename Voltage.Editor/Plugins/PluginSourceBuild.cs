@@ -8,26 +8,7 @@ using Voltage.Persistence;
 
 namespace Voltage.Editor.Plugins
 {
-	/// <summary>
-	/// Builds a plugin that was added from its own source checkout rather than from a release package.
-	///
-	/// <para>A published plugin is a folder holding <c>plugin.json</c> next to the assemblies it declares -
-	/// <c>lib/</c>, <c>editor-lib/</c>, <c>editor/</c>. A plugin <em>repository</em> holds the same
-	/// <c>plugin.json</c> next to the <em>sources</em>, and gitignores those folders, because they are
-	/// release artifacts that CI builds and attaches to a tag. Clone such a repository and add it as a
-	/// local folder and every declared assembly is missing, so the manifest fails to validate and the
-	/// plugin cannot be added at all - which is correct, and completely unhelpful, since the sources and
-	/// the project that builds them are sitting right there.</para>
-	///
-	/// <para>So: when a local folder is missing exactly the files its own packaging target produces, run
-	/// that target. The build is the same one the release workflow runs, pointed at the engine assemblies
-	/// of the editor doing the asking, so a plugin can never be built against a different Voltage than the
-	/// one that will load it.</para>
-	///
-	/// <para>Only ever triggered by files being <em>absent</em>. Rebuilding whenever a source file looked
-	/// newer would mean an unpredictable multi-minute build on project open; picking up your own edits
-	/// stays an explicit rebuild, the same as it is for any other plugin.</para>
-	/// </summary>
+	/// <summary>Builds a plugin added from its own source checkout, where the declared assemblies are gitignored release artifacts. Runs the same packaging target CI runs, against this editor's engine assemblies. Only ever triggered by files being absent, never by sources looking newer.</summary>
 	public static class PluginSourceBuild
 	{
 		/// <summary>The MSBuild target a plugin repository exposes to stage its package layout.</summary>
@@ -44,10 +25,7 @@ namespace Voltage.Editor.Plugins
 			/// <summary>Files are missing and no project here knows how to produce them.</summary>
 			NoPackagingProject,
 
-			/// <summary>
-			/// Buildable, but not from this call. Building shells out to MSBuild for minutes; on the thread
-			/// that draws the editor that is indistinguishable from a hang, so only the install worker does it.
-			/// </summary>
+			/// <summary>Buildable, but not here: MSBuild takes minutes, so only the install worker runs it.</summary>
 			NotBuilt,
 
 			/// <summary>The packaging target ran and failed, or produced less than the manifest declares.</summary>
@@ -74,16 +52,7 @@ namespace Voltage.Editor.Plugins
 			public bool IsSourceCheckout => Outcome != Outcome.NotNeeded;
 		}
 
-		/// <summary>
-		/// Stages the package layout when - and only when - the manifest declares assemblies this folder
-		/// does not have. Never throws: the caller's manifest validation is what reports a folder that is
-		/// still incomplete, and this only adds the context for why.
-		/// </summary>
-		/// <param name="allowBuild">
-		/// False on any path that must stay responsive. The build takes minutes, so running it from the
-		/// thread that draws the editor looks exactly like a crash; those callers report what is missing
-		/// instead and leave the building to the install worker.
-		/// </param>
+		/// <summary>Stages the package layout only when the manifest declares assemblies the folder lacks. Never throws. allowBuild is false on any path that must stay responsive.</summary>
 		public static Result EnsureBuilt(string pluginFolder, bool allowBuild)
 		{
 			var result = new Result();
@@ -135,11 +104,7 @@ namespace Voltage.Editor.Plugins
 			return result;
 		}
 
-		/// <summary>
-		/// Runs the packaging target regardless of what is already built - the entry point for picking up local
-		/// edits, where the declared files all exist but are behind the sources that produced them.
-		/// </summary>
-		/// <returns>False when this folder has no packaging project, or when the build failed.</returns>
+		/// <summary>Rebuilds regardless of what exists, for picking up local edits. False when there is no packaging project or the build failed.</summary>
 		public static bool Rebuild(string pluginFolder, out string log)
 		{
 			log = null;
@@ -151,11 +116,7 @@ namespace Voltage.Editor.Plugins
 			return RunPackaging(pluginFolder, project, out log);
 		}
 
-		/// <summary>
-		/// What the user should do about it, in the terms of their own checkout. Every one of these
-		/// otherwise surfaces as "file 'lib/Whatever.dll' not found in the package", which reads as the
-		/// plugin being broken rather than unbuilt.
-		/// </summary>
+		/// <summary>What to do about it in terms of the checkout, instead of "file not found in the package".</summary>
 		public static string Explain(Result result, string pluginFolder)
 		{
 			var missing = string.Join(", ", result.MissingAfter.Take(4))
@@ -195,10 +156,7 @@ namespace Voltage.Editor.Plugins
 			}
 		}
 
-		/// <summary>
-		/// Manifest-declared payload files that are not on disk. Read without validating, because an
-		/// unbuilt checkout is exactly the case where validation refuses to hand back a manifest.
-		/// </summary>
+		/// <summary>Manifest-declared payload files missing from disk, read without validating.</summary>
 		private static List<string> MissingPayloadFiles(string pluginFolder, PluginManifest manifest)
 		{
 			var declared = new List<string>();
@@ -232,11 +190,7 @@ namespace Voltage.Editor.Plugins
 			}
 		}
 
-		/// <summary>
-		/// The project at the plugin root that exposes the packaging target. Root only: a project nested in
-		/// a source folder builds one assembly, while the target that stages the whole package is by
-		/// convention next to plugin.json.
-		/// </summary>
+		/// <summary>The packaging project at the plugin root, by convention next to plugin.json.</summary>
 		public static string FindPackagingProject(string pluginFolder)
 		{
 			IEnumerable<string> candidates;
@@ -249,8 +203,6 @@ namespace Voltage.Editor.Plugins
 				return null;
 			}
 
-			// Deterministic across machines: EnumerateFiles order is filesystem-dependent, and picking a
-			// different project on someone else's clone would be a miserable thing to debug.
 			foreach (var project in candidates.OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
 			{
 				try
@@ -261,18 +213,13 @@ namespace Voltage.Editor.Plugins
 				}
 				catch
 				{
-					// Unreadable project file - try the next one.
 				}
 			}
 
 			return null;
 		}
 
-		/// <summary>
-		/// Restores, then runs the packaging target. Restore is separate because the target drives msbuild
-		/// directly for each configuration, and msbuild does not restore on its own - the release workflow
-		/// does the same two steps for the same reason.
-		/// </summary>
+		/// <summary>Restores, then runs the packaging target; msbuild does not restore on its own.</summary>
 		private static bool RunPackaging(string pluginFolder, string projectPath, out string log)
 		{
 			var output = new StringBuilder();
@@ -319,8 +266,6 @@ namespace Voltage.Editor.Plugins
 					CreateNoWindow = true,
 				};
 
-				// A plugin build is not the place to discover the SDK wants to phone home or print a
-				// first-run banner into the log we are about to show the user.
 				info.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
 				info.Environment["DOTNET_NOLOGO"] = "1";
 
@@ -334,7 +279,6 @@ namespace Voltage.Editor.Plugins
 				var stdout = process.StandardOutput.ReadToEndAsync();
 				var stderr = process.StandardError.ReadToEndAsync();
 
-				// Generous: a first build restores packages and compiles the engine-facing projects twice.
 				if (!process.WaitForExit(10 * 60 * 1000))
 				{
 					try { process.Kill(true); } catch { /* already gone */ }

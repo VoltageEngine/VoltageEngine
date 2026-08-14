@@ -45,9 +45,8 @@ namespace Voltage
 					return null;
 				}
 
-				// A scene from a newer build may contain envelope fields this one drops on the next save.
-				// Component data is safe either way - unresolvable entries are preserved verbatim - but the
-				// scene's own settings are not, so it is worth saying before someone saves over it.
+				// A newer build's envelope fields are dropped on the next save. Component data survives
+				// verbatim, but the scene's own settings do not.
 				if (sceneData.IsFromNewerBuild)
 				{
 					Debug.Warn(
@@ -390,7 +389,6 @@ namespace Voltage
 				Screen.ApplyChanges();
 			}
 
-			// Global: the project colour wins over whatever the .vscene stored, for every level loaded.
 			if (settings?.Rendering != null)
 				loadedScene.ClearColor = settings.Rendering.BackgroundClearColor;
 

@@ -130,13 +130,7 @@ public class Core : Game
 	private int _frameCounter = 0;
 	private string _windowTitle;
 
-	/// <summary>
-	/// Extra context for the window title - the editor supplies project, scene and version.
-	///
-	/// <para>A provider rather than a string because the title is only rebuilt once a second: the editor
-	/// would otherwise have to track changes and push them, and this way it is asked only when the answer
-	/// is about to be used.</para>
-	/// </summary>
+	/// <summary>Extra context for the window title. A provider, not a string, because the title is rebuilt once a second and the editor would otherwise have to push changes.</summary>
 	public static Func<string> WindowTitleStatusProvider;
 #endif
 
@@ -423,8 +417,7 @@ public class Core : Game
 			var totalMemory = (GC.GetTotalMemory(false) / 1048576f).ToString("F");
 			var status = WindowTitleStatusProvider?.Invoke();
 
-			// The status already names the project, so repeating the window title in front of it is just
-			// noise in the one strip of screen the OS centres for us.
+			// The status already names the project, so repeating the title in front of it is noise.
 			Window.Title = string.IsNullOrEmpty(status)
 				? string.Format("{0} {1} fps - {2} MB", _windowTitle, _frameCounter, totalMemory)
 				: string.Format("{0} - {1} fps - {2} MB", status, _frameCounter, totalMemory);

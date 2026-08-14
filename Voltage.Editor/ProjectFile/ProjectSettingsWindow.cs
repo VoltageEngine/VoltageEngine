@@ -220,11 +220,7 @@ namespace Voltage.Editor.ProjectFile
 		private string _engineVersionMessage;
 		private bool _engineVersionMessageIsError;
 
-		/// <summary>
-		/// Which engine version the project targets, and whether that matches this editor. The mismatch
-		/// that matters is a project newer than the editor: this build may not understand everything in
-		/// its scenes, and saving can drop what it did not understand.
-		/// </summary>
+		/// <summary>Which engine version the project targets. The mismatch that matters is a project newer than the editor, where saving can drop what this build did not understand.</summary>
 		private void DrawEngineVersion()
 		{
 			ImGui.Text("Engine Version:");
@@ -256,8 +252,7 @@ namespace Voltage.Editor.ProjectFile
 			if (ProjectEngineVersion.Summary != null)
 				ImGui.TextWrapped(ProjectEngineVersion.Summary);
 
-			// Not offered when the project is newer: stamping it down to this editor would claim the
-			// project supports a build that may not be able to round-trip it.
+			// Not offered when the project is newer: stamping it down would claim support this build lacks.
 			if (state is ProjectVersionState.Older or ProjectVersionState.Unstamped or ProjectVersionState.Unreadable)
 			{
 				if (ImGui.Button($"Set project to Voltage {editor}"))
@@ -814,7 +809,6 @@ namespace Voltage.Editor.ProjectFile
 					Core.Scene.SetDesignResolution(_designWidth, _designHeight, resolutionPolicy);
 				}
 
-				// Live-apply the background so the game view reflects the picker without a save.
 				var settings = _projectManager.CurrentProject?.Settings;
 				if (settings?.Rendering != null)
 				{

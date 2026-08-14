@@ -28,11 +28,7 @@ namespace Voltage.Editor.Windows
 		/// <summary>Deliberately not one of the status colours: "local" is a fact about a plugin, not a problem.</summary>
 		private static readonly Num.Vector4 ColorLocal = new(0.35f, 0.8f, 1f, 1f);
 
-		/// <summary>
-		/// Results of plugin actions, oldest first. A list rather than one slot because these arrive from
-		/// several places - installs finishing on a worker, table actions, SDK edits - and a single slot
-		/// meant the last one silently erased whichever you had not read yet.
-		/// </summary>
+		/// <summary>Results of plugin actions, oldest first. A list because they arrive from several places at once.</summary>
 		private sealed class StatusMessage
 		{
 			public int Id;
@@ -55,14 +51,9 @@ namespace Voltage.Editor.Windows
 		/// <summary>Edit buffers for SDK path inputs, keyed by sdk id.</summary>
 		private readonly Dictionary<string, string> _sdkPathBuffers = new();
 
-		// "Add Plugin" form state. No "Bundled" source: nothing ships inside the editor any more, so the
-		// option could only ever list a leftover from an older build. PluginResolver still resolves
-		// Bundled entries, so a plugins.json written before the change keeps loading.
 		private static readonly string[] SourceTypes = { "Local folder", "Git URL", "Zip URL" };
 		private int _addSourceType;
 		private string _addPath = "";
-		// Whether the folder being added is a source checkout, cached: the probe reads project files off disk and
-		// the popup redraws every frame.
 		private string _addPathProbed;
 		private bool _addPathIsCheckout;
 		private string _addGitUrl = "";
@@ -75,15 +66,11 @@ namespace Voltage.Editor.Windows
 		private readonly FolderBrowser _createLocationBrowser = new("create-location-picker");
 		private string _sdkBrowseTargetId;
 
-		// "Publish New Version" popup state. The plan is rebuilt whenever an input changes, so the
-		// blockers and the command preview always describe what the button would actually do.
 		private bool _showPublishPopup;
 		private string _publishPluginId;
 		private string _publishNewVersion = "";
 		private string _publishCommitMessage = "";
 
-		// The message this last generated. It is what tells an untouched message from one the user typed, and so
-		// whether changing the version is allowed to rewrite it.
 		private string _publishAutoCommitMessage = "";
 
 		/// <summary>Free-text "what changed", published as the commit and tag body.</summary>
@@ -109,9 +96,8 @@ namespace Voltage.Editor.Windows
 
 		public void Draw()
 		{
-			// Ahead of the IsOpen check on purpose. A teammate who is missing plugins may never open this
-			// window - the prompt is precisely for them - and an install in flight has to be finished on the UI
-			// thread whether or not anyone is looking at the list.
+			// Ahead of the IsOpen check: a teammate missing plugins may never open this window, and an
+			// install in flight still has to finish on the UI thread.
 			if (ProjectManager.Instance?.HasActiveProject == true)
 			{
 				PluginInstaller.Pump();
@@ -136,8 +122,7 @@ namespace Voltage.Editor.Windows
 				return;
 			}
 
-			// Snapshot once: an install runs on a background thread and can add to this list mid-frame,
-			// which would otherwise throw part-way through drawing.
+			// Snapshot once: a worker can add to this list mid-frame.
 			var plugins = PluginManager.Instance.Plugins.ToList();
 
 			DrawMessages(plugins);
@@ -151,7 +136,6 @@ namespace Voltage.Editor.Windows
 			if (ImGui.IsItemHovered())
 				ImGui.SetTooltip("Scaffold a new plugin folder (plugin.json + starter code) and optionally add it to this project.");
 
-			// Beside the plugin list, because this is where you find out a plugin needs one.
 			ImGui.SameLine();
 			var needsRestart = plugins.Any(p => p.StaleAssemblyWarning != null);
 			if (needsRestart)
@@ -230,9 +214,7 @@ namespace Voltage.Editor.Windows
 						ImGui.TextColored(ColorMuted, $"({plugin.Id})");
 					}
 
-					// A plugin resolved from a folder on this machine is one you are editing, not one you are
-					// consuming - and if the project does not also declare it from somewhere fetchable, nobody
-					// else on the team can get it at all. That distinction is worth saying out loud.
+					// A folder on this machine means you are editing the plugin, not consuming it.
 					var localPath = plugin.Entry?.Source?.Path;
 					if (!string.IsNullOrWhiteSpace(localPath))
 					{
@@ -271,7 +253,6 @@ namespace Voltage.Editor.Windows
 					ImGui.TableNextColumn();
 					ImGui.TextUnformatted(plugin.Manifest?.Version ?? "-");
 
-					// The one place you would look to find out you are behind.
 					var newer = PluginRegistryIndex.FindUpdateFor(plugin.Id, plugin.Manifest?.Version);
 					if (newer != null)
 					{
@@ -309,9 +290,7 @@ namespace Voltage.Editor.Windows
 		private string _browseSearch = string.Empty;
 		private bool _browseOpenedOnce;
 
-		/// <summary>
-		/// The catalogue: search a registry and install with one click.
-		/// </summary>
+		/// <summary>The catalogue: search a registry and install with one click.</summary>
 		private void DrawBrowsePluginsSection()
 		{
 			if (!ImGui.CollapsingHeader("Browse Plugins"))
@@ -348,8 +327,7 @@ namespace Voltage.Editor.Windows
 			if (PluginRegistryIndex.LastError != null)
 				ImGui.TextColored(ColorWarn, "Showing a cached list - the registry could not be reached.");
 
-			// Built with the indexer rather than ToDictionary: a malformed plugins.json can list an id
-			// twice, and a duplicate key would throw here instead of anywhere useful.
+			// Indexer, not ToDictionary: a malformed plugins.json can list an id twice.
 			var installedVersions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 			foreach (var installed in PluginManager.Instance.Plugins)
 			{
@@ -374,8 +352,6 @@ namespace Voltage.Editor.Windows
 
 				var expanded = ImGui.TreeNodeEx(listing.Name ?? listing.Id, ImGuiTreeNodeFlags.FramePadding);
 
-				// On the collapsed row, not just inside: what Install downloads has to be readable before
-				// anyone reaches for the button.
 				ImGui.SameLine();
 				ImGui.TextColored(ColorMuted, listing.VersionLabel);
 				if (ImGui.IsItemHovered())
@@ -390,14 +366,10 @@ namespace Voltage.Editor.Windows
 				}
 				else if (listing.IsInstallable)
 				{
-					// Present only when this listing is an upgrade: Search keeps an installed plugin
-					// visible for exactly that case, and adding it again would be rejected as a duplicate.
 					var isUpgrade = installedVersions.TryGetValue(listing.Id, out var installedVersion);
 
-					// Read once. IsBusy is backed by a list a worker thread mutates, so re-reading it for
-					// EndDisabled can return a different answer than BeginDisabled did - which leaves the
-					// disabled stack pushed and silently greys out every widget drawn after this, in this
-					// window, for the rest of the frame.
+					// Read once: IsBusy can change between Begin and EndDisabled, which would leave the
+					// disabled stack pushed and grey out the rest of the frame.
 					var installBusy = PluginInstaller.IsBusy;
 					if (installBusy)
 						ImGui.BeginDisabled();
@@ -467,10 +439,7 @@ namespace Voltage.Editor.Windows
 				SetStatus("Another install is already running.");
 		}
 
-		/// <summary>
-		/// Runs an update through the same worker as an install. The fetch is identical in size, and doing
-		/// it inline would freeze the editor for its duration.
-		/// </summary>
+		/// <summary>Runs an update through the install worker; inline would freeze the editor for the fetch.</summary>
 		private void StartUpdate(string pluginId, string displayName)
 		{
 			var entry = PluginManager.Instance.PrepareUpdate(pluginId, out var message);
@@ -484,10 +453,7 @@ namespace Voltage.Editor.Windows
 				SetStatus("Another install is already running.");
 		}
 
-		/// <summary>
-		/// Spells out what the version label means for this listing, since "v1.2.0" and "default branch"
-		/// promise very different things, and names the URL it came from.
-		/// </summary>
+		/// <summary>Spells out what the version label promises, and names the URL it came from.</summary>
 		private static string VersionTooltip(PluginRegistryEntry listing)
 		{
 			var source = !string.IsNullOrWhiteSpace(listing.Zip) ? listing.Zip : listing.Git;
@@ -537,7 +503,6 @@ namespace Voltage.Editor.Windows
 			}
 			else
 			{
-				// No Content-Length, so a bar would be a lie; show what has actually arrived.
 				ImGui.TextColored(ColorMuted, Bytes(job.BytesRead));
 			}
 
@@ -563,10 +528,8 @@ private void DrawAddPluginSection()
 			if (!ImGui.CollapsingHeader("Add Plugin"))
 				return;
 
-			// Scoped so nothing inside can collide with the header's own id. ImGui derives an item's id
-			// from its label, and the "Add Plugin" button below hashed to exactly the same id as this
-			// header - which handed the button's clicks to the header and meant the button never
-			// reported one. That is why adding a plugin from this form never did anything.
+			// Scoped: ImGui derives an item id from its label, and the button below hashed to the
+			// same id as this header, which handed it the clicks.
 			ImGui.PushID("add-plugin-section");
 			ImGui.Indent();
 
@@ -583,10 +546,6 @@ private void DrawAddPluginSection()
 					ImGui.SameLine();
 					if (ImGui.Button("Browse", new Num.Vector2(85, 0)))
 						_pluginFolderBrowser.Open("Select plugin folder", _addPath, this);
-					// No question asked any more: a folder holding a packaging project is a source checkout -
-					// something being worked on rather than a built package - and the editor rebuilds one either
-					// way now. Asking only invited the answer that makes the editor copy a fresh snapshot into the
-					// cache on every rebuild and pin an artifact whose hash no other machine can reproduce.
 					if (!string.IsNullOrWhiteSpace(_addPath))
 					{
 						var isCheckout = LooksLikeSourceCheckout(_addPath.Trim());
@@ -643,12 +602,8 @@ private void DrawAddPluginSection()
 			{
 				var source = entry.Source?.Describe() ?? "plugin";
 
-				// Logged before anything can go wrong, so pressing this always leaves a trace - the
-				// absence of one is itself the diagnosis.
 				PluginLog.Log($"Adding plugin from {source}{(entry.Dev ? " (live edit)" : "")}...");
 
-				// Same path as Browse: a zip or git URL here would otherwise freeze the editor for the
-				// length of the fetch. The result lands in the install-jobs list above.
 				var started = PluginInstaller.Start(entry, source);
 				if (started == null)
 				{
@@ -664,7 +619,6 @@ private void DrawAddPluginSection()
 			if (!canAdd)
 				ImGui.EndDisabled();
 
-			// A disabled button and a button whose click did nothing look the same, so say which it is.
 			if (!canAdd && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
 			{
 				ImGui.SetTooltip(_addSourceType switch
@@ -680,8 +634,6 @@ private void DrawAddPluginSection()
 				? "Fetches, verifies, and loads the plugin. Private git repos use your local credentials."
 				: "Fill in the source above to enable this.");
 
-			// The result goes to the message list at the top rather than here: the install runs on a
-			// worker now, so it does not arrive while this section is still on screen.
 
 			ImGui.Unindent();
 			ImGui.PopID();
@@ -813,10 +765,7 @@ private void DrawAddPluginSection()
 			_showPublishPopup = true;
 		}
 
-		/// <summary>
-		/// True when this folder holds a project that can package it, which is what separates a plugin someone is
-		/// working on from a built package they only mean to use.
-		/// </summary>
+		/// <summary>True when the folder holds a packaging project, which marks a source checkout rather than a built package.</summary>
 		private bool LooksLikeSourceCheckout(string path)
 		{
 			if (!string.Equals(_addPathProbed, path, StringComparison.Ordinal))
@@ -840,12 +789,7 @@ private void DrawAddPluginSection()
 		private static string DefaultCommitMessage(PluginInstance plugin, string version) =>
 			$"{plugin.DisplayName} {version}";
 
-		/// <summary>
-		/// Sets the version being published and keeps the commit message in step with it. The message is only
-		/// rewritten while it is still the one generated here - once it has been typed in it is the user's, and
-		/// changing the version leaves it alone. Without this the message keeps the version it was first built
-		/// from, so a release of 0.2.2 lands in git as a commit announcing the default 0.3.0.
-		/// </summary>
+		/// <summary>Sets the published version and re-syncs the generated commit message, unless the user has typed their own.</summary>
 		private void SetPublishVersion(PluginInstance plugin, string version)
 		{
 			_publishNewVersion = version;
@@ -858,10 +802,7 @@ private void DrawAddPluginSection()
 			_publishAutoCommitMessage = _publishCommitMessage;
 		}
 
-		/// <summary>
-		/// Bumps one part of a semver, keeping the parts below it at zero. Falls back to the current value
-		/// when it is not a version this understands - the popup blocks on that anyway, with an explanation.
-		/// </summary>
+		/// <summary>Bumps one part of a semver, zeroing the parts below. Falls back to the current value when unparseable.</summary>
 		private static string BumpVersion(string current, bool major = false, bool minor = false)
 		{
 			if (!SemVerRange.TryParse(current, out var ma, out var mi, out var pa, out _))
@@ -873,11 +814,7 @@ private void DrawAddPluginSection()
 			return minor ? $"{ma}.{mi + 1}.0" : $"{ma}.{mi}.{pa + 1}";
 		}
 
-		/// <summary>
-		/// The publish sequence in one place: what version, what message, what will run, what stops it, and
-		/// - once started - how far it got. Everything destructive is behind this one dialog, and every
-		/// command is on screen before the button is pressable.
-		/// </summary>
+		/// <summary>The publish sequence: version, message, plan, blockers and progress. Everything destructive sits behind this dialog.</summary>
 		private void DrawPublishPopup(IReadOnlyList<PluginInstance> plugins)
 		{
 			if (_showPublishPopup)
@@ -910,7 +847,6 @@ private void DrawAddPluginSection()
 			var running = PluginPublisher.IsRunning;
 			var finished = _publishPlan is { Finished: true };
 
-			// Inputs lock once the sequence starts: the plan is already being executed.
 			if (running || finished)
 				ImGui.BeginDisabled();
 
@@ -922,8 +858,6 @@ private void DrawAddPluginSection()
 			ImGui.SameLine(110);
 			ImGui.SetNextItemWidth(120);
 			ImGui.InputText("##newversion", ref _publishNewVersion, 32);
-			// On commit rather than per keystroke: rebuilding the plan shells out to git several times,
-			// one of them across the network. The message re-syncs here too, so it is on screen before Publish.
 			if (ImGui.IsItemDeactivatedAfterEdit())
 				SetPublishVersion(plugin, _publishNewVersion);
 
@@ -982,7 +916,6 @@ private void DrawAddPluginSection()
 			if (running || finished)
 				ImGui.EndDisabled();
 
-			// Rebuilt on any edit rather than every frame: each Prepare shells out to git several times.
 			if (_publishInputsDirty && !running && !finished)
 			{
 				_publishInputsDirty = false;
@@ -1019,9 +952,6 @@ private void DrawAddPluginSection()
 
 			if (plan.Finished)
 			{
-				// A plugin you were only running locally is now fetchable, so this is the moment it can become
-				// something the project declares - until a version exists somewhere teammates can reach, no
-				// amount of project config gets it to them.
 				if (plan.Succeeded && plan.Push && !string.IsNullOrWhiteSpace(plan.Repository)
 				    && (plugin.IsLocalOnly || plugin.IsLocalOverride))
 				{
@@ -1209,8 +1139,6 @@ private void DrawAddPluginSection()
 			if (ImGui.SmallButton(disabled ? "Enable" : "Disable"))
 				SetStatus(PluginManager.Instance.SetPluginDisabled(plugin.Id, !disabled));
 
-			// The escape hatch for a plugin that will never be published: copy it into the repository, where a
-			// relative path travels with the checkout. What Unreal and Godot do with every plugin by default.
 			if (plugin.IsLocalOnly && plugin.State is PluginState.Restored or PluginState.Loaded)
 			{
 				ImGui.SameLine();
@@ -1228,7 +1156,6 @@ private void DrawAddPluginSection()
 				}
 			}
 
-			// Bundled plugins version with the editor; dev plugins re-sync automatically - neither updates.
 			var canUpdate = plugin.Entry is { Dev: false, Source.Bundled: false };
 			if (canUpdate)
 			{
@@ -1282,11 +1209,7 @@ private void DrawAddPluginSection()
 			}
 		}
 
-		/// <summary>
-		/// For a plugin you author: which step of tag -> release -> registry is missing, and the command
-		/// that fixes it. Every one of those failures otherwise looks identical - the plugin just never
-		/// shows up in Browse Plugins.
-		/// </summary>
+		/// <summary>Which step of tag, release, registry is missing, and the command that fixes it.</summary>
 		private void DrawPublishReadinessSection(IReadOnlyList<PluginInstance> plugins)
 		{
 			var authorable = plugins.Where(PluginPublishReadiness.IsAuthorable).ToList();
@@ -1463,14 +1386,7 @@ private void DrawAddPluginSection()
 				_messages.RemoveRange(0, _messages.Count - MaxMessages);
 		}
 
-		/// <summary>
-		/// Every result in one place: action outcomes, finished installs, and problems reported by the
-		/// plugins themselves. They used to be spread across a banner, an inline block and two loops under
-		/// the table, so a result could appear anywhere depending on what produced it.
-		///
-		/// <para>A plugin problem is not an event, so dismissing one records the text rather than deleting
-		/// it. If the plugin later reports something different, it returns.</para>
-		/// </summary>
+		/// <summary>Every result in one place. Dismissing a plugin problem records its text rather than deleting it, so it returns if the plugin reports something different.</summary>
 		private void DrawMessages(IReadOnlyList<PluginInstance> plugins)
 		{
 			var finishedJobs = PluginInstaller.Jobs.Where(j => j.IsFinished).ToList();
@@ -1486,7 +1402,6 @@ private void DrawAddPluginSection()
 				.Where(x => !_dismissedProblems.Contains(ProblemKey(x.Plugin.Id, x.Text)))
 				.ToList();
 
-			// Everything the plugin subsystem reported, from any thread and any stage.
 			var logged = PluginLog.Entries;
 
 			var total = _messages.Count + finishedJobs.Count + problems.Count + logged.Count;
@@ -1498,9 +1413,6 @@ private void DrawAddPluginSection()
 			               || problems.Any(p => p.IsError)
 			               || logged.Any(e => e.IsError);
 
-			// Open it whenever something new arrives. Collapsed-by-default meant the result of pressing
-			// Add Plugin - success or failure - was written somewhere nobody was looking, which reads as
-			// the button having done nothing at all.
 			if (total > _lastMessageTotal)
 				ImGui.SetNextItemOpen(true, ImGuiCond.Always);
 			_lastMessageTotal = total;
@@ -1517,7 +1429,6 @@ private void DrawAddPluginSection()
 
 			ImGui.Indent();
 
-			// Always offered, even for a single message, so there is one predictable way to clear.
 			if (ImGui.SmallButton("Clear All"))
 			{
 				_messages.Clear();
@@ -1530,7 +1441,6 @@ private void DrawAddPluginSection()
 
 			ImGui.Separator();
 
-			// Newest first: the thing you just did is the thing you want to read.
 			for (var i = _messages.Count - 1; i >= 0; i--)
 			{
 				var message = _messages[i];
@@ -1546,7 +1456,6 @@ private void DrawAddPluginSection()
 
 				var text = job.State switch
 				{
-					// An update's message already names the plugin and both versions.
 					PluginInstallState.Succeeded when job.IsUpdate => job.Message,
 					PluginInstallState.Succeeded => $"Installed {job.DisplayName}. {job.Message}",
 					PluginInstallState.Failed => $"{job.DisplayName} failed: {job.Message ?? "unknown error"}",
@@ -1559,7 +1468,6 @@ private void DrawAddPluginSection()
 				ImGui.PopID();
 			}
 
-			// Newest first, matching the action messages above.
 			for (var i = logged.Count - 1; i >= 0; i--)
 			{
 				var entry = logged[i];
@@ -1575,7 +1483,6 @@ private void DrawAddPluginSection()
 			{
 				ImGui.PushID("problem-" + problem.Plugin.Id + problem.IsError);
 
-				// The text explains itself; a fixed "version mismatch" label was wrong for anything else.
 				var label = $"{problem.Plugin.Id}: {problem.Text}";
 
 				if (DrawDismissableMessage(label, problem.IsError))

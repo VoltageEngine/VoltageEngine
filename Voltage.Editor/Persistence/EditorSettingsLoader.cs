@@ -159,27 +159,8 @@ namespace Voltage.Editor.Persistence
 
 		private static string GetSettingsFilePath()
 		{
-			var projectDir = FindProjectDir();
-			string settingsDir = Path.Combine(projectDir, "Content", "Voltage", "User");
-			Directory.CreateDirectory(settingsDir);
-			return Path.Combine(settingsDir, "Settings.json");
-		}
-
-		/// <summary>
-		/// Finds the Voltage.Editor project directory
-		/// </summary>
-		private static string FindProjectDir()
-		{
-			var dir = AppContext.BaseDirectory;
-			var di = new DirectoryInfo(dir);
-			while (di != null)
-			{
-				if (File.Exists(Path.Combine(di.FullName, "Voltage.Editor.csproj")))
-					return di.FullName;
-				di = di.Parent;
-			}
-
-			return AppContext.BaseDirectory;
+			EditorStorage.Initialize();
+			return EditorStorage.SettingsFile;
 		}
 	}
 }

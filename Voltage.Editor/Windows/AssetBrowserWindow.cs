@@ -687,8 +687,7 @@ public class AssetBrowserWindow : IDisposable
 
             var reference = _db.GetReference(item.AbsolutePath);
 
-            // A type that says how it opens wins over the fallback for its kind - that is the only way a
-            // plugin's own file type can be opened by the tool that understands it.
+            // A type's own opener wins over its kind, so a plugin file type opens in the right tool.
             if (item.Descriptor.Open != null)
                 item.Descriptor.Open(item.AbsolutePath);
             else if (item.Descriptor.Kind == AssetKind.Scene)
@@ -1864,7 +1863,6 @@ public class AssetBrowserWindow : IDisposable
         {
             var reference = _db.GetReference(abs);
 
-            // Same precedence as the grid above: the type's own opener first, its kind only as a fallback.
             if (descriptor.Open != null)
                 descriptor.Open(abs);
             else if (descriptor.Kind == AssetKind.Scene)

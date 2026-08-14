@@ -4,26 +4,14 @@ using Voltage.Editor.ProjectFile;
 
 namespace Voltage.Editor.Plugins
 {
-	/// <summary>
-	/// Version of the editor-plugin API surface. Bumped when <see cref="IEditorPlugin"/>,
-	/// <see cref="IEditorPluginContext"/>, or <see cref="EditorPluginWindow"/> change incompatibly.
-	/// A plugin whose manifest declares a different EditorPluginApiVersion is refused with a clear
-	/// message rather than risking an ABI crash (editor plugins bind directly against
-	/// Voltage.Editor.dll and ImGui.NET).
-	/// </summary>
+	/// <summary>Editor-plugin API version. A manifest declaring a different one is refused rather than risking an ABI crash, since editor plugins bind directly against Voltage.Editor.dll.</summary>
 	public static class EditorPluginApi
 	{
-		/// <summary>
-		/// v2 added <see cref="EditorMenu"/> placement to <see cref="IEditorPluginContext.AddMenuItem(EditorMenu, string, Action)"/>.
-		/// A plugin calling it against a v1 editor would fail at the call site, which is what this gate exists to prevent.
-		/// </summary>
+		/// <summary>v2 added EditorMenu placement to IEditorPluginContext.AddMenuItem.</summary>
 		public const int Version = 2;
 	}
 
-	/// <summary>
-	/// Menus a plugin may contribute to. Anything host-owned is deliberately absent: a plugin can add to a
-	/// menu, never restructure one.
-	/// </summary>
+	/// <summary>Menus a plugin may contribute to. A plugin can add to a menu, never restructure one.</summary>
 	public enum EditorMenu
 	{
 		/// <summary>Under Plugins, grouped per plugin. The default, and the right answer for most tools.</summary>
@@ -38,22 +26,10 @@ namespace Voltage.Editor.Plugins
 		Help,
 	}
 
-	/// <summary>
-	/// Entry point of an editor plugin. Implement this in an assembly listed under the manifest's
-	/// <c>Editor.Assemblies</c>; the editor instantiates every concrete implementation with a
-	/// parameterless constructor at project open.
-	///
-	/// Editor plugins reference <c>Voltage.Editor.dll</c> directly (Unity-style: full access to
-	/// windows, inspectors, undo, ImGui). The API is unstable by contract - pin the editor version
-	/// your plugin targets and declare <c>EditorPluginApiVersion</c> in plugin.json.
-	/// </summary>
+	/// <summary>Entry point of an editor plugin, instantiated at project open from an assembly listed under the manifest's Editor.Assemblies. The API is unstable by contract: declare EditorPluginApiVersion in plugin.json.</summary>
 	public interface IEditorPlugin
 	{
-		/// <summary>
-		/// Called once after the plugin loads for an opened project. Register windows and menu items
-		/// through the context here. Throwing disables this plugin (surfaced in the Plugin Manager)
-		/// without crashing the editor.
-		/// </summary>
+		/// <summary>Called once after load. Throwing disables this plugin without crashing the editor.</summary>
 		void Initialize(IEditorPluginContext context);
 
 		/// <summary>Called when the project closes or the editor shuts down. Release resources here.</summary>
@@ -63,24 +39,13 @@ namespace Voltage.Editor.Plugins
 	/// <summary>The editor services handed to an <see cref="IEditorPlugin"/> at initialization.</summary>
 	public interface IEditorPluginContext
 	{
-		/// <summary>
-		/// Registers a window drawn every editor frame while its IsOpen is true. Windows own their
-		/// full ImGui.Begin/End lifecycle inside <see cref="EditorPluginWindow.Draw"/>.
-		/// </summary>
+		/// <summary>Registers a window drawn every frame while IsOpen; it owns its own Begin/End.</summary>
 		void RegisterWindow(EditorPluginWindow window);
 
-		/// <summary>
-		/// Adds an entry under the editor's Plugins menu. Use '/' to nest submenus, e.g.
-		/// "FMOD/Event Browser". The action runs when the item is clicked.
-		/// </summary>
+		/// <summary>Adds an entry under the Plugins menu. '/' nests submenus.</summary>
 		void AddMenuItem(string path, Action onClick);
 
-		/// <summary>
-		/// Adds an entry to a specific editor menu. Use this when a tool belongs beside the host's own
-		/// commands - an importer under File, a build step under Build - rather than in the Plugins list.
-		/// Prefer <see cref="EditorMenu.Plugins"/> otherwise: it keeps a plugin's commands together and
-		/// makes them easy to find when several are installed.
-		/// </summary>
+		/// <summary>Adds an entry to a specific menu, for a tool that belongs beside the host's own commands.</summary>
 		void AddMenuItem(EditorMenu menu, string path, Action onClick);
 
 		/// <summary>The editor's ImGui manager (texture binding, layout services, ...).</summary>
@@ -93,11 +58,7 @@ namespace Voltage.Editor.Plugins
 		event Action ProjectClosing;
 	}
 
-	/// <summary>
-	/// Base class for plugin-provided editor windows. The host calls <see cref="Draw"/> every frame
-	/// while <see cref="IsOpen"/> - implementations do their own ImGui.Begin/End and should pass
-	/// <c>ref IsOpen</c> to Begin so the window's close button works.
-	/// </summary>
+	/// <summary>Base class for plugin windows. Pass ref IsOpen to Begin so the close button works.</summary>
 	public abstract class EditorPluginWindow
 	{
 		/// <summary>Window title (also used as the ImGui id - keep it unique within your plugin).</summary>

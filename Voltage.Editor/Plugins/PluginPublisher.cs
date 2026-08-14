@@ -48,9 +48,7 @@ namespace Voltage.Editor.Plugins
 		public bool IsWarning;
 	}
 
-	/// <summary>
-	/// A prepared publish: what will run, what stops it, and - once started - how far it got.
-	/// </summary>
+	/// <summary>A prepared publish: what will run, what stops it, and how far it got.</summary>
 	public class PublishPlan
 	{
 		public string PluginId;
@@ -62,10 +60,7 @@ namespace Voltage.Editor.Plugins
 		public string Tag;
 		public string CommitMessage;
 
-		/// <summary>
-		/// What changed, in the author's words. Becomes the commit body and the annotated tag's body, which is
-		/// what GitHub shows under the commit subject and uses for the release notes.
-		/// </summary>
+		/// <summary>The author's change description; becomes the commit body and the annotated tag body.</summary>
 		public string ChangeDescription;
 
 		public bool Push;
@@ -88,16 +83,7 @@ namespace Voltage.Editor.Plugins
 		public bool CanPublish => !Running && !Finished && !Blockers.Any();
 	}
 
-	/// <summary>
-	/// The write half of publishing: bump plugin.json, commit, tag, push. The read-only
-	/// <see cref="PluginPublishReadiness"/> stays the verifier - this is deliberately a separate type so
-	/// that "the readiness check never writes" remains true of the class that says it.
-	///
-	/// <para>Everything here ends in a public release that CI acts on, so nothing runs until
-	/// <see cref="Prepare"/> has cleared it, every command is shown before it runs, and a failure stops the
-	/// sequence where it stands rather than trying to unwind it - an automatic rollback of a half-published
-	/// release is far more dangerous than an accurate description of where it stopped.</para>
-	/// </summary>
+	/// <summary>The write half of publishing: bump plugin.json, commit, tag, push. Nothing runs until Prepare clears it, and a failure stops where it stands rather than unwinding a half-published release.</summary>
 	public static class PluginPublisher
 	{
 		/// <summary>The plan being run or last run. One at a time; publishing is not a background chore.</summary>
@@ -105,10 +91,7 @@ namespace Voltage.Editor.Plugins
 
 		public static bool IsRunning => Current is { Running: true };
 
-		/// <summary>
-		/// Builds the plan and everything that stops it. Read-only: it runs git queries and touches no
-		/// file, so it is safe to call while the popup is open and the version field is still being typed.
-		/// </summary>
+		/// <summary>Builds the plan and everything blocking it. Read-only, so it is safe to call while the popup is open.</summary>
 		public static PublishPlan Prepare(PluginInstance plugin, string newVersion, string commitMessage, bool push,
 			string changeDescription = null)
 		{
@@ -177,7 +160,6 @@ namespace Voltage.Editor.Plugins
 			var branch = Git(plan.FolderPath, "rev-parse --abbrev-ref HEAD");
 			if (branch.Failed)
 			{
-				// A repository with no commits yet has no HEAD to name.
 				Block(plan, "Branch",
 					"Could not determine the current branch: " + branch.Error +
 					" If this repository has no commits yet, make one before publishing.");
@@ -286,12 +268,7 @@ namespace Voltage.Editor.Plugins
 			}
 		}
 
-		/// <summary>
-		/// The gate that matters. Having a plugin as a local folder proves nothing - it is equally true of
-		/// someone else's plugin you cloned. If a registry already publishes this id from a different
-		/// repository, then this is a fork, and releasing it under the same id would shadow the original
-		/// for everyone.
-		/// </summary>
+		/// <summary>Refuses to publish when a registry already serves this id from a different repository, which would shadow the original for everyone.</summary>
 		private static void CheckOwnership(PublishPlan plan)
 		{
 			if (plan.PluginId == null)
@@ -344,8 +321,6 @@ namespace Voltage.Editor.Plugins
 			if (!plan.Push)
 				return;
 
-			// Short timeout: this is a courtesy check run while the dialog is open, not the operation
-			// itself. If origin is slow the push will say so properly.
 			var remote = Git(plan.FolderPath, $"ls-remote --tags origin {plan.Tag}", 15_000);
 			if (remote.Failed)
 			{
@@ -378,8 +353,7 @@ namespace Voltage.Editor.Plugins
 				Command = $"{PluginManifest.FileName}: Version -> {plan.NewVersion}",
 			});
 
-			// Scoped to the plugin folder on purpose: "git add -A" alone stages the whole repository, which
-			// would sweep unrelated work into a release commit when the plugin is a subfolder.
+			// Scoped to the plugin folder: "git add -A" would sweep unrelated work into the release commit.
 			plan.Steps.Add(new PublishStep { Label = "Stage changes", Command = "git add -A -- ." });
 			plan.Steps.Add(new PublishStep { Label = "Commit", Command = $"git commit -m \"{message}\"" });
 			plan.Steps.Add(new PublishStep { Label = "Create tag", Command = $"git tag -a {plan.Tag} -m \"{message}\"" });
@@ -387,8 +361,7 @@ namespace Voltage.Editor.Plugins
 			if (!plan.Push)
 				return;
 
-			// Branch before tag: CI runs on the tag, and a tag whose commit is not on any pushed branch
-			// builds something nobody can check out.
+			// Branch before tag: CI runs on the tag, which must be reachable from a pushed branch.
 			plan.Steps.Add(new PublishStep { Label = "Push branch", Command = $"git push origin {plan.Branch}" });
 			plan.Steps.Add(new PublishStep { Label = "Push tag", Command = $"git push origin {plan.Tag}" });
 		}
@@ -397,10 +370,7 @@ namespace Voltage.Editor.Plugins
 
 		#region Run
 
-		/// <summary>
-		/// Runs the plan on a worker. Stops at the first failure, leaving everything before it in place -
-		/// the summary says exactly what was done and what to finish by hand.
-		/// </summary>
+		/// <summary>Runs the plan on a worker, stopping at the first failure and reporting what was done.</summary>
 		public static bool Start(PublishPlan plan)
 		{
 			if (plan == null || !plan.CanPublish || IsRunning)
@@ -436,7 +406,6 @@ namespace Voltage.Editor.Plugins
 			var steps = plan.Steps;
 			var i = 0;
 
-			// 1. plugin.json
 			var bump = steps[i++];
 			bump.State = PublishStepState.Running;
 			try
@@ -450,8 +419,7 @@ namespace Voltage.Editor.Plugins
 					return;
 				}
 
-				// Targeted replacement rather than a deserialize/serialize round-trip, so comments,
-				// formatting, field order and any field this editor does not know about all survive.
+				// Targeted replacement, so formatting and unknown fields survive.
 				File.WriteAllText(path,
 					text.Substring(0, match.Groups[1].Index) + plan.NewVersion +
 					text.Substring(match.Groups[1].Index + match.Groups[1].Length));
@@ -465,15 +433,11 @@ namespace Voltage.Editor.Plugins
 				return;
 			}
 
-			// 2. stage
 			var stage = steps[i++];
 			if (!RunGitStep(plan, stage, "add -A -- ."))
 				return;
 
-			// 3 + 4. commit and tag, both taking their message from a file. A change description is free text -
-			// newlines, quotes, backslashes - and quoting that through a process argument loses to the first one
-			// of them. The file also keeps the subject and the body in one place, so the commit and the tag say
-			// exactly the same thing.
+			// Message via file: a free-text description does not survive process-argument quoting.
 			var messageFile = WriteMessageFile(plan);
 
 			try
@@ -483,8 +447,6 @@ namespace Voltage.Editor.Plugins
 				var staged = Git(plan.FolderPath, "diff --cached --name-only");
 				if (!staged.Failed && string.IsNullOrWhiteSpace(staged.Output))
 				{
-					// The version bump is itself a change, so this only happens if plugin.json already said
-					// the new version - a retry after a failure part-way through.
 					commit.State = PublishStepState.Skipped;
 					commit.Message = "Nothing to commit; the working tree already matches. Continuing to the tag.";
 				}
@@ -516,7 +478,6 @@ namespace Voltage.Editor.Plugins
 				return;
 			}
 
-			// 5. push branch
 			var pushBranch = steps[i++];
 			if (!RunGitStep(plan, pushBranch, $"push origin {plan.Branch}"))
 			{
@@ -526,7 +487,7 @@ namespace Voltage.Editor.Plugins
 				return;
 			}
 
-			// 6. push tag - the point of no return: this is what CI builds a public release from.
+			// Point of no return: CI builds the public release from this tag.
 			var pushTag = steps[i];
 			if (!RunGitStep(plan, pushTag, $"push origin {plan.Tag}"))
 			{
@@ -545,12 +506,7 @@ namespace Voltage.Editor.Plugins
 				"Browse Plugins. Press Check below to follow both.";
 		}
 
-		/// <summary>
-		/// Writes the commit/tag message: the subject line, then the change description as the body, separated by
-		/// the blank line git expects - which is what makes GitHub show the first line as the title and the rest
-		/// as the description underneath it.
-		/// </summary>
-		/// <returns>The temp file, or null when it could not be written - the caller then falls back to -m.</returns>
+		/// <summary>Writes the commit/tag message file: subject, blank line, then the description. Null when it could not be written and the caller must fall back to -m.</summary>
 		private static string WriteMessageFile(PublishPlan plan)
 		{
 			var subject = plan.CommitMessage ?? $"{plan.DisplayName} {plan.NewVersion}";
@@ -571,8 +527,7 @@ namespace Voltage.Editor.Plugins
 			}
 		}
 
-		// --cleanup=whitespace, not the default: the default strips '#' lines, and a description may legitimately
-		// start one ("#42 fixed"). Whitespace-only cleanup keeps every line the author wrote.
+		// --cleanup=whitespace: the default strips '#' lines, and a description may start one.
 		private static string CommitArguments(PublishPlan plan, string messageFile) =>
 			messageFile != null
 				? $"commit --cleanup=whitespace --file {Quote(messageFile)}"
@@ -615,10 +570,7 @@ namespace Voltage.Editor.Plugins
 			PluginLog.Warn($"Publish of '{plan.PluginId}' failed at {step.Label}: {message}");
 		}
 
-		/// <summary>
-		/// Turns git's stderr into something actionable. Every one of these is a failure a plugin author
-		/// hits sooner or later, and git's own wording assumes a terminal the editor does not have.
-		/// </summary>
+		/// <summary>Turns git's stderr into something actionable for a plugin author.</summary>
 		private static string Explain(string arguments, string error, PublishPlan plan)
 		{
 			var text = error ?? "";
@@ -691,10 +643,7 @@ namespace Voltage.Editor.Plugins
 
 		#region Plumbing
 
-		/// <summary>
-		/// The "Version": "x.y.z" field, with group 1 spanning just the value. Anchored on the opening
-		/// quote so it cannot match SchemaVersion or EditorPluginApiVersion.
-		/// </summary>
+		/// <summary>The "Version" value, anchored on the opening quote so it cannot match SchemaVersion.</summary>
 		private static Match FindVersionField(string manifestText)
 		{
 			var match = Regex.Match(manifestText, "\"Version\"\\s*:\\s*\"([^\"]*)\"");
@@ -727,7 +676,6 @@ namespace Voltage.Editor.Plugins
 			}
 		}
 
-		// A push crosses the network; the local commands do not.
 		private static int TimeoutForGit(string arguments) =>
 			arguments.StartsWith("push", StringComparison.Ordinal) || arguments.StartsWith("ls-remote", StringComparison.Ordinal)
 				? 120_000
@@ -768,8 +716,7 @@ namespace Voltage.Editor.Plugins
 					CreateNoWindow = true,
 				};
 
-				// Without a terminal there is nobody to answer a credential prompt, so fail fast and say so
-				// rather than hanging until the timeout.
+				// No terminal to answer a credential prompt, so fail fast instead of hanging.
 				info.Environment["GIT_TERMINAL_PROMPT"] = "0";
 
 				using var process = Process.Start(info);
