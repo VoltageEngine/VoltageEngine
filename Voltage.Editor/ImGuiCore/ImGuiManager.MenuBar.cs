@@ -1037,10 +1037,7 @@ public partial class ImGuiManager
 
 	internal static float BackgroundSwatchWidth => ImGui.GetFrameHeight() * 1.6f;
 
-	/// <summary>
-	/// "Background" control in the Editor Tools bar: a labelled swatch of the colour the game view is cleared
-	/// to. Clicking picks between the project colour (shipped with the build) and a temporary editor-only one.
-	/// </summary>
+	/// <summary>Labelled swatch of the game view clear colour. Clicking picks between the project colour and a temporary editor-only one.</summary>
 	private void DrawBackgroundColorControl()
 	{
 		var active = ToVector4(EditorBackgroundColor.Active);
@@ -1050,7 +1047,6 @@ public partial class ImGuiManager
 		ImGui.TextUnformatted(BackgroundLabel);
 		ImGui.SameLine();
 
-		// Amber outline for the temporary colour, so a stand-in is never mistaken for the one that ships.
 		if (VoltageEditorUtils.ColorSwatchButton("##BackgroundColor", active, temporary, BackgroundSwatchWidth))
 			ImGui.OpenPopup("background-color-popup");
 
@@ -1063,8 +1059,8 @@ public partial class ImGuiManager
 
 		DrawBackgroundColorPopup();
 
-		// Persist once the drag ends. Done here, not off the picker's own deactivation, so a colour typed in
-		// or picked inside its nested popup is saved too.
+		// Persisted here rather than off the picker's deactivation, so a colour typed into its
+		// nested popup is saved too.
 		if (!ImGui.IsAnyMouseDown())
 			EditorBackgroundColor.FlushTemporary();
 	}
@@ -1282,8 +1278,7 @@ public partial class ImGuiManager
 			if (ImGui.IsItemHovered() && hasProblems)
 				ImGui.SetTooltip("Some plugins are unavailable or failed to load.");
 
-			// The way back to the prompt after dismissing it - and the way to ask for it deliberately after
-			// pulling a branch that changed which plugins the project needs.
+			// Also the way to ask for it after pulling a branch that changed the plugin set.
 			var missing = Plugins.PluginRestorePrompt.MissingCount;
 
 			ImGui.BeginDisabled(missing == 0);

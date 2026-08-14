@@ -2,19 +2,10 @@ using System;
 
 namespace Voltage.Editor.Plugins
 {
-	/// <summary>
-	/// Minimal semver range matcher for plugin version constraints. Supports exactly the forms the
-	/// plugin manifests document: <c>"*"</c> (any), <c>"&gt;=x.y.z"</c>, <c>"&gt;x.y.z"</c>,
-	/// <c>"&lt;=x.y.z"</c>, <c>"&lt;x.y.z"</c>, a bare <c>"x.y.z"</c> (exact), and space-separated
-	/// conjunctions like <c>"&gt;=0.1.0 &lt;0.2.0"</c>. Pre-release suffixes are compared ordinally
-	/// after the numeric parts.
-	/// </summary>
+	/// <summary>Minimal semver range matcher: "*", &gt;=, &gt;, &lt;=, &lt;, a bare exact version, and space-separated conjunctions. Pre-release suffixes compare ordinally after the numeric parts.</summary>
 	public static class SemVerRange
 	{
-		/// <summary>
-		/// Returns true when <paramref name="version"/> satisfies <paramref name="range"/>.
-		/// A null/empty/whitespace or "*" range matches everything. Malformed input returns false.
-		/// </summary>
+		/// <summary>True when version satisfies range. Empty or "*" matches everything; malformed input is false.</summary>
 		public static bool Satisfies(string version, string range)
 		{
 			if (string.IsNullOrWhiteSpace(range) || range.Trim() == "*")
@@ -32,10 +23,7 @@ namespace Voltage.Editor.Plugins
 			return true;
 		}
 
-		/// <summary>
-		/// Splits a version into its parts, tolerating a leading "v" and a "-prerelease" suffix. Missing
-		/// minor/patch read as 0, so "1" parses as 1.0.0.
-		/// </summary>
+		/// <summary>Splits a version, tolerating a leading "v" and a "-prerelease" suffix. Missing parts read as 0.</summary>
 		public static bool TryParse(string version, out int major, out int minor, out int patch, out string prerelease)
 		{
 			major = minor = patch = 0;
@@ -51,11 +39,7 @@ namespace Voltage.Editor.Plugins
 			return true;
 		}
 
-		/// <summary>
-		/// Orders two versions, tolerating a leading "v". Returns false when either side is not a version
-		/// this understands - a registry ref like "main" has no ordering, and inventing one would be worse
-		/// than declining to answer.
-		/// </summary>
+		/// <summary>Orders two versions. False when either side is not a version, since a ref like "main" has no ordering.</summary>
 		public static bool TryCompare(string a, string b, out int comparison)
 		{
 			comparison = 0;
@@ -66,10 +50,7 @@ namespace Voltage.Editor.Plugins
 			return true;
 		}
 
-		/// <summary>
-		/// True when <paramref name="candidate"/> is strictly newer than <paramref name="current"/>.
-		/// Unorderable input is not newer, so an unpinned source never claims an update.
-		/// </summary>
+		/// <summary>True when candidate is strictly newer. Unorderable input is never newer.</summary>
 		public static bool IsNewer(string candidate, string current) =>
 			TryCompare(candidate, current, out var comparison) && comparison > 0;
 

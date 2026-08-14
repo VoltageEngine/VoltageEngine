@@ -22,11 +22,7 @@ namespace Voltage.Editor.Plugins
 		Cancelled,
 	}
 
-	/// <summary>
-	/// Ambient progress sink and cancellation for whatever install is running on this call stack. The
-	/// resolver publishes here, so the download reports progress without every call site between the
-	/// Plugin Manager and <c>ResolveZip</c> having to pass a reporter through.
-	/// </summary>
+	/// <summary>Ambient progress sink and cancellation for the running install, so the resolver can report without every call site threading a reporter through.</summary>
 	internal static class PluginDownloadContext
 	{
 		private static readonly AsyncLocal<PluginInstallJob> _current = new();
@@ -47,11 +43,7 @@ namespace Voltage.Editor.Plugins
 	/// <summary>One in-flight install, safe to read from the UI thread while it runs on another.</summary>
 	public class PluginInstallJob
 	{
-		/// <summary>
-		/// No bytes for this long and the download is treated as stalled. A server that accepts the
-		/// connection and then never sends counts as hung, and HttpClient's own timeout would not fire for
-		/// minutes.
-		/// </summary>
+		/// <summary>Stall threshold: HttpClient's own timeout would not fire for minutes on a server that connects then goes quiet.</summary>
 		private const int StallSeconds = 20;
 
 		private readonly CancellationTokenSource _cts = new();
@@ -100,10 +92,7 @@ namespace Voltage.Editor.Plugins
 			}
 		}
 
-		/// <summary>
-		/// Nothing received for a while. Not an error on its own - a slow server recovers - so it is
-		/// surfaced as a prompt to cancel rather than a failure.
-		/// </summary>
+		/// <summary>Nothing received for a while. Surfaced as a prompt to cancel, not a failure.</summary>
 		public bool Stalled
 		{
 			get
@@ -153,12 +142,7 @@ namespace Voltage.Editor.Plugins
 		}
 	}
 
-	/// <summary>
-	/// Runs plugin installs off the UI thread.
-	///
-	/// <para>Installing used to call straight into <c>AddPlugin</c> from the draw call, so the editor froze
-	/// for the length of the download with no way to see progress or give up.</para>
-	/// </summary>
+	/// <summary>Runs plugin installs off the UI thread.</summary>
 	public static class PluginInstaller
 	{
 		private static readonly List<PluginInstallJob> _jobs = new();
@@ -184,12 +168,7 @@ namespace Voltage.Editor.Plugins
 			}
 		}
 
-		/// <summary>
-		/// Fetches a plugin on a worker and applies it on the next <see cref="Pump"/>. With
-		/// <paramref name="isUpdate"/> the entry is expected to be in plugins.json already and its source
-		/// is re-pointed instead of appended - the download itself is identical either way, which is why
-		/// updates go through here rather than blocking the UI thread for the length of a fetch.
-		/// </summary>
+		/// <summary>Fetches on a worker and applies on the next Pump. With isUpdate the entry is already in plugins.json and its source is re-pointed rather than appended.</summary>
 		public static PluginInstallJob Start(ProjectPluginEntry entry, string displayName, bool isUpdate = false)
 		{
 			if (entry == null)
@@ -200,8 +179,7 @@ namespace Voltage.Editor.Plugins
 			var job = new PluginInstallJob(entry.Id ?? displayName, displayName);
 			lock (_lock)
 			{
-				// One at a time: installs mutate plugins.json and load assemblies, and two of those
-				// interleaving is not worth the trouble it would cause.
+				// One at a time: installs mutate plugins.json and load assemblies.
 				if (_jobs.Exists(j => !j.IsFinished))
 					return null;
 
@@ -216,9 +194,7 @@ namespace Voltage.Editor.Plugins
 				PluginDownloadContext.Current = job;
 				try
 				{
-					// Only the fetch happens here. Recording and loading the plugin runs on the UI thread
-					// in Pump, because loading an editor plugin calls its Initialize, which registers
-					// windows and menu items that the UI is enumerating at the same time.
+					// Fetch only: recording and loading run on the UI thread in Pump.
 					job.Resolved = PluginManager.Instance.ResolveForAdd(entry);
 					job.EnterReadyToApply();
 				}
@@ -240,10 +216,7 @@ namespace Voltage.Editor.Plugins
 			return job;
 		}
 
-		/// <summary>
-		/// Call once per frame from the UI thread. Finishes any install whose download has completed, on
-		/// this thread, so assembly loading and window registration never race the draw.
-		/// </summary>
+		/// <summary>Call once per frame from the UI thread, so assembly loading never races the draw.</summary>
 		public static void Pump()
 		{
 			PluginInstallJob ready = null;
@@ -264,8 +237,6 @@ namespace Voltage.Editor.Plugins
 
 			try
 			{
-				// Both halves report their outcome in the message they return, so the state is read back
-				// off its prefix rather than duplicating the classification here.
 				var result = ready.IsUpdate
 					? PluginManager.Instance.CompleteUpdate(ready.Entry, ready.Resolved)
 					: PluginManager.Instance.CompleteAdd(ready.Entry, ready.Resolved);
@@ -296,11 +267,7 @@ namespace Voltage.Editor.Plugins
 				_jobs.Remove(job);
 		}
 
-		/// <summary>
-		/// Deletes staging left behind by an install that never finished - the machine was shut down, the
-		/// editor was killed. Those directories are never reused, so anything older than an hour is
-		/// abandoned by definition.
-		/// </summary>
+		/// <summary>Deletes staging from installs that never finished; those directories are never reused, so anything over an hour old is abandoned.</summary>
 		public static void SweepStaleStagingOnce()
 		{
 			if (_sweptStaging)
@@ -329,11 +296,9 @@ namespace Voltage.Editor.Plugins
 					}
 					catch
 					{
-						// Still locked by another editor instance; it will be swept next time.
 					}
 				}
 
-				// A partial download leaves "<staging>.zip" beside the directory.
 				foreach (var file in Directory.GetFiles(root, "*.zip"))
 				{
 					if (File.GetLastWriteTimeUtc(file) > cutoff)
@@ -346,7 +311,6 @@ namespace Voltage.Editor.Plugins
 					}
 					catch
 					{
-						// As above.
 					}
 				}
 

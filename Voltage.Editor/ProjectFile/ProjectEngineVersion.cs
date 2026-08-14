@@ -15,24 +15,14 @@ namespace Voltage.Editor.ProjectFile
 		/// <summary>Project targets an older engine. Safe to open; upgrade when you mean to.</summary>
 		Older,
 
-		/// <summary>
-		/// Project targets a newer engine than this build. The dangerous direction: this editor may not
-		/// understand everything in it, and saving can drop what it did not understand.
-		/// </summary>
+		/// <summary>Project targets a newer engine. The dangerous direction: saving can drop what this build did not understand.</summary>
 		Newer,
 
 		/// <summary>Recorded version is not a version this build can parse.</summary>
 		Unreadable,
 	}
 
-	/// <summary>
-	/// Compares the engine version a project targets against the running editor.
-	///
-	/// <para>Plugins are already pinned by content hash in plugins.lock.json, so two people resolve
-	/// identical plugin payloads or get a hard error. Nothing did that for the engine itself: a teammate
-	/// on an older editor could open a project written by a newer one, and the only symptom was scenes
-	/// quietly missing things.</para>
-	/// </summary>
+	/// <summary>Compares the engine version a project targets against the running editor. Plugins are pinned by the lockfile; nothing did that for the engine itself.</summary>
 	public static class ProjectEngineVersion
 	{
 		public static ProjectVersionState State { get; private set; } = ProjectVersionState.Match;
@@ -90,20 +80,7 @@ namespace Voltage.Editor.ProjectFile
 			EditorDebug.Log(Summary, "Project");
 		}
 
-		/// <summary>
-		/// Records this editor's version in the project file. Deliberate, and committed like any other
-		/// change, so the team agrees on the move rather than each machine rewriting the file on open.
-		///
-		/// <para><b>Upgrades only.</b> Moving a project to a newer engine is a normal, if notable, step.
-		/// Moving it to an older one is not the reverse: the project may already contain scenes, assets and
-		/// plugin pins the older build cannot read, and the version field is the only thing that would have
-		/// warned about it. Lowering it silently removes that warning while leaving the unreadable content
-		/// in place, which is worse than the mismatch it appears to resolve.</para>
-		///
-		/// <para>The rule lives here rather than in whichever window happens to draw the button, so a
-		/// future launcher gets the same guarantee. <paramref name="allowDowngrade"/> exists only so a
-		/// caller that has genuinely established it is safe can say so explicitly.</para>
-		/// </summary>
+		/// <summary>Records this editor's version in the project file, committed like any other change. Upgrades only: lowering it removes the warning while leaving content the older build cannot read. allowDowngrade is for a caller that has established it is safe.</summary>
 		public static bool StampCurrentVersion(IGameProject project, string voltageFilePath, out string message,
 			bool allowDowngrade = false)
 		{
@@ -160,13 +137,7 @@ namespace Voltage.Editor.ProjectFile
 			}
 		}
 
-		/// <summary>
-		/// Semver-ish parse: leading numeric components only, so "0.2.0-beta" compares as 0.2.0.
-		///
-		/// <para>Always normalised to three components. Version.TryParse leaves an absent component at -1,
-		/// so "0.1" would otherwise compare as older than "0.1.0" and a matched pair would report a
-		/// mismatch.</para>
-		/// </summary>
+		/// <summary>Semver-ish parse, always normalised to three components: Version.TryParse leaves an absent component at -1, so "0.1" would compare as older than "0.1.0".</summary>
 		private static bool TryParse(string text, out Version version)
 		{
 			version = null;

@@ -8,12 +8,7 @@ using Voltage.Editor.ProjectFile;
 
 namespace Voltage.Editor.Plugins
 {
-	/// <summary>
-	/// Syncs resolved plugin payloads from their immutable source (cache / bundled / dev folder) into the
-	/// project's gitignored <c>PluginLibs/&lt;id&gt;/</c> folder - the per-project, on-disk home of everything
-	/// a plugin contributes (managed DLLs, natives, sources, content). The game csproj and the editor both
-	/// consume plugins exclusively from here, mirroring the EngineLibs precedent.
-	/// </summary>
+	/// <summary>Mirrors resolved payloads into the project's gitignored PluginLibs/&lt;id&gt;/, which the game csproj and the editor both consume from.</summary>
 	public static class PluginSync
 	{
 		public const string PluginLibsFolderName = "PluginLibs";
@@ -31,12 +26,7 @@ namespace Voltage.Editor.Plugins
 			return Path.Combine(GetPluginLibsPath(projectPath), pluginId);
 		}
 
-		/// <summary>
-		/// Mirrors a resolved plugin's payload into PluginLibs/&lt;id&gt;/. Pinned payloads are skipped when the
-		/// recorded sync marker already matches their content hash; dev payloads mirror on every call (cheap:
-		/// size + last-write-time comparison per file, stale files deleted).
-		/// Returns the project payload directory.
-		/// </summary>
+		/// <summary>Pinned payloads are skipped when the sync marker matches their hash; dev payloads mirror every call. Returns the project payload directory.</summary>
 		public static string SyncPlugin(string projectPath, ResolvedPlugin resolved)
 		{
 			var destDir = GetPluginPayloadPath(projectPath, resolved.Manifest.Id);
@@ -47,8 +37,6 @@ namespace Voltage.Editor.Plugins
 
 			if (!upToDate)
 			{
-				// SDK-pulled files and generated trimmer roots are not part of the package payload -
-				// preserve them across the mirror; the pulls below refresh them anyway.
 				MirrorDirectory(resolved.PayloadDir, destDir, new HashSet<string>(StringComparer.OrdinalIgnoreCase)
 				{
 					SyncMarkerFileName, TrimmerRootsFileName,
@@ -70,12 +58,7 @@ namespace Voltage.Editor.Plugins
 			return destDir;
 		}
 
-		/// <summary>
-		/// Copies files from the user's locally installed external SDKs (FMOD etc.) into the plugin's
-		/// project payload, per the manifest's ExternalSdks.Pulls. NDA-protected files therefore only
-		/// ever exist inside the gitignored PluginLibs - never in the package, cache, or repository.
-		/// A required SDK that is not configured makes the plugin Unavailable (throws).
-		/// </summary>
+		/// <summary>Copies files from locally installed external SDKs per the manifest's ExternalSdks.Pulls, so NDA files only ever exist in gitignored PluginLibs. Throws when a required SDK is not configured.</summary>
 		private static void ApplyExternalSdkPulls(PluginManifest manifest, string payloadDir)
 		{
 			if (manifest.ExternalSdks == null || manifest.ExternalSdks.Count == 0)
@@ -157,10 +140,7 @@ namespace Voltage.Editor.Plugins
 			}
 		}
 
-		/// <summary>
-		/// Deletes PluginLibs subfolders that no longer correspond to a plugin in plugins.json
-		/// (removed or renamed plugins), keeping the folder an exact reflection of the config.
-		/// </summary>
+		/// <summary>Deletes PluginLibs subfolders for plugins no longer in plugins.json.</summary>
 		public static void RemoveStalePayloads(string projectPath, IEnumerable<string> activePluginIds)
 		{
 			var pluginLibs = GetPluginLibsPath(projectPath);
@@ -188,10 +168,7 @@ namespace Voltage.Editor.Plugins
 			}
 		}
 
-		/// <summary>
-		/// Makes <paramref name="destDir"/> an exact copy of <paramref name="sourceDir"/>: copies new/changed
-		/// files (size + last-write-time), deletes files/dirs that no longer exist in the source, skips .git.
-		/// </summary>
+		/// <summary>Makes destDir an exact copy of sourceDir by size and last-write-time, deleting what vanished and skipping .git.</summary>
 		private static void MirrorDirectory(string sourceDir, string destDir, HashSet<string> preserveDestFiles)
 		{
 			Directory.CreateDirectory(destDir);
@@ -201,7 +178,6 @@ namespace Voltage.Editor.Plugins
 				.Where(rel => !IsExcluded(rel))
 				.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-			// Delete destination files that vanished from the source.
 			foreach (var destFile in Directory.EnumerateFiles(destDir, "*", SearchOption.AllDirectories))
 			{
 				var rel = Path.GetRelativePath(destDir, destFile);
@@ -218,7 +194,6 @@ namespace Voltage.Editor.Plugins
 				}
 			}
 
-			// Copy new and changed files.
 			foreach (var rel in sourceFiles)
 			{
 				var src = Path.Combine(sourceDir, rel);
@@ -236,7 +211,6 @@ namespace Voltage.Editor.Plugins
 				File.Copy(src, dest, overwrite: true);
 			}
 
-			// Prune directories that ended up empty after deletions.
 			foreach (var dir in Directory.EnumerateDirectories(destDir, "*", SearchOption.AllDirectories)
 				         .OrderByDescending(d => d.Length))
 			{
@@ -259,19 +233,7 @@ namespace Voltage.Editor.Plugins
 		public const string BootstrapFileName = "PluginBootstrap.g.cs";
 		public const string TrimmerRootsFileName = "PluginTrimmerRoots.xml";
 
-		/// <summary>
-		/// Regenerates the MSBuild/bootstrap glue that wires plugins into the game build, all inside the
-		/// gitignored PluginLibs folder (never touching the user's csproj beyond its one-time Import line):
-		/// <list type="bullet">
-		///   <item><c>PluginLibs/Plugins.g.props</c> - References (runtime-flavor DLLs), Compile items for
-		///     source roots + bootstrap, TrimmerRootDescriptors, and per-RID native copy targets</item>
-		///   <item><c>PluginLibs/PluginBootstrap.g.cs</c> - module initializer that AOT-roots each plugin
-		///     assembly and forces its registrations on CoreCLR</item>
-		///   <item><c>PluginLibs/&lt;id&gt;/PluginTrimmerRoots.xml</c> - preserve-all for plugin assemblies</item>
-		/// </list>
-		/// Skips plugins that are Disabled/Unavailable/Failed - the build gate in
-		/// <see cref="SyncForBuild"/> decides whether that is fatal.
-		/// </summary>
+		/// <summary>Regenerates the build glue inside PluginLibs: Plugins.g.props (references, compile items, trimmer roots, native copy targets), PluginBootstrap.g.cs, and per-plugin PluginTrimmerRoots.xml. Skips Disabled/Unavailable/Failed plugins.</summary>
 		public static void GenerateBuildFiles(string projectPath, IReadOnlyList<PluginInstance> plugins)
 		{
 			var pluginLibs = GetPluginLibsPath(projectPath);
@@ -315,8 +277,6 @@ namespace Voltage.Editor.Plugins
 					bootstrapRootTypes.AddRange(plugin.EffectiveRootTypes);
 				}
 
-				// Source-form plugins compile together with the game code; their generated module
-				// initializers then run natively, no bootstrap entry needed.
 				foreach (var srcRoot in gameplay.SourceRoots ?? Enumerable.Empty<string>())
 				{
 					var relDir = PluginManifest.NormalizeRelative(srcRoot).Replace(Path.DirectorySeparatorChar, '/');
@@ -402,11 +362,7 @@ namespace Voltage.Editor.Plugins
 			File.WriteAllText(Path.Combine(GetPluginPayloadPath(projectPath, plugin.Manifest.Id), TrimmerRootsFileName), sb.ToString());
 		}
 
-		/// <summary>
-		/// Native copy targets, modeled on the editor's CopyMonoGameNativeLibsToPublish pattern:
-		/// publish path via ResolvedFileToPublish, plus a plain copy for non-publish builds (dotnet run).
-		/// Falls back to the host RID when RuntimeIdentifier is unset.
-		/// </summary>
+		/// <summary>Native copy targets: publish path via ResolvedFileToPublish plus a plain copy for dotnet run. Falls back to the host RID.</summary>
 		private static void AppendNativeCopyTargets(StringBuilder props, List<PluginInstance> active)
 		{
 			var withNatives = active
@@ -448,11 +404,7 @@ namespace Voltage.Editor.Plugins
 			props.AppendLine("\t</Target>");
 		}
 
-		/// <summary>
-		/// Pre-publish gate: verifies every enabled plugin restored successfully and regenerates the build
-		/// glue from current state. A missing/failed plugin fails the build here with a clear message -
-		/// silently shipping a game without a plugin the scenes depend on is worse than a red build.
-		/// </summary>
+		/// <summary>Pre-publish gate: every enabled plugin must have restored, and the build glue is regenerated from current state.</summary>
 		public static bool SyncForBuild(IGameProject project, out string error)
 		{
 			error = null;
@@ -510,8 +462,6 @@ namespace Voltage.Editor.Plugins
 					var copied = 0;
 					foreach (var glob in contentGlobs)
 					{
-						// Globs are rooted at the package ("content/**"); copy matches preserving their
-						// path relative to the content root folder itself.
 						var normalized = PluginManifest.NormalizeRelative(glob);
 						var rootDir = normalized.Split(Path.DirectorySeparatorChar)[0];
 						var sourceRoot = Path.Combine(plugin.PayloadPath, rootDir);

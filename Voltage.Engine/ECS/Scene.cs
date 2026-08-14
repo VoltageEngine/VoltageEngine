@@ -113,10 +113,7 @@ public partial class Scene
 	/// </summary>
 	public Color ClearColor = Color.CornflowerBlue;
 
-	/// <summary>
-	/// Editor-only stand-in for <see cref="ClearColor"/>. Never serialized, so the project's real clear colour
-	/// is still what gets saved and shipped. Null means "use <see cref="ClearColor"/>".
-	/// </summary>
+	/// <summary>Editor-only stand-in for ClearColor, never serialized. Null means use ClearColor.</summary>
 	public Color? ClearColorOverride;
 
 	public Color EffectiveClearColor => ClearColorOverride ?? ClearColor;

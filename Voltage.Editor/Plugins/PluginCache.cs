@@ -21,7 +21,7 @@ namespace Voltage.Editor.Plugins
 
 		public static string GetCacheRoot()
 		{
-			return Path.Combine(Storage.GetStorageRoot(), CacheFolderName);
+			return Persistence.EditorStorage.PluginCacheDirectory;
 		}
 
 		/// <summary>Cache directory for a given plugin id + version + content hash ("sha256:...").</summary>

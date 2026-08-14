@@ -10,15 +10,7 @@ using Voltage.Editor.ProjectFile;
 
 namespace Voltage.Editor.Plugins
 {
-	/// <summary>
-	/// Loads and runs editor plugins: discovers <see cref="IEditorPlugin"/> implementations in the
-	/// manifest-listed editor assemblies, gates them on <see cref="EditorPluginApi.Version"/>,
-	/// initializes each in isolation (a throwing plugin is disabled and surfaced, never crashing the
-	/// editor), and owns the window/menu registries the ImGui loop draws from.
-	///
-	/// Assemblies load into the default ALC and cannot unload - updating an editor plugin requires an
-	/// editor restart (deliberate v1 trade-off, same as the script pipeline's accumulation).
-	/// </summary>
+	/// <summary>Loads editor plugins, gates them on EditorPluginApi.Version, initializes each in isolation, and owns the window/menu registries. Assemblies cannot unload, so updating one needs an editor restart.</summary>
 	public static class EditorPluginHost
 	{
 		private class ActivePlugin
@@ -43,10 +35,7 @@ namespace Voltage.Editor.Plugins
 
 		public static bool HasMenuItems => _menuItems.Count > 0;
 
-		/// <summary>
-		/// Loads and initializes the editor side of every restored plugin with an "editor" kind.
-		/// Called by <see cref="PluginManager"/> after gameplay assemblies are up.
-		/// </summary>
+		/// <summary>Loads and initializes the editor side of every restored plugin of kind "editor".</summary>
 		public static void InitializePlugins(IReadOnlyList<PluginInstance> plugins, IGameProject project)
 		{
 			_context ??= new PluginContext();
@@ -59,7 +48,6 @@ namespace Voltage.Editor.Plugins
 				if (plugin.State is not (PluginState.Restored or PluginState.Loaded))
 					continue;
 
-				// Hard ABI gate: an editor plugin built against a different API version must not load.
 				if (plugin.Manifest.EditorPluginApiVersion != EditorPluginApi.Version)
 				{
 					plugin.State = PluginState.Failed;
@@ -94,12 +82,8 @@ namespace Voltage.Editor.Plugins
 				var assembly = Assembly.LoadFrom(dllPath);
 				_loadedAssemblyPaths.Add(dllPath);
 
-				// LoadFrom resolves by assembly IDENTITY, not by path. If this assembly is already loaded
-				// - the same plugin installed earlier in this session, then removed and re-added from a
-				// different source - the runtime hands back the old one and ignores dllPath entirely.
-				// The type guard below then matches the old instance and skips Initialize, so the new
-				// build contributes nothing and says nothing. Name it instead of letting it look like a
-				// no-op, because "I re-added it and nothing happened" has no other explanation.
+				// LoadFrom resolves by identity, not path: an already-loaded assembly comes back
+				// instead of dllPath, so the new build silently contributes nothing. Say so.
 				if (!string.IsNullOrEmpty(assembly.Location) && !SamePath(assembly.Location, dllPath))
 				{
 					plugin.StaleAssemblyWarning =
@@ -124,8 +108,7 @@ namespace Voltage.Editor.Plugins
 
 				foreach (var type in pluginTypes)
 				{
-					// A previously-initialized instance survives project switches within a session
-					// (assemblies never unload) - don't double-initialize the same plugin type.
+					// Instances survive project switches, so do not double-initialize.
 					if (_active.Any(a => a.Instance.GetType() == type))
 					{
 						if (plugin.StaleAssemblyWarning == null)
@@ -202,7 +185,6 @@ namespace Voltage.Editor.Plugins
 				}
 				catch (Exception ex)
 				{
-					// One broken window must not take the editor's UI loop down; close it and surface.
 					window.IsOpen = false;
 					PluginLog.Error($"Plugin window '{window.Title}' threw during Draw and was closed: {ex.Message}");
 				}
@@ -212,10 +194,7 @@ namespace Voltage.Editor.Plugins
 		/// <summary>Draws the plugin-registered entries of the Plugins menu (supports "A/B/C" nesting).</summary>
 		public static void DrawMenuItems() => DrawMenuItems(EditorMenu.Plugins);
 
-		/// <summary>
-		/// Draws the plugin contributions for one menu. Called at the end of each host menu, so plugin
-		/// entries always appear below the editor's own commands rather than interleaved with them.
-		/// </summary>
+		/// <summary>Draws plugin contributions for one menu, at the end so they sit below the host's own commands.</summary>
 		public static void DrawMenuItems(EditorMenu menu)
 		{
 			var items = _menuItems.Where(i => i.Menu == menu).ToList();
@@ -228,7 +207,6 @@ namespace Voltage.Editor.Plugins
 
 		private static void DrawMenuLevel(List<PluginMenuItem> items, int depth)
 		{
-			// Leaves at this depth first, then grouped submenus.
 			foreach (var item in items.Where(i => i.PathSegments.Length == depth + 1))
 			{
 				if (ImGui.MenuItem(item.PathSegments[depth]))

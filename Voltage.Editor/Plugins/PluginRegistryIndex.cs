@@ -33,9 +33,7 @@ namespace Voltage.Editor.Plugins
 
 		public string Homepage;
 
-		/// <summary>
-		/// Zip URL to install from, preferred over <see cref="Git"/> when set.
-		/// </summary>
+		/// <summary>Zip URL to install from, preferred over Git when set.</summary>
 		public string Zip;
 
 		/// <summary>Which registry this listing came from. Set by the fetcher, not by the document.</summary>
@@ -44,12 +42,7 @@ namespace Voltage.Editor.Plugins
 		/// <summary>True when this listing can actually be installed.</summary>
 		public bool IsInstallable => !string.IsNullOrWhiteSpace(Zip) || !string.IsNullOrWhiteSpace(Git);
 
-		/// <summary>
-		/// What pressing Install would actually fetch, as a short label. A registry listing carries no
-		/// version field of its own - the version is whatever the source points at - so this reports the
-		/// source rather than guessing: the ref if the listing pins one, otherwise the tag embedded in a
-		/// release zip URL, otherwise an honest "default branch".
-		/// </summary>
+		/// <summary>What Install would fetch, as a label: the pinned ref, else the tag in a release zip URL, else "default branch".</summary>
 		public string VersionLabel
 		{
 			get
@@ -68,11 +61,7 @@ namespace Voltage.Editor.Plugins
 			}
 		}
 
-		/// <summary>
-		/// Pulls the tag out of a GitHub release asset URL (".../releases/download/&lt;tag&gt;/&lt;file&gt;"),
-		/// falling back to a version-looking suffix on the file name ("voltage.farseer-1.2.0.zip").
-		/// Returns null when the URL says nothing about a version.
-		/// </summary>
+		/// <summary>Tag from a GitHub release asset URL, falling back to a version suffix on the file name. Null when the URL says nothing.</summary>
 		private static string VersionFromZipUrl(string zip)
 		{
 			if (string.IsNullOrWhiteSpace(zip))
@@ -104,10 +93,7 @@ namespace Voltage.Editor.Plugins
 			return char.IsDigit(candidate[0]) ? candidate : null;
 		}
 
-		/// <summary>
-		/// The source a fresh install of this listing would record in plugins.json. Zip wins over Git for
-		/// the same reason the resolver prefers it: a zip is a built package, a clone is not.
-		/// </summary>
+		/// <summary>The source a fresh install would record. Zip wins over Git: a zip is a built package.</summary>
 		public PluginSourceSpec ToSourceSpec() =>
 			!string.IsNullOrWhiteSpace(Zip)
 				? new PluginSourceSpec { Zip = Zip.Trim() }
@@ -135,9 +121,7 @@ namespace Voltage.Editor.Plugins
 		public List<PluginRegistryEntry> Plugins = new();
 	}
 
-	/// <summary>
-	/// Browsable catalogue of installable plugins.
-	/// </summary>
+	/// <summary>Browsable catalogue of installable plugins.</summary>
 	public static class PluginRegistryIndex
 	{
 		/// <summary>The official catalogue, always first so its listings win an id collision.</summary>
@@ -148,9 +132,7 @@ namespace Voltage.Editor.Plugins
 		private static List<PluginRegistryEntry> _entries = new();
 		private static Task _inFlight;
 
-		/// <summary>
-		/// Registries to aggregate, in priority order.
-		/// </summary>
+		/// <summary>Registries to aggregate, in priority order.</summary>
 		public static List<string> RegistryUrls { get; } = new() { DefaultRegistryUrl };
 
 		/// <summary>Null while never fetched or fetching; a user-facing message when the last fetch failed.</summary>
@@ -172,15 +154,7 @@ namespace Voltage.Editor.Plugins
 			get { lock (_lock) return _entries.ToList(); }
 		}
 
-		/// <summary>
-		/// Entries matching <paramref name="search"/>. A plugin already in the project is hidden - except
-		/// when the catalogue advertises a newer version than the one installed, which is the one case
-		/// where you still want to see it.
-		/// </summary>
-		/// <param name="installedVersionsById">
-		/// Installed plugin id to its manifest version. A null version means "installed, version unknown",
-		/// which hides the listing rather than guessing.
-		/// </param>
+		/// <summary>Entries matching the search. An installed plugin is hidden unless the catalogue advertises something newer. A null installed version hides the listing rather than guessing.</summary>
 		public static IReadOnlyList<PluginRegistryEntry> Search(
 			string search, IReadOnlyDictionary<string, string> installedVersionsById)
 		{
@@ -212,14 +186,7 @@ namespace Voltage.Editor.Plugins
 				return _entries.FirstOrDefault(e => string.Equals(e.Id, id, StringComparison.OrdinalIgnoreCase));
 		}
 
-		/// <summary>
-		/// The catalogue's listing for an installed plugin when it advertises something strictly newer.
-		/// Null when there is no listing, when it has no installable source, or when its version is not
-		/// orderable against the installed one (an unpinned branch cannot claim to be an update).
-		///
-		/// <para>This compares the listing's release tag against the installed manifest version, which is
-		/// sound because the release workflow refuses to publish a tag that disagrees with plugin.json.</para>
-		/// </summary>
+		/// <summary>The catalogue listing when it advertises something strictly newer. Null when there is no listing, no installable source, or the version is not orderable.</summary>
 		public static PluginRegistryEntry FindUpdateFor(string id, string installedVersion)
 		{
 			var listing = FindById(id);
@@ -229,9 +196,7 @@ namespace Voltage.Editor.Plugins
 			return SemVerRange.IsNewer(listing.VersionLabel, installedVersion) ? listing : null;
 		}
 
-		/// <summary>
-		/// Starts a fetch if one is not already running.
-		/// </summary>
+		/// <summary>Starts a fetch if one is not already running.</summary>
 		public static void RefreshAsync()
 		{
 			lock (_lock)

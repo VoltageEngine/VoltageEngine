@@ -31,14 +31,10 @@ namespace Voltage.Editor.Plugins
 			public bool Gameplay = true;
 			public bool Editor;
 
-			/// <summary>
-			/// Emit the files a standalone repository needs - .gitignore, a release workflow, and a PackagePlugin target.
-			/// </summary>
+			/// <summary>Emit the files a standalone repository needs: .gitignore, a release workflow, a PackagePlugin target.</summary>
 			public bool RepositoryFiles = true;
 
-			/// <summary>
-			/// Absolute path to a Voltage build the generated projects reference.
-			/// </summary>
+			/// <summary>Absolute path to the Voltage build the generated projects reference.</summary>
 			public string EngineLibsPath;
 		}
 
@@ -240,9 +236,7 @@ namespace Voltage.Editor.Plugins
 			File.WriteAllText(Path.Combine(editorSrc, ns + ".Editor.csproj"), csproj.ToString());
 		}
 
-		/// <summary>
-		/// Emits the VoltageEnginePath property block shared by every generated project.
-		/// </summary>
+		/// <summary>Emits the VoltageEnginePath block shared by every generated project.</summary>
 		private static void AppendEnginePathBlock(StringBuilder sb, Options opt, string indent)
 		{
 			var fallback = string.IsNullOrWhiteSpace(opt.EngineLibsPath)
@@ -286,9 +280,7 @@ namespace Voltage.Editor.Plugins
 			File.WriteAllText(Path.Combine(pluginRoot, ".gitignore"), sb.ToString());
 		}
 
-		/// <summary>
-		/// Emits a tiny MSBuild project whose only job is <c>PackagePlugin</c>: stage the manifest and any built assemblies into the layout <c>PluginResolver</c> expects, ready to zip into a release.
-		/// </summary>
+		/// <summary>Emits the PackagePlugin project: stages the manifest and built assemblies into the layout PluginResolver expects.</summary>
 		private static void WritePackagingProject(Options opt, string pluginRoot)
 		{
 			var ns = NamespaceOf(opt);
@@ -421,10 +413,7 @@ namespace Voltage.Editor.Plugins
 			File.WriteAllText(Path.Combine(dir, "release.yml"), sb.ToString());
 		}
 
-		/// <summary>
-		/// Emits the workflow that opens a registry pull request when a release is published, so a new
-		/// version reaches the catalogue without anyone hand-editing registry.json.
-		/// </summary>
+		/// <summary>Emits the workflow that opens a registry pull request on release, so a new version reaches the catalogue without hand-editing registry.json.</summary>
 		private static void WriteRegistryWorkflow(string pluginRoot)
 		{
 			var dir = Path.Combine(pluginRoot, ".github", "workflows");

@@ -26,9 +26,7 @@ namespace Voltage.Editor.Assets
     /// </summary>
     public delegate void AssetDropAction(AssetReference reference, Microsoft.Xna.Framework.Vector2? worldPosition = null);
 
-    /// <summary>
-    /// Opens an asset that was activated (double-clicked) in the Asset Browser, given its absolute path.
-    /// </summary>
+    /// <summary>Opens an asset activated in the Asset Browser, given its absolute path.</summary>
     public delegate void AssetOpenAction(string absolutePath);
 
     /// <summary>
@@ -75,33 +73,14 @@ namespace Voltage.Editor.Assets
         AssetDropAction DropFactory = null
     )
     {
-        /// <summary>
-        /// What double-clicking this asset does. Without one, activation falls back to the behaviour for its
-        /// <see cref="Kind"/> - which is right for the kinds the editor owns, and wrong for anything a plugin
-        /// brings: a plugin file registered as Data would otherwise be handed to the built-in data-asset
-        /// viewer, which can only read the format that viewer writes.
-        ///
-        /// <para>Declared as an init-only property rather than another constructor parameter on purpose:
-        /// adding a parameter would change the record's constructor signature and break every plugin binary
-        /// already compiled against this assembly.</para>
-        /// </summary>
+        /// <summary>What double-clicking does. Without one, activation falls back to the behaviour for its Kind, which is wrong for a plugin file type. Init-only rather than a constructor parameter, so adding it does not break plugins already compiled against this assembly.</summary>
         public AssetOpenAction Open { get; init; }
     }
 
-    /// <summary>
-    /// Maps file extensions to <see cref="AssetTypeDescriptor"/>s, resolving unknown ones to the
-    /// <c>Unsupported</c> fallback.
-    ///
-    /// <para><b>Plugins register here too.</b> Call <see cref="Register"/> from an
-    /// <c>IEditorPlugin</c> so a plugin-contributed file type gets its own icon and drop behaviour
-    /// instead of showing as unsupported. <see cref="Version"/> bumps on every registration so the Asset
-    /// Browser can re-resolve descriptors for files it indexed before the plugin loaded.</para>
-    /// </summary>
+    /// <summary>Maps extensions to descriptors, falling back to Unsupported. Plugins call Register from an IEditorPlugin; Version bumps each time so the Asset Browser can re-resolve files it indexed first.</summary>
     public static class AssetTypeRegistry
     {
-        /// <summary>
-        /// Bumped on every registration.
-        /// </summary>
+        /// <summary>Bumped on every registration.</summary>
         public static int Version { get; private set; }
 
         private const string IconDir         = "DefaultContent/UI/RemixIcon/FileTypes/";
@@ -208,9 +187,7 @@ namespace Voltage.Editor.Assets
             ));
         }
 
-        /// <summary>
-        /// Registers a file-type family, replacing any previous descriptor for the same extensions.
-        /// </summary>
+        /// <summary>Registers a file-type family, replacing any previous descriptor for the same extensions.</summary>
         public static void Register(AssetTypeDescriptor descriptor)
         {
             if (descriptor?.Extensions == null)

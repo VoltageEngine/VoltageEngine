@@ -13,6 +13,7 @@ using Voltage.Editor.FilePickers;
 using Voltage.Editor.Gizmos;
 using Voltage.Editor.Hotkeys;
 using Voltage.Editor.Inspectors.CustomInspectors;
+using Voltage.Editor.Persistence;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.SceneFile;
 using Voltage.Editor.Scripting;
@@ -143,8 +144,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private bool _pendingProjectClose = false;
 	private ExitPromptType _pendingActionAfterSave;
 
-	// Relaunch has two prompts: the shared unsaved-changes one when the scene is dirty, and a plain
-	// confirmation when it is not - restarting is disruptive enough to be worth confirming either way.
+	// Two prompts: the shared unsaved-changes one, and a plain confirmation when the scene is clean.
 	private bool _pendingRelaunch = false;
 	private bool _pendingRelaunchConfirm = false;
 
@@ -352,9 +352,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_gameWindowFlags = options._gameWindowFlags;
 		_gameViewForcedPos = WindowPosition.Top;
 
-		string layoutDirectory = Path.Combine(Storage.GetStorageRoot(), "EditorLayouts");
-		Directory.CreateDirectory(layoutDirectory);
-		_layoutFilePath = Path.Combine(layoutDirectory, "imgui_layout.ini");
+		_layoutFilePath = Path.Combine(EditorStorage.LayoutsDirectory, "imgui_layout.ini");
 		_layoutManager = new LayoutManager(_layoutFilePath);
 		Core.ShouldInterceptExit = () => EditorChangeTracker.IsDirty;
 
@@ -406,8 +404,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_projectManager.OnProjectUnloaded += OnProjectUnloaded;
 		_projectManager.LoadLastProject();
 
-		// The OS centres the window title for us, which is the one place this can sit without competing
-		// with the menus for width.
 		Core.WindowTitleStatusProvider = ComposeWindowTitleStatus;
 
 		InitializeScriptManager();
@@ -873,9 +869,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			DrawBuildMenu();
 			DrawHelpMenu();
 
-			// The project indicator lives on the Editor Tools bar. Centering it here only worked while the
-			// window was wide enough: the clamp that stops it overdrawing the menus puts it flush against
-			// Help on a 13-inch screen.
+			// Centering here only worked while the window was wide: the clamp that stops it overdrawing
+			// the menus puts it flush against Help on a small screen.
 
 			ImGui.EndMainMenuBar();
 		}
@@ -1395,7 +1390,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			_pendingProjectClose = false;
 		}
 
-		// Handle editor relaunch prompt
 		if (_pendingRelaunch)
 		{
 			ImGui.OpenPopup("Save Changes?##Relaunch");
@@ -1542,13 +1536,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		}
 	}
 
-	/// <summary>
-	/// Restarts the editor in place, reopening the current project.
-	///
-	/// <para>The only way to pick up a rebuilt plugin or script assembly: .NET cannot unload one, so an
-	/// assembly loaded in this process stays loaded until the process ends. A fresh process is correct by
-	/// construction, where reloading in place would leave the old code running with nothing to say so.</para>
-	/// </summary>
+	/// <summary>Restarts the editor in place, reopening the current project. The only way to pick up a rebuilt plugin or script assembly, since .NET cannot unload one.</summary>
 	public void RequestEditorRelaunch()
 	{
 		if (EditorChangeTracker.IsDirty)
@@ -1557,10 +1545,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			_pendingRelaunchConfirm = true;
 	}
 
-	/// <summary>
-	/// Starts a second instance pointed at the current project, then exits this one. Ordering matters: if
-	/// the new process cannot be started we must not exit, or the editor simply disappears.
-	/// </summary>
+	/// <summary>Starts a second instance, then exits this one. Order matters: if the new process fails to start we must not exit.</summary>
 	private void RelaunchEditor()
 	{
 		System.Diagnostics.ProcessStartInfo startInfo;
@@ -1570,8 +1555,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		}
 		catch (Exception ex)
 		{
-			// An exception escaping here would be swallowed by the ImGui frame, and the button would look
-			// like it did nothing at all - which is the bug this whole feature exists to avoid.
 			Plugins.PluginLog.Error($"Could not prepare the relaunch, so nothing was closed: {ex.Message}");
 			return;
 		}
@@ -1583,9 +1566,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			return;
 		}
 
-		// The new editor reads the settings and window layout this one writes on shutdown, so they are
-		// written now rather than left to the exit handler - otherwise the replacement starts from
-		// whatever the previous session left behind.
+		// Written now rather than at exit, or the replacement starts from the previous session.
 		try
 		{
 			PersistSettings();
@@ -1614,8 +1595,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			return;
 		}
 
-		// Long enough to cover graphics and content initialization, which is where a replacement that
-		// starts and then dies actually dies. Blocking the UI for it is fine - the editor is closing.
+		// Long enough to cover graphics and content init, where a dying replacement dies.
 		if (child.WaitForExit(2500))
 		{
 			var reason = ReadRelaunchLogTail();
@@ -1655,11 +1635,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		}
 	}
 
-	/// <summary>
-	/// Resolves how this editor was launched so the same form can be started again. Running through the
-	/// dotnet host (dotnet run, or an IDE) needs the managed dll passed back as the first argument;
-	/// a normal apphost launch does not.
-	/// </summary>
+	/// <summary>Resolves how this editor was launched. The dotnet host needs the managed dll passed back as the first argument; an apphost launch does not.</summary>
 	private static System.Diagnostics.ProcessStartInfo BuildRelaunchStartInfo()
 	{
 		var executable = Environment.ProcessPath;
@@ -1681,9 +1657,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			arguments.Add(managedDll);
 		}
 
-		// The project is passed explicitly rather than left to the "last project" setting, so the new
-		// editor opens the one that was actually in front of you. Failing to work it out is not worth
-		// abandoning the relaunch over - the new editor still starts, just at the project picker.
+		// Passed explicitly so the new editor opens the project that was actually in front of you.
 		try
 		{
 			var project = ProjectManager.Instance?.LastProjectPath;
@@ -1701,11 +1675,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			WorkingDirectory = AppContext.BaseDirectory,
 		};
 
-		// On Unix the replacement is launched through a shell so its output can be redirected to a file.
-		// Without that, a new editor that fails during startup - native graphics init, a missing content
-		// folder - dies with nothing written anywhere, which is indistinguishable from never starting.
-		// 'exec' matters: the shell is replaced by the editor, so the returned process really is it and
-		// its exit code is the editor's.
+		// Launched through a shell so startup output is redirected to a file; without it a failed
+		// start writes nothing. 'exec' makes the returned process really be the editor.
 		if (!OperatingSystem.IsWindows())
 		{
 			var quoted = string.Join(" ", new[] { executable }.Concat(arguments).Select(ShellQuote));
@@ -1725,7 +1696,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	/// <summary>Where a relaunched editor's own output goes, so a failed restart leaves evidence.</summary>
 	private static string RelaunchLogPath =>
-		Path.Combine(AppContext.BaseDirectory, "relaunch.log");
+		Path.Combine(EditorStorage.LogsDirectory, "relaunch.log");
 
 	private static string ShellQuote(string value) => "'" + (value ?? string.Empty).Replace("'", "'\\''") + "'";
 

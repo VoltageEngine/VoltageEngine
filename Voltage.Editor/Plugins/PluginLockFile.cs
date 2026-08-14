@@ -6,12 +6,7 @@ using Voltage.Persistence;
 
 namespace Voltage.Editor.Plugins
 {
-	/// <summary>
-	/// Model of the committed <c>&lt;project&gt;/plugins.lock.json</c> file: the exact resolution of every
-	/// plugins.json entry - resolved version, git commit SHA, and a sha256 content hash of the payload.
-	/// Restore verifies acquired payloads against these pins so every teammate (and CI) gets identical
-	/// bytes; a mismatch is a hard error rather than silent drift.
-	/// </summary>
+	/// <summary>The committed plugins.lock.json: resolved version, commit SHA and payload hash per entry. A mismatch on restore is a hard error rather than silent drift.</summary>
 	public class PluginLockFile
 	{
 		public const string FileName = "plugins.lock.json";
@@ -35,10 +30,7 @@ namespace Voltage.Editor.Plugins
 
 		public void SaveTo(string projectPath)
 		{
-			// Sorted by id, not insertion order. Both teammates adding a plugin otherwise produce lists
-			// that differ by position rather than content, so git reports a conflict spanning entries
-			// neither of them touched. Sorted, a conflict is confined to the entry that actually differs
-			// and the resolution is "keep both, reopen the project to re-pin".
+			// Sorted by id: insertion order turns any two additions into a positional conflict.
 			Resolved.Sort((a, b) => string.Compare(a?.Id, b?.Id, StringComparison.OrdinalIgnoreCase));
 
 			File.WriteAllText(GetPath(projectPath), Json.ToJson(this, prettyPrint: true));
@@ -76,10 +68,7 @@ namespace Voltage.Editor.Plugins
 		/// <summary>For git sources: the fully resolved 40-hex commit SHA the ref pointed at.</summary>
 		public string Commit;
 
-		/// <summary>
-		/// sha256 over the package payload (sorted relative paths + file bytes), "sha256:&lt;hex&gt;".
-		/// Null for dev-mode path plugins, which are intentionally unpinned.
-		/// </summary>
+		/// <summary>sha256 over the payload, "sha256:&lt;hex&gt;". Null for dev-mode path plugins.</summary>
 		public string ContentHash;
 	}
 }

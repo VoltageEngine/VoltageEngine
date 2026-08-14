@@ -24,13 +24,12 @@ public class EntityPane
     private const int MIN_ENTITIES_FOR_CLIPPER = 100;
     private Entity _previousEntity;
 
-	// Drag-to-reorder feedback, shared with the tile palette's layer list. Inner drops are allowed here: dropping
-	// ON a row makes it the parent, and no seam opens for that - only for drops BETWEEN rows.
+	// Inner drops allowed here: dropping ON a row reparents, and opens no seam.
 	private readonly Voltage.Editor.Utils.DragReorderStrip _dragReorder = new(DragDropPayloadType);
 
 
-	// One entry per drawn line. The clipper MUST index this, not Scene.Entities: that list skips children and
-	// collapsed subtrees, so the row count and the reserved height disagree and rows blink in and out.
+	// One entry per drawn line. The clipper must index this, not Scene.Entities, which skips
+	// children and collapsed subtrees.
 	private readonly List<Row> _rows = new();
 
 	private readonly struct Row
@@ -127,15 +126,11 @@ public class EntityPane
 
 	public bool IsFiltering => !string.IsNullOrWhiteSpace(_entitySearch);
 
-	/// <summary>
-	/// Name filter for the entity tree. A filter shows every entity whose name matches plus the parents that
-	/// lead to it, with those branches force-opened.
-	/// </summary>
+	/// <summary>Name filter for the entity tree. Matches show with the parents leading to them, force-opened.</summary>
 	public void DrawSearchBar()
 	{
 		var clearWidth = ImGui.GetFrameHeight();
 
-		// Clamped: a negative width would be read as a right-aligned offset once the pane gets narrow.
 		var inputWidth = Math.Max(60f,
 			ImGui.GetContentRegionAvail().X - clearWidth - ImGui.GetStyle().ItemSpacing.X);
 
@@ -160,10 +155,7 @@ public class EntityPane
 
 	#region Main Draw Entry Point
 
-	/// <summary>
-	/// Flattens the hierarchy into the rows that will actually be drawn: every root, plus the descendants of
-	/// the entities that are expanded (or of a matching branch while filtering).
-	/// </summary>
+	/// <summary>Flattens the hierarchy into the rows that will be drawn: roots plus the descendants of expanded entities.</summary>
 	private void BuildVisibleRows()
 	{
 		_rows.Clear();
@@ -182,16 +174,12 @@ public class EntityPane
 		}
 	}
 
-	/// <summary>
-	/// Appends <paramref name="entity"/> and its visible descendants. Returns false when a filter is active and
-	/// neither this entity nor anything below it matched — in which case the rows it added are rolled back.
-	/// </summary>
+	/// <summary>Appends the entity and its visible descendants. False when a filter is active and nothing below matched, in which case its rows are rolled back.</summary>
 	private bool AppendRow(Entity entity, int depth, string filter)
 	{
 		var start = _rows.Count;
 		_rows.Add(new Row(entity, depth));
 
-		// A filter opens every branch, so a match nested inside collapsed parents is still reachable.
 		var expanded = filter != null || _imGuiManager.SceneGraphWindow.ExpandedEntities.Contains(entity);
 		var keptChild = false;
 
@@ -226,9 +214,8 @@ public class EntityPane
 
 		_dragReorder.BeginFrame(_selectedEntities.Count, ImGui.GetTextLineHeightWithSpacing());
 
-		// The clipper needs every row to be the same height, and a sliding strip is a row that deliberately is not.
-		// Rows are only ever all submitted while a drag is in flight - which is also when they all have to be there
-		// anyway, since a row that is never submitted cannot be a drop target.
+		// The clipper needs uniform row heights, and a sliding strip is not one. Rows are only all
+		// submitted during a drag, which is also when they all must exist to be drop targets.
 		if (_rows.Count > MIN_ENTITIES_FOR_CLIPPER && !_dragReorder.IsDragging)
 		{
 			var clipperPtr = ImGuiNative.ImGuiListClipper_ImGuiListClipper();
@@ -250,13 +237,9 @@ public class EntityPane
 				DrawEntityRow(_rows[i], i);
 			}
 
-			// The seam past the last row, for dropping at the end of the tree.
 			DrawReorderStrip(_rows.Count);
 		}
 
-		// Holding a dragged entity against the top or bottom of the pane scrolls it, so something can be moved
-		// across a tree taller than the panel without letting go. Inside the scene graph's scrolling child, which
-		// is the window this runs in.
 		_dragReorder.AutoScroll();
 
 		if (_rows.Count == 0 && IsFiltering)
@@ -272,7 +255,6 @@ public class EntityPane
 		{
 			unsafe
 			{
-				// No default rect here either: the strip is the only drop indicator in this pane now.
 				var payload = ImGui.AcceptDragDropPayload(DragDropPayloadType,
 					ImGuiDragDropFlags.AcceptNoDrawDefaultRect);
 
@@ -487,12 +469,10 @@ public class EntityPane
 	{
 		var entries = new List<(Entity entity, Transform oldParent, int oldIndex, Transform newParent, int newIndex)>();
 
-		// In the order they appear in the tree, not the order they happened to be clicked in: several entities
-		// dropped into one seam should come out in the order they were shown, not backwards.
+		// Tree order, not click order: a multi-entity drop should not come out backwards.
 		var moving = OrderedSelection();
 
-		// How many have already been inserted here, so the second one lands after the first instead of in front
-		// of it - inserting everything at one index reverses the whole group.
+		// Inserting everything at one index would reverse the group.
 		var placed = 0;
 
 		foreach (var entity in moving)
@@ -505,9 +485,7 @@ public class EntityPane
 			if (entity.Type == Entity.InstanceType.SceneRequired)
 				continue;
 
-			// An entity travels with its ancestor. Reparenting it as well would tear it out of the parent that
-			// is being moved and drop it alongside as a sibling - which is how dragging a parent and its
-			// children together flattens the whole subtree into parentless rows.
+			// An entity travels with its ancestor; reparenting it too would flatten the subtree.
 			if (HasSelectedAncestor(entity))
 				continue;
 
@@ -521,8 +499,6 @@ public class EntityPane
 			{
 				if (newParent == entity.Transform.Parent)
 				{
-					// Moving within the same parent: if old slot is before insert point the
-					// removal shifts everything down by one.
 					if (oldIndex >= 0 && oldIndex < actualInsert)
 						actualInsert--;
 				}
@@ -548,9 +524,8 @@ public class EntityPane
 
 			if (entry.newParent == null)
 			{
-				// -1 means "append" everywhere else in this method, but MoveEntityToIndex clamps a negative
-				// index to 0 - which puts the entity at the very TOP of the scene instead of the bottom. Dropping
-				// below the last row, and unparenting from the zone under the tree, both arrive here.
+				// -1 means append here, but MoveEntityToIndex clamps a negative index to 0, which would put
+				// the entity at the top of the scene instead of the bottom.
 				var rootIndex = entry.newIndex >= 0 ? entry.newIndex : Core.Scene.Entities.Count;
 				Core.Scene.Entities.MoveEntityToIndex(entry.entity, rootIndex);
 			}
@@ -577,7 +552,6 @@ public class EntityPane
 				ordered.Add(row.Entity);
 		}
 
-		// A collapsed subtree has no row, and a selection made before collapsing it still counts.
 		foreach (var entity in _selectedEntities)
 		{
 			if (!ordered.Contains(entity))
@@ -617,16 +591,12 @@ public class EntityPane
 
     #region Entity Tree Rendering and Interaction
 
-    /// <summary>
-    /// Draws a single row of the flattened tree, handles selection, context menu, and inspector opening.
-    /// Children are NOT drawn from here — <see cref="BuildVisibleRows"/> already put them in the row list —
-    /// so every row is one line of uniform height, which is what the clipper requires.
-    /// </summary>
+    // Draws one row. Children are separate rows from BuildVisibleRows, so every row is one line
+    // of uniform height, which the clipper requires.
     private void DrawEntityRow(Row row, int rowIndex)
     {
         var entity = row.Entity;
 
-        // Indent by hand: drawn flat, so there is no TreePush/TreePop pair to carry it.
         var indent = row.Depth * ImGui.GetStyle().IndentSpacing;
         if (indent > 0f)
             ImGui.Indent(indent);
@@ -642,10 +612,7 @@ public class EntityPane
         }
     }
 
-	/// <summary>
-	/// The landing strip for a drop BETWEEN rows. Nothing is drawn unless a seam is open there, and seams only ever
-	/// open for reorders - never for a drop that assigns a parent, and never for the unparent zone at the bottom.
-	/// </summary>
+	/// <summary>The landing strip for a drop between rows. Seams open only for reorders, never for a reparent or the unparent zone.</summary>
 	private void DrawReorderStrip(int slot)
 	{
 		if (!_dragReorder.TryGetGap(slot, out var height))
@@ -655,23 +622,12 @@ public class EntityPane
 			DropIntoSeam(slot);
 	}
 
-	/// <summary>
-	/// Drops the selection into the seam above row <paramref name="slot"/>: they become that row's siblings,
-	/// immediately in front of it.
-	///
-	/// <para>The seam's meaning comes from the row BELOW it and never from whichever row the cursor happened to
-	/// arm it from. One seam sits between two rows that may be at different depths - below a parent and above
-	/// its first child is a single gap meaning two different parents - so reading it from the arming row made
-	/// the same gap land differently depending on which side it was approached from. That is the drop that
-	/// sometimes goes where you pointed and sometimes does not.</para>
-	/// </summary>
+	/// <summary>Drops the selection into the seam above the slot, as that row's siblings. The seam's meaning comes from the row below it, never from the row the cursor armed it from: one gap can sit between two different parents.</summary>
 	private void DropIntoSeam(int slot)
 	{
-		// The gaps are keyed by row number and the rows are about to be rebuilt - keeping them would leave a strip
-		// hanging open somewhere in the new tree.
+		// The rows are about to be rebuilt, so a kept gap would hang open in the new tree.
 		_dragReorder.Reset();
 
-		// Past the last row the seam is below everything, and below everything is the root list.
 		if (slot < 0 || slot >= _rows.Count)
 		{
 			ReparentSelectedEntities(null, -1);
@@ -701,7 +657,6 @@ public class EntityPane
             return;
         }
 
-        // NoTreePushOnOpen: the open state only drives the arrow here, since children are separate rows.
         var flags = ImGuiTreeNodeFlags.NoTreePushOnOpen | (isSelected ? ImGuiTreeNodeFlags.Selected : 0);
         bool isExpanded = IsFiltering || _imGuiManager.SceneGraphWindow.ExpandedEntities.Contains(entity);
         if (entity.Transform.ChildCount > 0)
@@ -746,7 +701,6 @@ public class EntityPane
 			if (ImGui.IsItemClicked(ImGuiMouseButton.Left) &&
 			    ImGui.GetMousePos().X - ImGui.GetItemRectMin().X <= ImGui.GetTreeNodeToLabelSpacing())
 			{
-				// Toggle the stored state, not the displayed one, which a filter forces open.
 				var expandedSet = _imGuiManager.SceneGraphWindow.ExpandedEntities;
 				if (!expandedSet.Remove(entity))
 					expandedSet.Add(entity);
@@ -838,8 +792,6 @@ public class EntityPane
 				ImGui.SetDragDropPayload(DragDropPayloadType, (nint)(&id), sizeof(uint));
 			}
 
-			// The payload stays as it is - the reference inspectors read that entity id - so the strip is only told
-			// that a drag is running.
 			_dragReorder.MarkDragStarted();
 			var names = _selectedEntities.Count == 1
 				? $"Move: {_selectedEntities[0].Name}"
@@ -848,8 +800,7 @@ public class EntityPane
 			ImGui.EndDragDropSource();
 		}
 
-		// Drop target: the outer thirds of the row are "between rows" and slide a seam open, the middle is "make
-		// this the parent" and deliberately does not - a reparent must never look like a reorder.
+		// Outer thirds reorder and open a seam; the middle reparents and deliberately does not.
 		var zone = _dragReorder.HandleRow(rowIndex, allowInner: true, out var dropped);
 
 		if (dropped)

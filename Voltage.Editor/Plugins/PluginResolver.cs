@@ -6,10 +6,7 @@ using Voltage.Editor.DebugUtils;
 
 namespace Voltage.Editor.Plugins
 {
-	/// <summary>
-	/// The result of resolving one plugins.json entry: a validated manifest, the immutable directory the
-	/// payload can be synced from, and the pin data recorded into the lockfile.
-	/// </summary>
+	/// <summary>A validated manifest, the immutable directory to sync the payload from, and the pin data for the lockfile.</summary>
 	public class ResolvedPlugin
 	{
 		public PluginManifest Manifest;
@@ -26,14 +23,7 @@ namespace Voltage.Editor.Plugins
 		/// <summary>Dev-mode path plugin: unpinned, re-synced every open.</summary>
 		public bool IsDev;
 
-		/// <summary>
-		/// Whether <see cref="ContentHash"/> may be recorded in plugins.lock.json. False for anything built
-		/// on this machine rather than fetched: bundled plugins, and a local folder that is a plugin source
-		/// checkout. .NET assemblies embed absolute source paths, so the bytes - and therefore the hash -
-		/// differ per machine, and committing that hash makes the lockfile churn on every clone, or worse
-		/// hard-fails a teammate who built the same commit themselves. Those pin on version instead; the
-		/// hash is still computed and used locally as PluginSync's skip-marker (inside gitignored PluginLibs).
-		/// </summary>
+		/// <summary>False for anything built on this machine (bundled, or a local source checkout): .NET embeds absolute source paths, so the hash differs per machine and pinning it would churn the lockfile or hard-fail a teammate. Those pin on version; the hash is still used locally as PluginSync's skip-marker.</summary>
 		public bool IsPinnable = true;
 	}
 
@@ -45,31 +35,15 @@ namespace Voltage.Editor.Plugins
 		}
 	}
 
-	/// <summary>
-	/// Acquires plugin packages from their declared sources into the immutable per-user cache and
-	/// verifies them against the lockfile. Sources: bundled (ships with the editor), local path,
-	/// git URL (pinned ref, user's ambient credentials), https zip.
-	/// </summary>
+	/// <summary>Acquires plugin packages into the immutable per-user cache and verifies them against the lockfile. Sources: bundled, local path, git URL (pinned ref), https zip.</summary>
 	public static class PluginResolver
 	{
 		public const string BundledPluginsFolderName = "BundledPlugins";
 
-		/// <summary>
-		/// Resolves a single plugins.json entry. When <paramref name="lockEntry"/> is present the acquired
-		/// payload must match its pins (hash mismatch = hard error, except bundled plugins which follow the
-		/// editor's version). Pass <paramref name="allowRepin"/> for an explicit user-driven update, which
-		/// accepts new content and returns fresh pins.
-		/// </summary>
-		/// <param name="allowSourceBuild">
-		/// Whether a local folder that is an unbuilt source checkout may be built here. Off by default
-		/// because the build takes minutes: only the install worker, which has a progress UI and is not the
-		/// thread drawing the editor, passes true. Everywhere else reports what is missing instead.
-		/// </param>
+		/// <summary>Resolves one plugins.json entry. With a lockEntry the payload must match its pins; allowRepin accepts new content for a user-driven update. allowSourceBuild lets a local source checkout be built here, which only the install worker does because it takes minutes.</summary>
 		public static ResolvedPlugin Resolve(ProjectPluginEntry entry, PluginLockEntry lockEntry, string projectPath,
 			bool allowRepin = false, bool allowSourceBuild = false)
 		{
-			// A declaration with no source is not a broken entry - it is a plugin somebody on the team has as a
-			// folder of their own and has never published. Saying so is the whole point of recording the id.
 			if (entry.Source != null && entry.Source.IsUnset)
 			{
 				throw new PluginResolveException(
@@ -96,13 +70,7 @@ namespace Voltage.Editor.Plugins
 
 		#region Bundled
 
-		/// <summary>
-		/// Bundled plugins live under the editor install ("&lt;editor&gt;/BundledPlugins/&lt;folder&gt;/") and are
-		/// versioned by the editor itself, so a content-hash change after an editor update is expected -
-		/// the lock is refreshed with a log line instead of failing.
-		/// Their payload is compiled by the editor build on each machine, so the hash is not reproducible
-		/// across machines and is never written to the lockfile (see <see cref="ResolvedPlugin.IsPinnable"/>).
-		/// </summary>
+		/// <summary>Bundled plugins are versioned by the editor, so a hash change after an editor update refreshes the lock instead of failing. Their payload is compiled per machine and never pinned.</summary>
 		private static ResolvedPlugin ResolveBundled(ProjectPluginEntry entry, PluginLockEntry lockEntry)
 		{
 			var packageRoot = FindBundledPackage(entry.Id);
@@ -145,10 +113,7 @@ namespace Voltage.Editor.Plugins
 			return Path.Combine(AppContext.BaseDirectory, BundledPluginsFolderName);
 		}
 
-		/// <summary>
-		/// Ids of all plugins bundled with this editor build (scans the BundledPlugins folder). Used to
-		/// populate the "Add bundled plugin" dropdown in the Plugin Manager.
-		/// </summary>
+		/// <summary>Ids of all plugins bundled with this editor build, for the Add-bundled dropdown.</summary>
 		public static IReadOnlyList<string> GetAvailableBundledPluginIds()
 		{
 			var ids = new List<string>();
@@ -219,8 +184,6 @@ namespace Voltage.Editor.Plugins
 			if (!Directory.Exists(sourceDir))
 				throw new PluginResolveException($"Source folder not found: {sourceDir}");
 
-			// A local folder is the one source that can be a source checkout rather than a built package,
-			// so it is the one that may need building before its manifest can even be validated.
 			var build = PluginSourceBuild.EnsureBuilt(sourceDir, allowSourceBuild);
 
 			PluginManifest manifest;
@@ -239,8 +202,6 @@ namespace Voltage.Editor.Plugins
 
 			EnsureManifestIdMatches(entry, manifest);
 
-			// Dev mode: sync straight from the working folder, unpinned. For iterating on a plugin
-			// while using it - the payload refreshes on every project open.
 			if (entry.Dev)
 			{
 				return new ResolvedPlugin
@@ -288,21 +249,14 @@ namespace Voltage.Editor.Plugins
 
 		#region Git / Zip (remote acquisition)
 
-		/// <summary>
-		/// Git acquisition via the user's git CLI + ambient credentials (SSH agent / credential helper),
-		/// which is what lets private NDA plugin repos work with zero credential handling in the editor.
-		/// The ref is resolved to a commit SHA once and pinned in the lockfile; restores fetch exactly
-		/// that SHA (shallow), so a later force-pushed tag can never silently change what teammates get.
-		/// </summary>
+		/// <summary>Git acquisition through the user's git CLI and ambient credentials, so private repos work without the editor handling credentials. The ref is pinned to a commit SHA, so a force-pushed tag cannot silently change what teammates get.</summary>
 		private static ResolvedPlugin ResolveGit(ProjectPluginEntry entry, PluginLockEntry lockEntry, bool allowRepin)
 		{
 			var url = entry.Source.Git;
 
-			// Fast path: the lock pins this exact source and the cache already holds the payload.
 			if (TryUseCachedLockedPayload(entry, lockEntry, allowRepin, out var cached))
 				return cached;
 
-			// Determine the commit to fetch: the lock's pin when valid, else resolve the ref remotely.
 			string commit;
 			if (!allowRepin && lockEntry != null && lockEntry.Source.Matches(entry.Source) && !string.IsNullOrEmpty(lockEntry.Commit))
 				commit = lockEntry.Commit;
@@ -398,10 +352,7 @@ namespace Voltage.Editor.Plugins
 			}
 		}
 
-		/// <summary>
-		/// Offline-friendly fast path shared by git/zip: when the lock pins this exact source and the
-		/// cache already holds the pinned payload, use it without touching the network.
-		/// </summary>
+		/// <summary>Uses the cached payload when the lock pins this exact source, without touching the network.</summary>
 		private static bool TryUseCachedLockedPayload(ProjectPluginEntry entry, PluginLockEntry lockEntry, bool allowRepin, out ResolvedPlugin resolved)
 		{
 			resolved = null;
@@ -426,16 +377,12 @@ namespace Voltage.Editor.Plugins
 			return true;
 		}
 
-		/// <summary>
-		/// Resolves a git ref (tag, branch, or SHA) to a full commit SHA via <c>git ls-remote</c>.
-		/// Tags win over branches when both exist; annotated tags prefer the peeled (^{}) commit.
-		/// </summary>
+		/// <summary>Resolves a git ref to a full commit SHA via git ls-remote. Tags beat branches; annotated tags prefer the peeled commit.</summary>
 		private static string ResolveGitRefToSha(string pluginId, string url, string gitRef)
 		{
 			if (string.IsNullOrWhiteSpace(gitRef))
 				throw new PluginResolveException($"Plugin '{pluginId}': git source needs a \"Ref\" (tag, branch, or commit SHA) to pin.");
 
-			// A full 40-hex SHA needs no resolution.
 			if (gitRef.Length == 40 && gitRef.All(Uri.IsHexDigit))
 				return gitRef.ToLowerInvariant();
 
@@ -451,7 +398,6 @@ namespace Voltage.Editor.Plugins
 				var sha = parts[0];
 				var refName = parts[1].Trim();
 
-				// Peeled annotated tags are the actual commit - always prefer them.
 				if (refName.EndsWith("^{}", StringComparison.Ordinal))
 					return sha.ToLowerInvariant();
 
@@ -510,7 +456,6 @@ namespace Voltage.Editor.Plugins
 			}
 			catch
 			{
-				// Best-effort temp cleanup.
 			}
 		}
 
@@ -520,8 +465,6 @@ namespace Voltage.Editor.Plugins
 
 		private static void EnsureManifestIdMatches(ProjectPluginEntry entry, PluginManifest manifest)
 		{
-			// Discovery mode (the Add-plugin flow): the entry has no id yet - it is taken from the
-			// resolved manifest by the caller, so there is nothing to cross-check.
 			if (string.IsNullOrEmpty(entry.Id))
 				return;
 
@@ -530,11 +473,7 @@ namespace Voltage.Editor.Plugins
 					$"plugins.json entry '{entry.Id}' resolved to a package whose plugin.json declares id '{manifest.Id}'. The entry id must match the manifest.");
 		}
 
-		/// <summary>
-		/// Enforces the lockfile pin: acquired content must hash to what the lock recorded, so teammates
-		/// and CI restore identical bytes. An explicit user update (<paramref name="allowRepin"/>) accepts
-		/// the new content instead.
-		/// </summary>
+		/// <summary>Acquired content must hash to what the lock recorded, so teammates and CI restore identical bytes. allowRepin accepts new content instead.</summary>
 		private static void VerifyAgainstLock(ProjectPluginEntry entry, PluginLockEntry lockEntry, string actualHash, bool allowRepin, string remedyHint)
 		{
 			if (lockEntry?.ContentHash == null || allowRepin)
@@ -548,21 +487,13 @@ namespace Voltage.Editor.Plugins
 					$"Plugin '{entry.Id}': content does not match plugins.lock.json (expected {lockEntry.ContentHash}, got {actualHash}). " + remedyHint);
 		}
 
-		/// <summary>
-		/// Streams the archive to disk, reporting progress and honouring cancellation.
-		///
-		/// <para>Reads the response headers first rather than buffering the whole body, so the size is known
-		/// up front and bytes land on disk as they arrive. The timeout is per read, not for the whole
-		/// transfer: a large plugin on a slow line is fine, a server that accepts the connection and then
-		/// goes quiet is not, and a single overall timeout cannot tell those apart.</para>
-		/// </summary>
+		/// <summary>Streams the archive to disk with progress and cancellation. The timeout is per read, not per transfer: a slow line is fine, a server that goes quiet is not.</summary>
 		private static void DownloadZip(ProjectPluginEntry entry, string url, string zipPath)
 		{
 			var token = PluginDownloadContext.Token;
 
 			using var http = new System.Net.Http.HttpClient
 			{
-				// Per-read watchdog below governs a hang; this only bounds the initial response.
 				Timeout = TimeSpan.FromSeconds(60),
 			};
 

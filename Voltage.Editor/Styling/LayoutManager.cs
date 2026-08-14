@@ -3,15 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using ImGuiNET;
+using Voltage.Editor.Persistence;
 using Voltage.Editor.Utils;
 
 namespace Voltage.Editor.Styling
 {
     public class LayoutManager
     {
-	    /// <summary>
-	    /// Filename pointer for the layout output path
-	    /// </summary>
 	    public byte[] LayoutInitPathUtf8;
 
 		public bool HasPendingReload => _pendingLayoutReload;
@@ -28,12 +26,11 @@ namespace Voltage.Editor.Styling
         public LayoutManager(string defaultLayoutPath)
         {
             _defaultLayoutPath = defaultLayoutPath;
-            
-            var projectDir = FindProjectDir();
-            _layoutsDirectory = Path.Combine(projectDir, "Content", "Voltage", "Layouts");
-            _defaultContentLayoutPath = Path.Combine(projectDir, "DefaultContent", "Layouts", "DefaultLayout.ini");
-            
-            Directory.CreateDirectory(_layoutsDirectory);
+
+            // The read-only template ships with the editor; user layouts do not.
+            _layoutsDirectory = EditorStorage.LayoutsDirectory;
+            _defaultContentLayoutPath = Path.Combine(
+                EditorStorage.FindEditorDirectory(), "DefaultContent", "Layouts", "DefaultLayout.ini");
             
             InitializeDefaultLayout();
             CreateCustomLayoutIfNeeded();
@@ -41,27 +38,19 @@ namespace Voltage.Editor.Styling
             RefreshLayoutList();
         }
 
-        /// <summary>
-        /// Gets the name of the currently active layout
-        /// </summary>
         public string CurrentLayoutName => _currentLayoutName;
 
         /// <summary>True when no persisted layout was found on disk - the first launch of a built Editor.</summary>
         public bool WasFreshInstall { get; private set; }
 
-        /// <summary>
-        /// Creates a "Custom" layout if no user-defined layouts exist in Content/Voltage/Layouts
-        /// </summary>
         private void CreateCustomLayoutIfNeeded()
         {
             try
             {
-                // Check if any user-defined layouts exist
                 if (Directory.Exists(_layoutsDirectory))
                 {
                     var existingLayouts = Directory.GetFiles(_layoutsDirectory, "*.ini");
                     
-                    // If no layouts exist, create a "Custom" layout from the default
                     if (existingLayouts.Length == 0 && File.Exists(_defaultContentLayoutPath))
                     {
                         string customLayoutPath = Path.Combine(_layoutsDirectory, "Custom.ini");
@@ -75,9 +64,6 @@ namespace Voltage.Editor.Styling
             }
         }
 
-        /// <summary>
-        /// Sets the DefaultContent layout file to read-only to prevent accidental modification
-        /// </summary>
         private void SetDefaultContentLayoutReadOnly()
         {
             try
@@ -97,9 +83,6 @@ namespace Voltage.Editor.Styling
             }
         }
 
-        /// <summary>
-        /// Initializes the default layout from DefaultContent if needed
-        /// </summary>
         private void InitializeDefaultLayout()
         {
             try
@@ -117,26 +100,6 @@ namespace Voltage.Editor.Styling
             }
         }
 
-        /// <summary>
-        /// Finds the Voltage.Editor project directory
-        /// </summary>
-        private static string FindProjectDir()
-        {
-            var dir = AppContext.BaseDirectory;
-            var di = new DirectoryInfo(dir);
-            while (di != null)
-            {
-                if (File.Exists(Path.Combine(di.FullName, "Voltage.Editor.csproj")))
-                    return di.FullName;
-                di = di.Parent;
-            }
-
-            return AppContext.BaseDirectory;
-        }
-
-        /// <summary>
-        /// Refreshes the list of available layouts from disk
-        /// </summary>
         public void RefreshLayoutList()
         {
             _availableLayouts.Clear();	
@@ -152,14 +115,8 @@ namespace Voltage.Editor.Styling
             }
         }
 
-        /// <summary>
-        /// Gets the list of available layout names
-        /// </summary>
         public IReadOnlyList<string> GetLayoutNames() => _availableLayouts;
 
-        /// <summary>
-        /// Saves the current ImGui layout with a given name
-        /// </summary>
         public void SaveLayout(string layoutName)
         {
             if (string.IsNullOrWhiteSpace(layoutName))
@@ -168,7 +125,6 @@ namespace Voltage.Editor.Styling
                 return;
             }
 
-            // Prevent saving to "Default" layout
             if (layoutName.Equals("Default", StringComparison.OrdinalIgnoreCase))
             {
                 NotificationSystem.ShowTimedNotification("Cannot save changes to the Default layout. Create a new layout instead.");
@@ -204,7 +160,6 @@ namespace Voltage.Editor.Styling
             {
                 try
                 {
-                    // Apply the layout NOW, before any windows are created this frame
                     ImGui.LoadIniSettingsFromMemory(_pendingLayoutContent);
                     
                     _pendingLayoutReload = false;
@@ -219,9 +174,6 @@ namespace Voltage.Editor.Styling
             }
         }
 
-        /// <summary>
-        /// Loads a saved layout by name
-        /// </summary>
         public void LoadLayout(string layoutName)
         {
             if (string.IsNullOrWhiteSpace(layoutName))
@@ -263,7 +215,6 @@ namespace Voltage.Editor.Styling
                 _pendingLayoutContent = layoutContent;
                 _pendingLayoutReload = true;
 
-                // Also write to disk for persistence
                 File.WriteAllText(_defaultLayoutPath, layoutContent);
 
                 _currentLayoutName = layoutName;
@@ -274,9 +225,6 @@ namespace Voltage.Editor.Styling
             }
         }
 
-        /// <summary>
-        /// Deletes a saved layout
-        /// </summary>
         public void DeleteLayout(string layoutName)
         {
             if (string.IsNullOrWhiteSpace(layoutName))
@@ -378,9 +326,6 @@ namespace Voltage.Editor.Styling
             }
         }
 
-        /// <summary>
-        /// Gets the full path to a layout file
-        /// </summary>
         public string GetLayoutPath(string layoutName)
         {
             if (layoutName.Equals("Default", StringComparison.OrdinalIgnoreCase))
@@ -391,9 +336,6 @@ namespace Voltage.Editor.Styling
             return Path.Combine(_layoutsDirectory, $"{layoutName}.ini");
         }
 
-        /// <summary>
-        /// Saves the current layout only if it's not the Default layout
-        /// </summary>
         public void AutoSaveCurrentLayout()
         {
             if (!_currentLayoutName.Equals("Default", StringComparison.OrdinalIgnoreCase))

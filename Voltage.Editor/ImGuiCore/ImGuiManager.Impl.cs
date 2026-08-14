@@ -7,6 +7,7 @@ using Microsoft.Xna.Framework.Input;
 using Voltage.Console;
 using Voltage.Utils;
 using Voltage.Utils.Extensions;
+using Voltage.Editor.Persistence;
 using Voltage.Editor.Utils;
 using Voltage.Persistence.Binary;
 using Num = System.Numerics;
@@ -53,7 +54,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private void LoadSettings()
 	{
 		var fileDataStore = Core.Services.GetService<FileDataStore>() ??
-		                    new FileDataStore(Storage.GetStorageRoot());
+		                    new FileDataStore(EditorStorage.Root);
 		KeyValueDataStore.Default.Load(fileDataStore);
 
 		ShowStyleEditor = KeyValueDataStore.Default.GetBool(kShowStyleEditor, ShowStyleEditor);

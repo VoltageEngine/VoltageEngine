@@ -13,6 +13,9 @@ public class Program
 	{
 		CommandLineArgs = args;
 
+		// First, so nothing writes to the pre-migration locations on the way up.
+		Persistence.EditorStorage.Initialize();
+
 		// Catches unhandled exceptions and logs them to a file & Editor Debug Window
 		AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
 		System.Threading.Tasks.TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
@@ -49,9 +52,12 @@ public class Program
 		// Crash Log File
 		try
 		{
-			var logPath = Path.Combine(
-				AppContext.BaseDirectory,
-				$"crash_{DateTime.Now:yyyyMMdd_HHmmss}.log");
+			// A crash log beats a tidy location if storage resolution is itself broken.
+			string logDir;
+			try { logDir = Persistence.EditorStorage.LogsDirectory; }
+			catch { logDir = AppContext.BaseDirectory; }
+
+			var logPath = Path.Combine(logDir, $"crash_{DateTime.Now:yyyyMMdd_HHmmss}.log");
 			File.WriteAllText(logPath, logMessage);
 		}
 		catch { }

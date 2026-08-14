@@ -7,20 +7,7 @@ using System.Threading;
 
 namespace Voltage.Editor.FilePickers
 {
-	/// <summary>
-	/// Windows' modern Explorer file dialogs (IFileDialog, Vista+) - the same picker every other Windows
-	/// application shows, with the sidebar, the search box, typing a path, and the usual keyboard handling.
-	///
-	/// <para>This exists because tinyfiledialogs' Windows path does not use them: it calls
-	/// <c>SHBrowseForFolder</c> for a folder and <c>GetOpenFileName</c> for a file, which are the pre-Vista
-	/// dialogs - a cramped tree with no address bar and no way to paste a path. They still work, so nothing
-	/// looked broken; they just are not the dialog Windows users expect. Windows therefore never goes
-	/// through tinyfd, and <see cref="NativeFileDialogs"/> routes here instead.</para>
-	///
-	/// <para>The dialog runs on its own STA thread. COM apartment-model dialogs want STA, and the editor's
-	/// main thread is whatever the game host made it - borrowing a thread is cheaper than constraining the
-	/// process. <see cref="Show"/> joins it, so callers keep the blocking behaviour they already had.</para>
-	/// </summary>
+	/// <summary>Windows' modern Explorer dialogs (IFileDialog, Vista+). tinyfiledialogs calls the pre-Vista SHBrowseForFolder/GetOpenFileName instead, so Windows routes here rather than through tinyfd. Runs on its own STA thread, which Show joins so callers keep blocking behaviour.</summary>
 	[SupportedOSPlatform("windows")]
 	internal static class WindowsFileDialogs
 	{
@@ -43,17 +30,9 @@ namespace Voltage.Editor.FilePickers
 		private static bool Show(Guid clsid, string title, string startPath, string fileName,
 			FilterSpec[] filters, string defaultExtension, uint options, out string result)
 		{
-			// Owning the dialog to the editor's window hangs the editor outright, and this is the whole
-			// reason for the check. Showing a modal dialog disables its owner, which the shell does by
-			// sending messages to the thread that owns that window - and that thread is the one sitting in
-			// the Join below. A blocked STA thread still pumps, so the messages land and the dialog opens;
-			// a blocked MTA thread does not, so the send never returns, Show never displays anything, and
-			// the editor freezes with no dialog to close. Voltage's Main declares no [STAThread], so it is
-			// MTA and takes the second path.
-			//
-			// Unowned, the dialog opens normally. It loses the tie to the editor window - it can fall behind
-			// it - which is a far smaller price than a hang, and matches what the previous tinyfd dialogs
-			// did anyway.
+			// Unowned on purpose. A modal disables its owner by sending messages to the owning thread,
+			// which is the one blocked in Join below; a blocked MTA thread does not pump, so the send
+			// never returns and the editor hangs with no dialog. Voltage's Main is MTA.
 			var owner = Thread.CurrentThread.GetApartmentState() == ApartmentState.STA
 				? GetForegroundWindow()
 				: IntPtr.Zero;
@@ -95,8 +74,7 @@ namespace Voltage.Editor.FilePickers
 
 			try
 			{
-				// OR into whatever the dialog already defaults to rather than replacing it: the defaults
-				// carry behaviour (like restoring the last folder) that is not ours to discard.
+				// OR into the defaults rather than replacing them: they carry behaviour like the last folder.
 				dialog.GetOptions(out var current);
 				dialog.SetOptions(current | options);
 
@@ -108,8 +86,7 @@ namespace Voltage.Editor.FilePickers
 				if (!string.IsNullOrEmpty(fileName))
 					dialog.SetFileName(fileName);
 
-				// A folder dialog rejects SetFileTypes outright (E_UNEXPECTED), so the mode decides rather
-				// than the caller: filters are meaningless when picking a folder anyway.
+				// A folder dialog rejects SetFileTypes (E_UNEXPECTED), and filters are meaningless there.
 				if (filters is { Length: > 0 } && (options & FosPickFolders) == 0)
 				{
 					dialog.SetFileTypes((uint)filters.Length, filters);
@@ -119,7 +96,6 @@ namespace Voltage.Editor.FilePickers
 				if (!string.IsNullOrEmpty(defaultExtension))
 					dialog.SetDefaultExtension(defaultExtension);
 
-				// Zero unless the caller's thread will pump while it waits - see the note in Show.
 				hr = dialog.Show(owner);
 				if (hr == HresultCancelled)
 					return null;
@@ -142,11 +118,7 @@ namespace Voltage.Editor.FilePickers
 			}
 		}
 
-		/// <summary>
-		/// Points the dialog at the caller's folder. SetFolder rather than SetDefaultFolder: the caller
-		/// passes the path the user is already working in, which should win over wherever the dialog was
-		/// left last time.
-		/// </summary>
+		/// <summary>SetFolder, not SetDefaultFolder: the path the caller is working in should beat wherever the dialog was left.</summary>
 		private static void ApplyStartFolder(IFileDialog dialog, string startPath)
 		{
 			var folder = ResolveFolder(startPath);
@@ -166,7 +138,6 @@ namespace Voltage.Editor.FilePickers
 			}
 			catch (COMException)
 			{
-				// A folder that vanished between the check and the call is not worth failing the dialog for.
 			}
 			finally
 			{
@@ -211,10 +182,7 @@ namespace Voltage.Editor.FilePickers
 			}
 		}
 
-		/// <summary>
-		/// One entry for the caller's own patterns plus an "All files" escape hatch. Patterns are accepted
-		/// in every shape the call sites use - "png", ".png" and "*.png" all mean the same thing.
-		/// </summary>
+		/// <summary>The caller's patterns plus an "All files" escape hatch. "png", ".png" and "*.png" all mean the same thing.</summary>
 		private static FilterSpec[] BuildFilters(string[] patterns, string description)
 		{
 			var normalized = NormalizePatterns(patterns);
@@ -309,9 +277,8 @@ namespace Voltage.Editor.FilePickers
 			[MarshalAs(UnmanagedType.LPWStr)] public string Spec;
 		}
 
-		// IFileDialog, declared in vtable order (IModalWindow's Show first). IFileOpenDialog and
-		// IFileSaveDialog both derive from it, so one declaration drives every dialog here; only Show is
-		// PreserveSig, because cancelling is an ordinary outcome rather than an exception.
+		// IFileDialog in vtable order; IFileOpenDialog and IFileSaveDialog both derive from it. Only
+		// Show is PreserveSig, since cancelling is an ordinary outcome.
 		[ComImport, Guid("42F85136-DB7E-439C-85F1-E4075D135FC8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 		private interface IFileDialog
 		{

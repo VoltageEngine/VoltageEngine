@@ -5,12 +5,7 @@ using Voltage.Persistence;
 
 namespace Voltage.Editor.Plugins
 {
-	/// <summary>
-	/// Model of the committed <c>&lt;project&gt;/plugins.json</c> file: the list of plugins a project wants
-	/// and where each comes from. Together with <see cref="PluginLockFile"/> (exact pins) it lets every
-	/// teammate restore identical plugin payloads; the payloads themselves live in the gitignored
-	/// PluginLibs folder and the per-user cache, never in source control.
-	/// </summary>
+	/// <summary>The committed plugins.json: which plugins a project wants and where each comes from. With PluginLockFile it lets every teammate restore identical payloads.</summary>
 	public class ProjectPluginsConfig
 	{
 		public const string FileName = "plugins.json";
@@ -37,8 +32,7 @@ namespace Voltage.Editor.Plugins
 
 		public void SaveTo(string projectPath)
 		{
-			// Sorted for the same reason as the lockfile: insertion order makes two teammates adding
-			// different plugins conflict positionally, over entries neither of them touched.
+			// Sorted, so two teammates adding different plugins do not conflict positionally.
 			Plugins.Sort((a, b) => string.Compare(a?.Id, b?.Id, StringComparison.OrdinalIgnoreCase));
 
 			File.WriteAllText(GetPath(projectPath), Json.ToJson(this, prettyPrint: true));
@@ -52,27 +46,14 @@ namespace Voltage.Editor.Plugins
 
 		public PluginSourceSpec Source = new();
 
-		/// <summary>
-		/// Local development mode: the payload re-syncs from the source folder on every project open and is
-		/// exempt from lockfile content hashing. Only meaningful with a Path source.
-		/// </summary>
+		/// <summary>Dev mode: re-syncs from the source folder every project open and is exempt from content hashing. Path sources only.</summary>
 		public bool Dev;
 
 		/// <summary>Disabled plugins stay listed (and locked) but are not synced or loaded.</summary>
 		public bool Disabled;
 	}
 
-	/// <summary>
-	/// Discriminated source of a plugin package - exactly one of the fields is set:
-	/// <list type="bullet">
-	///   <item><see cref="Bundled"/> - ships with the editor (BundledPlugins folder)</item>
-	///   <item><see cref="Git"/> (+ <see cref="Ref"/>) - cloned at a pinned tag/commit; private repos use the
-	///     user's ambient git credentials, which is how NDA plugins stay off public infrastructure</item>
-	///   <item><see cref="Zip"/> - https zip archive, verified by content hash</item>
-	///   <item><see cref="Path"/> - local folder, relative to the project root or absolute</item>
-	/// </list>
-	/// A future registry becomes one more field here (name -> git/zip lookup) with no format change.
-	/// </summary>
+	/// <summary>Discriminated source of a plugin package: exactly one of Bundled, Git (+Ref), Zip or Path is set.</summary>
 	public class PluginSourceSpec
 	{
 		public bool Bundled;
@@ -94,12 +75,7 @@ namespace Voltage.Editor.Plugins
 			return set == 1;
 		}
 
-		/// <summary>
-		/// No source at all: the project records that it uses this plugin, but nowhere anyone can fetch it
-		/// from. Written when a plugin exists only as a folder on somebody's machine - the id is shareable
-		/// information, the folder is not - and replaced by a real source the moment it is published or
-		/// vendored.
-		/// </summary>
+		/// <summary>No source: the project records that it uses this plugin but nowhere to fetch it from. Replaced once the plugin is published or vendored.</summary>
 		public bool IsUnset =>
 			!Bundled
 			&& string.IsNullOrWhiteSpace(Git)
