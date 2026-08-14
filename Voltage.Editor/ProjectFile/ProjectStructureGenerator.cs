@@ -148,6 +148,9 @@ namespace Voltage.Editor.ProjectFile
 
     <!-- Disable auto-generated assembly info to avoid conflicts with Properties/AssemblyInfo.cs -->
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+
+    <!-- Build\ holds published copies of the engine DLLs; globbing them in lets a publish resolve against an old build instead of EngineLibs\.  -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);Build\**;PluginLibs\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <!-- Only set the application icon if Icon.ico exists in the project root -->

@@ -513,6 +513,8 @@ namespace Voltage.Editor.Assets
                 if (SkippedExtensions.Contains(ext) || IsTransientFile(filePath))
                     continue;
 
+                Utils.ProjectLoadProgress.Report(filePath);
+
                 // GUIDs are already created by BuildFolderNode — GetOrCreateGuid is idempotent.
                 GetOrCreateGuid(filePath);
 

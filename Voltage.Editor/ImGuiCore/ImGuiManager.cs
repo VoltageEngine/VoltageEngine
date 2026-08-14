@@ -402,6 +402,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_projectManager = ProjectManager.Instance;
 		_projectManager.OnProjectLoaded += OnProjectLoaded;
 		_projectManager.OnProjectUnloaded += OnProjectUnloaded;
+		Utils.ProjectLoadProgress.FramePump = RenderProjectLoadFrame;
 		_projectManager.LoadLastProject();
 
 		Core.WindowTitleStatusProvider = ComposeWindowTitleStatus;
@@ -666,8 +667,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			return;
 		}
 
-		bool success = _projectManager.LoadProject(selectedFile);
-		Debug.ErrorIf(!success, "Failed to load project.");
+		RequestProjectLoad(selectedFile);
 	}
 
 	/// <summary>

@@ -128,6 +128,8 @@ public class ProjectManager : GlobalManager
 	/// </summary>
 	/// <param name="voltageFilePath">Path to the .voltage file</param>
 	/// <returns>True if the project was loaded successfully</returns>
+	private const int LoadPhaseCount = 4;
+
 	public bool LoadProject(string voltageFilePath)
 	{
 		if (string.IsNullOrWhiteSpace(voltageFilePath))
@@ -173,14 +175,20 @@ public class ProjectManager : GlobalManager
 
 			AddToRecentProjects(voltageFilePath);
 
+			using var progress = Utils.ProjectLoadProgress.Begin(project.ProjectName, LoadPhaseCount);
+
+			Utils.ProjectLoadProgress.BeginPhase("Opening project");
+			Utils.ProjectLoadProgress.Report(voltageFilePath);
 			project.Initialize();
 
+			Utils.ProjectLoadProgress.BeginPhase("Syncing engine libraries");
 			EngineLibsSync.SyncToProject(project.ProjectPath);
 			ProjectStructureGenerator.EnsureDefaultFontExists(project.ProjectPath);
 			ProjectSettings.Instance = project.Settings;
 
 			Utils.EditorBackgroundColor.Apply();
 
+			Utils.ProjectLoadProgress.BeginPhase("Restoring plugins");
 			Plugins.PluginManager.Instance.RestoreForProject(project);
 
 			// Point the content resolver at the game project root so that relative
@@ -257,6 +265,7 @@ public class ProjectManager : GlobalManager
 				};
 			};
 
+			Utils.ProjectLoadProgress.BeginPhase("Indexing assets and opening the scene");
 			OnProjectLoaded?.Invoke(project);
 			if (oldProject != null)
 			{

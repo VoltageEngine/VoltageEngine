@@ -177,7 +177,7 @@ public partial class ImGuiManager
 
 						if (ImGui.MenuItem(projectName))
 						{
-							_projectManager.LoadProject(projectPath);
+							RequestProjectLoad(projectPath);
 						}
 
 						if (ImGui.IsItemHovered())
