@@ -17,13 +17,10 @@ sidebar_position: 5
   Implement `IAudioComponent`, call `AudioComponentRegistry.Register(this)` in `OnAddedToEntity`, and `Unregister` in `OnRemovedFromEntity`. Guard your own `Play` calls with `Core.IsAudioOn`.
 
 - **Never edit or delete a generated `[ComponentId("...")]`; it is what survives class renames and namespace moves.**
-  The editor stamps `[ComponentId]` onto every concrete component and scene component on its first compile without one, using the class name at that moment, and then leaves it alone. Scenes and prefabs store that id, so you can rename the class or move it to another namespace freely and `[FormerlyKnownAs]` is not needed. If you delete the attribute the next compile stamps a fresh one from the current class name, which is a new identity, and every scene that referenced the old id loses the component. Changing the string by hand does the same. Two exceptions: abstract classes are never stamped, and sources of installed (non-dev) plugins are not touched, so plugin authors write the attribute themselves.
+  The editor stamps `[ComponentId]` onto every concrete component and scene component on its first compile without one, using the class name at that moment, and then leaves it alone. Scenes and prefabs store that id, so you can rename the class or move it to another namespace freely. If you delete the attribute the next compile stamps a fresh one from the current class name, which is a new identity, and every scene that referenced the old id loses the component. Changing the string by hand does the same. Two exceptions: abstract classes are never stamped, and sources of installed (non-dev) plugins are not touched, so plugin authors write the attribute themselves.
 
 - **Use `[DecodeAlias("oldName")]` when renaming a field.**
   `[ComponentId]` identifies the type, not its fields; field values are saved under the field name. Without the alias, old scenes and save files silently drop the renamed field's value.
-
-- **`[FormerlyKnownAs]` is only for scenes saved before the component had a `[ComponentId]`.**
-  It is the legacy name-based fallback the loader tries after the id lookup fails. New projects never need it.
 
 - **Use `IUpdatableInPauseMode` for UI and menus.**
   Without it, your component stops updating the moment the user presses Pause.
@@ -53,6 +50,3 @@ sidebar_position: 5
 
 - **Do not delete `.meta` files while the project is open.**
   The editor regenerates them with a new GUID, breaking all editor-side prefab references that pointed to the old one.
-
-- **Do not apply `[FormerlyKnownAs]` to an abstract class.**
-  The attribute is `Inherited = false`. Apply it to each concrete class that needs the rename registered.

@@ -44,24 +44,7 @@ Fields marked `[JsonExclude]` are skipped entirely. Private fields are skipped u
 | `[JsonExclude]` | Field or property | Excluded from serialization. Applied to `Entity.Scene`, `Component.Entity`, `Component.Transform`, and similar back-references to prevent cycles. |
 | `[DecodeAlias("oldName")]` | Field in a `ComponentData` class | When loading JSON, a key matching `oldName` is mapped to this field. Use this when a field is renamed to keep old save files loading correctly. |
 | `[ComponentId("alias")]` | Component / SceneComponent class | Stable, rename-proof identity — a human-readable alias (like a protobuf field number or an Orleans `[Alias]`). Scenes reference the component by this id instead of its type name, so renaming the class *or moving its namespace* no longer breaks the scenes that use it. **The editor stamps this automatically** on first compile (defaulting the id to the class's simple name), so you normally never write it by hand. The id is assigned once and **frozen** — renaming the class never changes it. The attribute is emitted by the source generator (not the engine DLL), so it always compiles even against a stale engine reference; the generator bakes the mapping into the NativeAOT build via `ComponentIdRegistry`. Don't change or reuse an id once a scene has referenced it. |
-| `[FormerlyKnownAs("Old.Namespace.ClassName")]` | Component class | Legacy, name-based rename mechanism — the compatibility floor for scenes saved before a component had a `[ComponentId]`. The source generator registers the old name in `TypeRenameRegistry` so scenes referencing the old name still load. Once a component has a `[ComponentId]` and the scene stores it, renames are handled automatically and this is no longer required. |
 | `[DynamicallyAccessedMembers(...)]` | Engine internals | Preserves reflection metadata for trim-sensitive code paths. You will rarely need this in game scripts. |
-
-## FormerlyKnownAs Example
-
-```csharp
-// Class was "Jolt.Scripts.Enemies.BatEnemy", then moved to "Jolt.Scripts.BatEnemy".
-[Voltage.Serialization.FormerlyKnownAs(
-    "Jolt.Scripts.Enemies.BatEnemy",
-    "Jolt.Scripts.BatEnemy")]
-public partial class BatController : Component, IUpdatable
-{
-    public float Speed = 80f;
-    public void Update() { /* ... */ }
-}
-```
-
-Both old names are registered at module init. Any `.vscene` or `.vprefab` that references either old name will load and instantiate `BatController` correctly.
 
 ## The Build System
 
