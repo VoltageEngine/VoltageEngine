@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<OutputType>Exe</OutputType>
+		<GenerateProgramFile>false</GenerateProgramFile>
+		<IsTestProject>true</IsTestProject>
+		<IsPackable>false</IsPackable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Configurations>Debug;Release;Editor-Debug;Editor-Release</Configurations>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+		<PackageReference Include="NUnit" Version="4.4.0" />
+		<PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+		<ProjectReference Include="../Voltage.Engine/Voltage.Engine.csproj" />
+		<Compile Include="../Voltage.Editor/Effects/EffectToolchain.cs" Link="EffectToolchain.cs" />
+	</ItemGroup>
+</Project>

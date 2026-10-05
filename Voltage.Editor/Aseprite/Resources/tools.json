@@ -1,0 +1,3139 @@
+[
+  {
+    "name": "interpolate_frames",
+    "description": "Generate intermediate animation frames by interpolating pixel colors between existing frames",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "from_frame": {
+          "type": "number",
+          "description": "Start frame (1-based)"
+        },
+        "to_frame": {
+          "type": "number",
+          "description": "End frame (1-based)"
+        },
+        "steps": {
+          "type": "number",
+          "description": "Intermediate frames per gap (default: 1)"
+        }
+      },
+      "required": [
+        "from_frame",
+        "to_frame"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "draw_symmetry",
+    "description": "Draw pixels with automatic mirroring (horizontal, vertical, or both)",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "pixels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "color": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "color"
+            ],
+            "additionalProperties": false
+          },
+          "description": "Array of pixels to draw"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "horizontal",
+            "vertical",
+            "both"
+          ],
+          "description": "Mirror mode"
+        },
+        "axis": {
+          "type": "number",
+          "description": "Mirror axis position (default: sprite center)"
+        }
+      },
+      "required": [
+        "pixels",
+        "mode"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "generate_color_ramp",
+    "description": "Generate a color ramp from shadow to highlight through a base color for pixel art shading",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "base_color": {
+          "type": "string",
+          "description": "Base color hex"
+        },
+        "steps": {
+          "type": "number",
+          "description": "Number of colors (default: 5)"
+        },
+        "hue_shift": {
+          "type": "number",
+          "description": "Degrees to shift hue in shadows/highlights (default: 0)"
+        },
+        "set_palette": {
+          "type": "boolean",
+          "description": "Apply to sprite palette (default: false)"
+        }
+      },
+      "required": [
+        "base_color"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_animation_preview",
+    "description": "Get an animation preview as a horizontal frame strip image",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "scale": {
+          "type": "number",
+          "description": "Scale factor (default: 1)"
+        },
+        "max_frames": {
+          "type": "number",
+          "description": "Maximum frames to include (default: 30)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "flip_sprite",
+    "description": "Flip sprite content horizontally or vertically",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "direction": {
+          "type": "string",
+          "enum": [
+            "horizontal",
+            "vertical"
+          ],
+          "description": "Flip direction"
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "sprite",
+            "frame",
+            "cel"
+          ],
+          "description": "What to flip (default: sprite)"
+        }
+      },
+      "required": [
+        "direction"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "rotate_sprite",
+    "description": "Rotate the sprite by 90, 180, or 270 degrees",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "angle": {
+          "type": "number",
+          "description": "Rotation angle: 90, 180, or 270"
+        }
+      },
+      "required": [
+        "angle"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "shift_cel",
+    "description": "Shift cel content by pixel offset, optionally wrapping edges",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "dx": {
+          "type": "number",
+          "description": "Horizontal shift"
+        },
+        "dy": {
+          "type": "number",
+          "description": "Vertical shift"
+        },
+        "wrap": {
+          "type": "boolean",
+          "description": "Wrap pixels around edges (default: false)"
+        },
+        "layer": {
+          "type": "string",
+          "description": "Target layer name"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Target frame (1-based)"
+        }
+      },
+      "required": [
+        "dx",
+        "dy"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "apply_dither",
+    "description": "Fill a rectangle with a dithering pattern between two colors",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "color_a": {
+          "type": "string",
+          "description": "First color hex"
+        },
+        "color_b": {
+          "type": "string",
+          "description": "Second color hex"
+        },
+        "pattern": {
+          "type": "string",
+          "enum": [
+            "checker",
+            "bayer2",
+            "bayer4",
+            "horizontal",
+            "vertical"
+          ],
+          "description": "Dither pattern"
+        },
+        "x": {
+          "type": "number",
+          "description": "Rectangle X position"
+        },
+        "y": {
+          "type": "number",
+          "description": "Rectangle Y position"
+        },
+        "width": {
+          "type": "number",
+          "description": "Rectangle width"
+        },
+        "height": {
+          "type": "number",
+          "description": "Rectangle height"
+        },
+        "layer": {
+          "type": "string",
+          "description": "Target layer name"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Target frame (1-based)"
+        }
+      },
+      "required": [
+        "color_a",
+        "color_b",
+        "pattern",
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "load_reference_image",
+    "description": "Load an external image as a reference layer",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Image file path"
+        },
+        "opacity": {
+          "type": "number",
+          "description": "Layer opacity 0-255 (default: 128)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Layer name (default: \"Reference\")"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "generate_animation_player_tres",
+    "description": "Generate a Godot AnimationPlayer .tres resource from sprite animations",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "texture_path": {
+          "type": "string",
+          "description": "Godot res:// path to sprite sheet"
+        },
+        "output_path": {
+          "type": "string",
+          "description": "Output .tres file path"
+        },
+        "sheet_type": {
+          "type": "string",
+          "enum": [
+            "horizontal",
+            "vertical"
+          ],
+          "description": "Sprite sheet layout type"
+        },
+        "property_path": {
+          "type": "string",
+          "description": "Node property to animate (default: \"frame\")"
+        }
+      },
+      "required": [
+        "texture_path",
+        "output_path"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "define_autotile_rules",
+    "description": "Set up autotile bitmask metadata for a tileset sprite",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "tile_size": {
+          "type": "number",
+          "description": "Tile size in pixels"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "blob47",
+            "minimal16",
+            "wang"
+          ],
+          "description": "Autotile type"
+        }
+      },
+      "required": [
+        "tile_size",
+        "type"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_autotile_rules",
+    "description": "Read back the autotile bitmask metadata stored by define_autotile_rules (type, tile size, grid, and rules).",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_lospec_palette",
+    "description": "Load a popular pixel art palette by name (Lospec collection)",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Palette name: pico-8, endesga-32, arne-16, sweetie-16, resurrect-64, apollo, island-joy-16, slso8, na16, crimson"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "copy_between_sprites",
+    "description": "Copy a layer's cel from one open sprite to another. Address sprites by stable id (from list_open_sprites, unambiguous) or filename.",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "source_id": {
+          "type": "number",
+          "description": "Source sprite id from list_open_sprites (preferred)"
+        },
+        "target_id": {
+          "type": "number",
+          "description": "Target sprite id from list_open_sprites (preferred)"
+        },
+        "source_filename": {
+          "type": "string",
+          "description": "Source sprite filename (used if source_id omitted)"
+        },
+        "target_filename": {
+          "type": "string",
+          "description": "Target sprite filename (used if target_id omitted)"
+        },
+        "source_layer": {
+          "type": "string",
+          "description": "Source layer name"
+        },
+        "target_layer": {
+          "type": "string",
+          "description": "Target layer name (creates new layer if not found)"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Frame number (1-based)"
+        }
+      },
+      "required": [
+        "source_layer"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_color_stats",
+    "description": "Analyze the color usage in the active sprite (unique colors, most used, color distribution)",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "cel",
+            "layer",
+            "sprite"
+          ],
+          "description": "Analysis scope (default: sprite)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "compare_frames",
+    "description": "Compare two frames and report pixel differences",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "frame_a": {
+          "type": "number",
+          "description": "First frame number (1-based)"
+        },
+        "frame_b": {
+          "type": "number",
+          "description": "Second frame number (1-based)"
+        },
+        "layer": {
+          "type": "string",
+          "description": "Layer to compare (default: flattened view)"
+        }
+      },
+      "required": [
+        "frame_a",
+        "frame_b"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "find_unused_colors",
+    "description": "Find palette colors that are not used in any frame (indexed-mode sprites only). Duplicate palette entries are collapsed and results are capped by max_colors.",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "max_colors": {
+          "type": "number",
+          "description": "Maximum number of unused colors to return (default: 64)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "compare_screenshots",
+    "description": "Compare two frames visually and return a diff image (red=changed, green=only in A, blue=only in B)",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "frame_a": {
+          "type": "number",
+          "description": "First frame number (1-based)"
+        },
+        "frame_b": {
+          "type": "number",
+          "description": "Second frame number (1-based)"
+        }
+      },
+      "required": [
+        "frame_a",
+        "frame_b"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_sprite_bounds",
+    "description": "Get the bounding box of non-transparent content in the sprite",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string",
+          "description": "Layer name (default: all visible layers)"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Frame number (default: all frames)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "validate_animation",
+    "description": "Validate animation setup: check for empty frames, inconsistent durations, orphan cels, and missing tags",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_cel",
+    "description": "Get cel information at a specific layer and frame",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string",
+          "description": "Layer name"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Frame number (1-based)"
+        }
+      },
+      "required": [
+        "layer",
+        "frame"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_cel_position",
+    "description": "Move a cel's offset position",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string",
+          "description": "Layer name"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Frame number (1-based)"
+        },
+        "x": {
+          "type": "number",
+          "description": "X offset"
+        },
+        "y": {
+          "type": "number",
+          "description": "Y offset"
+        }
+      },
+      "required": [
+        "layer",
+        "frame",
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_cel_opacity",
+    "description": "Set a cel's opacity (0-255)",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string",
+          "description": "Layer name"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Frame number (1-based)"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 255,
+          "description": "Opacity value"
+        }
+      },
+      "required": [
+        "layer",
+        "frame",
+        "opacity"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "clear_cel",
+    "description": "Clear the content of a cel",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string",
+          "description": "Layer name"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Frame number (1-based)"
+        }
+      },
+      "required": [
+        "layer",
+        "frame"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "link_cels",
+    "description": "Link cels across frames so they share content",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string",
+          "description": "Layer name"
+        },
+        "from_frame": {
+          "type": "number",
+          "description": "Start frame (1-based)"
+        },
+        "to_frame": {
+          "type": "number",
+          "description": "End frame (1-based, inclusive)"
+        }
+      },
+      "required": [
+        "layer",
+        "from_frame",
+        "to_frame"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "put_pixel",
+    "description": "Set a single pixel's color at the specified coordinates on the active layer and frame",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "X coordinate"
+        },
+        "y": {
+          "type": "number",
+          "description": "Y coordinate"
+        },
+        "color": {
+          "type": "string",
+          "description": "Color as hex string (e.g. '#FF0000', '#FF000080' for semi-transparent)"
+        },
+        "layer": {
+          "type": "string",
+          "description": "Layer name (default: active layer)"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Frame number (default: active frame)"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "color"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "put_pixels",
+    "description": "Set multiple pixels at once (batch operation for efficiency). Each pixel is {x, y, color}",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "pixels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "color": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "color"
+            ],
+            "additionalProperties": false
+          },
+          "description": "Array of pixel data [{x, y, color}, ...]"
+        },
+        "layer": {
+          "type": "string",
+          "description": "Layer name (default: active layer)"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Frame number (default: active frame)"
+        }
+      },
+      "required": [
+        "pixels"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_pixel",
+    "description": "Read the color of a pixel at the specified coordinates",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "X coordinate"
+        },
+        "y": {
+          "type": "number",
+          "description": "Y coordinate"
+        },
+        "layer": {
+          "type": "string",
+          "description": "Layer name (default: active layer)"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Frame number (default: active frame)"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_image_data",
+    "description": "Get all pixel data from a cel as a flat array of hex colors (row-major order) or as base64 PNG",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "type": "string",
+          "enum": [
+            "hex_array",
+            "base64_png"
+          ],
+          "description": "Output format (default: base64_png)"
+        },
+        "layer": {
+          "type": "string",
+          "description": "Layer name (default: active layer)"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Frame number (default: active frame)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_image_data",
+    "description": "Replace the entire image data of a cel from a base64-encoded PNG (format=base64_png, needs 'data') or a row-major hex-color array (format=hex_array, needs 'pixels'+'width'+'height'). The hex_array shape mirrors get_image_data's output for round-trips.",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "string",
+          "description": "Base64-encoded PNG data (required when format=base64_png)"
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "base64_png",
+            "hex_array"
+          ],
+          "description": "Input format (default: base64_png)"
+        },
+        "pixels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Row-major array of hex colors (required when format=hex_array)"
+        },
+        "width": {
+          "type": "number",
+          "description": "Image width in pixels (required when format=hex_array)"
+        },
+        "height": {
+          "type": "number",
+          "description": "Image height in pixels (required when format=hex_array)"
+        },
+        "layer": {
+          "type": "string",
+          "description": "Layer name (default: active layer)"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Frame number (default: active frame)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "draw_line",
+    "description": "Draw a line between two points using the specified color and brush size",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "x1": {
+          "type": "number",
+          "description": "Start X"
+        },
+        "y1": {
+          "type": "number",
+          "description": "Start Y"
+        },
+        "x2": {
+          "type": "number",
+          "description": "End X"
+        },
+        "y2": {
+          "type": "number",
+          "description": "End Y"
+        },
+        "color": {
+          "type": "string",
+          "description": "Color as hex string"
+        },
+        "brush_size": {
+          "type": "number",
+          "description": "Brush size in pixels (default: 1)"
+        },
+        "layer": {
+          "type": "string",
+          "description": "Layer name (default: active layer)"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Frame number (default: active frame)"
+        }
+      },
+      "required": [
+        "x1",
+        "y1",
+        "x2",
+        "y2",
+        "color"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "draw_rect",
+    "description": "Draw a rectangle (filled or outline)",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "Top-left X"
+        },
+        "y": {
+          "type": "number",
+          "description": "Top-left Y"
+        },
+        "width": {
+          "type": "number",
+          "description": "Width in pixels"
+        },
+        "height": {
+          "type": "number",
+          "description": "Height in pixels"
+        },
+        "color": {
+          "type": "string",
+          "description": "Color as hex string"
+        },
+        "filled": {
+          "type": "boolean",
+          "description": "Fill the rectangle (default: true)"
+        },
+        "brush_size": {
+          "type": "number",
+          "description": "Outline brush size (default: 1)"
+        },
+        "layer": {
+          "type": "string",
+          "description": "Layer name (default: active layer)"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Frame number (default: active frame)"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height",
+        "color"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "draw_ellipse",
+    "description": "Draw an ellipse (filled or outline) within the specified bounding box",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "Top-left X of bounding box"
+        },
+        "y": {
+          "type": "number",
+          "description": "Top-left Y of bounding box"
+        },
+        "width": {
+          "type": "number",
+          "description": "Width of bounding box"
+        },
+        "height": {
+          "type": "number",
+          "description": "Height of bounding box"
+        },
+        "color": {
+          "type": "string",
+          "description": "Color as hex string"
+        },
+        "filled": {
+          "type": "boolean",
+          "description": "Fill the ellipse (default: true)"
+        },
+        "brush_size": {
+          "type": "number",
+          "description": "Outline brush size (default: 1)"
+        },
+        "layer": {
+          "type": "string",
+          "description": "Layer name (default: active layer)"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Frame number (default: active frame)"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height",
+        "color"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "flood_fill",
+    "description": "Bucket fill at the specified point with the given color",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "X coordinate to fill from"
+        },
+        "y": {
+          "type": "number",
+          "description": "Y coordinate to fill from"
+        },
+        "color": {
+          "type": "string",
+          "description": "Fill color as hex string"
+        },
+        "tolerance": {
+          "type": "number",
+          "description": "Color tolerance (0-255, default: 0)"
+        },
+        "contiguous": {
+          "type": "boolean",
+          "description": "Fill only contiguous area (default: true)"
+        },
+        "layer": {
+          "type": "string",
+          "description": "Layer name (default: active layer)"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Frame number (default: active frame)"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "color"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "draw_brush_stroke",
+    "description": "Draw along a path of points using the specified brush",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "points": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "description": "Array of points [{x, y}, ...] defining the stroke path"
+        },
+        "color": {
+          "type": "string",
+          "description": "Stroke color as hex string"
+        },
+        "brush_size": {
+          "type": "number",
+          "description": "Brush size (default: 1)"
+        },
+        "brush_type": {
+          "type": "string",
+          "enum": [
+            "circle",
+            "square",
+            "line"
+          ],
+          "description": "Brush shape (default: circle)"
+        },
+        "layer": {
+          "type": "string",
+          "description": "Layer name (default: active layer)"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Frame number (default: active frame)"
+        }
+      },
+      "required": [
+        "points",
+        "color"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "clear_image",
+    "description": "Clear the entire image/cel to transparent or a specified color",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "color": {
+          "type": "string",
+          "description": "Clear color as hex string (default: transparent)"
+        },
+        "layer": {
+          "type": "string",
+          "description": "Layer name (default: active layer)"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Frame number (default: active frame)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "replace_color",
+    "description": "Replace all occurrences of one color with another in the active cel or entire sprite",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "from_color": {
+          "type": "string",
+          "description": "Color to replace (hex string)"
+        },
+        "to_color": {
+          "type": "string",
+          "description": "Replacement color (hex string)"
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "cel",
+            "layer",
+            "sprite"
+          ],
+          "description": "Scope of replacement (default: cel)"
+        },
+        "tolerance": {
+          "type": "number",
+          "description": "Color matching tolerance (0-255, default: 0)"
+        }
+      },
+      "required": [
+        "from_color",
+        "to_color"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "outline",
+    "description": "Draw an outline around non-transparent pixels in the cel",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "color": {
+          "type": "string",
+          "description": "Outline color as hex string"
+        },
+        "layer": {
+          "type": "string",
+          "description": "Layer name (default: active layer)"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Frame number (default: active frame)"
+        },
+        "outside": {
+          "type": "boolean",
+          "description": "Draw outline outside the shape (default: true)"
+        }
+      },
+      "required": [
+        "color"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "execute_script",
+    "description": "Execute arbitrary Lua code in Aseprite's scripting environment. Use this for operations not covered by other tools. The script can access all Aseprite API objects (app, Sprite, Image, etc.)",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Lua code to execute. Return a value to include it in the response."
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_server_info",
+    "description": "Report the extension version, MCP tool count, Aseprite version and Lua apiVersion, UI availability, and connection port. Useful for bug reports.",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "undo",
+    "description": "Undo the last operation(s) in the active sprite",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "steps": {
+          "type": "number",
+          "description": "Number of undo steps (default: 1)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "redo",
+    "description": "Redo the last undone operation(s) in the active sprite",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "steps": {
+          "type": "number",
+          "description": "Number of redo steps (default: 1)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "export_png",
+    "description": "Export the sprite as PNG file(s). Can export single frame, all frames, or specific frame range",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Output file path (use {frame} placeholder for multi-frame export)"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Specific frame to export (1-based). Omit for all frames"
+        },
+        "scale": {
+          "type": "number",
+          "description": "Scale factor (default: 1)"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "export_sprite_sheet",
+    "description": "Export a sprite sheet (all frames in a grid) with optional JSON data file",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Output PNG file path"
+        },
+        "json_path": {
+          "type": "string",
+          "description": "Optional output JSON data path"
+        },
+        "sheet_type": {
+          "type": "string",
+          "enum": [
+            "horizontal",
+            "vertical",
+            "rows",
+            "columns",
+            "packed"
+          ],
+          "description": "Sheet layout (default: horizontal)"
+        },
+        "columns": {
+          "type": "number",
+          "description": "Number of columns (for rows/columns layout)"
+        },
+        "rows": {
+          "type": "number",
+          "description": "Number of rows (for rows/columns layout)"
+        },
+        "padding": {
+          "type": "number",
+          "description": "Padding between frames in pixels (default: 0)"
+        },
+        "inner_padding": {
+          "type": "number",
+          "description": "Inner padding within each frame (default: 0)"
+        },
+        "trim": {
+          "type": "boolean",
+          "description": "Trim transparent borders (default: false)"
+        },
+        "scale": {
+          "type": "number",
+          "description": "Scale factor (default: 1)"
+        },
+        "tag": {
+          "type": "string",
+          "description": "Export only frames from this animation tag"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "export_gif",
+    "description": "Export the sprite as an animated GIF",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Output GIF file path"
+        },
+        "scale": {
+          "type": "number",
+          "description": "Scale factor (default: 1)"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "export_tileset",
+    "description": "Export the tileset of a tilemap layer as an image",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string",
+          "description": "Tilemap layer name"
+        },
+        "path": {
+          "type": "string",
+          "description": "Output image file path"
+        }
+      },
+      "required": [
+        "layer",
+        "path"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "export_layers",
+    "description": "Export each layer as a separate image file",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "output_dir": {
+          "type": "string",
+          "description": "Output directory path"
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "png",
+            "gif",
+            "aseprite"
+          ],
+          "description": "Export format (default: png)"
+        },
+        "visible_only": {
+          "type": "boolean",
+          "description": "Export only visible layers (default: false)"
+        }
+      },
+      "required": [
+        "output_dir"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "export_tags_as_sheets",
+    "description": "Export each animation tag as a separate sprite sheet",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "output_dir": {
+          "type": "string",
+          "description": "Output directory path"
+        },
+        "sheet_type": {
+          "type": "string",
+          "enum": [
+            "horizontal",
+            "vertical",
+            "rows",
+            "columns"
+          ],
+          "description": "Sheet layout (default: horizontal)"
+        },
+        "scale": {
+          "type": "number",
+          "description": "Scale factor (default: 1)"
+        },
+        "json": {
+          "type": "boolean",
+          "description": "Also export JSON data for each sheet (default: false)"
+        }
+      },
+      "required": [
+        "output_dir"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_frames",
+    "description": "Get all frames in the active sprite with their durations",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "add_frame",
+    "description": "Add a new frame to the sprite",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": "number",
+          "description": "Insert after this frame number (default: after current frame)"
+        },
+        "copy": {
+          "type": "boolean",
+          "description": "Copy content from the reference frame (default: false, creates empty frame)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "delete_frame",
+    "description": "Delete a frame by number",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "frame": {
+          "type": "number",
+          "description": "Frame number to delete (1-based)"
+        }
+      },
+      "required": [
+        "frame"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_frame_duration",
+    "description": "Set the duration of a specific frame in milliseconds",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "frame": {
+          "type": "number",
+          "description": "Frame number (1-based)"
+        },
+        "duration_ms": {
+          "type": "number",
+          "description": "Duration in milliseconds"
+        }
+      },
+      "required": [
+        "frame",
+        "duration_ms"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_frame_range_duration",
+    "description": "Set the duration for a range of frames",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "from_frame": {
+          "type": "number",
+          "description": "Start frame number (1-based)"
+        },
+        "to_frame": {
+          "type": "number",
+          "description": "End frame number (1-based, inclusive)"
+        },
+        "duration_ms": {
+          "type": "number",
+          "description": "Duration in milliseconds"
+        }
+      },
+      "required": [
+        "from_frame",
+        "to_frame",
+        "duration_ms"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_active_frame",
+    "description": "Navigate to a specific frame",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "frame": {
+          "type": "number",
+          "description": "Frame number to navigate to (1-based)"
+        }
+      },
+      "required": [
+        "frame"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "duplicate_frame",
+    "description": "Duplicate an existing frame",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "frame": {
+          "type": "number",
+          "description": "Frame number to duplicate (default: current frame)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "reverse_frames",
+    "description": "Reverse the order of frames in a range",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "from_frame": {
+          "type": "number",
+          "description": "Start frame number (1-based)"
+        },
+        "to_frame": {
+          "type": "number",
+          "description": "End frame number (1-based, inclusive)"
+        }
+      },
+      "required": [
+        "from_frame",
+        "to_frame"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "export_for_godot",
+    "description": "Export sprite sheet + generate Godot SpriteFrames .tres resource. Creates both the PNG sprite sheet and a ready-to-use .tres file with animations based on Aseprite tags",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "output_dir": {
+          "type": "string",
+          "description": "Godot project directory to export into (e.g. 'D:/project/assets/sprites')"
+        },
+        "name": {
+          "type": "string",
+          "description": "Base name for output files (default: sprite filename without extension)"
+        },
+        "sheet_type": {
+          "type": "string",
+          "enum": [
+            "horizontal",
+            "vertical",
+            "rows",
+            "columns"
+          ],
+          "description": "Sheet layout (default: horizontal)"
+        },
+        "scale": {
+          "type": "number",
+          "description": "Scale factor (default: 1)"
+        },
+        "trim": {
+          "type": "boolean",
+          "description": "Trim transparent borders (default: false)"
+        },
+        "texture_path": {
+          "type": "string",
+          "description": "Explicit Godot res:// path for the texture reference in the .tres (default: res://<name>.png)"
+        }
+      },
+      "required": [
+        "output_dir"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "export_atlas_texture",
+    "description": "Export sprite regions as Godot AtlasTexture .tres files. Each slice becomes a separate AtlasTexture resource",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "output_dir": {
+          "type": "string",
+          "description": "Output directory for .tres files"
+        },
+        "texture_path": {
+          "type": "string",
+          "description": "Godot res:// path to the source texture PNG"
+        }
+      },
+      "required": [
+        "output_dir",
+        "texture_path"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "export_9patch_for_godot",
+    "description": "Export a 9-patch sprite with slice data as a Godot NinePatchRect-compatible resource",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "slice_name": {
+          "type": "string",
+          "description": "Name of the slice with 9-patch data"
+        },
+        "output_dir": {
+          "type": "string",
+          "description": "Output directory"
+        },
+        "texture_path": {
+          "type": "string",
+          "description": "Godot res:// path to the source texture PNG"
+        }
+      },
+      "required": [
+        "slice_name",
+        "output_dir",
+        "texture_path"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "export_tileset_for_godot",
+    "description": "Export tileset as image + generate Godot TileSet .tres resource",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string",
+          "description": "Tilemap layer name"
+        },
+        "output_dir": {
+          "type": "string",
+          "description": "Output directory"
+        },
+        "tile_size": {
+          "type": "number",
+          "description": "Override tile size in pixels"
+        },
+        "name": {
+          "type": "string",
+          "description": "Base name for the .tres/.png output (default: 'tileset')"
+        },
+        "texture_path": {
+          "type": "string",
+          "description": "Explicit Godot res:// path for the texture reference (default: res://<name>.png)"
+        }
+      },
+      "required": [
+        "layer",
+        "output_dir"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_animation_data",
+    "description": "Get structured animation data (tags, frame regions, durations) suitable for Godot integration",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "sheet_type": {
+          "type": "string",
+          "enum": [
+            "horizontal",
+            "vertical",
+            "rows",
+            "columns"
+          ],
+          "description": "Sheet layout to calculate regions for (default: horizontal)"
+        },
+        "columns": {
+          "type": "number",
+          "description": "Column count for rows/columns layout"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "generate_spriteframes_tres",
+    "description": "Generate a Godot SpriteFrames .tres file from the current sprite's tags and frames without exporting images",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "texture_path": {
+          "type": "string",
+          "description": "Godot res:// path to the sprite sheet texture"
+        },
+        "output_path": {
+          "type": "string",
+          "description": "Output .tres file path"
+        },
+        "sheet_type": {
+          "type": "string",
+          "enum": [
+            "horizontal",
+            "vertical",
+            "rows",
+            "columns"
+          ],
+          "description": "Sheet layout (default: horizontal)"
+        },
+        "columns": {
+          "type": "number",
+          "description": "Column count for rows/columns layout"
+        }
+      },
+      "required": [
+        "texture_path",
+        "output_path"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "sync_to_godot_project",
+    "description": "Export the sprite and copy all output files to a Godot project. Automatically detects tags for animations and exports both sprite sheet and SpriteFrames resource",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "godot_project_path": {
+          "type": "string",
+          "description": "Root path of the Godot project (where project.godot is)"
+        },
+        "target_dir": {
+          "type": "string",
+          "description": "Subdirectory within the project (default: 'assets/sprites')"
+        },
+        "name": {
+          "type": "string",
+          "description": "Base name for output files"
+        },
+        "scale": {
+          "type": "number",
+          "description": "Scale factor (default: 1)"
+        }
+      },
+      "required": [
+        "godot_project_path"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "batch_export_for_godot",
+    "description": "Export all open sprites to a Godot project in one operation",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "godot_project_path": {
+          "type": "string",
+          "description": "Root path of the Godot project"
+        },
+        "target_dir": {
+          "type": "string",
+          "description": "Subdirectory within the project (default: 'assets/sprites')"
+        },
+        "scale": {
+          "type": "number",
+          "description": "Scale factor (default: 1)"
+        }
+      },
+      "required": [
+        "godot_project_path"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_layers",
+    "description": "Get all layers in the active sprite with their properties (name, type, visibility, opacity, blend mode, hierarchy)",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "add_layer",
+    "description": "Add a new layer to the active sprite",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Layer name"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "normal",
+            "group",
+            "tilemap"
+          ],
+          "description": "Layer type (default: normal)"
+        },
+        "parent": {
+          "type": "string",
+          "description": "Parent layer/group name to add into"
+        },
+        "below": {
+          "type": "string",
+          "description": "Name of layer to insert below"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "delete_layer",
+    "description": "Delete a layer by name",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the layer to delete"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "rename_layer",
+    "description": "Rename a layer",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Current layer name"
+        },
+        "new_name": {
+          "type": "string",
+          "description": "New layer name"
+        }
+      },
+      "required": [
+        "name",
+        "new_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_layer_visibility",
+    "description": "Show or hide a layer",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Layer name"
+        },
+        "visible": {
+          "type": "boolean",
+          "description": "true to show, false to hide"
+        }
+      },
+      "required": [
+        "name",
+        "visible"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_layer_opacity",
+    "description": "Set a layer's opacity (0-255)",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Layer name"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 255,
+          "description": "Opacity value (0=transparent, 255=opaque)"
+        }
+      },
+      "required": [
+        "name",
+        "opacity"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_layer_blend_mode",
+    "description": "Set a layer's blend mode",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Layer name"
+        },
+        "blend_mode": {
+          "type": "string",
+          "enum": [
+            "normal",
+            "multiply",
+            "screen",
+            "overlay",
+            "darken",
+            "lighten",
+            "color_dodge",
+            "color_burn",
+            "hard_light",
+            "soft_light",
+            "difference",
+            "exclusion",
+            "hue",
+            "saturation",
+            "color",
+            "luminosity",
+            "addition",
+            "subtract",
+            "divide"
+          ],
+          "description": "Blend mode"
+        }
+      },
+      "required": [
+        "name",
+        "blend_mode"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "reorder_layer",
+    "description": "Move a layer to a new position in the stack",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Layer name to move"
+        },
+        "stack_index": {
+          "type": "number",
+          "description": "New stack index (1 = bottom)"
+        }
+      },
+      "required": [
+        "name",
+        "stack_index"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "duplicate_layer",
+    "description": "Duplicate a layer",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the layer to duplicate"
+        },
+        "new_name": {
+          "type": "string",
+          "description": "Name for the duplicated layer"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "merge_layer_down",
+    "description": "Merge the specified layer with the one below it",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the layer to merge down"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_palette",
+    "description": "Get all colors in the active sprite's palette",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "max_colors": {
+          "type": "number",
+          "description": "Max number of colors to return (default: all)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_palette_color",
+    "description": "Set the color at a specific palette index",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "number",
+          "description": "Palette index"
+        },
+        "color": {
+          "type": "string",
+          "description": "Color as hex string"
+        }
+      },
+      "required": [
+        "index",
+        "color"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_palette",
+    "description": "Replace the entire palette with a new set of colors",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "colors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of hex color strings"
+        }
+      },
+      "required": [
+        "colors"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "add_palette_color",
+    "description": "Add a color to the end of the palette",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "color": {
+          "type": "string",
+          "description": "Color as hex string"
+        }
+      },
+      "required": [
+        "color"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "resize_palette",
+    "description": "Resize the palette to a specific number of colors",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "size": {
+          "type": "number",
+          "description": "New palette size"
+        }
+      },
+      "required": [
+        "size"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "load_palette",
+    "description": "Load a palette from a file (.gpl, .pal, .ase, .png)",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Absolute path to the palette file"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "save_palette",
+    "description": "Save the palette to a file",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Absolute path to save the palette"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_fg_color",
+    "description": "Set the foreground drawing color",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "color": {
+          "type": "string",
+          "description": "Color as hex string"
+        }
+      },
+      "required": [
+        "color"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_bg_color",
+    "description": "Set the background drawing color",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "color": {
+          "type": "string",
+          "description": "Color as hex string"
+        }
+      },
+      "required": [
+        "color"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "generate_palette_from_sprite",
+    "description": "Generate a palette from the colors used in the current sprite",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "max_colors": {
+          "type": "number",
+          "description": "Maximum number of colors (default: 256)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "sort_palette",
+    "description": "Sort the palette colors by hue, saturation, lightness, or individual RGB channels",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "sort_by": {
+          "type": "string",
+          "enum": [
+            "hue",
+            "saturation",
+            "lightness",
+            "brightness",
+            "red",
+            "green",
+            "blue"
+          ],
+          "description": "Sort criterion (default: hue)"
+        },
+        "reverse": {
+          "type": "boolean",
+          "description": "Reverse sort order (default: false)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "import_palette_from_image",
+    "description": "Extract colors from an image file and set them as the active sprite's palette",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Absolute path to the image file"
+        },
+        "max_colors": {
+          "type": "number",
+          "description": "Maximum number of colors to extract (default: 256)"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "select_rect",
+    "description": "Select a rectangular region",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "Top-left X"
+        },
+        "y": {
+          "type": "number",
+          "description": "Top-left Y"
+        },
+        "width": {
+          "type": "number",
+          "description": "Selection width"
+        },
+        "height": {
+          "type": "number",
+          "description": "Selection height"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "replace",
+            "add",
+            "subtract",
+            "intersect"
+          ],
+          "description": "Selection mode (default: replace)"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "select_ellipse",
+    "description": "Select an elliptical region",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "Top-left X of bounding box"
+        },
+        "y": {
+          "type": "number",
+          "description": "Top-left Y of bounding box"
+        },
+        "width": {
+          "type": "number",
+          "description": "Width of bounding box"
+        },
+        "height": {
+          "type": "number",
+          "description": "Height of bounding box"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "replace",
+            "add",
+            "subtract",
+            "intersect"
+          ],
+          "description": "Selection mode (default: replace)"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "select_all",
+    "description": "Select the entire canvas",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "deselect",
+    "description": "Clear the current selection",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "select_by_color",
+    "description": "Select all pixels matching a specific color",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "color": {
+          "type": "string",
+          "description": "Target color as hex string"
+        },
+        "tolerance": {
+          "type": "number",
+          "description": "Color matching tolerance (0-255, default: 0)"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "replace",
+            "add",
+            "subtract",
+            "intersect"
+          ],
+          "description": "Selection mode (default: replace)"
+        }
+      },
+      "required": [
+        "color"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_selection",
+    "description": "Get the current selection bounds and status",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "invert_selection",
+    "description": "Invert the current selection",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_slices",
+    "description": "Get all slices in the active sprite",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "create_slice",
+    "description": "Create a new slice (named region) in the sprite",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Slice name"
+        },
+        "x": {
+          "type": "number",
+          "description": "Top-left X"
+        },
+        "y": {
+          "type": "number",
+          "description": "Top-left Y"
+        },
+        "width": {
+          "type": "number",
+          "description": "Slice width"
+        },
+        "height": {
+          "type": "number",
+          "description": "Slice height"
+        },
+        "color": {
+          "type": "string",
+          "description": "Slice color as hex string"
+        }
+      },
+      "required": [
+        "name",
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "delete_slice",
+    "description": "Delete a slice by name",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Slice name to delete"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_slice_9patch",
+    "description": "Set a slice's 9-patch / nine-slice center rectangle for scalable UI sprites",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Slice name"
+        },
+        "center_x": {
+          "type": "number",
+          "description": "Center region X offset from slice origin"
+        },
+        "center_y": {
+          "type": "number",
+          "description": "Center region Y offset from slice origin"
+        },
+        "center_width": {
+          "type": "number",
+          "description": "Center region width"
+        },
+        "center_height": {
+          "type": "number",
+          "description": "Center region height"
+        }
+      },
+      "required": [
+        "name",
+        "center_x",
+        "center_y",
+        "center_width",
+        "center_height"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_slice_pivot",
+    "description": "Set a slice's pivot point",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Slice name"
+        },
+        "pivot_x": {
+          "type": "number",
+          "description": "Pivot X coordinate relative to slice"
+        },
+        "pivot_y": {
+          "type": "number",
+          "description": "Pivot Y coordinate relative to slice"
+        }
+      },
+      "required": [
+        "name",
+        "pivot_x",
+        "pivot_y"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "create_sprite",
+    "description": "Create a new sprite with specified dimensions and color mode",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "number",
+          "description": "Width in pixels (default: 32)"
+        },
+        "height": {
+          "type": "number",
+          "description": "Height in pixels (default: 32)"
+        },
+        "color_mode": {
+          "type": "string",
+          "enum": [
+            "rgba",
+            "indexed",
+            "grayscale"
+          ],
+          "description": "Color mode (default: rgba)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "open_sprite",
+    "description": "Open a sprite file (.ase, .aseprite, .png, .gif, etc.)",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Absolute file path to open"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "save_sprite",
+    "description": "Save the active sprite. Optionally save as a new file path",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Optional new file path to save to"
+        },
+        "rename": {
+          "type": "boolean",
+          "description": "When true and path is given, perform a real Save As so the sprite adopts the new filename (default: false = save a copy)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "close_sprite",
+    "description": "Close the active sprite or a specific sprite by filename",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "filename": {
+          "type": "string",
+          "description": "Filename of sprite to close (default: active sprite)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_sprite_info",
+    "description": "Get detailed information about the active sprite (dimensions, color mode, frame count, layer count, etc.)",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "filename": {
+          "type": "string",
+          "description": "Filename of sprite to inspect (default: active sprite)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "list_open_sprites",
+    "description": "List all currently open sprites in Aseprite",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_active_sprite",
+    "description": "Set the active sprite by stable id (from list_open_sprites, unambiguous) or filename",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "Stable sprite id from list_open_sprites (preferred; unambiguous)"
+        },
+        "filename": {
+          "type": "string",
+          "description": "Filename of the sprite to activate (ambiguous if multiple share a name)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "resize_sprite",
+    "description": "Resize the sprite canvas or scale the sprite content",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "number",
+          "description": "New width in pixels"
+        },
+        "height": {
+          "type": "number",
+          "description": "New height in pixels"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "nearest",
+            "bilinear",
+            "rotsprite"
+          ],
+          "description": "Resize method (default: nearest)"
+        },
+        "scale_content": {
+          "type": "boolean",
+          "description": "If true, scale content; if false, resize canvas only (default: true)"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "crop_sprite",
+    "description": "Crop the sprite to the selection bounds or to visible content",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "selection",
+            "content"
+          ],
+          "description": "Crop to selection or content (default: content)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "flatten_sprite",
+    "description": "Flatten all visible layers into a single layer",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_sprite_screenshot",
+    "description": "Get a PNG screenshot of the current sprite state (all visible layers flattened). Returns both image and metadata.",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "frame": {
+          "type": "number",
+          "description": "Frame number to capture (default: current frame)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_sprite_grid",
+    "description": "Set the sprite grid size and offset (useful for tileset and sprite sheet workflows)",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "grid_width": {
+          "type": "number",
+          "description": "Grid cell width in pixels"
+        },
+        "grid_height": {
+          "type": "number",
+          "description": "Grid cell height in pixels"
+        },
+        "origin_x": {
+          "type": "number",
+          "description": "Grid origin X (default: 0)"
+        },
+        "origin_y": {
+          "type": "number",
+          "description": "Grid origin Y (default: 0)"
+        }
+      },
+      "required": [
+        "grid_width",
+        "grid_height"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_tags",
+    "description": "Get all animation tags in the active sprite",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "create_tag",
+    "description": "Create a new animation tag",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Tag name"
+        },
+        "from_frame": {
+          "type": "number",
+          "description": "Start frame (1-based)"
+        },
+        "to_frame": {
+          "type": "number",
+          "description": "End frame (1-based, inclusive)"
+        },
+        "color": {
+          "type": "string",
+          "description": "Tag color as hex string"
+        },
+        "ani_dir": {
+          "type": "string",
+          "enum": [
+            "forward",
+            "reverse",
+            "ping_pong",
+            "ping_pong_reverse"
+          ],
+          "description": "Animation direction (default: forward)"
+        },
+        "repeat": {
+          "type": "number",
+          "description": "Number of repeats (0 = infinite)"
+        }
+      },
+      "required": [
+        "name",
+        "from_frame",
+        "to_frame"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "delete_tag",
+    "description": "Delete an animation tag by name",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Tag name to delete"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "rename_tag",
+    "description": "Rename an animation tag",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Current tag name"
+        },
+        "new_name": {
+          "type": "string",
+          "description": "New tag name"
+        }
+      },
+      "required": [
+        "name",
+        "new_name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_tag_color",
+    "description": "Set the color of an animation tag",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Tag name"
+        },
+        "color": {
+          "type": "string",
+          "description": "New color as hex string"
+        }
+      },
+      "required": [
+        "name",
+        "color"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_tag_range",
+    "description": "Change the frame range of an animation tag",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Tag name"
+        },
+        "from_frame": {
+          "type": "number",
+          "description": "New start frame (1-based)"
+        },
+        "to_frame": {
+          "type": "number",
+          "description": "New end frame (1-based, inclusive)"
+        }
+      },
+      "required": [
+        "name",
+        "from_frame",
+        "to_frame"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "create_character_template",
+    "description": "Create a new sprite pre-configured for character animation with layers (shadow, outline, body, effects) and animation tags",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "size": {
+          "type": "number",
+          "description": "Sprite size in pixels (default: 32, creates square sprite)"
+        },
+        "animations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "frames": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "name",
+              "frames"
+            ],
+            "additionalProperties": false
+          },
+          "description": "Custom animations [{name, frames}, ...]. Default: idle(4), walk(6), attack(4)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "create_tileset_template",
+    "description": "Create a new sprite configured as a tileset grid with guide lines and proper grid settings",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "tile_size": {
+          "type": "number",
+          "description": "Size of each tile in pixels (default: 16)"
+        },
+        "columns": {
+          "type": "number",
+          "description": "Number of tile columns (default: 8)"
+        },
+        "rows": {
+          "type": "number",
+          "description": "Number of tile rows (default: 8)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "create_tilemap_layer",
+    "description": "Create a new tilemap layer with the specified tile size",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Layer name"
+        },
+        "tile_width": {
+          "type": "number",
+          "description": "Tile width in pixels"
+        },
+        "tile_height": {
+          "type": "number",
+          "description": "Tile height in pixels"
+        }
+      },
+      "required": [
+        "tile_width",
+        "tile_height"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_tileset",
+    "description": "Get tileset information for a tilemap layer",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string",
+          "description": "Tilemap layer name"
+        }
+      },
+      "required": [
+        "layer"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "set_tile",
+    "description": "Set a tile at a grid position in a tilemap layer",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string",
+          "description": "Tilemap layer name"
+        },
+        "col": {
+          "type": "number",
+          "description": "Column (grid X)"
+        },
+        "row": {
+          "type": "number",
+          "description": "Row (grid Y)"
+        },
+        "tile_index": {
+          "type": "number",
+          "description": "Tile index from the tileset"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Frame number (default: active frame)"
+        }
+      },
+      "required": [
+        "layer",
+        "col",
+        "row",
+        "tile_index"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_tile",
+    "description": "Get the tile index at a grid position in a tilemap layer",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string",
+          "description": "Tilemap layer name"
+        },
+        "col": {
+          "type": "number",
+          "description": "Column (grid X)"
+        },
+        "row": {
+          "type": "number",
+          "description": "Row (grid Y)"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Frame number (default: active frame)"
+        }
+      },
+      "required": [
+        "layer",
+        "col",
+        "row"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_tilemap_info",
+    "description": "Get tilemap grid dimensions, tile size, and used tile indices",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string",
+          "description": "Tilemap layer name"
+        },
+        "frame": {
+          "type": "number",
+          "description": "Frame number (default: active frame)"
+        }
+      },
+      "required": [
+        "layer"
+      ],
+      "additionalProperties": false
+    }
+  }
+]

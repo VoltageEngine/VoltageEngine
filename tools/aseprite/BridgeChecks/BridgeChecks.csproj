@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../Voltage.Editor/Aseprite/AsepriteConnection.cs" Link="AsepriteConnection.cs" />
+    <Compile Include="../../../Voltage.Editor/Aseprite/AsepriteSchema.cs" Link="AsepriteSchema.cs" />
+    <Compile Include="../../../Voltage.Engine/Gateway/GatewayArgs.cs" Link="GatewayArgs.cs" />
+    <Compile Include="../../../Voltage.Cli/McpSchema.cs" Link="McpSchema.cs" />
+  </ItemGroup>
+</Project>

@@ -103,6 +103,17 @@ namespace Voltage.UI
 
 		public bool IsVisible() => _visible;
 
+		/// <summary>Whether this widget and its ancestors can receive input.</summary>
+		public virtual bool IsInputEnabled() => touchable == Touchable.Enabled && IsHierarchyInputEnabled();
+
+		internal bool IsHierarchyInputEnabled()
+		{
+			for (Element element = this; element != null; element = element.parent)
+				if (!element._visible || element.color.A == 0 || element.touchable == Touchable.Disabled)
+					return false;
+			return true;
+		}
+
 		/// <summary>
 		/// If false, the element will not be drawn and will not receive touch events. Default is true.
 		/// </summary>
@@ -666,25 +677,10 @@ namespace Voltage.UI
 				batcher.DrawHollowRect(x, y, width, height, Color.Red);
 		}
 
-		/// <summary>
-		/// returns true if this Element and all parent Elements are visible
-		/// </summary>
-		/// <returns><c>true</c>, if parents visible was ared, <c>false</c> otherwise.</returns>
-		bool AreParentsVisible()
-		{
-			if (!_visible)
-				return false;
-
-			if (parent != null)
-				return parent.AreParentsVisible();
-
-			return _visible;
-		}
-
 		public virtual Element Hit(Vector2 point)
 		{
 			// if we are not Touchable or us or any parent is not visible bail out
-			if (touchable != Touchable.Enabled || !AreParentsVisible())
+			if (!IsInputEnabled())
 				return null;
 
 			if (point.X >= 0 && point.X < width && point.Y >= 0 && point.Y < height)

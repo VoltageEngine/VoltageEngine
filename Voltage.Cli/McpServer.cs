@@ -157,6 +157,15 @@ public sealed class McpServer
 			var result = Connect().Call(tool.Method, parameters);
 
 			var content = new JsonArray();
+			if (tool.Method.StartsWith("aseprite.", StringComparison.Ordinal) && result.ValueKind == JsonValueKind.Object &&
+			    result.TryGetProperty("image", out var image) && image.ValueKind == JsonValueKind.String)
+			{
+				var metadata = JsonNode.Parse(result.GetRawText()).AsObject();
+				metadata.Remove("image");
+				content.Add(new JsonObject { ["type"] = "text", ["text"] = metadata.ToJsonString() });
+				content.Add(new JsonObject { ["type"] = "image", ["data"] = image.GetString(), ["mimeType"] = "image/png" });
+				return new JsonObject { ["content"] = content };
+			}
 			var text = result.ValueKind == JsonValueKind.Undefined ? "ok" : JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
 			if (text.Length > MaxTextLength)
 				text = text.Substring(0, MaxTextLength) + $"\n… truncated ({text.Length - MaxTextLength} more characters); narrow the request with filters or paging.";

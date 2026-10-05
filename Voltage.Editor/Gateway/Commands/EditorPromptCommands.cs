@@ -56,17 +56,19 @@ internal static class EditorPromptCommands
 			}, (float)RestoreTimeout.TotalSeconds);
 		}, P.Str("name", "one plugin id; every fetchable one when omitted")).Unsafe();
 
-		table.Add("effects.status", "Whether compiled engine effects exist, where they are looked for, and whether the compiler is on PATH.", (_, _) =>
+		table.Add("effects.status", "Bundled engine effects, compiled overrides, pinned compiler availability and Wine prerequisites.", (_, _) =>
 		{
 			var dir = ImGuiManager.EngineEffectsDirectory;
 			var count = Directory.Exists(dir) ? Directory.GetFiles(dir, "*.mgfxo", SearchOption.AllDirectories).Length : 0;
-			return new { directory = dir, compiled = count > 0, count, compilerAvailable = EffectsCompiler.IsMgfxcAvailable() };
+			var bundled = EffectResource.BundledEffectNames.Length;
+			return new { directory = dir, compiled = bundled > 0 || count > 0, count = Math.Max(bundled, count), bundled, overrides = count,
+				compilerAvailable = EffectsCompiler.IsMgfxcAvailable(), wineReady = EffectsCompiler.IsWineSetupComplete(), busy = EffectsCompiler.IsBusy };
 		}).ReadOnly();
 
-		table.Add("effects.compile", "Compile the engine effects, as the Missing Engine Effects prompt offers; answers with the counts when the build ends.", (_, ctx) =>
+		table.Add("effects.compile", "Compile changed engine shaders for DesktopGL, restoring the pinned compiler when needed; answers with counts when the build ends.", (_, ctx) =>
 		{
-			if (!EffectsCompiler.IsMgfxcAvailable())
-				throw new GatewayException("mgfxc is not on PATH; install the MonoGame SDK tools");
+			if (EffectsCompiler.IsBusy)
+				throw new GatewayException("an effects build is already running");
 
 			var done = new TaskCompletionSource<object>();
 			Action<int, int> completed = null;

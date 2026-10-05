@@ -49,7 +49,7 @@ public sealed class AssetBuildReportWindow
 	private void DrawReport(AssetBuildReport report)
 	{
 		string status, output;
-		int compiled, copied, skipped, failed, total;
+		int compiled, reused, copied, skipped, failed, total;
 		double elapsed;
 		bool running, success;
 		string[] errors;
@@ -64,6 +64,7 @@ public sealed class AssetBuildReportWindow
 			items = report.Items.ToArray();
 			errors = report.Errors.ToArray();
 			compiled = items.Count(i => i.Outcome == "compiled");
+			reused = items.Count(i => i.Outcome == "compiled" && i.Reused);
 			copied = items.Count(i => i.Outcome == "copied");
 			skipped = items.Count(i => i.Outcome == "skipped");
 			failed = items.Count(i => i.Outcome == "failed");
@@ -71,7 +72,7 @@ public sealed class AssetBuildReportWindow
 		}
 
 		ImGuiSafe.TextSafe(running ? $"Running: {status}" : success ? $"Done in {elapsed:0.0}s" : $"Failed after {elapsed:0.0}s");
-		ImGuiSafe.TextSafe($"{compiled} compiled, {copied} copied, {skipped} skipped, {failed} failed of {total}");
+		ImGuiSafe.TextSafe($"{compiled - reused} compiled, {reused} up to date, {copied} copied, {skipped} skipped, {failed} failed of {total}");
 		if (!string.IsNullOrEmpty(output))
 			ImGuiSafe.TextDisabledSafe(output);
 
@@ -106,7 +107,7 @@ public sealed class AssetBuildReportWindow
 				ImGui.TableNextColumn();
 				ImGuiSafe.TextSafe(item.RelativePath);
 				ImGui.TableNextColumn();
-				ImGuiSafe.TextColoredSafe(OutcomeColor(item.Outcome), item.Outcome ?? "");
+				ImGuiSafe.TextColoredSafe(OutcomeColor(item.Outcome), item.Reused && item.Outcome == "compiled" ? "up to date" : item.Outcome ?? "");
 				ImGui.TableNextColumn();
 				ImGuiSafe.TextSafe(item.AssetName ?? "");
 				ImGui.TableNextColumn();

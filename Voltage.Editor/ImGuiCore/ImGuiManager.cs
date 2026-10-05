@@ -627,6 +627,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		TilesetEditorWindow.Draw();
 		DataAssetWindow.Draw();
+		Aseprite.AsepriteWindow.Draw();
 
 		Plugins.EditorPluginHost.DrawWindows();
 		_cursorSelectionManager.UpdateSelection();
@@ -692,6 +693,12 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	/// </summary>
 	private void CheckEngineEffectsExist()
 	{
+		EffectResource.BuiltinOverrideDirectory = EffectsCompiler.EngineOutputDirectory;
+		if (EffectResource.BundledEffectNames.Length > 0)
+		{
+			_engineEffectsCheckComplete = true;
+			return;
+		}
 		try
 		{
 			// User chose "Don't show again": never surface the prompt, regardless of effects state.
@@ -743,7 +750,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	}
 
 	/// <summary>Where the editor looks for its compiled engine effects.</summary>
-	internal static string EngineEffectsDirectory => Path.Combine(FindProjectDir(), "Content", "Voltage", "Effects");
+	internal static string EngineEffectsDirectory => EffectsCompiler.EngineOutputDirectory;
 
 	/// <summary>Starts the same engine-effects build the Effects menu runs.</summary>
 	internal void CompileEngineEffects() =>

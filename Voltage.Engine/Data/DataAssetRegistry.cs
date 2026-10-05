@@ -67,12 +67,16 @@ namespace Voltage.Data
 				CloneOnLoad = cloneOnLoad,
 			};
 
+			Type replacedType = null;
 			lock (_lock)
 			{
 				// A recompiled type keeps its id but arrives as a NEW CLR type; drop the stale type key so
 				// TryGetId cannot resolve to an assembly that is no longer loaded.
 				if (_byId.TryGetValue(id, out var previous) && previous.Type != type)
+				{
+					replacedType = previous.Type;
 					_byType.Remove(previous.Type);
+				}
 
 				_byId[id] = entry;
 				_byType[type] = entry;
@@ -83,6 +87,8 @@ namespace Voltage.Data
 
 				Version++;
 			}
+			if (replacedType != null)
+				DataAssetCache.RebindType(replacedType, entry);
 		}
 
 		public static bool TryGet(string id, out Entry entry)

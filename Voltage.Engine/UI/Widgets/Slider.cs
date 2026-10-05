@@ -13,6 +13,7 @@ namespace Voltage.UI
 
 		SliderStyle style;
 		bool _mouseOver, _mouseDown;
+		public override bool IsInputEnabled() => !Disabled && base.IsInputEnabled();
 
 
 		/// <summary>

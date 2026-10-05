@@ -248,7 +248,7 @@ public class VoltageContentManager : ContentManager
 			return compiled;
 		}
 
-		var font = BitmapFontLoader.LoadFontFromFile(name, premultiplyAlpha);
+		var font = BitmapFontLoader.LoadFontFromFile(ResolveContentPath(name), premultiplyAlpha);
 
 		LoadedAssets.Add(name, font);
 		DisposableAssets.Add(font);
@@ -349,13 +349,22 @@ public class VoltageContentManager : ContentManager
 	/// </summary>
 	/// <returns>The effect.</returns>
 	/// <param name="name">Name.</param>
-	public T LoadEffect<T>(string name) where T : Effect
+	public T LoadEffect<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string name) where T : Effect
 	{
-		// make sure the effect has the proper root directory
-		if (!name.StartsWith(RootDirectory))
-			name = RootDirectory + "/" + name;
+		name = name.Replace('\\', '/');
+		var root = RootDirectory.Replace('\\', '/').TrimEnd('/');
+		if (!Path.IsPathRooted(name) && !string.IsNullOrEmpty(root))
+		{
+			if (Path.IsPathRooted(root))
+			{
+				var folder = Path.GetFileName(root) + "/";
+				name = Path.Combine(root, name.StartsWith(folder, StringComparison.Ordinal) ? name.Substring(folder.Length) : name);
+			}
+			else if (!name.StartsWith(root + "/", StringComparison.Ordinal))
+				name = root + "/" + name;
+		}
 
-		var bytes = EffectResource.GetFileResourceBytes(name);
+		var bytes = EffectResource.GetFileResourceBytes(ResolveContentPath(name));
 
 		return LoadEffect<T>(name, bytes);
 	}

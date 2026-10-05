@@ -1,5 +1,15 @@
 <Project>
 	<Import Sdk="Microsoft.NET.Sdk" Project="Sdk.props" />
+	<Import Project="Graphics/Effects/Compiled/manifest.props" />
+	<Target Name="VerifyBundledEffects" BeforeTargets="BeforeBuild">
+		<GetFileHash Files="@(_BundledEffectInput)" Algorithm="SHA256">
+			<Output TaskParameter="Items" ItemName="_HashedEffectInput" />
+		</GetFileHash>
+		<Error Condition="'%(_HashedEffectInput.FileHash)' != '%(_HashedEffectInput.ExpectedHash)' And '%(_HashedEffectInput.FileHash)' != '%(_HashedEffectInput.WindowsHash)'"
+			Text="Bundled effect changed: %(_HashedEffectInput.Identity). Run dotnet run --project tools/effects/Voltage.Effects.Build.csproj from the repository root to regenerate DesktopGL effects." />
+		<Error Condition="'%(PackageReference.Identity)' == 'MonoGame.Framework.DesktopGL' And '%(PackageReference.Version)' != '$(BundledEffectsCompilerVersion)'"
+			Text="Bundled effects must be regenerated with the MonoGame.Framework.DesktopGL package version." />
+	</Target>
 
 	<PropertyGroup>
 		<TargetFramework>net8.0</TargetFramework>
@@ -37,6 +47,9 @@
 	  <Compile Remove="DefaultContent\**" />
 	  <EmbeddedResource Remove="DefaultContent\**" />
 	  <None Remove="DefaultContent\**" />
+	</ItemGroup>
+	<ItemGroup>
+		<EmbeddedResource Include="Graphics/Effects/Compiled/**/*.mgfxo" />
 	</ItemGroup>
 
 	<ItemGroup>

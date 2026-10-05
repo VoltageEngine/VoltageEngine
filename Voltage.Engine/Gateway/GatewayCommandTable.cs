@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 
 namespace Voltage.Gateway;
 
@@ -52,6 +53,14 @@ public sealed class GatewayCommand
 
 	public IReadOnlyList<GatewayParam> Params { get; }
 
+	public JsonElement? InputSchema { get; private set; }
+
+	public GatewayCommand WithInputSchema(JsonElement schema)
+	{
+		InputSchema = schema.Clone();
+		return this;
+	}
+
 	/// <summary>Inspects state only.</summary>
 	public bool IsReadOnly { get; private set; }
 
@@ -92,6 +101,7 @@ public sealed class GatewayCommand
 	{
 		name = Name,
 		help = Help,
+		inputSchema = InputSchema,
 		@params = Params.Select(p => new
 		{
 			name = p.Name,

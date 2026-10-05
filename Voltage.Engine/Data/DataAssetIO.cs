@@ -95,7 +95,7 @@ namespace Voltage.Data
 							{
 								Debug.Error(
 									$"[DataAssetIO] '{where}': unknown {KeyAssetType} \"{id}\". The script " +
-									"declaring it may have been deleted, renamed without a [FormerlyKnownAs], " +
+									"declaring it may have been deleted, had its [AssetTypeId] changed or removed, " +
 									"or failed to compile.");
 								return null;
 							}

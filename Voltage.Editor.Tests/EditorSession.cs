@@ -72,6 +72,7 @@ public sealed class EditorSession
 			WorkingDirectory = Path.GetDirectoryName(exe) ?? "."
 		};
 		start.Environment["VOLTAGE_EDITOR_DATA"] = DataDirectory;
+		start.Environment["VOLTAGE_ASEPRITE_EXTENSION"] = Path.Combine(_root, "aseprite-extension");
 		foreach (var arg in new[] { "--headless", "--gateway-port", "0", "--gateway-info", InfoPath })
 			start.ArgumentList.Add(arg);
 

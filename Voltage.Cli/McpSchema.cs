@@ -10,6 +10,7 @@ namespace Voltage.Cli;
 /// <summary>One gateway command as the MCP server sees it.</summary>
 public sealed record McpTool(string Name, string Method, string Help, JsonElement Params, bool ReadOnly, bool Destructive, bool Unsafe)
 {
+	public JsonElement? InputSchema { get; init; }
 	/// <summary>Parses the JSON array returned by the gateway's <c>commands</c> method; older cache files without flags still load.</summary>
 	public static List<McpTool> Parse(string commandsJson)
 	{
@@ -26,7 +27,10 @@ public sealed record McpTool(string Name, string Method, string Help, JsonElemen
 
 			var help = c.TryGetProperty("help", out var h) ? h.GetString() : c.TryGetProperty("Help", out var h2) ? h2.GetString() : "";
 			var parameters = c.TryGetProperty("params", out var p) && p.ValueKind == JsonValueKind.Array ? p.Clone() : default;
-			tools.Add(new McpTool(method.Replace('.', '_'), method, help ?? "", parameters, Flag(c, "readOnly"), Flag(c, "destructive"), Flag(c, "unsafe")));
+			tools.Add(new McpTool(method.Replace('.', '_'), method, help ?? "", parameters, Flag(c, "readOnly"), Flag(c, "destructive"), Flag(c, "unsafe"))
+			{
+				InputSchema = c.TryGetProperty("inputSchema", out var schema) && schema.ValueKind == JsonValueKind.Object ? schema.Clone() : null
+			});
 		}
 
 		return tools;
@@ -52,7 +56,7 @@ public static class McpSchema
 			["name"] = tool.Name,
 			["title"] = tool.Method,
 			["description"] = description,
-			["inputSchema"] = tool.Params.ValueKind == JsonValueKind.Array && tool.Params.GetArrayLength() > 0
+			["inputSchema"] = tool.InputSchema.HasValue ? JsonNode.Parse(tool.InputSchema.Value.GetRawText()) : tool.Params.ValueKind == JsonValueKind.Array && tool.Params.GetArrayLength() > 0
 				? FromParams(tool.Params)
 				: FromHelp(tool.Help),
 			["annotations"] = new JsonObject

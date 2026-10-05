@@ -87,7 +87,7 @@ namespace Voltage.UI
 		{
 			Validate();
 
-			var col = color * (color.A / 255f);
+			var col = color * (color.A / 255f * parentAlpha);
 
 			//			if( drawable instanceof TransformDrawable )
 			//			{

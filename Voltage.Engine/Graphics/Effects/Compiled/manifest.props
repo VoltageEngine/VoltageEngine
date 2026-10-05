@@ -1,0 +1,280 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <PropertyGroup>
+    <BundledEffectsCompilerVersion>3.8.5.1</BundledEffectsCompilerVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/Bevels.fx">
+      <ExpectedHash>5635246A9C10D51C1F7401B7278333A594B27E4E29C85370C5A8616AAAE7F8D9</ExpectedHash>
+      <WindowsHash>86D7AEABDDACBD045AB7DE2D7065920733ED863CCD2A08A137C391EFAEEBB997</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)Bevels.mgfxo">
+      <ExpectedHash>352D99BE71872A0E88469DA1C8B28E5AE9D4C83CA53AFB2DBF655E37BD786599</ExpectedHash>
+      <WindowsHash>352D99BE71872A0E88469DA1C8B28E5AE9D4C83CA53AFB2DBF655E37BD786599</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/BloomCombine.fx">
+      <ExpectedHash>754E70B4AAF5BAE9D5D71BAE41DF80179E69B687D2B1B635AC2B2FF0069BE4BB</ExpectedHash>
+      <WindowsHash>B4A034119BAD08B5C682488800D4B7AC492454D762FF3AAC81717DE17B2CEBF3</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)BloomCombine.mgfxo">
+      <ExpectedHash>CCB4AAE24D7B005B8E499DF497585B33E9944063EB99026B21D73262C359BC9B</ExpectedHash>
+      <WindowsHash>CCB4AAE24D7B005B8E499DF497585B33E9944063EB99026B21D73262C359BC9B</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/BloomExtract.fx">
+      <ExpectedHash>2D37DDD3569D8DF194EE7418EF0F94B32DF847A98DCC871D0C6BE578013795A0</ExpectedHash>
+      <WindowsHash>5B8685177C814E3324326CBE4C8F361E96A63A404EB478E7C6AA92BF29D00CCF</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)BloomExtract.mgfxo">
+      <ExpectedHash>F439337EC98FDCE5BF52CF35DEE10637796648811EC2D272C15A7A458C372DFD</ExpectedHash>
+      <WindowsHash>F439337EC98FDCE5BF52CF35DEE10637796648811EC2D272C15A7A458C372DFD</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/Crosshatch.fx">
+      <ExpectedHash>F86938137D2D2CE1404EE731C82BB20434701DB93FA82DAAF383D5DC97096020</ExpectedHash>
+      <WindowsHash>325969CC2E0DD9C9EA2EDD878F0BF6082990B862A93FA63A824054D820E69044</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)Crosshatch.mgfxo">
+      <ExpectedHash>BA9CB775AED14DE271E72F4D25F157A63681D99E06674B6CDFE1168485F932CD</ExpectedHash>
+      <WindowsHash>BA9CB775AED14DE271E72F4D25F157A63681D99E06674B6CDFE1168485F932CD</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/DeferredLighting.fx">
+      <ExpectedHash>2B8228BA1D50D6CB0D5F5151C468FA1A940BF83AADB368281544A5D6B1284115</ExpectedHash>
+      <WindowsHash>1A99DDD7552851DCBF60F52B996C8A2BFEE14E16EFAF08195062D1BA1F2DB34C</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)DeferredLighting.mgfxo">
+      <ExpectedHash>C6B8AAB06FF413B7647DF2F85975133E541FB2F8E1A62D7F29BEE9155AA405AB</ExpectedHash>
+      <WindowsHash>C6B8AAB06FF413B7647DF2F85975133E541FB2F8E1A62D7F29BEE9155AA405AB</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/DeferredSprite.fx">
+      <ExpectedHash>5CE66ED79299DF40B7217028FEBC8994A5B96F357261F822A5A0A178498501E9</ExpectedHash>
+      <WindowsHash>0B28D2D5B10BB1F78E1B9193F29D9D2FF199E16876F2549CFA06AD70AD35E22C</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)DeferredSprite.mgfxo">
+      <ExpectedHash>5F9D1610C14A8D2B4FA79C5DDC4B146ADA77011D2DBE9B1973553615D0B215C7</ExpectedHash>
+      <WindowsHash>5F9D1610C14A8D2B4FA79C5DDC4B146ADA77011D2DBE9B1973553615D0B215C7</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/Dissolve.fx">
+      <ExpectedHash>8DB69D6CF97F09630FFD1480D9FFDC3870BFD70437AABF90D1510546263F7D67</ExpectedHash>
+      <WindowsHash>0109B8E667BA80FD44276C1F83A9DB1FDEF832C8FD49239D35C9202F4022256D</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)Dissolve.mgfxo">
+      <ExpectedHash>6A2BB82494E8CA80D393AC7FAC81F56151EA2080C0395216C30FF0DD04952E40</ExpectedHash>
+      <WindowsHash>6A2BB82494E8CA80D393AC7FAC81F56151EA2080C0395216C30FF0DD04952E40</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/Dots.fx">
+      <ExpectedHash>6D4545C8EA50211B757DB7F33B254F1D704FE00661D71DC1F2BA34CAD530EBC5</ExpectedHash>
+      <WindowsHash>4F5D7578F96B3A8AE1EDF1C926F11BE5970B03F1C1DF0F23AE639214C6622B01</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)Dots.mgfxo">
+      <ExpectedHash>A1E97BDFF6343C6C277D8EA04BE186FC86B09DA77E075DB46A59A97DEADA65C9</ExpectedHash>
+      <WindowsHash>A1E97BDFF6343C6C277D8EA04BE186FC86B09DA77E075DB46A59A97DEADA65C9</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/ForwardLighting.fx">
+      <ExpectedHash>F5B6E7BCBC20454DDD1B355CFCCA262452154D27DA29E4FA9AF69E83A8F95545</ExpectedHash>
+      <WindowsHash>8DA354C34B4D505CFE7D1DE1B60E5F0EF569A90CE1375A5328F1B6BF2237E0F5</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)ForwardLighting.mgfxo">
+      <ExpectedHash>84BE82984008436A2408A2557D83D500DFE382058AEF8E4AA4408DC2FD8303BA</ExpectedHash>
+      <WindowsHash>84BE82984008436A2408A2557D83D500DFE382058AEF8E4AA4408DC2FD8303BA</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/GaussianBlur.fx">
+      <ExpectedHash>ECC3817169398644BC341B27CFC94467D46EB2A87F1DE613D7221724DA494518</ExpectedHash>
+      <WindowsHash>FA4B563C891B0392D15F0CD58DC676924ECE18F5392DF2E5742127A4285E35F5</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)GaussianBlur.mgfxo">
+      <ExpectedHash>6FE27A1B10FC62AE8BED9F98822AB34590EF473A9B47F535B8C196FD50686D24</ExpectedHash>
+      <WindowsHash>6FE27A1B10FC62AE8BED9F98822AB34590EF473A9B47F535B8C196FD50686D24</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/Grayscale.fx">
+      <ExpectedHash>C523734D01C8A963406D7F9D5CBF551D5F0066CB048D20234A86FA7693437AA4</ExpectedHash>
+      <WindowsHash>13FD3E439F2EB6215C170856A473353352343394CEEFE580A33DA937259F30FE</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)Grayscale.mgfxo">
+      <ExpectedHash>049101260B023D611379D6CA1EE1F7C0C1280574DA5F872EF2801F16BD1625E5</ExpectedHash>
+      <WindowsHash>049101260B023D611379D6CA1EE1F7C0C1280574DA5F872EF2801F16BD1625E5</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/HeatDistortion.fx">
+      <ExpectedHash>8060EDA6B6393CAE4F7998DAC75B4E99734EF2C0F4E2B4128100671BBC4DD9E7</ExpectedHash>
+      <WindowsHash>7786B3E6C2BB77FD680F807944A66C2BC40C24604CF6D514E80AFDFC024A92D7</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)HeatDistortion.mgfxo">
+      <ExpectedHash>77DCBD60F048F3DDE9E5E1774474B78A35FC8F9E25893419764855A07B08F8B0</ExpectedHash>
+      <WindowsHash>77DCBD60F048F3DDE9E5E1774474B78A35FC8F9E25893419764855A07B08F8B0</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/Invert.fx">
+      <ExpectedHash>222358AF44B4698E99D381E847C07BA48D307FBFE3766C811E7B12685880EE4B</ExpectedHash>
+      <WindowsHash>4A7C7BCC473B3E19555BD1B47DDB3282D414C4CE4786979F495A60B5073D0FA0</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)Invert.mgfxo">
+      <ExpectedHash>2FE5BC7D9DB24A90B3B84879C6816DD7730D37D005E0CEA623E3162BBC4C8424</ExpectedHash>
+      <WindowsHash>2FE5BC7D9DB24A90B3B84879C6816DD7730D37D005E0CEA623E3162BBC4C8424</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/Letterbox.fx">
+      <ExpectedHash>0FFFCEF835B88F6AC9A3F4A09414F8A0EAF38F758B527B7B202280C9A157A4AB</ExpectedHash>
+      <WindowsHash>90295D9BF8E3D1DD8ECFECD4EBF39F43CB4DA1166FB038F7B5F639E60A94863B</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)Letterbox.mgfxo">
+      <ExpectedHash>69267872F348571262EFC738E43AC24DF71D011995AD19A303112652BA9D435A</ExpectedHash>
+      <WindowsHash>69267872F348571262EFC738E43AC24DF71D011995AD19A303112652BA9D435A</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/MultiTexture.fx">
+      <ExpectedHash>B18860BAE2437DFC2AD62035924AE07A730BBD0F86407115D30B495E22C9CAE7</ExpectedHash>
+      <WindowsHash>7B1692F9B271FBA2CF86CD28D8C66699D3335357254D435AB074F6A4FD783F0B</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)MultiTexture.mgfxo">
+      <ExpectedHash>851B2B5CE9E334DA80D2DCB8174F37D79B6CEBB14B161386FA3C29DE55C7F21D</ExpectedHash>
+      <WindowsHash>851B2B5CE9E334DA80D2DCB8174F37D79B6CEBB14B161386FA3C29DE55C7F21D</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/MultiTextureOverlay.fx">
+      <ExpectedHash>EB6BA41319140D8691C12F165A4464DD199063BA4F33E554C28B3EA96553C99F</ExpectedHash>
+      <WindowsHash>9398F70C3BC67A73DBB6D43A9CA0E222B4E6910F653E5D067D09784C6E1907A3</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)MultiTextureOverlay.mgfxo">
+      <ExpectedHash>4B0DC2C599E7905AA6C8756FD046348EF6B36FE0AB45955F0BF1EF5DC76A9838</ExpectedHash>
+      <WindowsHash>4B0DC2C599E7905AA6C8756FD046348EF6B36FE0AB45955F0BF1EF5DC76A9838</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/Noise.fx">
+      <ExpectedHash>57D9341FA4AE0E680EAACF0AD4832FA759745537BD3C248D40840AFAACF7BEC1</ExpectedHash>
+      <WindowsHash>55D7380F9BD8FD7D24685EBF5736162DE05175E23A0B04ECF77108803E251564</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)Noise.mgfxo">
+      <ExpectedHash>A7A9B57A3BD9EEB10FB20820B3279867FCE46D456B0E27441CBC927AFDC429F3</ExpectedHash>
+      <WindowsHash>A7A9B57A3BD9EEB10FB20820B3279867FCE46D456B0E27441CBC927AFDC429F3</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/PaletteCycler.fx">
+      <ExpectedHash>D6B6A85DC279748FA9056B0A3CCD9F6BD6DCB8F5FAF253D8A548223C616A877A</ExpectedHash>
+      <WindowsHash>47CF5920A802FD3BBFC7CC3F4A5D159C7B578E6220EA38210B1CAA91650AA08F</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)PaletteCycler.mgfxo">
+      <ExpectedHash>FFCD389DEB10C5F101F311076DDE3492B873EFA91E5D15EBDE2307DE0A2426DE</ExpectedHash>
+      <WindowsHash>FFCD389DEB10C5F101F311076DDE3492B873EFA91E5D15EBDE2307DE0A2426DE</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/PixelGlitch.fx">
+      <ExpectedHash>56C323E1163A09E55B944A8F78D1B3A833856072F00B2C35C238E482A8330F28</ExpectedHash>
+      <WindowsHash>97FACBEBD78F54AF0BD2BB00938A848A6BD564022CC6352B5943DE22CD7DC80E</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)PixelGlitch.mgfxo">
+      <ExpectedHash>6F10E85A27A130D80CB0EC4140122242771A9B0FD2F0C116F37407E7E24DF933</ExpectedHash>
+      <WindowsHash>6F10E85A27A130D80CB0EC4140122242771A9B0FD2F0C116F37407E7E24DF933</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/PolygonLight.fx">
+      <ExpectedHash>FBBEA03B79CF3B94CD3E99E57C76B0C93F5F606FF1EC8C76083B317B62E15C5A</ExpectedHash>
+      <WindowsHash>8DC5E443F3FB915549EFAD911903758B4F6F8DE33333490FB4D0A6504FEB2A62</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)PolygonLight.mgfxo">
+      <ExpectedHash>2DD1B6E1489F6B1626AF5F6D6C05846200187B92345DC234B976284352D82FF5</ExpectedHash>
+      <WindowsHash>2DD1B6E1489F6B1626AF5F6D6C05846200187B92345DC234B976284352D82FF5</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/Reflection.fx">
+      <ExpectedHash>B043B39A9BEF007FE4B0D0B60BAC9B1AEF5A137DCCC48A2B57332605C01906A9</ExpectedHash>
+      <WindowsHash>44BB4A6C0A052F0EACEA04C61FA4C702B8047E62DA9872B13EC33B814B1C9FDB</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)Reflection.mgfxo">
+      <ExpectedHash>53EF773A7BAE2C313FD6E5D0729604316042DD7176FB5EB54BD034A9715260FE</ExpectedHash>
+      <WindowsHash>53EF773A7BAE2C313FD6E5D0729604316042DD7176FB5EB54BD034A9715260FE</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/Scanlines.fx">
+      <ExpectedHash>CDC1024DF4C64BF170E33B09A622D2C3C5993FF52818BE83AD662F397B5C549B</ExpectedHash>
+      <WindowsHash>BFE1AC073C53BC3780E13E9290365F8D84BF08B4B7B52C63DE209D38E13483F3</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)Scanlines.mgfxo">
+      <ExpectedHash>2E4AF66B153D3048F6248414AE94486FA5E2CA447C3F6AE953E912A88D4836C8</ExpectedHash>
+      <WindowsHash>2E4AF66B153D3048F6248414AE94486FA5E2CA447C3F6AE953E912A88D4836C8</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/Sepia.fx">
+      <ExpectedHash>88661AB08C789D527DA8B01F5B8834CAC16936694FADB5B14383785D256FD57C</ExpectedHash>
+      <WindowsHash>9B319C5CDF6964E056EB1F0434AEA9DBFDFE3383D3E181B219097E10DF903F8F</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)Sepia.mgfxo">
+      <ExpectedHash>40410902918A686B890FB61A822C67DBEFB851C7BA211A2E790FEE1F2C358581</ExpectedHash>
+      <WindowsHash>40410902918A686B890FB61A822C67DBEFB851C7BA211A2E790FEE1F2C358581</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/SpriteAlphaTest.fx">
+      <ExpectedHash>FA6A68DF54D8280E7A24F036D86FDDBDA1048DE35C136BE6D50430E99FF9FEEC</ExpectedHash>
+      <WindowsHash>757523C2E347EB4BD9604C70A9D6A0793DEE9DD8E501F4C876AC302028BF3E92</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)SpriteAlphaTest.mgfxo">
+      <ExpectedHash>8DCD28BE86A5E7E078CAF8A13E989851A575D6E170BCFDD0AA56428FB5B5B7EB</ExpectedHash>
+      <WindowsHash>8DCD28BE86A5E7E078CAF8A13E989851A575D6E170BCFDD0AA56428FB5B5B7EB</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/SpriteBlinkEffect.fx">
+      <ExpectedHash>42F1D709E17221F96A603F336BAC0999160AFFE63D99454C63DC03C4D028A815</ExpectedHash>
+      <WindowsHash>D7FAAF25BD6F38873BB651B4DB63A9BBCB232A0401D0B57E11C7BB73DCD6ABDB</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)SpriteBlinkEffect.mgfxo">
+      <ExpectedHash>A4F801D618ACA151F2C9DC0266509EB16485DF5EDE4AAB1F13CDB73982A13AE5</ExpectedHash>
+      <WindowsHash>A4F801D618ACA151F2C9DC0266509EB16485DF5EDE4AAB1F13CDB73982A13AE5</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/SpriteEffect.fx">
+      <ExpectedHash>582E069601308B13B87A63A611FDBD39547BDCE9A1F4D3D7022CE9CCAF16FBC6</ExpectedHash>
+      <WindowsHash>9327C296847AC360F6ED5551C8C3FB3467AF482C536AC5224851DC1EDA851582</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)SpriteEffect.mgfxo">
+      <ExpectedHash>5039FD29CBECB8C378E073461438F0226810ED203387ED7D66096499AC040F17</ExpectedHash>
+      <WindowsHash>5039FD29CBECB8C378E073461438F0226810ED203387ED7D66096499AC040F17</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/SpriteLightMultiply.fx">
+      <ExpectedHash>4BDC45A5849DFBE439E480E8100EB3047A1A073217D3D56995F3925CDFA0C107</ExpectedHash>
+      <WindowsHash>A9D46B65C36BD814AAECDCFF272CC5C1B3C0904EA9528771EDBD42184983AB48</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)SpriteLightMultiply.mgfxo">
+      <ExpectedHash>3F2D128C1EC1995932F3A7E817C58C285DCB8E5ED9161FDE31E3957C2FAC477E</ExpectedHash>
+      <WindowsHash>3F2D128C1EC1995932F3A7E817C58C285DCB8E5ED9161FDE31E3957C2FAC477E</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/SpriteLines.fx">
+      <ExpectedHash>FDE6B7717D759A038AD37F9F436DB386C0B0C92B748C1D8A6FCF7218B0137B77</ExpectedHash>
+      <WindowsHash>34864EF4DD4A4DD49B52BE634E60EB3F1A1C7245B466C54E34CB35DC8676F0E9</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)SpriteLines.mgfxo">
+      <ExpectedHash>86A54CC140E29FC04F4ACA6E59B66F22DC1D4A627F526C0097D2F48F4C5F6DA9</ExpectedHash>
+      <WindowsHash>86A54CC140E29FC04F4ACA6E59B66F22DC1D4A627F526C0097D2F48F4C5F6DA9</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/StencilLight.fx">
+      <ExpectedHash>5E2E7F558A055C55E4B4CA870BCC00399951924EF4000F6FF3D877A59F86469D</ExpectedHash>
+      <WindowsHash>A9DA15F9096E567A41CB8F9289416964CFC5DDF15248DF602447C9E60360CE84</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)StencilLight.mgfxo">
+      <ExpectedHash>DEF5C182EBA8EF1749CE3A7B139F52F6A272EB8E49B46FE096FB2F43F6F943A5</ExpectedHash>
+      <WindowsHash>DEF5C182EBA8EF1749CE3A7B139F52F6A272EB8E49B46FE096FB2F43F6F943A5</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/Twist.fx">
+      <ExpectedHash>A33A0F65DC50E764F70070D1076F2D0CC191A9C0D4013FA0F16C513FA39DB7FB</ExpectedHash>
+      <WindowsHash>B4CA070A7029DD0BC85FC079BC6F2CB7D5E58767C39B599A5F05ABEC7D306706</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)Twist.mgfxo">
+      <ExpectedHash>13A6F3BCFFA8C202ACA28FD804958DFAD6566DE726DF9BCBCC89218F49C268BB</ExpectedHash>
+      <WindowsHash>13A6F3BCFFA8C202ACA28FD804958DFAD6566DE726DF9BCBCC89218F49C268BB</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/Vignette.fx">
+      <ExpectedHash>831B7C90FD42DAFC8CB52A02F4E2F82E40F452C117B139FC6C44ADBD1CAA27C1</ExpectedHash>
+      <WindowsHash>945ACDFCA1B4238E47FE31CEA1541F8418781EC75B0224FF5034309392D890F1</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)Vignette.mgfxo">
+      <ExpectedHash>A573CD87D0E431A0E312506924AA2F6EEA707F644E570F81526C350273166C4C</ExpectedHash>
+      <WindowsHash>A573CD87D0E431A0E312506924AA2F6EEA707F644E570F81526C350273166C4C</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/transitions/Squares.fx">
+      <ExpectedHash>FD81CC0248B297A3966EB40072E3E60F4D44E7ADF7A8E441DFBAF32FD7856D6E</ExpectedHash>
+      <WindowsHash>7E85A5297BE4DBF92113DD6394875FF6D04E2B99D9BFE3F9DD9A0213FE6DD9A3</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)transitions/Squares.mgfxo">
+      <ExpectedHash>C6A6653D02A68A9F6EEF47A48899540E8CD76B473B37E6F6A96B3CCCBBB792DD</ExpectedHash>
+      <WindowsHash>C6A6653D02A68A9F6EEF47A48899540E8CD76B473B37E6F6A96B3CCCBBB792DD</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/transitions/TextureWipe.fx">
+      <ExpectedHash>04AED963F60469CC575941E52510C485A3EB1E570752AA8EFF5F27449A949545</ExpectedHash>
+      <WindowsHash>CEE2DABD9176267D1F6A233A43AB84EB13F977A9646462C116B30DECFD490AAE</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)transitions/TextureWipe.mgfxo">
+      <ExpectedHash>31255D1E8C5EA9E77C90D14FFF779715B8C6F273A0D4C925A935144C28463B5D</ExpectedHash>
+      <WindowsHash>31255D1E8C5EA9E77C90D14FFF779715B8C6F273A0D4C925A935144C28463B5D</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/transitions/Wind.fx">
+      <ExpectedHash>155B4E1BEE21E12B76BA563E19B9EF83419C8285BC94253C74460D4C81496E2C</ExpectedHash>
+      <WindowsHash>F2EAF25A3BAA985FAD13313C11642D6E3237FAE81070031A7F5A134E57A58AB2</WindowsHash>
+    </_BundledEffectInput>
+    <_BundledEffectInput Include="$(MSBuildThisFileDirectory)transitions/Wind.mgfxo">
+      <ExpectedHash>E3B05B4AB5D4021799FD10B1251165BD27C605C2776BE4C448217B847F34D9D9</ExpectedHash>
+      <WindowsHash>E3B05B4AB5D4021799FD10B1251165BD27C605C2776BE4C448217B847F34D9D9</WindowsHash>
+    </_BundledEffectInput>
+  </ItemGroup>
+</Project>

@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Voltage.Editor.DebugUtils;
+using Voltage.Editor.Effects;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Scripting;
 using Voltage.Editor.Utils;
@@ -138,6 +139,16 @@ public static class GameBuilder
 					: $"If the publish fails, install them with: {manualCmd}";
 				Debug.Warn(
 					$"Build toolchain not fully detected ({missing}). Proceeding anyway. {hint}", "GameBuilder");
+			}
+
+			OnBuildStepStarted?.Invoke("Compiling project effects...");
+			var effectsSuccess = await Task.Run(() => EffectsCompiler.BuildProjectForPublish(project, cancellationToken), cancellationToken);
+			OnBuildStepCompleted?.Invoke("Compile project effects", effectsSuccess);
+			if (!effectsSuccess)
+			{
+				OnBuildFinished?.Invoke(false, "Effect compilation failed. Check console for errors.");
+				EngineLibsSync.SyncToProject(project.ProjectPath);
+				return false;
 			}
 
 			// 2)  Publish the game project (self-contained + trimmed)
@@ -305,6 +316,11 @@ public static class GameBuilder
 				CreateNoWindow = true,
 				WorkingDirectory = project.ProjectPath
 			};
+
+			// NativeAOT's Windows host check requires this even when the launcher omitted it.
+			if (OperatingSystem.IsWindows() &&
+			    (!processInfo.Environment.TryGetValue("OS", out var hostOs) || string.IsNullOrWhiteSpace(hostOs)))
+				processInfo.Environment["OS"] = "Windows_NT";
 
 			using var process = Process.Start(processInfo);
 			if (process == null)
@@ -533,7 +549,8 @@ public static class GameBuilder
 			if (!Directory.Exists(voltageContentSrc))
 			{
 				Debug.Warn($"Voltage content directory not found: {voltageContentSrc}");
-				EditorDebug.Warn("No Voltage engine content found to copy. Effects may be missing.", "GameBuilder");
+				CopyEffectOverrides(buildDir);
+				EditorDebug.Log("No loose Voltage content to copy; built-in effects are bundled in Voltage.dll.", "GameBuilder");
 				return true;
 			}
 
@@ -546,6 +563,7 @@ public static class GameBuilder
 
 			var voltageContentDest = Path.Combine(buildDir, "Content", "Voltage");
 			CopyDirectoryRecursiveFiltered(voltageContentSrc, voltageContentDest, excludedDirs);
+			CopyEffectOverrides(buildDir);
 
 			// Copy the default bitmap font and its texture into Content/Voltage/Fonts.
 			// Core.Initialize() loads it from "Content/Voltage/Fonts/VoltageDefaultBMFont.fnt".
@@ -587,10 +605,21 @@ public static class GameBuilder
 		}
 	}
 
-	/// <summary>
-	/// Recursively copies a directory and all its contents, excluding directories whose names
-	/// match any entry in the <paramref name="excludedDirNames"/> set.
-	/// </summary>
+	/// <summary>Copies valid compiled Editor overrides into a game export.</summary>
+	private static void CopyEffectOverrides(string buildDir)
+	{
+		var source = EffectsCompiler.EngineOutputDirectory;
+		if (!Directory.Exists(source)) return;
+		foreach (var effect in Directory.GetFiles(source, "*.mgfxo", SearchOption.AllDirectories))
+		{
+			if (!EffectToolchain.IsDesktopGl(File.ReadAllBytes(effect))) continue;
+			var destination = Path.Combine(buildDir, "Content", "Voltage", "Effects", Path.GetRelativePath(source, effect));
+			Directory.CreateDirectory(Path.GetDirectoryName(destination));
+			File.Copy(effect, destination, true);
+		}
+	}
+
+	/// <summary>Copies content while excluding Editor-only directories.</summary>
 	private static void CopyDirectoryRecursiveFiltered(string sourceDir, string destDir, HashSet<string> excludedDirNames)
 	{
 		Directory.CreateDirectory(destDir);

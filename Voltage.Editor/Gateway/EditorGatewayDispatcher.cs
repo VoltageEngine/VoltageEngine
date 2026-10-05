@@ -11,6 +11,7 @@ using Voltage.Editor.SceneFile;
 using Voltage.Editor.Scripting;
 using Voltage.Editor.Undo.Core;
 using Voltage.Gateway;
+using Voltage.Editor.Aseprite;
 
 namespace Voltage.Editor.Gateway;
 
@@ -34,12 +35,16 @@ public sealed class EditorGatewayDispatcher : GatewayDispatcher
 
 	public ImGuiManager ImGuiManager { get; }
 
+	public AsepriteBridge Aseprite { get; }
+
 	public override string ScreenshotDirectory => Path.Combine(EditorStorage.CacheRoot, "Screenshots");
 
 	public EditorGatewayDispatcher(GatewayOptions options, ImGuiManager imGui) : base(options)
 	{
 		ImGuiManager = imGui;
 		Current = this;
+		Aseprite = new AsepriteBridge(Emit);
+		AsepriteCommands.Register(Commands, Aseprite);
 		Input.TextSink = c => ImGui.GetIO().AddInputCharacter(c);
 
 		EditorCommands.Register(Commands);
@@ -72,6 +77,11 @@ public sealed class EditorGatewayDispatcher : GatewayDispatcher
 
 	protected override void OnStarted()
 	{
+		if (!Options.Safe && System.IO.File.Exists(System.IO.Path.Combine(AsepriteBridge.ExtensionDirectory, "plugin.lua")))
+		{
+			try { Aseprite.Start(); }
+			catch (Exception ex) { Debug.Warn($"[Aseprite] Bridge could not start: {ex.Message}"); }
+		}
 		Core.OnSwitchEditMode += OnSwitchEditMode;
 		Core.OnSwitchPauseMode += OnSwitchPauseMode;
 		Core.OnResetScene += OnResetScene;
@@ -84,6 +94,7 @@ public sealed class EditorGatewayDispatcher : GatewayDispatcher
 
 	protected override void OnStopping()
 	{
+		Aseprite.Dispose();
 		Core.OnSwitchEditMode -= OnSwitchEditMode;
 		Core.OnSwitchPauseMode -= OnSwitchPauseMode;
 		Core.OnResetScene -= OnResetScene;
@@ -130,6 +141,7 @@ public sealed class EditorGatewayDispatcher : GatewayDispatcher
 			return;
 
 		WatchScripts(ImGuiManager.ScriptManager);
+		Aseprite.Tick();
 		base.Update();
 		UiCommands.Tick();
 		EmitStateChanges();

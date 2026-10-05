@@ -58,13 +58,23 @@ namespace Voltage
 
 		public virtual void Update()
 		{
+			Stage.InputEnabled = Enabled && Color.A > 0;
 			Stage.Update();
 		}
+
+		public override void OnDisabled()
+		{
+			Stage.InputEnabled = false;
+			Stage.DisableGamepadFocus();
+			Stage.UnfocusAll();
+		}
+
+		public override void OnEnabled() => Stage.InputEnabled = Color.A > 0;
 
 
 		public override void Render(Batcher batcher, Camera camera)
 		{
-			Stage.Render(batcher, camera);
+			Stage.Render(batcher, camera, Color.A / 255f);
 		}
 
 

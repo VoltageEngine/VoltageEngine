@@ -82,6 +82,8 @@ namespace Voltage.Editor.Effects
 		{
 			if (_currentProgress != null)
 			{
+				_currentProgress.SuccessCount = successCount;
+				_currentProgress.FailureCount = failureCount;
 				_currentProgress.IsComplete = true;
 				_currentProgress.CurrentItem = "";
 

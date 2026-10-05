@@ -46,6 +46,7 @@ internal sealed class AssetBuildReport
 				toolVersion = ToolVersion,
 				elapsedSeconds = Elapsed.TotalSeconds,
 				compiled = Items.Count(i => i.Outcome == "compiled"),
+				upToDate = Items.Count(i => i.Outcome == "compiled" && i.Reused),
 				copied = Items.Count(i => i.Outcome == "copied"),
 				skipped = Items.Count(i => i.Outcome == "skipped"),
 				failed = Items.Count(i => i.Outcome == "failed"),
@@ -65,7 +66,7 @@ internal static class AssetBuildService
 
 	public static AssetBuildReport LastReport { get; private set; }
 
-	/// <summary>Compiles into <paramref name="outputDir"/>; a standalone run (<paramref name="copyRaw"/>) starts from an empty folder and also copies every raw file the contract keeps.</summary>
+	/// <summary>Compiles in a persistent MGCB cache, then stages outputs and optionally raw files into the requested folder.</summary>
 	public static Task<AssetBuildReport> RunAsync(IGameProject project, ProjectSettings.AssetBuildSettings settings, string outputDir, string platformOverride, bool clean, bool copyRaw, CancellationToken cancel)
 	{
 		if (project == null)
@@ -98,7 +99,8 @@ internal static class AssetBuildService
 					report.Running = false;
 				}
 				Volatile.Write(ref _running, 0);
-				Debug.Info($"[AssetBuild] {(report.Success ? "finished" : "failed")}: {report.Count("compiled")} compiled, {report.Count("copied")} copied, {report.Count("skipped")} skipped, {report.Count("failed")} failed in {report.Elapsed.TotalSeconds:0.0}s");
+				var reused = report.Items.Count(i => i.Outcome == "compiled" && i.Reused);
+				Debug.Info($"[AssetBuild] {(report.Success ? "finished" : "failed")}: {report.Count("compiled") - reused} compiled, {reused} up to date, {report.Count("copied")} copied, {report.Count("skipped")} skipped, {report.Count("failed")} failed in {report.Elapsed.TotalSeconds:0.0}s");
 			}
 			return report;
 		}, cancel);
@@ -125,6 +127,13 @@ internal static class AssetBuildService
 	{
 		RequireSafeOutput(project, outputDir);
 		var plan = AssetBuildPipeline.CreatePlan(project, settings, outputDir, platformOverride);
+		var destination = plan.OutputDir;
+		var cache = Path.Combine(AssetBuildSettingsStore.IntermediateDirectory(project, plan.Platform), "compiled", MgcbRunner.ToolVersion);
+		RequireSafeOutput(project, cache);
+		var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+		var intermediates = Full(AssetBuildSettingsStore.IntermediateDirectory(project, plan.Platform));
+		if (Full(destination).StartsWith(intermediates, comparison) || intermediates.StartsWith(Full(destination), comparison))
+			throw new InvalidOperationException("asset build output must not overlap the persistent asset cache");
 		lock (report.Lock)
 		{
 			report.Platform = plan.Platform;
@@ -137,7 +146,7 @@ internal static class AssetBuildService
 		if (!plan.PipelineAvailable)
 			Warn(report, $"Voltage.Pipeline.dll not found at {plan.PipelineDll}; Aseprite and .fnt files are copied instead of compiled");
 
-		// A standalone output is rebuilt from nothing every time, so renamed or deleted sources leave nothing behind; a game build's folder was emptied by the publish.
+		// Recreate the distribution folder without discarding MGCB's reusable outputs.
 		if (copyRaw && Directory.Exists(plan.OutputDir))
 		{
 			Info(report, "emptying " + plan.OutputDir);
@@ -148,7 +157,11 @@ internal static class AssetBuildService
 			Info(report, "cleaning " + plan.IntermediateDir);
 			Directory.Delete(plan.IntermediateDir, true);
 		}
-		Directory.CreateDirectory(plan.OutputDir);
+		if (clean && Directory.Exists(cache))
+			Directory.Delete(cache, true);
+		Directory.CreateDirectory(destination);
+		Directory.CreateDirectory(cache);
+		plan.OutputDir = cache;
 		cancel.ThrowIfCancellationRequested();
 
 		if (plan.Compiled.Any())
@@ -163,6 +176,7 @@ internal static class AssetBuildService
 			AssetBuildPipeline.WriteMgcb(plan);
 			Info(report, "wrote " + plan.MgcbPath);
 			SetStatus(report, "running mgcb");
+			var previousOutputs = plan.Compiled.ToDictionary(i => i, i => File.Exists(i.OutputXnb(cache)) ? File.GetLastWriteTimeUtc(i.OutputXnb(cache)) : DateTime.MinValue);
 			var started = DateTime.UtcNow.AddSeconds(-2);
 			var code = MgcbRunner.RunMgcb(project, plan.MgcbPath, line => OnMgcbLine(report, plan, line, false), line => OnMgcbLine(report, plan, line, true), cancel);
 			Info(report, $"mgcb exited with code {code}");
@@ -176,6 +190,7 @@ internal static class AssetBuildService
 					if (item.Outcome == "failed")
 						continue;
 					item.Outcome = built ? "compiled" : "failed";
+					item.Reused = built && !clean && previousOutputs[item] != DateTime.MinValue && File.GetLastWriteTimeUtc(xnb) == previousOutputs[item];
 					if (!built && item.Error == null)
 						item.Error = code == 0 ? "no output produced" : $"mgcb exited with code {code}";
 				}
@@ -184,8 +199,9 @@ internal static class AssetBuildService
 		else
 			Info(report, "nothing to compile; every file is copied or skipped");
 
-		if (copyRaw)
-			PruneStaleOutputs(plan, report);
+		PruneStaleOutputs(plan, report);
+		StageCompiledOutputs(plan, destination);
+		plan.OutputDir = destination;
 		SetStatus(report, "writing index");
 		var index = AssetBuildPipeline.WriteIndex(plan);
 		lock (report.Lock) report.IndexPath = index;
@@ -204,8 +220,19 @@ internal static class AssetBuildService
 
 		lock (report.Lock)
 		{
-			report.Success = report.Items.All(i => i.Outcome != "failed");
+			report.Success = report.Errors.Count == 0 && report.Items.All(i => i.Outcome != "failed");
 			report.Status = report.Success ? "done" : "failed";
+		}
+	}
+
+	/// <summary>Copies only the current plan's successful outputs into a freshly published or standalone folder.</summary>
+	internal static void StageCompiledOutputs(AssetBuildPlan plan, string destination)
+	{
+		foreach (var item in plan.Compiled.Where(i => i.Outcome == "compiled"))
+		{
+			var target = item.OutputXnb(destination);
+			Directory.CreateDirectory(Path.GetDirectoryName(target));
+			File.Copy(item.OutputXnb(plan.OutputDir), target, true);
 		}
 	}
 
@@ -239,7 +266,6 @@ internal static class AssetBuildService
 	}
 
 	/// <summary>Deletes .xnb files the plan did not produce, so a renamed or removed source cannot linger as a compiled orphan.</summary>
-	/// <summary>Standalone outputs only: a game build's Content folder also holds engine and plugin content this plan never produced.</summary>
 	private static void PruneStaleOutputs(AssetBuildPlan plan, AssetBuildReport report)
 	{
 		if (!Directory.Exists(plan.OutputDir))

@@ -322,7 +322,7 @@ namespace Voltage.UI
 			}
 			else
 			{
-				textWidth = width - (paddingLeft + paddingRight);
+				textWidth = _prefSize.X;
 				textHeight = _style.Font.LineHeight * _style.FontScaleY;
 			}
 			
@@ -368,7 +368,7 @@ namespace Voltage.UI
 			_style.Background?.Draw(batcher, x, y, width == 0 ? _prefSize.X : width, height, color);
 
 			BatcherIFontExt.DrawString(batcher, _style.Font, _wrappedString, new Vector2(x, y) + _textPosition,
-				_style.FontColor, 0, Vector2.Zero, new Vector2(_style.FontScaleX, _style.FontScaleY), SpriteEffects.None, 0);
+				_style.FontColor.Multiply(color), 0, Vector2.Zero, new Vector2(_style.FontScaleX, _style.FontScaleY), SpriteEffects.None, 0);
 		}
 	}
 

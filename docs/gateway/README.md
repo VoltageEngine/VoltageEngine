@@ -95,6 +95,9 @@ voltage --game app.exit
 
 ## Methods
 
+The editor also exposes 123 live `aseprite.*` tools and connection/project helpers through the same
+gateway and MCP. See [Live Aseprite Integration](../editor/aseprite.md) for installation and usage.
+
 | Group | Methods |
 |---|---|
 | Editor | `ping`, `commands`, `status`, `editor.exit`, `app.exit`, `undo`, `redo`, `undo.history`, `window.list`, `window.show`, `ui.info` |

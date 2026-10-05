@@ -60,6 +60,7 @@ namespace Voltage.UI
 		protected bool _mouseOver, _mouseDown;
 		protected bool _isChecked;
 		protected bool _isDisabled;
+		public override bool IsInputEnabled() => !_isDisabled && base.IsInputEnabled();
 		ButtonStyle style;
 
 

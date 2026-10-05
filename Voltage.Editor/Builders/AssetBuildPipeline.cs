@@ -30,6 +30,7 @@ internal sealed class AssetBuildItem
 	public string Reason;
 	public string Outcome;
 	public string Error;
+	public bool Reused;
 
 	public string OutputXnb(string outputDir) => Path.Combine(outputDir, AssetName.Replace('/', Path.DirectorySeparatorChar) + ".xnb");
 }
@@ -187,7 +188,7 @@ internal static class AssetBuildPipeline
 		var ext = Path.GetExtension(relativeToContent).ToLowerInvariant();
 		if (NeverCompiled.Contains(ext))
 		{
-			Copy(item, ext == ".fx" || ext == ".mgfxo" ? "effects use the Effects menu" : "kept as a file; its reader needs no compile");
+			Copy(item, ext == ".fx" || ext == ".mgfxo" ? "effects use the Effects compiler; game builds compile changed shaders automatically" : "kept as a file; its reader needs no compile");
 			return;
 		}
 

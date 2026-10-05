@@ -24,6 +24,12 @@ A published game normally ships the `Content/` folder as raw files and decodes t
 
 The same switch is exposed to the gateway as `assetbuild.settings` and the tool as `assetbuild.run` (`platform`, `clean`, `copyRaw`, `output` inside the project); `assetbuild.status` and `assetbuild.clean` round it out, and `build.game compileAssets=` overrides the stored setting for one build.
 
+## Incremental builds
+
+MGCB keeps compiled outputs under `obj/AssetBuild/<platform>/compiled/<tool-version>` and dependency records beside them in `obj/AssetBuild/<platform>/obj`. Game builds and **Build assets now** share this cache. Recreating a publish or standalone output folder only copies the current compiled assets from the cache; it does not force another compile. MGCB rebuilds changed sources, dependencies, or processor settings, and missing outputs. The first build after enabling this cache compiles everything once.
+
+The report distinguishes newly compiled files from **up to date** files. **Clean asset build** deletes both the standalone output and the persistent cache, so the next run recompiles everything. Removed or renamed assets are excluded from the next output and index.
+
 ## What gets compiled
 
 | Source | Compiled as | Runtime type | Notes |

@@ -114,6 +114,33 @@ namespace Voltage.Data
 			return asset;
 		}
 
+		/// <summary>Transfers cached values and play snapshots to a recompiled asset type.</summary>
+		internal static void RebindType(Type previousType, DataAssetRegistry.Entry entry)
+		{
+			lock (_lock)
+			{
+				var paths = new List<string>(_byPath.Keys);
+				foreach (var path in paths)
+				{
+					var previous = _byPath[path];
+					if (previous.GetType() != previousType) continue;
+					var payload = SafeSnapshot(previous);
+					if (payload == null) continue;
+					var json = "{\"@assetType\":" + Json.ToJson(entry.Id) + ",\"@version\":" + previous.LoadedVersion + ",\"data\":" + payload + "}";
+					var replacement = DataAssetIO.FromJson(json, path);
+					if (replacement == null || replacement.GetType() != entry.Type) continue;
+					replacement.SourceGuid = previous.SourceGuid;
+					_byPath[path] = replacement;
+					foreach (var guid in new List<Guid>(_byGuid.Keys))
+						if (ReferenceEquals(_byGuid[guid], previous)) _byGuid[guid] = replacement;
+					if (_playModeSnapshot != null && _playModeSnapshot.Remove(previous, out var snapshot))
+						_playModeSnapshot[replacement] = snapshot;
+					_reloadCounts.GetOrCreateValue(previous).Value++;
+					ReloadVersion++;
+				}
+			}
+		}
+
 		/// <summary>Drops every cached instance. Call on project close, not on scene change.</summary>
 		public static void Clear()
 		{

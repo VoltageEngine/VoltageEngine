@@ -121,6 +121,55 @@ public class AssetBuildTests
 		Assert.That(status.GetProperty("indexEntries").GetInt32(), Is.GreaterThanOrEqualTo(1));
 	}
 
+	[Test]
+	public void Incremental_build_reuses_outputs_in_fresh_destinations_and_rebuilds_changed_sources()
+	{
+		var png = Path.Combine(Path.GetDirectoryName(EditorExe)!, "DefaultContent", "Fonts", "VoltageDefaultBMFont.png");
+		if (!File.Exists(png)) Assert.Ignore($"sample texture not found at {png}");
+		Call("asset.import", new { source = png, destination = "Textures", name = "Stable.png", overwrite = true });
+		Call("asset.import", new { source = png, destination = "Textures", name = "Changed.png", overwrite = true });
+		var project = Path.GetDirectoryName(ProjectFile)!;
+		using var slow = SlowConnection();
+		JsonElement Run(string output, bool clean = false) => slow.Call("assetbuild.run",
+			JsonSerializer.SerializeToElement(new { output = Path.Combine(project, "obj", "IncrementalTests", output), clean, copyRaw = true }));
+		var first = Run("First", true);
+		Assert.That(first.GetProperty("success").GetBoolean(), Is.True, first.ToString());
+		var second = Run("Second");
+		Assert.That(second.GetProperty("success").GetBoolean(), Is.True, second.ToString());
+		Assert.That(second.GetProperty("upToDate").GetInt32(), Is.EqualTo(second.GetProperty("compiled").GetInt32()));
+		var stableOutput = Path.Combine(second.GetProperty("output").GetString()!, "Textures", "Stable.xnb");
+		var stableTime = File.GetLastWriteTimeUtc(stableOutput);
+		File.SetLastWriteTimeUtc(Path.Combine(project, "Content", "Textures", "Changed.png"), DateTime.UtcNow);
+		var third = Run("Second");
+		Assert.That(third.GetProperty("success").GetBoolean(), Is.True, third.ToString());
+		Assert.That(third.GetProperty("upToDate").GetInt32(), Is.EqualTo(third.GetProperty("compiled").GetInt32() - 1));
+		Assert.That(File.GetLastWriteTimeUtc(stableOutput), Is.EqualTo(stableTime));
+		Assert.That(File.ReadAllText(third.GetProperty("index").GetString()!), Does.Contain("Textures/Stable"));
+		Assert.That(File.Exists(Path.Combine(third.GetProperty("output").GetString()!, "Textures", "Changed.xnb")), Is.True);
+		var cache = File.ReadLines(third.GetProperty("mgcb").GetString()!).First(l => l.StartsWith("/outputDir:", StringComparison.Ordinal)).Substring("/outputDir:".Length);
+		File.Delete(Path.Combine(cache, "Textures", "Stable.xnb"));
+		var missing = Run("Missing");
+		Assert.That(missing.GetProperty("success").GetBoolean(), Is.True, missing.ToString());
+		Assert.That(missing.GetProperty("upToDate").GetInt32(), Is.EqualTo(missing.GetProperty("compiled").GetInt32() - 1));
+		var premultiply = Call("assetbuild.settings").GetProperty("premultiplyAlpha").GetBoolean();
+		try
+		{
+			Call("assetbuild.settings", new { premultiplyAlpha = !premultiply });
+			var settingsChanged = Run("SettingsChanged");
+			Assert.That(settingsChanged.GetProperty("success").GetBoolean(), Is.True, settingsChanged.ToString());
+			Assert.That(settingsChanged.GetProperty("upToDate").GetInt32(), Is.Zero);
+		}
+		finally
+		{
+			Call("assetbuild.settings", new { premultiplyAlpha = premultiply });
+		}
+		File.Delete(Path.Combine(project, "Content", "Textures", "Changed.png"));
+		var removed = Run("Removed");
+		Assert.That(removed.GetProperty("success").GetBoolean(), Is.True, removed.ToString());
+		Assert.That(File.ReadAllText(removed.GetProperty("index").GetString()!), Does.Not.Contain("Textures/Changed"));
+		Assert.That(File.Exists(Path.Combine(cache, "Textures", "Changed.xnb")), Is.False);
+	}
+
 	/// <summary>The first run downloads dotnet-mgcb, which can take minutes.</summary>
 	private static GatewayConnection SlowConnection()
 	{

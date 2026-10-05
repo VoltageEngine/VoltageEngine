@@ -127,7 +127,7 @@ namespace Voltage.UI
 
 		public override Element Hit(Vector2 point)
 		{
-			if (touchable == Touchable.Disabled)
+			if (!IsHierarchyInputEnabled())
 				return null;
 
 			for (var i = children.Count - 1; i >= 0; i--)

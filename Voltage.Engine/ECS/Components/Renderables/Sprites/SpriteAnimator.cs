@@ -389,7 +389,8 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 		{
 			if (evt is LongAnimationEvent longEvt)
 			{
-				if (CurrentFrame >= longEvt.StartFrame && CurrentFrame <= longEvt.EndFrame && !string.IsNullOrEmpty(longEvt.Name))
+				if ((string.IsNullOrEmpty(longEvt.AnimationName) || longEvt.AnimationName == CurrentAnimationName) &&
+				    CurrentFrame >= longEvt.StartFrame && CurrentFrame <= longEvt.EndFrame && !string.IsNullOrEmpty(longEvt.Name))
 				{
 					var key = (CurrentAnimationName, longEvt.Name);
 					if (_animationEventSubscribers.TryGetValue(key, out var subscribers))
@@ -410,7 +411,8 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 				if (evt is LongAnimationEvent)
 					continue; // Skip, handled above
 
-				if (evt.StartFrame == CurrentFrame && !string.IsNullOrEmpty(evt.Name))
+				if ((string.IsNullOrEmpty(evt.AnimationName) || evt.AnimationName == CurrentAnimationName) &&
+				    evt.StartFrame == CurrentFrame && !string.IsNullOrEmpty(evt.Name))
 				{
 					var key = (CurrentAnimationName, evt.Name);
 					if (_animationEventSubscribers.TryGetValue(key, out var subscribers))

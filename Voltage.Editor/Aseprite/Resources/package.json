@@ -1,0 +1,10 @@
+{
+  "name": "voltage-aseprite",
+  "displayName": "Voltage Bridge",
+  "description": "Live Aseprite editing and asset workflows for Voltage Engine",
+  "version": "0.1.0",
+  "author": "Voltage Engine",
+  "license": "MIT",
+  "api": 27,
+  "contributes": { "scripts": [{ "path": "./plugin.lua" }] }
+}

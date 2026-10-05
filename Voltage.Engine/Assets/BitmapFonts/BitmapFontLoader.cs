@@ -11,6 +11,9 @@ namespace Voltage.BitmapFonts
 	/// </summary>
 	public static class BitmapFontLoader
 	{
+		internal static Stream OpenStream(string filename) => Path.IsPathRooted(filename)
+			? File.OpenRead(filename) : TitleContainer.OpenStream(filename);
+
 		/// <summary>
 		/// Loads a bitmap font from a file, attempting nto auto detect the file type
 		/// </summary>
@@ -23,7 +26,7 @@ namespace Voltage.BitmapFonts
 		/// </returns>
 		public static BitmapFont LoadFontFromFile(string filename, bool premultiplyAlpha = false)
 		{
-			using (var file = TitleContainer.OpenStream(filename))
+			using (var file = OpenStream(filename))
 			{
 				using (var reader = new StreamReader(file))
 				{
@@ -50,7 +53,7 @@ namespace Voltage.BitmapFonts
 		public static BitmapFont LoadFontFromTextFile(string filename, bool premultiplyAlpha = false)
 		{
 			var font = new BitmapFont();
-			using (var stream = TitleContainer.OpenStream(filename))
+			using (var stream = OpenStream(filename))
 				font.LoadText(stream);
 
 			QualifyResourcePaths(font, Path.GetDirectoryName(filename));
@@ -71,7 +74,7 @@ namespace Voltage.BitmapFonts
 		public static BitmapFont LoadFontFromXmlFile(string filename, bool premultiplyAlpha = false)
 		{
 			var font = new BitmapFont();
-			using (var stream = TitleContainer.OpenStream(filename))
+			using (var stream = OpenStream(filename))
 				font.LoadXml(stream);
 
 			QualifyResourcePaths(font, Path.GetDirectoryName(filename));

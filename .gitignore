@@ -41,6 +41,14 @@ bld/
 [Oo]bj/
 [Ll]og/
 
+# Generated test reports and coverage results; keep test source in the repository.
+[Tt]est[Rr]esults/
+*.trx
+*.coverage
+*.coveragexml
+coverage.cobertura.xml
+coverage.opencover.xml
+
 # Visual Studio 2015 cache/options directory
 .vs/
 
@@ -82,9 +90,17 @@ desktop.ini
 .directory
 *~
 
-.claude/*
-!.claude/settings.json
-!.claude/hooks/
+# Local AI assistant settings, caches and transcripts
+.codex/
+.claude/
+.agents/
+.cursor/
+.continue/
+.windsurf/
+.aider*
+.mcp.local.json
+AGENTS.local.md
+CLAUDE.local.md
 
 # Editor Specific
 Voltage.Editor/Content/

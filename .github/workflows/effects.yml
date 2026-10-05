@@ -1,0 +1,46 @@
+name: Effects
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  first-run:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Verify bundled shaders without Wine or MGFXC
+        run: dotnet run --project tools/effects/Voltage.Effects.Build.csproj -- --verify
+      - name: Test first-run resources and compiler environment
+        run: dotnet test Voltage.Effects.Tests/Voltage.Effects.Tests.csproj -c Release --filter "FullyQualifiedName!~Native_gpu_accepts_all_bundled_effects" --logger "trx;LogFileName=effects.trx" --results-directory TestResults
+      - name: Test native Windows shader compilation
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          dotnet tool install dotnet-mgfxc --version 3.8.5.1 --tool-path obj/effect-tools
+          $env:VOLTAGE_TEST_MGFXC = Join-Path (Get-Location) 'obj/effect-tools/mgfxc.exe'
+          dotnet test Voltage.Effects.Tests/Voltage.Effects.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~Native_shader_compile" --logger "trx;LogFileName=native-compiler.trx" --results-directory TestResults
+      - name: Test native Linux GPU loading
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1-mesa-dri libsdl2-2.0-0 libopenal1
+          VOLTAGE_TEST_GPU=1 xvfb-run -a dotnet test Voltage.Effects.Tests/Voltage.Effects.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~Native_gpu_accepts_all_bundled_effects" --logger "trx;LogFileName=native-gpu.trx" --results-directory TestResults
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: effects-${{ runner.os }}
+          path: TestResults

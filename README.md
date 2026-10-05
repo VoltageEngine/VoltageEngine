@@ -33,6 +33,7 @@ Requires the .NET 8 SDK. `File > New Project` creates a game project with its ow
 - **Runtime**: MonoGame DesktopGL rendering, deferred lighting, physics, a bussed audio mixer with spatial sound and zones, Aseprite and Tiled import.
 - **Publishing**: `dotnet publish` with NativeAOT and trimming from inside the editor, per platform.
 - **Automation**: a loopback [gateway](docs/gateway/README.md) and the `voltage` CLI let scripts and AI agents drive the editor, with an MCP server built in.
+- **Live Aseprite**: a bundled [Lua bridge](docs/editor/aseprite.md) exposes 123 art tools through the editor's MCP, with previews, undo and project import.
 - **Plugins**: versioned packages from bundled, path, git or zip sources, locked per project.
 
 ## Repository layout

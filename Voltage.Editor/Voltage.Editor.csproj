@@ -8,6 +8,9 @@
 	</PropertyGroup>
 
 	<Import Sdk="Microsoft.NET.Sdk" Project="Sdk.props" />
+	<ItemGroup>
+		<Content Include="Aseprite/Resources/**" Link="Aseprite/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+	</ItemGroup>
 
 	<PropertyGroup>
 		<OutputType>WinExe</OutputType>
@@ -252,10 +255,11 @@
 		      ContinueOnError="WarnAndContinue" />
 	</Target>
 
-	<!-- Copy DefaultContent to output, but exclude the Effects folder (since we compile them) -->
+	<!-- Shader sources remain available for recompilation outside the source checkout. -->
 	<ItemGroup>
-		<Content Include="DefaultContent\**\*" Exclude="DefaultContent\Effects\**\*">
+		<Content Include="DefaultContent\**\*">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
 		</Content>
 	</ItemGroup>
 	<ItemGroup>

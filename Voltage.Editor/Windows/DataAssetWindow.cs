@@ -246,8 +246,23 @@ namespace Voltage.Editor.Windows
 
 			if (_seenReloadVersion != DataAssetCache.ReloadCountFor(_asset))
 			{
-				RefreshFromDisk();
-				SetStatus("Reloaded — the file changed on disk.");
+				var current = DataAssetCache.GetByPath(_path);
+				if (current != null && !ReferenceEquals(current, _asset))
+				{
+					_dirty |= _seenValueWrites != AbstractTypeInspector.WriteCountFor(_asset);
+					EditorChangeTracker.ClearChangesFor(_asset);
+					_asset = current;
+					_typeId = DataAssetRegistry.TryGetId(current.GetType()) ?? current.GetType().Name;
+					_inspectors = TypeInspectorUtils.GetInspectableProperties(current);
+					_seenReloadVersion = DataAssetCache.ReloadCountFor(current);
+					_seenValueWrites = AbstractTypeInspector.WriteCountFor(current);
+					SetStatus("Scripts recompiled — retained unsaved values.");
+				}
+				else
+				{
+					RefreshFromDisk();
+					SetStatus("Reloaded — the file changed on disk.");
+				}
 			}
 
 			DrawHeader();

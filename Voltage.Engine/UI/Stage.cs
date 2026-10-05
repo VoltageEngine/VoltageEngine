@@ -12,6 +12,7 @@ namespace Voltage.UI
 	{
 		public static bool Debug;
 		public Entity Entity;
+		public bool InputEnabled = true;
 
 		/// <summary>
 		/// if true, the rawMousePosition will be used else the scaledMousePosition will be used. If your UI is in screen space
@@ -107,13 +108,15 @@ namespace Voltage.UI
 		}
 
 
-		public void Render(Batcher batcher, Camera camera)
+		public void Render(Batcher batcher, Camera camera) => Render(batcher, camera, 1f);
+
+		public void Render(Batcher batcher, Camera camera, float parentAlpha)
 		{
-			if (!root.IsVisible())
+			if (!root.IsVisible() || parentAlpha <= 0f)
 				return;
 
-			Camera = camera;
-			root.Draw(batcher, 1f);
+			Camera = IsFullScreen ? null : camera;
+			root.Draw(batcher, parentAlpha);
 
 			if (Debug)
 			{
@@ -206,8 +209,12 @@ namespace Voltage.UI
 
 		public void Update()
 		{
+			ClearInvalidInputFocus();
+			if (!InputEnabled || (Entity != null && !Entity.Enabled) || !root.IsHierarchyInputEnabled())
+				return;
 			if (_isGamepadFocusEnabled)
 				UpdateGamepadState();
+			ClearInvalidInputFocus();
 			UpdateKeyboardState();
 			UpdateInputMouse();
 
@@ -395,7 +402,7 @@ namespace Voltage.UI
 		void UpdatePrimaryInputReleased(Vector2 inputPos)
 		{
 			for (var i = _inputFocusListeners.Count - 1; i >= 0; i--)
-				((IInputListener)_inputFocusListeners[i]).OnLeftMouseUp(_inputFocusListeners[i]
+				if (CanReceiveInput(_inputFocusListeners[i])) ((IInputListener)_inputFocusListeners[i]).OnLeftMouseUp(_inputFocusListeners[i]
 					.StageToLocalCoordinates(inputPos));
 			_inputFocusListeners.Clear();
 		}
@@ -407,7 +414,7 @@ namespace Voltage.UI
 		void UpdateSecondaryInputReleased(Vector2 inputPos)
 		{
 			for (var i = _inputFocusListeners.Count - 1; i >= 0; i--)
-				((IInputListener)_inputFocusListeners[i]).OnRightMouseUp(_inputFocusListeners[i]
+				if (CanReceiveInput(_inputFocusListeners[i])) ((IInputListener)_inputFocusListeners[i]).OnRightMouseUp(_inputFocusListeners[i]
 					.StageToLocalCoordinates(inputPos));
 			_inputFocusListeners.Clear();
 		}
@@ -454,6 +461,8 @@ namespace Voltage.UI
 				if (!_lastPressedKeys.Contains(key))
 				{
 					_keyboardFocusElement.KeyDown(key);
+                    ClearInvalidInputFocus();
+                    if (_keyboardFocusElement == null) return;
 
 					// if alt isnt pressed we will call keyPressed
 					if (!InputUtils.IsAltDown())
@@ -471,7 +480,7 @@ namespace Voltage.UI
 								_keyRepeatTimer = Core.Schedule(_keyRepeatTime, true, this, t =>
 								{
 									var self = t.Context as Stage;
-									if (self._keyboardFocusElement != null)
+									if (self._keyboardFocusElement is Element widget && self.CanReceiveInput(widget))
 										self._keyboardFocusElement.KeyPressed(_repeatKey, _repeatKey.GetChar().Value);
 								});
 							}
@@ -507,6 +516,9 @@ namespace Voltage.UI
 					_gamepadFocusElement.OnActionButtonReleased();
 			}
 
+			ClearInvalidInputFocus();
+			if (_gamepadFocusElement == null)
+				return;
 			IGamepadFocusable nextElement = null;
 			var direction = Direction.None;
 			if (Input.GamePads[0].DpadLeftPressed || Input.GamePads[0].IsLeftStickLeftPressed() ||
@@ -745,6 +757,8 @@ namespace Voltage.UI
 		/// <param name="element">element.</param>
 		public void SetKeyboardFocus(IKeyboardListener element)
 		{
+			if (element is Element widget && !CanReceiveInput(widget))
+				element = null;
 			// clean up if we are removing focus
 			if (element == null)
 			{
@@ -772,6 +786,8 @@ namespace Voltage.UI
 		/// <param name="focusable">Focusable.</param>
 		public void SetGamepadFocusElement(IGamepadFocusable focusable)
 		{
+			if (!CanReceiveInput(focusable as Element))
+				focusable = null;
 			_isGamepadFocusEnabled = true;
 
 			if (_gamepadFocusElement == focusable)
@@ -790,6 +806,7 @@ namespace Voltage.UI
 		/// </summary>
 		public void DisableGamepadFocus()
 		{
+			_gamepadFocusElement?.OnUnfocused();
 			_gamepadFocusElement = null;
 			_isGamepadFocusEnabled = false;
 		}
@@ -817,6 +834,8 @@ namespace Voltage.UI
 
 		public Element Hit(Vector2 point)
 		{
+			if (!InputEnabled || (Entity != null && !Entity.Enabled))
+				return null;
 			point = root.ParentToLocalCoordinates(point);
 			return root.Hit(point);
 		}
@@ -850,46 +869,53 @@ namespace Voltage.UI
 		}
 
 
+        bool CanReceiveInput(Element element)
+        {
+            if (!InputEnabled || (Entity != null && !Entity.Enabled) || element == null ||
+                element.GetStage() != this || !element.IsInputEnabled())
+                return false;
+            while (element.GetParent() != null)
+                element = element.GetParent();
+            return element == root;
+        }
+        void ClearInvalidInputFocus()
+        {
+            if (_gamepadFocusElement != null && !CanReceiveInput(_gamepadFocusElement as Element))
+                SetGamepadFocusElement(null);
+            if (_keyboardFocusElement is Element keyboard && !CanReceiveInput(keyboard))
+                SetKeyboardFocus(null);
+            for (var i = _inputFocusListeners.Count - 1; i >= 0; i--)
+                if (!CanReceiveInput(_inputFocusListeners[i]))
+                {
+                    (_inputFocusListeners[i] as IInputListener)?.OnMouseExit();
+                    _inputFocusListeners.RemoveAt(i);
+                }
+        }
+
+        static IGamepadFocusable GetDirectionalLink(IGamepadFocusable element, Direction direction) =>
+            direction switch
+            {
+                Direction.Up => element.GamepadUpElement,
+                Direction.Down => element.GamepadDownElement,
+                Direction.Left => element.GamepadLeftElement,
+                Direction.Right => element.GamepadRightElement,
+                _ => null
+            };
 		IGamepadFocusable FindNextGamepadFocusable(IGamepadFocusable relativeToFocusable, Direction direction)
 		{
-			// first, we check to see if the IGamepadFocusable has hard-wired control.
-			if (relativeToFocusable.ShouldUseExplicitFocusableControl)
-			{
-				switch (direction)
-				{
-					case Direction.Up:
-						return relativeToFocusable.GamepadUpElement;
-					case Direction.Down:
-						return relativeToFocusable.GamepadDownElement;
-					case Direction.Left:
-						return relativeToFocusable.GamepadLeftElement;
-					case Direction.Right:
-						return relativeToFocusable.GamepadRightElement;
-				}
-			}
-			else
-			{
-				switch (direction)
-				{
-					case Direction.Up:
-						if (relativeToFocusable.GamepadUpElement is IGamepadFocusable upElement)
-							return upElement;
-						break;
-					case Direction.Down:
-						if (relativeToFocusable.GamepadDownElement is IGamepadFocusable downElement)
-							return downElement;
-						break;
-					case Direction.Left:
-						if (relativeToFocusable.GamepadLeftElement is IGamepadFocusable leftElement)
-							return leftElement;
-						break;
-					case Direction.Right:
-						if (relativeToFocusable.GamepadRightElement is IGamepadFocusable rightElement)
-							return rightElement;
-						break;
-				}
-			}
+            if (!CanReceiveInput(relativeToFocusable as Element))
+                return null;
 
+            var linked = GetDirectionalLink(relativeToFocusable, direction);
+            var visited = new HashSet<IGamepadFocusable> { relativeToFocusable };
+            while (linked != null && visited.Add(linked))
+            {
+                if (CanReceiveInput(linked as Element))
+                    return linked;
+                linked = GetDirectionalLink(linked, direction);
+            }
+            if (relativeToFocusable.ShouldUseExplicitFocusableControl)
+                return null;
 			IGamepadFocusable nextFocusable = null;
 			var distanceToNextButton = float.MaxValue;
 
@@ -899,7 +925,7 @@ namespace Voltage.UI
 			var buttons = FindAllElementsOfType<IGamepadFocusable>();
 			for (var i = 0; i < buttons.Count; i++)
 			{
-				if (buttons[i] == relativeToFocusable)
+				if (buttons[i] == relativeToFocusable || !CanReceiveInput(buttons[i] as Element))
 					continue;
 
 				// filter out buttons that are not in the disired direction

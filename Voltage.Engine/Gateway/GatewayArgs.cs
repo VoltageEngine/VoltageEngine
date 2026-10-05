@@ -17,6 +17,8 @@ public readonly struct GatewayArgs
 {
 	private readonly JsonElement _element;
 
+	public JsonElement Value => _element;
+
 	public GatewayArgs(JsonElement element)
 	{
 		_element = element;

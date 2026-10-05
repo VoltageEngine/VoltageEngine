@@ -104,15 +104,8 @@ namespace Voltage.BitmapFonts
 				if (requiresTransformation)
 					Vector2Ext.Transform(ref p, ref _transformationMatrix, out p);
 
-				var destRect = RectangleExt.FromFloats
-				(
-					p.X, p.Y,
-					currentChar.Bounds.Width * scale.X,
-					currentChar.Bounds.Height * scale.Y
-				);
-
-				batcher.Draw(Textures[currentChar.TexturePage], destRect, currentChar.Bounds, color, rotation,
-					Vector2.Zero, effect, depth);
+				batcher.Draw(Textures[currentChar.TexturePage], p, currentChar.Bounds, color, rotation,
+					Vector2.Zero, scale, effect, depth);
 				previousCharacter = c;
 			}
 		}

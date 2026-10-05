@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Security.Cryptography;
 using Microsoft.Xna.Framework;
 using Voltage.Utils.Extensions;
 
@@ -7,6 +8,26 @@ namespace Voltage
 {
 	public static class EffectResource
 	{
+		const string BundledPrefix = "Voltage.Graphics.Effects.Compiled.";
+		public static string BuiltinOverrideDirectory { get; set; }
+		public static string[] BundledEffectNames => Array.FindAll(typeof(EffectResource).Assembly.GetManifestResourceNames(),
+			name => name.StartsWith(BundledPrefix, StringComparison.Ordinal));
+		public static string BundledRevision { get; } = GetBundledRevision();
+
+		static string GetBundledRevision()
+		{
+			using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+			var names = BundledEffectNames;
+			Array.Sort(names, StringComparer.Ordinal);
+			foreach (var name in names)
+			{
+				using var stream = typeof(EffectResource).Assembly.GetManifestResourceStream(name);
+				using var buffer = new MemoryStream();
+				stream.CopyTo(buffer);
+				hash.AppendData(buffer.ToArray());
+			}
+			return Convert.ToHexString(hash.GetHashAndReset()).Substring(0, 16);
+		}
 		// sprite effects
 		internal static byte[] SpriteBlinkEffectBytes => GetFileResourceBytes("Content/Voltage/Effects/SpriteBlinkEffect.mgfxo");
 
@@ -127,38 +148,55 @@ namespace Voltage
 			path = path.Replace( ".mgfxo", ".fxb" );
 #endif
 
-			byte[] bytes;
 			try
 			{
-				using (var stream = TitleContainer.OpenStream(path))
+				var normalized = path.Replace('\\', '/');
+				const string prefix = "Content/Voltage/Effects/";
+				if (normalized.StartsWith(prefix, StringComparison.Ordinal))
 				{
-					if (stream.CanSeek)
+					var relative = normalized.Substring(prefix.Length);
+					if (!string.IsNullOrEmpty(BuiltinOverrideDirectory))
 					{
-						bytes = new byte[stream.Length];
-						stream.Read(bytes, 0, bytes.Length);
-					}
-					else
-					{
-						using (var ms = new MemoryStream())
+						var replacement = Path.Combine(BuiltinOverrideDirectory, relative);
+						if (File.Exists(replacement))
 						{
-							stream.CopyTo(ms);
-							bytes = ms.ToArray();
+							try { return ReadEffect(File.OpenRead(replacement), path); }
+							catch (InvalidDataException) { }
 						}
 					}
+					var external = Path.Combine(AppContext.BaseDirectory, normalized);
+					if (File.Exists(external))
+					{
+						try { return ReadEffect(File.OpenRead(external), path); }
+						catch (InvalidDataException) { }
+					}
+					using var bundled = typeof(EffectResource).Assembly.GetManifestResourceStream(BundledPrefix + relative.Replace('/', '.'));
+					if (bundled != null) return ReadEffect(bundled, path);
 				}
+				return ReadEffect(Path.IsPathRooted(path) ? File.OpenRead(path) : TitleContainer.OpenStream(path), path);
 			}
 			catch (Exception e)
 			{
-				var txt = string.Format(
-					"OpenStream failed to find file at path: {0}. Possible errors: \n " +
-					"1) Did you 'Build -> Build Effects -> Build ALL' ?. \n" +
-					"2) Did you add the Effect you selected to the Content folder and set its properties to copy to output directory?",
-					path);
+				var txt = $"Unable to load effect '{path}': {e.Message}. Custom effects must be compiled for DesktopGL and included in Content.";
 				Debug.Error(txt);
 				throw new Exception(txt, e);
 			}
 
-			return bytes;
+		}
+
+		static byte[] ReadEffect(Stream stream, string path)
+		{
+			using (stream)
+			using (var buffer = new MemoryStream())
+			{
+				stream.CopyTo(buffer);
+				var bytes = buffer.ToArray();
+#if !FNA
+				if (bytes.Length < 10 || bytes[0] != 'M' || bytes[1] != 'G' || bytes[2] != 'F' || bytes[3] != 'X' || bytes[4] != 11 || bytes[5] != 0)
+					throw new InvalidDataException($"'{path}' is not a valid DesktopGL effect; recompile with /Profile:OpenGL.");
+#endif
+				return bytes;
+			}
 		}
 	}
 }

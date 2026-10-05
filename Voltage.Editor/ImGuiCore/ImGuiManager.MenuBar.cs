@@ -496,6 +496,7 @@ public partial class ImGuiManager
 
 			if (Gui.BeginMenu("Window"))
 			{
+				Gui.MenuItem("Aseprite", null, ref Aseprite.AsepriteWindow.IsOpen);
 				var showMainInspector = ShowMainInspectorWindow;
 				Gui.MenuItem("Inspector Window", null, ref showMainInspector);
 				ShowMainInspectorWindow = showMainInspector;
