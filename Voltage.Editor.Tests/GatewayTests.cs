@@ -265,6 +265,42 @@ public class ScreenshotTests
 public class ScriptTests
 {
 	[Test]
+	public void Nonserialized_runtime_helpers_are_not_written_into_scene()
+	{
+		if (!DotnetAvailable()) Assert.Ignore("dotnet SDK not on PATH");
+		var scriptPath = Path.Combine(Path.GetDirectoryName(ProjectFile), "Scripts", "TransientHost.cs");
+		File.WriteAllText(scriptPath, """
+			using Voltage;
+			public partial class TransientHost : Component
+			{
+			    public bool Spawn = true;
+			    public override void OnStart()
+			    {
+			        if (Spawn) Entity.Scene.SimpleCreateEntity("Unsaved HUD", Entity.InstanceType.NonSerialized);
+			    }
+			}
+			""");
+		Assert.That(Call("scripts.compile").GetProperty("success").GetBoolean(), Is.True);
+		Call("entity.create", new { name = "Transient host" });
+		Call("component.add", new { entity = "Transient host", type = "TransientHost" });
+		try
+		{
+			Assert.That(SpinWait.SpinUntil(() => Call("entity.list").EnumerateArray().Any(entity =>
+				entity.GetProperty("name").GetString() == "Unsaved HUD"), TimeSpan.FromSeconds(5)), Is.True);
+			var saved = Call("scene.save");
+			using var document = JsonDocument.Parse(File.ReadAllText(saved.GetProperty("path").GetString()));
+			var entities = document.RootElement.GetProperty("Entities").EnumerateArray().ToList();
+			Assert.That(entities.Any(entity => entity.GetProperty("Name").GetString() == "Transient host"), Is.True);
+			Assert.That(entities.Any(entity => entity.GetProperty("InstanceType").GetString() == "NonSerialized"), Is.False);
+		}
+		finally
+		{
+			Call("entity.delete", new { entity = "Transient host" });
+			Call("entity.delete", new { entity = "Unsaved HUD" });
+		}
+	}
+
+	[Test]
 	public void Scripts_compile_on_the_sample_project()
 	{
 		if (!DotnetAvailable())

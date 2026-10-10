@@ -826,7 +826,10 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 
 	public override SpriteRenderer SetSprite(Sprite sprite)
 	{
+		var origin = Origin;
+		var customOrigin = Sprite == null ? origin != Vector2.Zero : origin != Sprite.Origin;
 		base.SetSprite(sprite);
+		if (customOrigin) SetOrigin(origin);
 		return this;
 	}
 }

@@ -383,6 +383,8 @@ public partial class SerializationManager : GlobalManager
 		for (int i = 0; i < scene.Entities.Count; i++)
 		{
 			var entity = scene.Entities[i];
+			if (entity.Type == Entity.InstanceType.NonSerialized)
+				continue;
 			SceneData.SceneEntityData oldEntityData;
 			var hasOldData = oldEntitiesByName.TryGetValue(entity.Name, out oldEntityData);
 

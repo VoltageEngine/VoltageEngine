@@ -10,7 +10,7 @@ namespace Voltage.Effects.Tests;
 public class PixelArtTests
 {
     [Test]
-    public void Removing_an_asset_backed_animator_releases_its_generated_texture()
+    public void Asset_backed_animator_preserves_authored_origin_and_releases_its_generated_texture()
     {
         if (!OperatingSystem.IsWindows() && Environment.GetEnvironmentVariable("VOLTAGE_TEST_GPU") != "1")
             Assert.Ignore("Requires a native desktop graphics session.");
@@ -32,11 +32,26 @@ public class PixelArtTests
             var entity = scene.SimpleCreateEntity("Animator", Entity.InstanceType.NonSerialized);
             var animator = entity.AddComponent(new SpriteAnimator
             {
-                TextureFilePath = Path.Combine(root.FullName, "Voltage.Editor", "DefaultContent", "UI", "Custom", "CursorSelection-UI.aseprite")
+                Data = new SpriteAnimator.SpriteAnimatorComponentData
+                {
+                    TextureFilePath = Path.Combine(root.FullName, "Voltage.Editor", "DefaultContent", "UI", "Custom", "CursorSelection-UI.aseprite"),
+                    Origin = new Vector2(8, 12)
+                }
             });
             scene.Update();
+            Assert.That(animator.Origin, Is.EqualTo(new Vector2(8, 12)));
+            animator.NextFrame();
+            Assert.That(animator.Origin, Is.EqualTo(new Vector2(8, 12)));
             var texture = animator.Sprite.Texture2D;
             Assert.That(texture.IsDisposed, Is.False);
+            var automatic = new SpriteAnimator();
+            var first = new Sprite(texture, new Rectangle(0, 0, 2, 2));
+            var second = new Sprite(texture, new Rectangle(0, 0, 4, 4));
+            automatic.AddAnimation("Frames", new[] { first, second });
+            automatic.Play("Frames");
+            Assert.That(automatic.Origin, Is.EqualTo(first.Origin));
+            automatic.NextFrame();
+            Assert.That(automatic.Origin, Is.EqualTo(second.Origin));
             entity.RemoveComponent(animator);
             scene.Update();
             Assert.That(texture.IsDisposed, Is.True);
