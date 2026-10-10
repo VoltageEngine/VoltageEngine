@@ -4,31 +4,12 @@ using Microsoft.Xna.Framework;
 
 namespace Voltage.DeferredLighting
 {
-	public class SpotLight : PointLight
+	public partial class SpotLight : PointLight
 	{
-		public class SpotLightComponentData : ComponentData
-		{
-			public float Radius;
-			public float Intensity;
-			public float ConeAngle;
-			public float ZPosition;
-
-			public byte ColorR = 255;
-			public byte ColorG = 255;
-			public byte ColorB = 255;
-			public byte ColorA = 255;
-			public Color Color
-			{
-				get => new Color(ColorR, ColorG, ColorB, ColorA);
-				set
-				{
-					ColorR = value.R;
-					ColorG = value.G;
-					ColorB = value.B;
-					ColorA = value.A;
-				}
-			}
-		}
+		public class SpotLightComponentData : PointLightComponentData
+        {
+            public float ConeAngle = 90f;
+        }
 
 		private SpotLightComponentData _data = new SpotLightComponentData();
 
@@ -42,6 +23,10 @@ namespace Voltage.DeferredLighting
 				_data.ConeAngle = ConeAngle;
 				_data.ZPosition = ZPosition;
 				_data.Color = Color;
+                _data.RenderLayer = RenderLayer;
+                _data.LocalOffset = LocalOffset;
+                _data.LayerDepth = LayerDepth;
+                _data.DebugEnabled = DebugRenderEnabled;
 
 				return _data;
 			}
@@ -49,12 +34,9 @@ namespace Voltage.DeferredLighting
 			{
 				if (value is SpotLightComponentData d)
 				{
-					Enabled = d.Enabled;
-					SetRadius(d.Radius);       
-					Intensity = d.Intensity;
+					base.Data = d;
+
 					ConeAngle = d.ConeAngle;
-					ZPosition = d.ZPosition;
-					Color = d.Color;
 
 					_data = d;
 				}

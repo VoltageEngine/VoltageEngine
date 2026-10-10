@@ -82,7 +82,10 @@ public partial class Scene
 		/// like the old TitleSafeArea. Example: if design resolution is 1348x900 and bleed is 148x140 the safe area would be 1200x760 (design
 		/// resolution - bleed).
 		/// </summary>
-		BestFit
+		BestFit,
+
+		/// <summary>Integer-sized art pixels with motion at display-pixel precision.</summary>
+		SmoothPixelPerfect
 	}
 
 	[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(SceneData))]
@@ -167,6 +170,21 @@ public partial class Scene
 	/// if the ResolutionPolicy is pixel perfect this will be set to the scale calculated for it
 	/// </summary>
 	public int PixelPerfectScale = 1;
+	public int PixelArtRenderScale { get; private set; } = 1;
+	public bool UsesSmoothPixelArt => _resolutionPolicy == SceneResolutionPolicy.SmoothPixelPerfect ||
+		Voltage.Project.ProjectSettings.Instance?.Rendering?.SmoothPixelArt == true &&
+		(_resolutionPolicy == SceneResolutionPolicy.BestFit || _resolutionPolicy == SceneResolutionPolicy.ShowAll ||
+		 _resolutionPolicy == SceneResolutionPolicy.ShowAllPixelPerfect);
+	private Point? _pixelArtViewportSize;
+	private bool _pixelArtViewportDirty;
+
+	/// <summary>Override the available presentation area for an embedded preview.</summary>
+	public void SetPixelArtViewportSize(Point? size)
+	{
+		if (_pixelArtViewportSize == size) return;
+		_pixelArtViewportSize = size;
+		_pixelArtViewportDirty = true;
+	}
 
 	/// <summary>
 	/// the final render to the screen can be deferred to this delegate if set. This is really only useful for cases where the final render
@@ -301,7 +319,22 @@ public partial class Scene
 
 		if (_renderers.Length == 0)
 		{
-			AddRenderer(new DefaultRenderer());
+			var rendering = Project.ProjectSettings.Instance?.Rendering;
+			if (rendering?.DeferredLighting == true)
+			{
+				var world = new List<int>();
+				var overlays = new List<int>();
+				foreach (var layer in rendering.RenderingLayers)
+				{
+					if (layer.Key == "Lighting") continue;
+					if (layer.Key == "UIElement" || layer.Key == "InFrontOfAll") overlays.Add(layer.Value);
+					else world.Add(layer.Value);
+				}
+				AddRenderer(new DeferredLighting.DeferredLightingRenderer(0, Project.RenderLayer.GetRenderLayer("Lighting"), SamplerState.PointClamp, world.ToArray())
+					.SetAmbientColor(rendering.AmbientLightColor).SetClearColor(EffectiveClearColor));
+				AddRenderer(new RenderLayerRenderer(1, overlays.ToArray()));
+			}
+			else AddRenderer(new DefaultRenderer());
 		}
 
 		Physics.Reset();
@@ -389,6 +422,12 @@ public partial class Scene
 
 	internal void Render()
 	{
+		if (_pixelArtViewportDirty)
+		{
+			_pixelArtViewportDirty = false;
+			UpdateResolutionScaler();
+			Camera.ForceMatrixUpdate();
+		}
 		if (_renderers.Length == 0)
 		{
 			Debug.Error("There are no Renderers in the Scene!");
@@ -555,7 +594,8 @@ public partial class Scene
 	private void UpdateResolutionScaler()
 	{
 		var designSize = _designResolutionSize;
-		var screenSize = new Point(Screen.Width, Screen.Height);
+		var screenSize = UsesSmoothPixelArt && _pixelArtViewportSize.HasValue
+			? _pixelArtViewportSize.Value : new Point(Screen.Width, Screen.Height);
 		var screenAspectRatio = (float)screenSize.X / (float)screenSize.Y;
 
 		var renderTargetWidth = screenSize.X;
@@ -568,6 +608,7 @@ public partial class Scene
 
 		// calculate the scale used by the PixelPerfect variants
 		PixelPerfectScale = 1;
+		PixelArtRenderScale = 1;
 		if (_resolutionPolicy != SceneResolutionPolicy.None)
 		{
 			if ((float)designSize.X / (float)designSize.Y > screenAspectRatio)
@@ -579,7 +620,7 @@ public partial class Scene
 				PixelPerfectScale = 1;
 		}
 
-		switch (_resolutionPolicy)
+		switch (UsesSmoothPixelArt ? SceneResolutionPolicy.SmoothPixelPerfect : _resolutionPolicy)
 		{
 			case SceneResolutionPolicy.None:
 				_finalRenderDestinationRect.X = _finalRenderDestinationRect.Y = 0;
@@ -632,6 +673,19 @@ public partial class Scene
 
 				renderTargetWidth = designSize.X;
 				renderTargetHeight = designSize.Y;
+				break;
+			case SceneResolutionPolicy.SmoothPixelPerfect:
+				bool fixedFrame = Project.ProjectSettings.Instance?.Rendering?.SmoothPixelArtFixedFrame == true;
+				float frameScale = Math.Min(resolutionScaleX, resolutionScaleY);
+				PixelPerfectScale = Math.Max(1, (int)(fixedFrame ? Math.Ceiling(frameScale) : Math.Floor(frameScale + 0.5f)));
+				PixelArtRenderScale = PixelPerfectScale;
+				renderTargetWidth = fixedFrame ? designSize.X * PixelPerfectScale : screenSize.X;
+				renderTargetHeight = fixedFrame ? designSize.Y * PixelPerfectScale : screenSize.Y;
+				int displayWidth = fixedFrame ? Math.Max(1, (int)Math.Round(designSize.X * frameScale)) : renderTargetWidth;
+				int displayHeight = fixedFrame ? Math.Max(1, (int)Math.Round(designSize.Y * frameScale)) : renderTargetHeight;
+				_finalRenderDestinationRect = new Rectangle((screenSize.X - displayWidth) / 2,
+					(screenSize.Y - displayHeight) / 2, displayWidth, displayHeight);
+				rectCalculated = true;
 				break;
 			case SceneResolutionPolicy.ShowAllPixelPerfect:
 				// exact design size render texture
@@ -746,6 +800,7 @@ public partial class Scene
 		if (_finalRenderDelegate != null)
 			_finalRenderDelegate.OnSceneBackBufferSizeChanged(renderTargetWidth, renderTargetHeight);
 		
+		Camera?.ForceMatrixUpdate();
 		//TODO: Fix this working against the camera being assigned a position when we begin the scene
 		//Camera.OnSceneRenderTargetSizeChanged(renderTargetWidth, renderTargetHeight);
 	}

@@ -546,7 +546,15 @@ namespace Voltage.Sprites
 
 		public override void Render(Batcher batcher, Camera camera)
 		{
-			batcher.Draw(Sprite, Entity.Transform.Position + LocalOffset, Color, Entity.Transform.Rotation, 
+			var position = Entity.Transform.Position + LocalOffset;
+			if (Entity.Scene.UsesSmoothPixelArt && camera == Entity.Scene.Camera && camera.Rotation == 0 && Entity.Transform.Rotation == 0)
+			{
+				var corner = camera.WorldToScreenPoint(position - Origin * Entity.Transform.Scale);
+				corner.X = (float)Math.Round(corner.X);
+				corner.Y = (float)Math.Round(corner.Y);
+				position = camera.ScreenToWorldPoint(corner) + Origin * Entity.Transform.Scale;
+			}
+			batcher.Draw(Sprite, position, Color, Entity.Transform.Rotation,
 						 Origin, Entity.Transform.Scale, SpriteEffects, LayerDepth);
 		}
 

@@ -467,15 +467,13 @@ namespace Voltage.BitmapFonts
 			}
 		}
 
-		~BitmapFont() => Dispose();
-
 		public void Dispose()
 		{
 			if (Textures == null)
 				return;
 
 			foreach (var tex in Textures)
-				tex.Dispose();
+				tex?.Dispose();
 			Textures = null;
 		}
 

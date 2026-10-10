@@ -24,6 +24,7 @@ namespace Voltage.Materials
 			else
 				NormalMap = _normalMapAnimation.Sprites[0].Texture2D;
 
+			Effect.SetNormalMap(NormalMap);
 			base.OnPreRender(camera);
 		}
 	}

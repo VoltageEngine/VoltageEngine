@@ -67,6 +67,10 @@ internal static class ProjectSceneCommands
 		table.Add("scene.save", "Save the open scene to its file.", (_, _) =>
 		{
 			RequireProject();
+			if (!Core.IsEditMode)
+				throw new GatewayException("return to edit mode before saving the scene");
+			if (Core.Scene?.DidAllEntitiesLoad != true)
+				throw new GatewayException("scene is still loading; wait for scene.load or scene.reload to finish");
 			if (!SceneManager.Instance.SaveCurrentScene())
 				throw new GatewayException("save failed; see log.tail");
 			EditorChangeTracker.Clear();
@@ -76,10 +80,11 @@ internal static class ProjectSceneCommands
 		table.Add("scene.reload", "Reload the open scene from disk, discarding unsaved changes.", (_, _) =>
 		{
 			RequireProject();
-			if (!SceneManager.Instance.ReloadCurrentScene())
+			var scene = SceneManager.Instance.LoadScene(SceneManager.Instance.CurrentScenePath);
+			if (scene == null)
 				throw new GatewayException("reload failed; see log.tail");
 			EditorChangeTracker.Clear();
-			return SceneInfo();
+			return WhenCurrent(scene, SceneInfo);
 		}).Destructive();
 
 		table.Add("scene.create", "Create a scene file in the project: 'empty' writes a fresh scene like the New Scene window, 'copy' saves the open scene under the new name.", (args, _) =>
@@ -151,7 +156,7 @@ internal static class ProjectSceneCommands
 
 	/// <summary>Core swaps scenes on the next Update, so answer once the loaded one is current.</summary>
 	private static object WhenCurrent(Scene scene, Func<object> result) =>
-		scene == null ? result() : GatewayTasks.WhenReady(() => ReferenceEquals(Core.Scene, scene), result);
+		scene == null ? result() : GatewayTasks.WhenReady(() => ReferenceEquals(Core.Scene, scene) && scene.DidAllEntitiesLoad, result);
 
 	/// <summary>A project load wakes the script watcher, whose hot reload swaps the scene again; answer once it has stayed quiet for a moment.</summary>
 	private static object WhenSettled(GatewayContext ctx, Scene previous, Scene loaded, Func<object> result)

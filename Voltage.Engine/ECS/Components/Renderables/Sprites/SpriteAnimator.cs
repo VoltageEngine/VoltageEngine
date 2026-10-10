@@ -163,6 +163,7 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 
 	public List<string> LoadedLayers { get; set; } = new();
 	public string LoadedTag { get; set; } = "";
+	private readonly List<SpriteAtlas> _loadedAtlases = new();
 
 	public override ComponentData Data
 	{
@@ -485,6 +486,7 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 		var atlas = LoadedLayers is { Count: > 0 }
 			? file.ToSpriteAtlasFromLayers(true, 0, 0, 0, null, LoadedLayers.ToArray())
 			: file.ToSpriteAtlas();
+		_loadedAtlases.Add(atlas);
 
 		if (atlas.AnimationNames is { Length: > 0 })
 		{
@@ -506,6 +508,13 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 		}
 
 		return 0;
+	}
+
+	public override void OnRemovedFromEntity()
+	{
+		foreach (var atlas in _loadedAtlases) ((IDisposable)atlas).Dispose();
+		_loadedAtlases.Clear();
+		base.OnRemovedFromEntity();
 	}
 
 	/// <summary>

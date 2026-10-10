@@ -410,7 +410,15 @@ public class GatewayDispatcher : GlobalManager
 	private static void Reply(GatewayClient client, JsonElement id, bool ok, object result, string error)
 	{
 		object idValue = id.ValueKind == JsonValueKind.Undefined ? null : id;
-		client.Send(Serialize(new { id = idValue, ok, result, error }));
+		client.Send(Serialize(new GatewayReply { Id = idValue, Ok = ok, Result = result, Error = error }));
+	}
+
+	private sealed class GatewayReply
+	{
+		public object Id { get; set; }
+		public bool Ok { get; set; }
+		public object Result { get; set; }
+		public string Error { get; set; }
 	}
 
 	private void ForwardLog(Debug.LogEntry entry)

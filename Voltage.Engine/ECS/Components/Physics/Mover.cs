@@ -31,7 +31,7 @@ namespace Voltage
             collisionResult = new CollisionResult();
 
             // no collider? just move and forget about it
-            if (Entity.GetComponent<Collider>() == null || _triggerHelper == null)
+            if (Entity == null || Entity.TryGetComponent<Collider>(out var coll) == false || _triggerHelper == null)
                 return false;
 
             // 1. move all non-trigger Colliders and get closest collision
@@ -141,6 +141,13 @@ namespace Voltage
         /// <param name="motion">Motion.</param>
         public void ApplyMovement(Vector2 motion)
 		{
+			if (Entity == null)
+			{
+				Debug.Error("Entity is null!");
+				return;
+			}
+
+
 			// 2. move entity to its new position if we have a collision else move the full amount. motion is updated when a collision occurs
 			Entity.Transform.Position += motion;
 

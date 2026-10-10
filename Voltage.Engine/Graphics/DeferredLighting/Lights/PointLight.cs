@@ -7,7 +7,7 @@ namespace Voltage.DeferredLighting
 	/// PointLights radiate light in a circle. Note that PointLights are affected by Transform.scale. The Transform.scale.X value is multiplied
 	/// by the lights radius when sent to the GPU. It is expected that scale will be linear.
 	/// </summary>
-	public class PointLight : DeferredLight
+	public partial class PointLight : DeferredLight
 	{
 		#region ComponentData
 		public class PointLightComponentData : ComponentData
@@ -16,6 +16,9 @@ namespace Voltage.DeferredLighting
 			public float Intensity;
 			public float ZPosition;
 			public bool DebugEnabled; 
+			public int RenderLayer;
+			public float LayerDepth;
+			public Vector2 LocalOffset;
 
 			public byte ColorR = 255;
 			public byte ColorG = 255;
@@ -46,6 +49,9 @@ namespace Voltage.DeferredLighting
 				_data.Color = Color;
 				_data.ZPosition = ZPosition;
 				_data.DebugEnabled = DebugRenderEnabled;
+				_data.RenderLayer = RenderLayer;
+				_data.LayerDepth = LayerDepth;
+				_data.LocalOffset = LocalOffset;
 
 				return _data;
 			}
@@ -59,6 +65,9 @@ namespace Voltage.DeferredLighting
 					Color = d.Color;
 					ZPosition = d.ZPosition;
 					DebugRenderEnabled = d.DebugEnabled;
+					RenderLayer = d.RenderLayer;
+					LayerDepth = d.LayerDepth;
+					LocalOffset = d.LocalOffset;
 
 					_data = d;
 				}

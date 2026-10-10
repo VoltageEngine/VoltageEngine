@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Collections.Generic;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 using Voltage.Materials;
@@ -70,10 +71,21 @@ namespace Voltage.DeferredLighting
 		Color _ambientColor;
 		Color _clearColor;
 		static Texture2D _nullNormalMapTexture;
+		static int _normalMapUsers;
 
 		public RenderTexture DiffuseRT;
 		public RenderTexture NormalRT;
 		public RenderTexture LightRT;
+        public RenderTexture AmbientRT;
+
+        public sealed class AmbientRegion
+        {
+            public RectangleF Area;
+            public Color Color;
+        }
+
+        /// <summary>World regions that override ambient illumination before lights are combined.</summary>
+        public readonly List<AmbientRegion> AmbientRegions = new();
 
 		DeferredLightEffect _lightEffect;
 
@@ -86,6 +98,7 @@ namespace Voltage.DeferredLighting
 		{
 			// make sure we have a workable Material for our lighting system
 			Material = new DeferredSpriteMaterial(NullNormalMapTexture);
+			_normalMapUsers++;
 			Material.SamplerState = sampleState;
 
 			_lightLayer = lightLayer;
@@ -110,9 +123,11 @@ namespace Voltage.DeferredLighting
 		/// <param name="scene">scene.</param>
 		public override void Render(Scene scene)
 		{
+			SetClearColor(scene.EffectiveClearColor);
 			ClearRenderTargets();
 			RenderSprites(scene);
 			RenderLights(scene);
+			RenderAmbient(scene);
 			RenderFinalCombine(scene);
 
 			if (EnableDebugBufferRender)
@@ -236,6 +251,19 @@ namespace Voltage.DeferredLighting
 			}
 		}
 
+        void RenderAmbient(Scene scene)
+        {
+            if (AmbientRegions.Count == 0) return;
+            AmbientRT ??= new RenderTexture(DiffuseRT.RenderTarget.Width, DiffuseRT.RenderTarget.Height, SurfaceFormat.Color, DepthFormat.None);
+            Core.GraphicsDevice.SetRenderTarget(AmbientRT);
+            Core.GraphicsDevice.Clear(AmbientColor);
+            var batcher = Graphics.Instance.Batcher;
+            batcher.Begin(BlendState.Opaque, SamplerState.PointClamp, DepthStencilState.None,
+                RasterizerState.CullNone, null, scene.Camera.TransformMatrix, false);
+            foreach (var region in AmbientRegions) batcher.DrawRect(region.Area, region.Color);
+            batcher.End();
+        }
+
 		void RenderFinalCombine(Scene scene)
 		{
 			Core.GraphicsDevice.SetRenderTarget(scene.SceneRenderTarget);
@@ -243,7 +271,7 @@ namespace Voltage.DeferredLighting
 			Core.GraphicsDevice.DepthStencilState = DepthStencilState.None;
 
 			// combine everything. ambient color is set in the shader when the property is set so no need to reset it
-			_lightEffect.PrepareForFinalCombine(DiffuseRT, LightRT, NormalRT);
+			_lightEffect.PrepareForFinalCombine(DiffuseRT, LightRT, NormalRT, AmbientRegions.Count > 0 ? AmbientRT?.RenderTarget : null);
 			_quadMesh.Render();
 		}
 
@@ -278,6 +306,24 @@ namespace Voltage.DeferredLighting
 
 		void RenderLight(DeferredLight light)
 		{
+            if (light is RoomLight roomLight)
+            {
+                var batcher = Graphics.Instance.Batcher;
+                batcher.Begin(BlendState.Additive, SamplerState.LinearClamp, DepthStencilState.None,
+                    RasterizerState.CullNone, null, roomLight.Entity.Scene.Camera.TransformMatrix, false);
+                roomLight.RenderLight(batcher);
+                batcher.End();
+                return;
+            }
+            if (light is SpriteLight spriteLight)
+            {
+                var batcher = Graphics.Instance.Batcher;
+                batcher.Begin(BlendState.Additive, SamplerState.LinearClamp, DepthStencilState.None,
+                    RasterizerState.CullNone, null, spriteLight.Entity.Scene.Camera.TransformMatrix, false);
+                spriteLight.RenderLight(batcher, spriteLight.Entity.Scene.Camera);
+                batcher.End();
+                return;
+            }
 			// check SpotLight first because it is a subclass of PointLight!
 			if (light is SpotLight)
 				RenderLight(light as SpotLight);
@@ -318,6 +364,7 @@ namespace Voltage.DeferredLighting
 
 		public override void OnSceneBackBufferSizeChanged(int newWidth, int newHeight)
 		{
+			AmbientRT?.OnSceneBackBufferSizeChanged(newWidth, newHeight);
 			// create our RenderTextures if we havent and resize them if we have
 			if (DiffuseRT == null)
 			{
@@ -340,9 +387,13 @@ namespace Voltage.DeferredLighting
 			DiffuseRT.Dispose();
 			NormalRT.Dispose();
 			LightRT.Dispose();
+			AmbientRT?.Dispose();
 
-			if (_nullNormalMapTexture != null)
-				_nullNormalMapTexture.Dispose();
+			if (--_normalMapUsers == 0)
+			{
+				_nullNormalMapTexture?.Dispose();
+				_nullNormalMapTexture = null;
+			}
 
 			base.Unload();
 		}

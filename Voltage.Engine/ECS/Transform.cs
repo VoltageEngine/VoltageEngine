@@ -244,16 +244,16 @@ public class Transform
 	private bool _worldInverseDirty;
 
 	// value is automatically recomputed from the position, rotation and scale
-	private Matrix2D _localTransform;
+	private Matrix2D _localTransform = Matrix2D.Identity;
 
 	// value is automatically recomputed from the local and the parent matrices.
 	private Matrix2D _worldTransform = Matrix2D.Identity;
 	private Matrix2D _worldToLocalTransform = Matrix2D.Identity;
 	private Matrix2D _worldInverseTransform = Matrix2D.Identity;
 
-	private Matrix2D _rotationMatrix;
-	private Matrix2D _translationMatrix;
-	private Matrix2D _scaleMatrix;
+	private Matrix2D _rotationMatrix = Matrix2D.Identity;
+	private Matrix2D _translationMatrix = Matrix2D.Identity;
+	private Matrix2D _scaleMatrix = Matrix2D.Identity;
 
 	private Vector2 _position;
 	private Vector2 _scale;

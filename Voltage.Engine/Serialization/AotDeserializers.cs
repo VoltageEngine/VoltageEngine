@@ -14,6 +14,79 @@ namespace Voltage.Serialization
 	/// </summary>
 	public static class AotDeserializers
 	{
+		public static ComponentData DeserializeTilemapRenderer(string json)
+		{
+			using var r = new JsonTokenReader(json);
+			var data = new TilemapRenderer.TilemapRendererComponentData();
+			if (!r.BeginObject()) return data;
+			while (r.ReadNextKey(out var key))
+			{
+				switch (key)
+				{
+					case "Tileset": data.Tileset = ReadAssetReference(r); break;
+					case "FallbackTileWidth": data.FallbackTileWidth = r.ReadInt(); break;
+					case "FallbackTileHeight": data.FallbackTileHeight = r.ReadInt(); break;
+					case "ChunkCoords": data.ChunkCoords = r.ReadArray(x => x.ReadInt()); break;
+					case "ChunkData": data.ChunkData = r.ReadArray(x => x.ReadString()); break;
+					case "StackCoords": data.StackCoords = r.ReadArray(x => x.ReadInt()); break;
+					case "StackTiles": data.StackTiles = r.ReadArray(x => x.ReadString()); break;
+					case "OrientationCoords": data.OrientationCoords = r.ReadArray(x => x.ReadInt()); break;
+					case "OrientationValues": data.OrientationValues = r.ReadArray(x => (byte)x.ReadInt()); break;
+					case "CollisionCoords": data.CollisionCoords = r.ReadArray(x => x.ReadInt()); break;
+					case "CollisionData": data.CollisionData = r.ReadArray(x => x.ReadString()); break;
+					case "PhysicsLayer": data.PhysicsLayer = r.ReadInt(); break;
+					case "CollidesWithLayers": data.CollidesWithLayers = r.ReadInt(); break;
+					case "IsTrigger": data.IsTrigger = r.ReadBool(); break;
+					case "AutoBuildColliders": data.AutoBuildColliders = r.ReadBool(); break;
+					case "LayerDepth": data.LayerDepth = r.ReadFloat(); break;
+					case "RenderLayer": data.RenderLayer = r.ReadInt(); break;
+					case "LocalOffset": data.LocalOffset = ReadVector2(r); break;
+					case "Color": data.Color = ReadColor(r); break;
+					case "Enabled": data.Enabled = r.ReadBool(); break;
+					case "CanBeSelected": data.CanBeSelected = r.ReadBool(); break;
+					case "UpdateOrder": data.UpdateOrder = r.ReadInt(); break;
+					default: r.SkipValue(); break;
+				}
+			}
+			return data;
+		}
+
+		public static ComponentData DeserializePointLight(string json) => ReadPointLight(json, new DeferredLighting.PointLight.PointLightComponentData());
+
+        public static ComponentData DeserializeSpotLight(string json) => ReadPointLight(json, new DeferredLighting.SpotLight.SpotLightComponentData());
+
+        private static ComponentData ReadPointLight(string json, DeferredLighting.PointLight.PointLightComponentData data)
+        {
+            using var r = new JsonTokenReader(json);
+			if (!r.BeginObject()) return data;
+			while (r.ReadNextKey(out var key))
+			{
+				switch (key)
+				{
+					case "Radius": data.Radius = r.ReadFloat(); break;
+					case "Intensity": data.Intensity = r.ReadFloat(); break;
+					case "ZPosition": data.ZPosition = r.ReadFloat(); break;
+                    case "ConeAngle":
+                        if (data is DeferredLighting.SpotLight.SpotLightComponentData spot) spot.ConeAngle = r.ReadFloat();
+                        else r.SkipValue();
+                        break;
+					case "RenderLayer": data.RenderLayer = r.ReadInt(); break;
+					case "LayerDepth": data.LayerDepth = r.ReadFloat(); break;
+					case "LocalOffset": data.LocalOffset = ReadVector2(r); break;
+					case "Enabled": data.Enabled = r.ReadBool(); break;
+					case "CanBeSelected": data.CanBeSelected = r.ReadBool(); break;
+					case "UpdateOrder": data.UpdateOrder = r.ReadInt(); break;
+					case "DebugEnabled": data.DebugEnabled = r.ReadBool(); break;
+					case "ColorR": data.ColorR = (byte)r.ReadInt(); break;
+					case "ColorG": data.ColorG = (byte)r.ReadInt(); break;
+					case "ColorB": data.ColorB = (byte)r.ReadInt(); break;
+					case "ColorA": data.ColorA = (byte)r.ReadInt(); break;
+					case "Color": data.Color = ReadColor(r); break;
+					default: r.SkipValue(); break;
+				}
+			}
+			return data;
+		}
 		#region SceneData
 
 		public static SceneData DeserializeSceneData(string json)
@@ -361,6 +434,10 @@ namespace Voltage.Serialization
 			{
 				switch (key)
 				{
+					case "SmoothPixelArt": s.SmoothPixelArt = r.ReadBool(); break;
+					case "SmoothPixelArtFixedFrame": s.SmoothPixelArtFixedFrame = r.ReadBool(); break;
+					case "DeferredLighting": s.DeferredLighting = r.ReadBool(); break;
+					case "AmbientLightColor": s.AmbientLightColor = ReadColor(r); break;
 					case "RenderingLayers":
 						s.RenderingLayers = r.ReadStringDictionary(rd => rd.ReadInt());
 						break;

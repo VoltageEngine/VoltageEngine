@@ -25,7 +25,7 @@ public sealed class BitmapFontContent
 	{
 		public int Id;
 		public string File;
-		public ExternalReference<TextureContent> Texture;
+		public TextureContent Texture;
 	}
 
 	public string FamilyName = "";

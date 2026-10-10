@@ -141,6 +141,10 @@ namespace Voltage.Project
 		[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
 		public class RenderingSettings
 		{
+			public bool SmoothPixelArt;
+			public bool SmoothPixelArtFixedFrame;
+			public bool DeferredLighting;
+			public Microsoft.Xna.Framework.Color AmbientLightColor = Microsoft.Xna.Framework.Color.White;
 			public Microsoft.Xna.Framework.Color BackgroundClearColor =
 				new Microsoft.Xna.Framework.Color(100, 149, 237, 255);
 

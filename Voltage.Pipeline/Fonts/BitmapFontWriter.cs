@@ -3,11 +3,11 @@ using Microsoft.Xna.Framework.Content.Pipeline.Serialization.Compiler;
 
 namespace Voltage.Pipeline.Fonts;
 
-/// <summary>Version 2 of the layout <c>Voltage.BitmapFonts.BitmapFontReader</c> reads.</summary>
+/// <summary>Version 3 of the layout <c>Voltage.BitmapFonts.BitmapFontReader</c> reads.</summary>
 [ContentTypeWriter]
 public sealed class BitmapFontWriter : ContentTypeWriter<BitmapFontContent>
 {
-	private const byte Version = 2;
+	private const byte Version = 3;
 
 	protected override void Write(ContentWriter output, BitmapFontContent font)
 	{
@@ -43,7 +43,7 @@ public sealed class BitmapFontWriter : ContentTypeWriter<BitmapFontContent>
 		{
 			output.Write(page.Id);
 			output.Write(System.IO.Path.GetFileName(page.File) ?? "");
-			output.WriteExternalReference(page.Texture);
+			output.WriteObject(page.Texture);
 		}
 
 		output.Write(font.Glyphs.Count);

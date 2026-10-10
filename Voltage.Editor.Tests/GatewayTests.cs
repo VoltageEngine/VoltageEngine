@@ -44,6 +44,39 @@ public class BasicsTests
 public class SceneEntityTests
 {
 	[Test]
+	public void Reload_and_stop_finish_loading_before_save_and_keep_authored_components()
+	{
+		var previous = Call("scene.info").GetProperty("name").GetString();
+		Call("scene.save");
+		try
+		{
+			Call("scene.create", new { name = "ReloadRegression", template = "empty" });
+			Call("entity.create", new { name = "ReloadMarker", x = 42, y = 24 });
+			Call("component.add", new { entity = "ReloadMarker", type = "BoxCollider" });
+			Call("component.set", new { entity = "ReloadMarker", type = "BoxCollider", member = "Width", value = 17 });
+			Call("scene.save");
+			for (int reload = 0; reload < 3; reload++)
+			{
+				Assert.That(Call("scene.reload").GetProperty("entityCount").GetInt32(), Is.EqualTo(2));
+				Call("scene.save");
+				var values = Call("component.get", new { entity = "ReloadMarker", type = "BoxCollider" }).GetProperty("values");
+				Assert.That(values.GetProperty("Width").GetSingle(), Is.EqualTo(17));
+			}
+			Call("play.start");
+			Assert.That(() => Call("scene.save"), Throws.Exception.With.Message.Contains("edit mode"));
+			Call("play.stop");
+			Assert.That(Call("scene.save").GetProperty("entityCount").GetInt32(), Is.EqualTo(2));
+			Assert.That(Call("component.get", new { entity = "ReloadMarker", type = "BoxCollider" })
+				.GetProperty("values").GetProperty("Width").GetSingle(), Is.EqualTo(17));
+		}
+		finally
+		{
+			Call("play.stop");
+			Call("scene.load", new { name = previous, force = true });
+		}
+	}
+
+	[Test]
 	public void Entity_create_list_set_get()
 	{
 		var created = Call("entity.create", new { name = "Crate", x = 10, y = 20 });

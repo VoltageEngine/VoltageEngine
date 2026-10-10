@@ -34,6 +34,10 @@ namespace Voltage.Editor.ProjectFile
 		private int _designWidth;
 		private int _designHeight;
 		private int _selectedResolutionPolicy;
+		private bool _smoothPixelArt;
+		private bool _smoothPixelArtFixedFrame;
+		private bool _deferredLighting;
+		private Vector4 _ambientLightColor;
 		private readonly string[] _resolutionPolicies = new[]
 		{
 			"None",
@@ -46,7 +50,8 @@ namespace Voltage.Editor.ProjectFile
 			"FixedHeightPixelPerfect",
 			"FixedWidth",
 			"FixedWidthPixelPerfect",
-			"BestFit"
+			"BestFit",
+			"SmoothPixelPerfect"
 		};
 
 		// Physics, Rendering, and Entity settings
@@ -198,6 +203,11 @@ namespace Voltage.Editor.ProjectFile
 			
 			if (settings.Rendering != null)
 			{
+				_smoothPixelArt = settings.Rendering.SmoothPixelArt;
+				_smoothPixelArtFixedFrame = settings.Rendering.SmoothPixelArtFixedFrame;
+				_deferredLighting = settings.Rendering.DeferredLighting;
+				var ambient = settings.Rendering.AmbientLightColor;
+				_ambientLightColor = new Vector4(ambient.R / 255f, ambient.G / 255f, ambient.B / 255f, 1f);
 				var background = settings.Rendering.BackgroundClearColor;
 				_backgroundClearColor = new Vector4(background.R / 255f, background.G / 255f,
 					background.B / 255f, background.A / 255f);
@@ -424,6 +434,11 @@ namespace Voltage.Editor.ProjectFile
 				VoltageEditorUtils.SmallVerticalSpace();
 				
 				ImGui.Text("Resolution Policy:");
+				if (Gui.Checkbox("Smooth pixel art", ref _smoothPixelArt)) _hasUnsavedChanges = true;
+				if (ImGui.IsItemHovered())
+					ImGui.SetTooltip("Integer-sized art pixels and camera motion at display-pixel precision. Applies to BestFit, ShowAll and ShowAllPixelPerfect scenes. Fills the viewport using the closest integer scale to the design resolution; visible scene area varies with viewport dimensions. Keep camera zoom at 1.");
+				if (Gui.Checkbox("Fixed camera frame", ref _smoothPixelArtFixedFrame)) _hasUnsavedChanges = true;
+				if (ImGui.IsItemHovered()) ImGui.SetTooltip("Fit the design-resolution world frame inside the viewport without changing camera coverage. Uses integer internal rendering and scales the preview continuously as the panel resizes. Requires smooth pixel art.");
 				ImGui.SetNextItemWidth(-1);
 				
 				// Store current policy name for tooltip
@@ -566,6 +581,9 @@ namespace Voltage.Editor.ProjectFile
 		
 		private void DrawRenderingLayersSettings()
 		{
+			if (Gui.Checkbox("Deferred lighting", ref _deferredLighting)) _hasUnsavedChanges = true;
+			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Default renderer for all scenes. Reload the scene after changing this setting. HUD and dialogue remain unlit.");
+			if (_deferredLighting && ImGui.ColorEdit4("Ambient light", ref _ambientLightColor, ImGuiColorEditFlags.NoAlpha)) _hasUnsavedChanges = true;
 			ImGui.TextColored(new Vector4(0.7f, 1.0f, 0.7f, 1.0f), "Rendering Layers");
 			ImGui.TextWrapped("Define render order layers. Lower values render first (background), higher values render last (foreground).");
 			ImGui.Separator();
@@ -773,6 +791,10 @@ namespace Voltage.Editor.ProjectFile
 				settings.Physics.PhysicsLayers = new Dictionary<string, int>(_physicsLayers);
 				settings.Rendering.RenderingLayers = new Dictionary<string, int>(_renderingLayers);
 				settings.Rendering.BackgroundClearColor = ToXnaColor(_backgroundClearColor);
+				settings.Rendering.SmoothPixelArt = _smoothPixelArt;
+				settings.Rendering.SmoothPixelArtFixedFrame = _smoothPixelArtFixedFrame;
+				settings.Rendering.DeferredLighting = _deferredLighting;
+				settings.Rendering.AmbientLightColor = ToXnaColor(_ambientLightColor);
 				settings.Entities.EntityTags = new Dictionary<string, int>(_entityTags);
 				settings.ContentDirectory = _contentDirectory;
 
@@ -854,6 +876,7 @@ namespace Voltage.Editor.ProjectFile
 				
 				"BestFit" => "The application takes the width and height that best fits the design resolution with optional cropping inside of the \"bleed area\" and possible letter/pillar boxing. Works just like ShowAll except with horizontal/vertical bleed (padding). Gives you an area much like the old TitleSafeArea. Example: if design resolution is 1348x900 and bleed is 148x140 the safe area would be 1200x760 (design resolution - bleed).",
 				
+				"SmoothPixelPerfect" => "Keeps art pixels at an integer display size and renders camera and sprite motion at display-pixel precision. Fills the viewport using the closest integer scale to the design resolution; visible scene area varies with viewport dimensions. Keep camera zoom at 1 for uniform pixels.",
 				_ => "Unknown resolution policy."
 			};
 		}

@@ -1,5 +1,6 @@
 using System;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input.Touch;
 using Voltage.Utils.Extensions;
 
@@ -196,21 +197,24 @@ namespace Voltage
 
 				if (_areBoundsDirty)
 				{
+					var viewport = Core.GraphicsDevice.Viewport;
+					if (Entity.Scene?.UsesSmoothPixelArt == true && Entity.Scene.Camera == this)
+						viewport = new Viewport(0, 0, Entity.Scene.SceneRenderTargetSize.X, Entity.Scene.SceneRenderTargetSize.Y);
 					// top-left and bottom-right are needed by either rotated or non-rotated bounds
-					var topLeft = ScreenToWorldPoint(new Vector2(Core.GraphicsDevice.Viewport.X + _inset.left,
-						Core.GraphicsDevice.Viewport.Y + _inset.top));
+					var topLeft = ScreenToWorldPoint(new Vector2(viewport.X + _inset.left,
+						viewport.Y + _inset.top));
 					var bottomRight = ScreenToWorldPoint(new Vector2(
-						Core.GraphicsDevice.Viewport.X + Core.GraphicsDevice.Viewport.Width - _inset.right,
-						Core.GraphicsDevice.Viewport.Y + Core.GraphicsDevice.Viewport.Height - _inset.bottom));
+						viewport.X + viewport.Width - _inset.right,
+						viewport.Y + viewport.Height - _inset.bottom));
 
 					if (Entity.Transform.Rotation != 0)
 					{
 						// special care for rotated bounds. we need to find our absolute min/max values and create the bounds from that
 						var topRight = ScreenToWorldPoint(new Vector2(
-							Core.GraphicsDevice.Viewport.X + Core.GraphicsDevice.Viewport.Width - _inset.right,
-							Core.GraphicsDevice.Viewport.Y + _inset.top));
-						var bottomLeft = ScreenToWorldPoint(new Vector2(Core.GraphicsDevice.Viewport.X + _inset.left,
-							Core.GraphicsDevice.Viewport.Y + Core.GraphicsDevice.Viewport.Height - _inset.bottom));
+							viewport.X + viewport.Width - _inset.right,
+							viewport.Y + _inset.top));
+						var bottomLeft = ScreenToWorldPoint(new Vector2(viewport.X + _inset.left,
+							viewport.Y + viewport.Height - _inset.bottom));
 
 						var minX = Mathf.MinOf(topLeft.X, bottomRight.X, topRight.X, bottomLeft.X);
 						var maxX = Mathf.MaxOf(topLeft.X, bottomRight.X, topRight.X, bottomLeft.X);
@@ -271,10 +275,13 @@ namespace Voltage
 		{
 			get
 			{
-				if (_isProjectionMatrixDirty)
+				var viewport = Core.GraphicsDevice.Viewport;
+				var size = Entity?.Scene?.UsesSmoothPixelArt == true && Entity.Scene.Camera == this
+					? Entity.Scene.SceneRenderTargetSize : new Point(viewport.Width, viewport.Height);
+				if (_isProjectionMatrixDirty || _projectionSize != size)
 				{
-					Matrix.CreateOrthographicOffCenter(0, Core.GraphicsDevice.Viewport.Width,
-						Core.GraphicsDevice.Viewport.Height, 0, 0, -1, out _projectionMatrix);
+					Matrix.CreateOrthographicOffCenter(0, size.X, size.Y, 0, 0, -1, out _projectionMatrix);
+					_projectionSize = size;
 					_isProjectionMatrixDirty = false;
 				}
 
@@ -345,6 +352,7 @@ namespace Voltage
 		Matrix2D _transformMatrix = Matrix2D.Identity;
 		Matrix2D _inverseTransformMatrix = Matrix2D.Identity;
 		Matrix _projectionMatrix;
+		Point _projectionSize;
 		Vector2 _origin;
 
 		bool _areMatrixesDirty = true;
@@ -380,6 +388,8 @@ namespace Voltage
 
 		protected virtual void UpdateMatrixes()
 		{
+			var renderScale = Entity.Scene?.Camera == this ? Entity.Scene.PixelArtRenderScale : 1;
+			if (_lastRenderScale != renderScale) _areMatrixesDirty = true;
 			if (!_areMatrixesDirty)
 				return;
 
@@ -402,6 +412,18 @@ namespace Voltage
 			Matrix2D.CreateTranslation((int) _origin.X, (int) _origin.Y, out tempMat); // translate -origin
 			Matrix2D.Multiply(ref _transformMatrix, ref tempMat, out _transformMatrix);
 
+			if (renderScale != 1)
+			{
+				Matrix2D.CreateScale(renderScale, renderScale, out tempMat);
+				Matrix2D.Multiply(ref _transformMatrix, ref tempMat, out _transformMatrix);
+			}
+			if (Entity.Scene?.UsesSmoothPixelArt == true && Entity.Scene.Camera == this)
+			{
+				_transformMatrix.M31 = (float)Math.Round(_transformMatrix.M31);
+				_transformMatrix.M32 = (float)Math.Round(_transformMatrix.M32);
+			}
+			_lastRenderScale = renderScale;
+
 			// calculate our inverse as well
 			Matrix2D.Invert(ref _transformMatrix, out _inverseTransformMatrix);
 
@@ -409,6 +431,8 @@ namespace Voltage
 			_areBoundsDirty = true;
 			_areMatrixesDirty = false;
 		}
+
+		private int _lastRenderScale = 1;
 
 
 		#region Fluent setters

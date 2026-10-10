@@ -187,7 +187,21 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		Num.Vector2 imageSize;
 		Num.Vector2 cursorOffset = Num.Vector2.Zero;
 
-		if (PreserveGameWindowAspectRatio)
+		if (Core.Scene?.UsesSmoothPixelArt == true)
+		{
+			// Use the panel bounds so an oversized image from the previous frame cannot hold the viewport open.
+			var available = ImGui.GetWindowSize() - ImGui.GetWindowContentRegionMin();
+			ImGui.SetScrollX(0);
+			ImGui.SetScrollY(0);
+			Core.Scene.SetPixelArtViewportSize(new Point(Math.Max(1, (int)available.X), Math.Max(1, (int)available.Y)));
+			imageSize = new Num.Vector2(_lastRenderTarget.Width, _lastRenderTarget.Height);
+			if (Voltage.Project.ProjectSettings.Instance.Rendering.SmoothPixelArtFixedFrame)
+				imageSize *= Math.Min(available.X / imageSize.X, available.Y / imageSize.Y);
+			cursorOffset = new Num.Vector2(Math.Max(0, (int)((available.X - imageSize.X) / 2)),
+				Math.Max(0, (int)((available.Y - imageSize.Y) / 2)));
+			ImGui.SetCursorPos(ImGui.GetCursorPos() + cursorOffset);
+		}
+		else if (PreserveGameWindowAspectRatio)
 		{
 			var availableRegion = ImGui.GetContentRegionAvail();
 			var targetAspect = (float)_lastRenderTarget.Width / _lastRenderTarget.Height;
@@ -639,6 +653,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		RenderTarget2D source, Rectangle finalRenderDestinationRect,
 		SamplerState samplerState)
 	{
+		if (!ShowSeparateGameWindow && Core.Scene?.UsesSmoothPixelArt == true)
+			Core.Scene.SetPixelArtViewportSize(null);
 		if (ShowSeparateGameWindow)
 		{
 			// SAFETY CHECK: Don't bind texture on first frame or during layout reload

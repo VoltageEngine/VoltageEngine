@@ -24,10 +24,6 @@ public sealed class GatewayServer : IDisposable
 
 	private readonly GatewayOptions _options;
 
-	/// <summary>Explicit resolvers: games built with PublishAot disable reflection serialization by default.</summary>
-	private static readonly JsonSerializerOptions WireJson = new() { TypeInfoResolver = new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver() };
-
-	private static readonly JsonSerializerOptions InfoJson = new() { WriteIndented = true, TypeInfoResolver = new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver() };
 
 	public int Port { get; private set; }
 
@@ -129,11 +125,22 @@ public sealed class GatewayServer : IDisposable
 
 			client.Authenticated = true;
 			UpdateKeepAlive();
-			client.Send(JsonSerializer.Serialize(new
+			using (var hello = new MemoryStream())
 			{
-				@event = "hello",
-				data = new { editor = "Voltage", host = _options.Host, pid = Environment.ProcessId, clientId = client.Id }
-			}, WireJson));
+				using (var writer = new Utf8JsonWriter(hello))
+				{
+					writer.WriteStartObject();
+					writer.WriteString("event", "hello");
+					writer.WriteStartObject("data");
+					writer.WriteString("editor", "Voltage");
+					writer.WriteString("host", _options.Host);
+					writer.WriteNumber("pid", Environment.ProcessId);
+					writer.WriteNumber("clientId", client.Id);
+					writer.WriteEndObject();
+					writer.WriteEndObject();
+				}
+				client.Send(Encoding.UTF8.GetString(hello.ToArray()));
+			}
 
 			while (_running)
 			{
@@ -190,19 +197,24 @@ public sealed class GatewayServer : IDisposable
 	private void WriteInfoFile()
 	{
 		Directory.CreateDirectory(Path.GetDirectoryName(InfoFilePath) ?? ".");
-		var info = new
+		using var buffer = new MemoryStream();
+		using (var jsonWriter = new Utf8JsonWriter(buffer, new JsonWriterOptions { Indented = true }))
 		{
-			port = Port,
-			token = Token,
-			pid = Environment.ProcessId,
-			started = DateTime.UtcNow,
-			exe = Environment.ProcessPath,
-			args = _options.Args ?? Array.Empty<string>(),
-			logs = _options.LogsDirectory,
-			host = _options.Host,
-			game = _options.Name
-		};
-		var json = JsonSerializer.Serialize(info, InfoJson);
+			jsonWriter.WriteStartObject();
+			jsonWriter.WriteNumber("port", Port);
+			jsonWriter.WriteString("token", Token);
+			jsonWriter.WriteNumber("pid", Environment.ProcessId);
+			jsonWriter.WriteString("started", DateTime.UtcNow);
+			jsonWriter.WriteString("exe", Environment.ProcessPath);
+			jsonWriter.WriteStartArray("args");
+			foreach (var arg in _options.Args ?? Array.Empty<string>()) jsonWriter.WriteStringValue(arg);
+			jsonWriter.WriteEndArray();
+			jsonWriter.WriteString("logs", _options.LogsDirectory);
+			jsonWriter.WriteString("host", _options.Host);
+			jsonWriter.WriteString("game", _options.Name);
+			jsonWriter.WriteEndObject();
+		}
+		var json = Encoding.UTF8.GetString(buffer.ToArray());
 		Directory.CreateDirectory(Path.GetDirectoryName(InfoFilePath)!);
 
 		var options = new FileStreamOptions { Mode = FileMode.Create, Access = FileAccess.Write, Share = FileShare.None };

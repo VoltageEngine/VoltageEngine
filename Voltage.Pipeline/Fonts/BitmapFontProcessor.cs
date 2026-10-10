@@ -5,7 +5,7 @@ using Microsoft.Xna.Framework.Content.Pipeline.Processors;
 
 namespace Voltage.Pipeline.Fonts;
 
-/// <summary>Builds each page image as its own texture asset the font references at load time.</summary>
+/// <summary>Embeds processed page images so a published font has no missing texture dependencies.</summary>
 [ContentProcessor(DisplayName = "BMFont - Voltage")]
 public sealed class BitmapFontProcessor : ContentProcessor<BitmapFontContent, BitmapFontContent>
 {
@@ -23,10 +23,8 @@ public sealed class BitmapFontProcessor : ContentProcessor<BitmapFontContent, Bi
 			{ "TextureFormat", TextureProcessorOutputFormat.Color }
 		};
 
-		// Pages sit beside the font's own output name, so a font at Fonts/Hud yields Fonts/Hud_0.
-		var fontName = System.IO.Path.ChangeExtension(System.IO.Path.GetRelativePath(context.OutputDirectory, context.OutputFilename), null).Replace('\\', '/');
 		foreach (var page in input.Pages)
-			page.Texture = context.BuildAsset<TextureContent, TextureContent>(new ExternalReference<TextureContent>(page.File), "VoltageTextureProcessor", parameters, "TextureImporter", $"{fontName}_{page.Id}");
+			page.Texture = context.BuildAndLoadAsset<TextureContent, TextureContent>(new ExternalReference<TextureContent>(page.File), "VoltageTextureProcessor", parameters, "TextureImporter");
 
 		return input;
 	}

@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Voltage.Editor.Scripting;
+using Voltage.Editor.SceneFile;
 using Voltage.Gateway;
 
 namespace Voltage.Editor.Gateway.Commands;
@@ -27,12 +28,16 @@ internal static class PlayScriptCommands
 
 		table.Add("play.stop", "Return to edit mode.", (_, _) =>
 		{
+			var previous = Core.Scene;
+			var willReload = !Core.IsEditMode && Core.ResetSceneAutomatically && SceneManager.Instance.HasLoadedScene;
 			if (!Core.IsEditMode)
 			{
 				Core.IsPauseMode = false;
 				Core.InvokeSwitchEditMode(true);
 			}
-			return PlayState();
+			return willReload
+				? GatewayTasks.WhenReady(() => !ReferenceEquals(Core.Scene, previous) && Core.Scene?.DidAllEntitiesLoad == true, PlayState)
+				: PlayState();
 		});
 
 		table.Add("play.pause", "Pause or resume play mode.", (args, _) =>

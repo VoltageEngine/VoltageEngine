@@ -5,7 +5,7 @@
 // if z is ignored for attenuation it will be calculated with z = 0 so the falloff is 2D linear
 // if z is not ignored for attenuation spot light attenuation needs special care and very high intensity
 //#define IGNORE_Z_FOR_ATTENUATION
-#define DEBUG_ATTENUATION
+//#define DEBUG_ATTENUATION
 
 
 
@@ -98,6 +98,17 @@ sampler _lightMapSampler = sampler_state
 };
 
 float3 _ambientColor;
+float _useAmbientMap;
+texture _ambientMap;
+sampler2D _ambientMapSampler = sampler_state
+{
+    Texture = <_ambientMap>;
+    MinFilter = Point;
+    MagFilter = Point;
+    MipFilter = Point;
+    AddressU = Clamp;
+    AddressV = Clamp;
+};
 
 
 // ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####
@@ -234,7 +245,7 @@ float4 pointLightPixel( VertexPointSpotOut input ) : COLOR0
     float3 diffuseLight = calcDiffuseContribution( input.world, input.screenPosition, attenuation, lightVector );
 
     // take into account attenuation and lightIntensity.
-    float4 result = attenuation * _lightIntensity * float4( diffuseLight.rgb, 1 );
+    float4 result = float4(attenuation * _lightIntensity * diffuseLight.rgb, 1);
 
 	#ifdef DEBUG_ATTENUATION
     // debug attenuation falloff
@@ -262,12 +273,12 @@ float4 spotLightPixel( VertexPointSpotOut input ) : COLOR0
     float phi = cos( radians( _coneAngle * 0.5 ) );
 
     // the angle away from the light's direction
-    float rho = -dot( lightVector.xy, normalize( _lightDirection.xy ) );
+    float rho = -dot( normalize(lightVector.xy + float2(0.00001, 0.00001)), normalize( _lightDirection.xy ) );
     float spotAttenuation = max( 0, ( ( rho - phi ) / ( 1.0 - phi ) ) );
     attenuation *= spotAttenuation;
 
     // take into account attenuation and lightIntensity.
-    float4 result = attenuation * _lightIntensity * float4( diffuseLight.rgb, 1 );
+    float4 result = float4(attenuation * _lightIntensity * diffuseLight.rgb, 1);
 
     #ifdef DEBUG_ATTENUATION
     // debug attenuation falloff
@@ -307,7 +318,7 @@ float4 areaLightPixel( VertexPointSpotOut input ) : COLOR0
     float3 diffuseLight = NdL * _color.rgb;
 
     // take into account attenuation and lightIntensity.
-    float4 result = _lightIntensity * float4( diffuseLight.rgb, 1 );
+    float4 result = float4(_lightIntensity * diffuseLight.rgb, 1);
     return result;
 
     // debug attenuation falloff
@@ -394,7 +405,8 @@ float4 finalCombinePixel( VertexPosTexCoordsOutput input ) : COLOR0
     float3 diffuseLight = lerp( light.rgb, 1, selfIllumination );
 
     // compute ambient light, tailing it off to 0 based on the selfIllumination value
-    float3 ambient = diffuseColor * _ambientColor;
+    float3 ambientColor = lerp(_ambientColor, tex2D(_ambientMapSampler, input.texCoord).rgb, _useAmbientMap);
+    float3 ambient = diffuseColor * ambientColor;
     float3 ambientLight = lerp( ambient, 0, selfIllumination );
 
     float4 result = float4( diffuseColor * diffuseLight + ambient, 1 );

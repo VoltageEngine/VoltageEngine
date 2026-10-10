@@ -11,6 +11,11 @@ namespace Voltage.Gateway;
 /// <summary>Replays scripted mouse and keyboard steps through the engine's Input overrides, one step per frame, so ImGui and the game see them as real input. Once captured it owns both devices until <see cref="Release"/>.</summary>
 public sealed class InputSimulator
 {
+	private sealed class MouseDelta
+	{
+		public int X { get; set; }
+		public int Y { get; set; }
+	}
 	public enum Button { Left, Right, Middle }
 
 	public abstract record Step;
@@ -184,7 +189,7 @@ public sealed class InputSimulator
 		captured = Captured,
 		x = _pos.X,
 		y = _pos.Y,
-		delta = new { x = _delta.X, y = _delta.Y },
+		delta = new MouseDelta { X = _delta.X, Y = _delta.Y },
 		left = _left,
 		right = _right,
 		middle = _middle,

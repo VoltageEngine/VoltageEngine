@@ -637,7 +637,7 @@ namespace Voltage.UI
 		public float GetWidth()
 		{
 			if (Entity != null && !IsFullScreen)
-				return Entity.Scene.SceneRenderTargetSize.X;
+				return Entity.Scene.SceneRenderTargetSize.X / (float)Entity.Scene.PixelArtRenderScale;
 
 			return Screen.Width;
 		}
@@ -650,7 +650,7 @@ namespace Voltage.UI
 		public float GetHeight()
 		{
 			if (Entity != null && !IsFullScreen)
-				return Entity.Scene.SceneRenderTargetSize.Y;
+				return Entity.Scene.SceneRenderTargetSize.Y / (float)Entity.Scene.PixelArtRenderScale;
 
 			return Screen.Height;
 		}

@@ -38,6 +38,12 @@ public static class ComponentDataSerializationBootstrap
 		ComponentDataAotDeserializer.Register(
 			"Voltage.Camera+CameraComponentData",
 			json => (ComponentData)Persistence.Json.FromJson<Camera.CameraComponentData>(json));
+		ComponentDataAotDeserializer.Register(
+			"Voltage.DeferredLighting.PointLight+PointLightComponentData", AotDeserializers.DeserializePointLight);
+		ComponentDataAotDeserializer.Register(
+			"Voltage.DeferredLighting.SpotLight+SpotLightComponentData", AotDeserializers.DeserializeSpotLight);
+		ComponentDataAotDeserializer.Register(
+			"Voltage.TilemapRenderer+TilemapRendererComponentData", AotDeserializers.DeserializeTilemapRenderer);
 
 		ComponentDataAotDeserializer.Register(
 			"Voltage.Sprites.SpriteRenderer+SpriteRendererComponentData",

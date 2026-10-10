@@ -43,6 +43,8 @@ namespace Voltage.DeferredLighting
 
 		// final combine
 		EffectParameter _ambientColorParam;
+		EffectParameter _ambientMapParam;
+		EffectParameter _useAmbientMapParam;
 		EffectParameter _colorMapParam;
 		EffectParameter _lightMapParam;
 
@@ -91,6 +93,8 @@ namespace Voltage.DeferredLighting
 
 			// final combine
 			_ambientColorParam = Parameters["_ambientColor"];
+			_ambientMapParam = Parameters["_ambientMap"];
+			_useAmbientMapParam = Parameters["_useAmbientMap"];
 			_colorMapParam = Parameters["_colorMap"];
 			_lightMapParam = Parameters["_lightMap"];
 		}
@@ -345,8 +349,10 @@ namespace Voltage.DeferredLighting
 		/// </summary>
 		/// <param name="diffuse">Diffuse.</param>
 		/// <param name="lightMap">Light map.</param>
-		public void PrepareForFinalCombine(Texture2D diffuse, Texture2D lightMap, Texture2D normalMap)
+		public void PrepareForFinalCombine(Texture2D diffuse, Texture2D lightMap, Texture2D normalMap, Texture2D ambientMap = null)
 		{
+			_ambientMapParam.SetValue(ambientMap ?? diffuse);
+			_useAmbientMapParam.SetValue(ambientMap == null ? 0f : 1f);
 			_colorMapParam.SetValue(diffuse);
 			_lightMapParam.SetValue(lightMap);
 			_normalMapParam.SetValue(normalMap);

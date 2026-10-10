@@ -6,18 +6,18 @@ using System.Collections.Generic;
 
 namespace Voltage.BitmapFonts
 {
-	/// <summary>Reads compiled bitmap fonts: version 2 is what Voltage.Pipeline writes, anything else is the legacy Nez layout.</summary>
+	/// <summary>Reads embedded version 3, external-page version 2, and legacy Nez bitmap fonts.</summary>
 	public class BitmapFontReader : ContentTypeReader<BitmapFont>
 	{
-		public const byte Version = 2;
+		public const byte Version = 3;
 
 		protected override BitmapFont Read(ContentReader reader, BitmapFont existingInstance)
 		{
 			var first = reader.ReadByte();
-			return first == Version ? ReadCompiled(reader) : ReadLegacy(reader, first != 0);
+			return first == Version || first == 2 ? ReadCompiled(reader, first == 2) : ReadLegacy(reader, first != 0);
 		}
 
-		private static BitmapFont ReadCompiled(ContentReader reader)
+		private static BitmapFont ReadCompiled(ContentReader reader, bool externalPages)
 		{
 			var font = new BitmapFont
 			{
@@ -49,7 +49,7 @@ namespace Voltage.BitmapFonts
 			for (var i = 0; i < pageCount; i++)
 			{
 				font.Pages[i] = new Page(reader.ReadInt32(), reader.ReadString());
-				font.Textures[i] = reader.ReadExternalReference<Texture2D>();
+				font.Textures[i] = externalPages ? reader.ReadExternalReference<Texture2D>() : reader.ReadObject<Texture2D>();
 			}
 
 			var characterCount = reader.ReadInt32();
