@@ -996,7 +996,7 @@ public partial class ImGuiManager
 	/// "Snap to Grid" toggle in the Editor Tools bar, positioned just left of the audio toggle. When snapping
 	/// is on, a "Show Grid" toggle appears next to it to draw the placement grid in the game view.
 	/// </summary>
-	private void DrawGridControlsRightAligned()
+	private Vector2 DrawGridControlsRightAligned()
 	{
 		var style = ImGui.GetStyle();
 		float framePad = style.FramePadding.X * 2f;
@@ -1023,7 +1023,9 @@ public partial class ImGuiManager
 		DrawBackgroundColorControl();
 		ImGui.SameLine();
 
+		var snapPosition = ImGui.GetCursorPos();
 		DrawToggleButton(snapLabel, snap, () => EditorSettingsWindow.SnapToGrid = !snap);
+		var gizmosPosition = snapPosition + new Vector2(0f, ImGui.GetItemRectSize().Y + style.ItemSpacing.Y);
 		if (ImGui.IsItemHovered())
 			ImGui.SetTooltip("Snap dragged/dropped entities to the grid.\nHold Ctrl while dragging to invert.");
 
@@ -1032,6 +1034,8 @@ public partial class ImGuiManager
 		DrawToggleButton(showLabel, show, () => ShowPlacementGrid = !show);
 		if (ImGui.IsItemHovered())
 			ImGui.SetTooltip("Draw the placement grid in the game view.\nThe Tileset Editor's tile grid overrides it while that window is open.");
+
+		return gizmosPosition;
 	}
 
 	private const string BackgroundLabel = "Background";
@@ -1370,9 +1374,6 @@ public partial class ImGuiManager
 	private void DrawDebugRenderingToggle()
 	{
 		float iconSize = ImGui.GetFontSize();
-		float buttonWidth = iconSize + ImGui.GetStyle().FramePadding.X * 2f;
-		float rightEdge = ImGui.GetWindowWidth() - buttonWidth - ImGui.GetStyle().WindowPadding.X;
-		ImGui.SetCursorPosX(Math.Max(ImGui.GetCursorPosX(), rightEdge));
 
 		bool enabled = Core.DebugRenderEnabled;
 		if (enabled)

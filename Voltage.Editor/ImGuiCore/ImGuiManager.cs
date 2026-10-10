@@ -905,7 +905,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			DrawPluginsMenu();
 			DrawBuildMenu();
 			DrawHelpMenu();
-			DrawDebugRenderingToggle();
 
 			Gui.EndMainMenuBar();
 		}
@@ -1062,10 +1061,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		DrawEditorModeControls();
 
 		ImGui.SameLine();
-		DrawGridControlsRightAligned();
+		var gizmosPosition = DrawGridControlsRightAligned();
 
 		ImGui.SameLine();
 		DrawAudioToggleRightAligned();
+
+		ImGui.SetCursorPos(gizmosPosition);
+		DrawDebugRenderingToggle();
 
 		Gui.End();
 	}
