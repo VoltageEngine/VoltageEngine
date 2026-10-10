@@ -202,6 +202,9 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 				return new TypeInspectors_ComponentGroupInspector();
 			if (valueType.GetTypeInfo().IsValueType)
 				return new TypeInspectors_StructInspector();
+			if (valueType.IsGenericType && iListType.IsAssignableFrom(valueType) &&
+			    typeof(IComponentGroup).IsAssignableFrom(valueType.GetGenericArguments()[0]))
+				return new ComponentGroupListInspector();
 			if (valueType.IsArray && valueType.GetArrayRank() == 1 &&
 			    IsListSupportedElementType(valueType.GetElementType()))
 				return new TypeInspectors_ListInspector();

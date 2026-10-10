@@ -40,12 +40,24 @@ public class AnimatedNormalMapTests
         var original = new AnimatedNormalMap
         {
             Source = new AssetReference { AssetPath = "Content/Actor.aseprite" },
-            Layers = new() { "Normals-Body", "Normals-Knife" }
+            Layers = new() { "Normals-Body", "Normals-Knife" },
+            Clips = new()
+            {
+                new() { Animation = "Run", Source = new AssetReference { AssetPath = "Content/Run.aseprite" }, Tag = "Running", Layers = new() { "Normals-Body" } }
+            }
         };
         var copy = (AnimatedNormalMap)ComponentAotFactory.Create(type);
         copy.Data = ComponentDataAotDeserializer.TryDeserialize(type + "+AnimatedNormalMapGeneratedData", Voltage.Persistence.Json.ToJson(original.Data));
         Assert.That(copy.Source.AssetPath, Is.EqualTo(original.Source.AssetPath));
         Assert.That(copy.Layers, Is.EqualTo(original.Layers));
+        Assert.That(copy.Clips, Has.Count.EqualTo(1));
+        Assert.That(copy.Clips[0].Animation, Is.EqualTo("Run"));
+        Assert.That(copy.Clips[0].Source.AssetPath, Is.EqualTo("Content/Run.aseprite"));
+        Assert.That(copy.Clips[0].Tag, Is.EqualTo("Running"));
+        Assert.That(copy.Clips[0].Layers, Is.EqualTo(new[] { "Normals-Body" }));
+        var legacy = (AnimatedNormalMap)ComponentAotFactory.Create(type);
+        legacy.Data = ComponentDataAotDeserializer.TryDeserialize(type + "+AnimatedNormalMapGeneratedData", "{\"Layers\":[\"Normals-Body\"]}");
+        Assert.That(legacy.Clips, Is.Empty);
     }
 
     [Test]
@@ -114,6 +126,37 @@ public class AnimatedNormalMapTests
             Assert.That(flat.R, Is.InRange(127, 128));
             Assert.That(flat.G, Is.InRange(127, 128));
             Assert.That(flat.B, Is.EqualTo(255));
+            var root = new DirectoryInfo(AppContext.BaseDirectory);
+            while (root != null && !File.Exists(Path.Combine(root.FullName, "VoltageEngine.sln"))) root = root.Parent;
+            Assert.That(root, Is.Not.Null);
+            var source = Path.Combine(root!.FullName, "Voltage.Editor", "DefaultContent", "UI", "Custom", "CursorSelection-UI.aseprite");
+            var file = scene.Content.LoadAsepriteFile(source);
+            var layer = file.Layers[0].Name;
+            var normalAtlas = scene.Content.LoadAsepriteAtlas(source, new[] { layer }, false);
+            var originalMaterial = animator.Material;
+            animator.AddAnimation("AssetClip", new[] { new Sprite(diffuse, new Rectangle(0, 0, 8, 8)) }, 10);
+            var binding = entity.AddComponent(new AnimatedNormalMap
+            {
+                Clips = new()
+                {
+                    new() { Animation = "AssetClip", Source = new AssetReference { AssetPath = source }, Layers = new() { layer } }
+                }
+            });
+            scene.Update();
+            Assert.That(animator.Material, Is.TypeOf<DeferredAnimatedMaterial>());
+            animator.Play("AssetClip");
+            animator.Pause();
+            var mappedMaterial = (DeferredAnimatedMaterial)animator.Material;
+            mappedMaterial.OnPreRender(scene.Camera);
+            Assert.That(mappedMaterial.Effect.Parameters["_normalMap"].GetValueTexture2D(), Is.SameAs(normalAtlas.Sprites[0].Texture2D));
+            binding.Enabled = false;
+            Assert.That(animator.Material, Is.SameAs(originalMaterial));
+            Assert.That(normalAtlas.Sprites[0].Texture2D.IsDisposed, Is.False);
+            binding.Enabled = true;
+            Assert.That(animator.Material, Is.TypeOf<DeferredAnimatedMaterial>());
+            entity.RemoveComponent(binding);
+            scene.Update();
+            Assert.That(animator.Material, Is.SameAs(originalMaterial));
             scene.End();
             ((Game)this).Exit();
         }

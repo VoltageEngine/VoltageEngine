@@ -29,6 +29,11 @@ Consumers must not dispose them. The component owns and disposes only its
 material, restoring the
 previous material when disabled or removed.
 
+For an animator that loads several character files, add entries to `Clips`.
+Each entry stores the gameplay animation name, a GUID-backed source, its tag
+and the hidden normal layers. An empty tag is supported for untagged sources.
+Explicit clip entries override the matching single-source animation binding.
+
 For pixel art, start with restrained volumes for limbs, clothing and faces.
 Judge the result with a moving side light and through the whole animation.
 Avoid deriving height directly from painted brightness: dark clothing and

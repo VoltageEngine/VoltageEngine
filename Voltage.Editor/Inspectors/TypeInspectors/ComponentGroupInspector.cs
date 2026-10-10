@@ -220,6 +220,7 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 
         private void PushGroupUndo(string snapshotBefore, string snapshotAfter, string description)
         {
+            if (UndoSuppressed) return;
             var groupType = _valueType;
             EditorChangeTracker.PushUndo(
                 new ComponentGroupUndoAction(

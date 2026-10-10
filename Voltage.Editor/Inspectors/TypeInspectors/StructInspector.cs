@@ -121,7 +121,7 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
                     _isEditingStruct = false;
                     var structValueAtEditEnd = GetValue();
                     
-                    if (!Equals(_structValueAtEditStart, structValueAtEditEnd))
+                    if (!UndoSuppressed && !Equals(_structValueAtEditStart, structValueAtEditEnd))
                     {
                         EditorChangeTracker.PushUndo(
                             new PathUndoAction(
@@ -142,7 +142,7 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
                 {
                     var structValueAfterFrame = GetValue();
                     
-                    if (!Equals(_structValueBeforeFrame, structValueAfterFrame))
+                    if (!UndoSuppressed && !Equals(_structValueBeforeFrame, structValueAfterFrame))
                     {
                         EditorChangeTracker.PushUndo(
                             new PathUndoAction(

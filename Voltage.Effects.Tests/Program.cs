@@ -6,6 +6,13 @@ public static class Program
 {
 	public static int Main(string[] args)
 	{
+		if (args.Contains("--normal-check"))
+		{
+			Environment.SetEnvironmentVariable("VOLTAGE_TEST_GPU", "1");
+			new AnimatedNormalMapTests().Animated_normals_track_atlas_frames_flips_rotation_and_unmapped_clips();
+			System.Console.WriteLine("Native animated normal map checks passed.");
+			return 0;
+		}
 		if (args.Contains("--gpu-check"))
 		{
 			Environment.SetEnvironmentVariable("VOLTAGE_TEST_GPU", "1");

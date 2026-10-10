@@ -25,6 +25,8 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 		}
 
 		public string Name => _name;
+		public bool IsUndoDisabled { get; set; }
+		protected bool UndoSuppressed => IsUndoDisabled || (_parentInspector?.UndoSuppressed ?? false);
 
 		/// <summary>
 		/// parent inspectors that also keep a list sub-inspectors can check this to ensure the object the sub-inspectors was inspecting
@@ -429,6 +431,7 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 		/// </summary>
 		protected void SetValueWithUndo(object newValue, string description = null)
 		{
+			if (UndoSuppressed) { SetValue(newValue); return; }
 			var oldValue = GetValue();
 			if (!Equals(oldValue, newValue))
 			{

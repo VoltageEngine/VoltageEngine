@@ -13,6 +13,18 @@ public partial class AnimatedNormalMap : Component
     public AssetReference Source;
     [Tooltip("Normal-map layer names, including hidden layers. Tags and frames must match the animator.")]
     public List<string> Layers = new();
+    [Tooltip("Normal clips from additional assets, keyed by the animator's gameplay animation names.")]
+    public List<Clip> Clips = new();
+
+    public class Clip : IComponentGroup
+    {
+        public string Animation = "";
+        [AssetType(".aseprite", ".ase")]
+        public AssetReference Source;
+        [Tooltip("Matching Aseprite tag. Leave empty only for an untagged file.")]
+        public string Tag = "";
+        public List<string> Layers = new();
+    }
     private DeferredAnimatedMaterial _material;
     private SpriteAnimator _animator;
     private Material _previousMaterial;
@@ -36,17 +48,31 @@ public partial class AnimatedNormalMap : Component
     {
         ReleaseMaterial();
         _animator = GetComponent<SpriteAnimator>();
-        if (!Enabled || _animator == null || Entity?.Scene?.GetRenderer<DeferredLightingRenderer>() == null || Layers is not { Count: > 0 })
+        if (!Enabled || _animator == null || Entity?.Scene?.GetRenderer<DeferredLightingRenderer>() == null)
             return;
+        var animations = new Dictionary<string, SpriteAnimation>();
         var path = Source.IsValid ? Source.ResolvePath() : _animator.AsepriteAsset.IsValid
             ? _animator.AsepriteAsset.ResolvePath() : _animator.TextureFilePath;
-        if (string.IsNullOrEmpty(path)) return;
-        var atlas = Entity.Scene.Content.LoadAsepriteAtlas(path, Layers, false);
-        var animations = new Dictionary<string, SpriteAnimation>();
-        foreach (var name in atlas.AnimationNames)
-            animations[name] = atlas.GetAnimation(name);
-        if (animations.Count == 0 && atlas.Sprites.Length > 0)
-            animations["Default"] = new SpriteAnimation(atlas.Sprites, 10);
+        if (Layers is { Count: > 0 } && !string.IsNullOrEmpty(path))
+        {
+            var atlas = Entity.Scene.Content.LoadAsepriteAtlas(path, Layers, false);
+            foreach (var name in atlas.AnimationNames)
+                animations[name] = atlas.GetAnimation(name);
+            if (atlas.AnimationNames.Length == 0 && atlas.Sprites.Length > 0)
+                animations["Default"] = new SpriteAnimation(atlas.Sprites, 10);
+        }
+        if (Clips != null)
+            foreach (var clip in Clips)
+            {
+                if (clip == null || string.IsNullOrWhiteSpace(clip.Animation) || !clip.Source.IsValid || clip.Layers is not { Count: > 0 })
+                    continue;
+                var atlas = Entity.Scene.Content.LoadAsepriteAtlas(clip.Source.ResolvePath(), clip.Layers, false);
+                if (string.IsNullOrWhiteSpace(clip.Tag) && atlas.AnimationNames.Length == 0 && atlas.Sprites.Length > 0)
+                    animations[clip.Animation] = new SpriteAnimation(atlas.Sprites, 10);
+                else
+                    animations[clip.Animation] = atlas.GetAnimation(clip.Tag);
+            }
+        if (animations.Count == 0) return;
         _previousMaterial = _animator.Material;
         _animator.SetMaterial(_material = new DeferredAnimatedMaterial(_animator, animations));
     }
