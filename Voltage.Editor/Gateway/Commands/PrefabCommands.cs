@@ -71,6 +71,22 @@ internal static class PrefabCommands
 			});
 		}, P.Str("entity", "Entity id, GUID or name", required: true), P.Str("name", "Prefab name; default the entity name"), P.Bool("overwrite", "Replace an existing prefab file", false), P.Bool("keepOriginal", "Keep the source entity next to the new instance", true));
 
+		table.Add("prefab.link", "Link an existing entity to a prefab without replacing its ID, components, children or transform (undoable).", (args, _) =>
+		{
+			if (!Core.IsEditMode) throw new GatewayException("prefab links can only be authored in Edit mode");
+			var entity = ResolveEntity(args.Require("entity"));
+			if (entity.Type == Entity.InstanceType.SceneRequired || entity.Type == Entity.InstanceType.NonSerialized)
+				throw new GatewayException("only serialized scene entities can be linked to a prefab");
+			var item = ResolveAsset(args.Require("asset"));
+			if (item.Descriptor.Kind != AssetKind.Prefab) throw new GatewayException("asset must be a prefab");
+			var guid = AssetDatabase.Instance.GetReference(item.AbsolutePath).Guid;
+			var name = Path.GetFileNameWithoutExtension(item.FileName);
+			var action = new PrefabLinkAction(entity, name, guid);
+			action.Redo();
+			EditorChangeTracker.PushUndo(action, entity, action.Description);
+			return Info(entity);
+		}, P.Str("entity", "Existing entity id, GUID or name", required: true), P.Str("asset", "Prefab GUID, path or file name", required: true));
+
 		table.Add("prefab.instantiate", "Place an instance of a prefab asset in the scene (undoable).", (args, ctx) =>
 		{
 			RequireScene();
@@ -177,6 +193,34 @@ internal static class PrefabCommands
 				return new { prefab = name, saved = true };
 			});
 		}, P.Bool("save", "Write the edits to the .vprefab before leaving", false), P.Bool("force", "Discard unsaved prefab edits", false)).Destructive();
+	}
+
+	private sealed class PrefabLinkAction : EditorChangeTracker.IEditorAction
+	{
+		private readonly Entity _entity;
+		private readonly Entity.InstanceType _beforeType;
+		private readonly string _beforeName, _afterName;
+		private readonly Guid _beforeGuid, _afterGuid;
+		public string Description => $"Link {_entity.Name} to {_afterName}";
+
+		public PrefabLinkAction(Entity entity, string name, Guid guid)
+		{
+			_entity = entity;
+			_beforeType = entity.Type;
+			_beforeName = entity.OriginalPrefabName;
+			_beforeGuid = entity.OriginalPrefabGuid;
+			_afterName = name;
+			_afterGuid = guid;
+		}
+
+		public void Undo() => Apply(_beforeType, _beforeName, _beforeGuid);
+		public void Redo() => Apply(Entity.InstanceType.SerializedPrefab, _afterName, _afterGuid);
+		private void Apply(Entity.InstanceType type, string name, Guid guid)
+		{
+			_entity.Type = type;
+			_entity.OriginalPrefabName = name;
+			_entity.OriginalPrefabGuid = guid;
+		}
 	}
 
 	private static Entity RequireInstance(Entity entity)
