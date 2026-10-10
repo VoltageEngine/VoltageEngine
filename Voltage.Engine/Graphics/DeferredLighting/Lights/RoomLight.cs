@@ -8,6 +8,23 @@ namespace Voltage.DeferredLighting;
 
 public partial class RoomLight : DeferredLight
 {
+    [Tooltip("Optional second fill hue. Color is the primary fill tint; white keeps the fill neutral.")]
+    public Color SecondaryColor
+    {
+        get => _secondaryColor;
+        set => _secondaryColor = value == default ? new Color(255, 207, 158) : value;
+    }
+    [Range(0, 1)]
+    [Tooltip("0 keeps the primary Color throughout the room. 1 blends fully to SecondaryColor at the far side.")]
+    public float SecondaryColorStrength;
+    [Tooltip("Local blend direction: (1, 0) left to right, (0, 1) top to bottom; negate to reverse.")]
+    public Vector2 ColorBlendDirection
+    {
+        get => _colorBlendDirection;
+        set => _colorBlendDirection = value == Vector2.Zero ? Vector2.UnitX : value;
+    }
+    private Color _secondaryColor = new(255, 207, 158);
+    private Vector2 _colorBlendDirection = Vector2.UnitX;
     public List<Vector2> Vertices = new() { new(-160, -80), new(160, -80), new(160, 80), new(-160, 80) };
     public float Intensity = 0.35f;
     public float AmbientFill = 0.3f;
@@ -16,6 +33,7 @@ public partial class RoomLight : DeferredLight
     public float Falloff = 2;
     public float Scattering = 0.7f;
     public float EdgeSoftness = 12;
+    [Tooltip("Additional tint near the polygon edges, mixed with the room fill.")]
     public Color BounceColor = new(255, 207, 158);
     public float BounceStrength = 0.25f;
     public PointLight SourceLight;
@@ -77,7 +95,7 @@ public partial class RoomLight : DeferredLight
 
     public Vector3 SampleIllumination(Vector2 point)
     {
-        if (!TryGetLocalBounds(out _) || !float.IsFinite(point.X) || !float.IsFinite(point.Y)) return Vector3.Zero;
+        if (!TryGetLocalBounds(out var bounds) || !float.IsFinite(point.X) || !float.IsFinite(point.Y)) return Vector3.Zero;
         bool inside = false;
         float distanceSquared = float.MaxValue;
         for (int index = 0; index < Vertices.Count; index++)
@@ -101,7 +119,22 @@ public partial class RoomLight : DeferredLight
         float fill = Safe(AmbientFill, 0, 1, 0.3f);
         float direct = fill + (1 - fill) * (attenuation + (1 - attenuation) * spread);
         float bounce = Safe(BounceStrength, 0, 1, 0.25f) * MathF.Exp(-distance / Math.Max(1, softness * 4));
-        return Vector3.Clamp((Color.ToVector3() * direct + BounceColor.ToVector3() * bounce) * coverage, Vector3.Zero, Vector3.One);
+        var fillColor = Color.ToVector3();
+        float colorStrength = Safe(SecondaryColorStrength, 0, 1, 0);
+        if (colorStrength > 0)
+        {
+            var direction = ColorBlendDirection;
+            float extent = MathF.Abs(direction.X) + MathF.Abs(direction.Y);
+            if (!float.IsFinite(extent) || extent < 0.0001f)
+                direction = Vector2.UnitX;
+            else
+                direction /= extent;
+            var offset = new Vector2((point.X - bounds.Center.X) / bounds.Width,
+                (point.Y - bounds.Center.Y) / bounds.Height);
+            float blend = Math.Clamp(0.5f + Vector2.Dot(offset, direction), 0, 1) * colorStrength;
+            fillColor = Vector3.Lerp(fillColor, SecondaryColor.ToVector3(), blend);
+        }
+        return Vector3.Clamp((fillColor * direct + BounceColor.ToVector3() * bounce) * coverage, Vector3.Zero, Vector3.One);
     }
 
     public float GetSourceMultiplier()
@@ -116,7 +149,8 @@ public partial class RoomLight : DeferredLight
     {
         var hash = new HashCode();
         foreach (var vertex in Vertices) hash.Add(vertex);
-        hash.Add(Color); hash.Add(AmbientFill); hash.Add(LightOrigin); hash.Add(Range);
+        hash.Add(Color); hash.Add(SecondaryColor); hash.Add(SecondaryColorStrength); hash.Add(ColorBlendDirection);
+        hash.Add(AmbientFill); hash.Add(LightOrigin); hash.Add(Range);
         hash.Add(Falloff); hash.Add(Scattering); hash.Add(EdgeSoftness); hash.Add(BounceColor); hash.Add(BounceStrength);
         int value = hash.ToHashCode();
         if (_field != null && _fieldHash == value && !_field.Texture2D.IsDisposed) return;

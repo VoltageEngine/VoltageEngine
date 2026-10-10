@@ -68,6 +68,15 @@ public class RoomLightTests
             light.SourceInfluence = 0;
             light.Color = Color.Blue;
             Assert.That(Sample().B, Is.InRange(60, 66));
+            light.SecondaryColor = Color.Red;
+            light.SecondaryColorStrength = 1;
+            var mixed = Sample();
+            Assert.That(mixed.R, Is.InRange(28, 36), "Secondary hue edits must rebuild the cached field");
+            Assert.That(mixed.B, Is.InRange(28, 36));
+            light.SecondaryColor = Color.Green;
+            Assert.That(Sample().G, Is.InRange(14, 20), "Changing the second color must invalidate the cached field");
+            light.ColorBlendDirection = Vector2.UnitY;
+            Assert.That(Sample().G, Is.InRange(14, 20));
             light.Vertices = new() { new(-20,-20), new(20,-20), new(20,-10), new(-20,-10) };
             Assert.That(Sample().B, Is.EqualTo(0), "Polygon edits must invalidate the cached field");
             scene.End();
@@ -110,11 +119,41 @@ public class RoomLightTests
     }
 
     [Test]
+    public void Second_hue_is_opt_in_directional_and_keeps_edge_bounce_independent()
+    {
+        var light = new RoomLight { AmbientFill = 1, EdgeSoftness = 0, BounceStrength = 0 };
+        Assert.That(light.Color, Is.EqualTo(Color.White));
+        Assert.That(light.SecondaryColorStrength, Is.Zero);
+        Assert.That(light.SampleIllumination(Vector2.Zero), Is.EqualTo(Vector3.One));
+        light.Color = Color.Red;
+        light.SecondaryColor = Color.Blue;
+        Assert.That(light.SampleIllumination(new Vector2(120, 0)), Is.EqualTo(Vector3.UnitX));
+        light.SecondaryColorStrength = 1;
+        Assert.That(light.SampleIllumination(new Vector2(-120, 0)), Is.EqualTo(new Vector3(0.875f, 0, 0.125f)));
+        Assert.That(light.SampleIllumination(new Vector2(120, 0)), Is.EqualTo(new Vector3(0.125f, 0, 0.875f)));
+        light.ColorBlendDirection = -Vector2.UnitX;
+        Assert.That(light.SampleIllumination(new Vector2(120, 0)), Is.EqualTo(new Vector3(0.875f, 0, 0.125f)));
+        light.ColorBlendDirection = Vector2.UnitY;
+        Assert.That(light.SampleIllumination(new Vector2(0, -60)), Is.EqualTo(new Vector3(0.875f, 0, 0.125f)));
+        light.BounceColor = Color.Green;
+        light.BounceStrength = 1;
+        Assert.That(light.SampleIllumination(new Vector2(0, -79)).Y, Is.GreaterThan(0));
+        Assert.That(light.SampleIllumination(new Vector2(0, -81)), Is.EqualTo(Vector3.Zero));
+        light.ColorBlendDirection = new Vector2(float.NaN, 0);
+        Assert.That(light.SampleIllumination(Vector2.Zero).X, Is.EqualTo(0.5f));
+    }
+
+    [Test]
     public void Room_light_has_an_aot_factory_and_round_trips_polygon_and_controls()
     {
         ComponentDataSerializationBootstrap.EnsureInitialized();
         const string type = "Voltage.DeferredLighting.RoomLight";
-        var original = new RoomLight { Intensity = 0.2f, Scattering = 0.4f, BounceStrength = 0.7f, RenderLayer = 100 };
+        var original = new RoomLight
+        {
+            Intensity = 0.2f, Scattering = 0.4f, BounceStrength = 0.7f, RenderLayer = 100,
+            Color = Color.CornflowerBlue, SecondaryColor = Color.OrangeRed,
+            SecondaryColorStrength = 0.6f, ColorBlendDirection = new Vector2(-1, 1)
+        };
         original.Vertices[0] = new Vector2(-50, -30);
         var copy = (RoomLight)ComponentAotFactory.Create(type);
         var data = ComponentDataAotDeserializer.TryDeserialize(type + "+RoomLightGeneratedData", Voltage.Persistence.Json.ToJson(original.Data));
@@ -125,5 +164,16 @@ public class RoomLightTests
         Assert.That(copy.Scattering, Is.EqualTo(0.4f));
         Assert.That(copy.BounceStrength, Is.EqualTo(0.7f));
         Assert.That(copy.RenderLayer, Is.EqualTo(100));
+        Assert.That(copy.Color, Is.EqualTo(original.Color));
+        Assert.That(copy.SecondaryColor, Is.EqualTo(original.SecondaryColor));
+        Assert.That(copy.SecondaryColorStrength, Is.EqualTo(0.6f));
+        Assert.That(copy.ColorBlendDirection, Is.EqualTo(original.ColorBlendDirection));
+        var legacy = System.Text.Json.Nodes.JsonNode.Parse(Voltage.Persistence.Json.ToJson(original.Data));
+        foreach (var member in new[] { "SecondaryColor", "SecondaryColorStrength", "ColorBlendDirection" })
+            legacy.AsObject().Remove(member);
+        copy.Data = ComponentDataAotDeserializer.TryDeserialize(type + "+RoomLightGeneratedData", legacy.ToJsonString());
+        Assert.That(copy.SecondaryColorStrength, Is.Zero, "Existing scenes must retain their single-color appearance");
+        Assert.That(copy.SecondaryColor, Is.EqualTo(new Color(255, 207, 158)));
+        Assert.That(copy.ColorBlendDirection, Is.EqualTo(Vector2.UnitX));
     }
 }

@@ -12,7 +12,9 @@ Debug rendering outlines the polygon. Invalid/degenerate shapes emit nothing.
 
 | Control | Meaning |
 | --- | --- |
-| Color / Intensity | Fill tint and overall brightness |
+| Color / Intensity | Primary fill tint and overall brightness; Color appears first in the inspector |
+| SecondaryColor / SecondaryColorStrength | Optional second fill hue and how strongly the far side uses it (0–1) |
+| ColorBlendDirection | Local gradient direction; (1, 0) left to right, (0, 1) top to bottom; negate to reverse |
 | AmbientFill | Minimum illumination away from the virtual source |
 | LightOrigin / Range / Falloff | Local virtual source and its attenuation profile |
 | Scattering | Spreads the source illumination throughout the room (0–1) |
@@ -22,6 +24,13 @@ Debug rendering outlines the polygon. Invalid/degenerate shapes emit nothing.
 | SourceReferenceIntensity | Driver intensity corresponding to normal brightness |
 | SourceInfluence | Blend between independent fill and driver response (0–1) |
 | UseSourceColor | Multiply the room fill by the driver's color |
+
+New room lights use neutral white Color and a warm peach SecondaryColor and
+BounceColor (255, 207, 158). SecondaryColorStrength defaults to 0, preserving
+existing single-color fills. For a two-tone room, choose the primary Color,
+choose SecondaryColor, and raise SecondaryColorStrength toward 1. The blend
+spans the polygon's local bounds and rotates with the entity. BounceColor adds
+an independent edge hue. Overlapping room lights can also mix colors additively.
 
 For a dim warm room, start at Intensity 0.15–0.35, AmbientFill 0.2, Scattering
 0.6, EdgeSoftness 12 and BounceStrength 0.15. Link its lamp through SourceLight

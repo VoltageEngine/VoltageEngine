@@ -67,6 +67,18 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 				_inspectors = TypeInspectorUtils.GetInspectableProperties(component);
 			}
 
+            if (component is Voltage.DeferredLighting.RoomLight)
+            {
+                var colors = new[] { "Color", "SecondaryColor", "SecondaryColorStrength", "ColorBlendDirection" };
+                for (int index = colors.Length - 1; index >= 0; index--)
+                {
+                    var inspector = _inspectors.Find(item => item.Name == colors[index]);
+                    if (inspector == null) continue;
+                    _inspectors.Remove(inspector);
+                    _inspectors.Add(inspector);
+                }
+            }
+
 			// Remove the auto-generated "Enabled" inspector — we draw it manually with entity-disabled guard
 			_inspectors.RemoveAll(i => i.Name == nameof(Component.Enabled));
 
