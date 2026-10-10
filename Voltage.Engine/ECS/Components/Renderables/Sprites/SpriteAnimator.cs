@@ -71,6 +71,7 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 		public byte ColorA = 255;
 		public Vector2 LocalOffset = Vector2.Zero;
 		public Vector2 Origin = Vector2.Zero;
+		public float RotationOffset = 0f;
 		public float LayerDepth = 0f;
 		public int RenderLayer = 0;
 		public SpriteEffects SpriteEffects = SpriteEffects.None;
@@ -135,6 +136,7 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 			Color = animator.Color;  // This uses the helper property to set RGBA components
 			LocalOffset = animator.LocalOffset;
 			Origin = animator.Origin;
+			RotationOffset = animator.RotationOffset;
 			LayerDepth = animator.LayerDepth;
 			RenderLayer = animator.RenderLayer;
 			Enabled = animator.Enabled;
@@ -184,6 +186,7 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 			_animatorData.Color = Color;
 			_animatorData.LocalOffset = LocalOffset;
 			_animatorData.Origin = Origin;
+			_animatorData.RotationOffset = RotationOffset;
 			_animatorData.LayerDepth = LayerDepth;
 			_animatorData.RenderLayer = RenderLayer;
 			_animatorData.Enabled = Enabled;
@@ -214,6 +217,7 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 				Color = animatorData.Color;
 				LocalOffset = animatorData.LocalOffset;
 				Origin = animatorData.Origin;
+				RotationOffset = animatorData.RotationOffset;
 				LayerDepth = animatorData.LayerDepth;
 				RenderLayer = animatorData.RenderLayer;
 				Enabled = animatorData.Enabled;
@@ -479,11 +483,7 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 			return 0;
 
 		var content = Entity?.Scene?.Content ?? Core.Content;
-		var file = content.LoadAsepriteFile(path);
-		if (file == null)
-			return 0;
-
-		var atlas = content.LoadAsepriteAtlas(path, LoadedLayers);
+		var atlas = content.LoadAsepriteAtlas(path, LoadedLayers, out var firstFrameRate);
 
 		if (atlas.AnimationNames is { Length: > 0 })
 		{
@@ -514,8 +514,7 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 		// No tags: expose the whole timeline as one "Default" animation.
 		if (atlas.Sprites is { Length: > 0 })
 		{
-			var fps = file.Frames.Count > 0 ? 1000f / Math.Max(1, file.Frames[0].Duration) : 10f;
-			AddAnimation("Default", atlas.Sprites.Select(sprite => sprite.Clone()).ToArray(), fps);
+			AddAnimation("Default", atlas.Sprites.Select(sprite => sprite.Clone()).ToArray(), firstFrameRate);
 			return 1;
 		}
 

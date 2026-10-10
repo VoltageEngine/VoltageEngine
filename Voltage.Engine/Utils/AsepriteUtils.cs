@@ -70,7 +70,7 @@ public partial class AsepriteUtils
             throw new InvalidOperationException($"Cannot load Aseprite file '{asepriteFilePath}' - no content manager available. Entity must be added to a scene first.");
         }
         
-        var asepriteFile = contentManager.LoadAsepriteFile(asepriteFilePath);
+        var asepriteFile = contentManager.LoadAsepriteFileForRendering(asepriteFilePath);
         
         // Validate frame number
         if (frameNumber < 0 || frameNumber >= asepriteFile.Frames.Count)
@@ -119,7 +119,7 @@ public partial class AsepriteUtils
             throw new InvalidOperationException($"Cannot load Aseprite file '{asepriteFilePath}' - no content manager available. Entity must be added to a scene first.");
         }
         
-        var asepriteFile = contentManager.LoadAsepriteFile(asepriteFilePath);
+        var asepriteFile = contentManager.LoadAsepriteFileForRendering(asepriteFilePath);
         
         // Validate frame number
         if (frameNumber < 0 || frameNumber >= asepriteFile.Frames.Count)

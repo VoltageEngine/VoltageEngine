@@ -50,13 +50,20 @@ public static class EffectToolchain
 		if (!info.Environment.TryGetValue("DOTNET_ROOT", out var dotnetRoot) || string.IsNullOrWhiteSpace(dotnetRoot))
 		{
 			var host = FindDotnet();
-			if (File.Exists(host))
-			{
-				var resolved = new FileInfo(host).ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? host;
-				info.Environment["DOTNET_ROOT"] = Path.GetDirectoryName(Path.GetFullPath(resolved));
-			}
+			var root = FindDotnetRoot(host);
+			if (root != null) info.Environment["DOTNET_ROOT"] = root;
 		}
 		return info;
+	}
+
+	/// <summary>Finds the runtime root behind a direct host or a Homebrew launch wrapper.</summary>
+	public static string FindDotnetRoot(string host)
+	{
+		if (!File.Exists(host)) return null;
+		var resolved = new FileInfo(host).ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? host;
+		var directory = Path.GetDirectoryName(Path.GetFullPath(resolved));
+		var candidates = new[] { directory, Path.GetFullPath(Path.Combine(directory, "..", "libexec")) };
+		return candidates.FirstOrDefault(root => Directory.Exists(Path.Combine(root, "shared", "Microsoft.NETCore.App")));
 	}
 
 	public static void ConfigureEnvironment(ProcessStartInfo info, bool windows, bool mac, string home, string managedWineDirectory = null)

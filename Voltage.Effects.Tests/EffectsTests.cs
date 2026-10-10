@@ -112,6 +112,26 @@ public class EffectsTests
 	}
 
 	[Test]
+	public void Dotnet_root_follows_homebrew_wrappers_and_direct_hosts()
+	{
+		var install = Path.Combine(scratch, "dotnet install Ελληνικά");
+		var bin = Path.Combine(install, "bin");
+		var root = Path.Combine(install, "libexec");
+		Directory.CreateDirectory(bin);
+		Directory.CreateDirectory(Path.Combine(root, "shared", "Microsoft.NETCore.App"));
+		var wrapper = Path.Combine(bin, "dotnet");
+		File.WriteAllText(wrapper, "wrapper");
+		Assert.That(EffectToolchain.FindDotnetRoot(wrapper), Is.EqualTo(root));
+		var host = Path.Combine(root, "dotnet");
+		File.WriteAllText(host, "host");
+		Assert.That(EffectToolchain.FindDotnetRoot(host), Is.EqualTo(root));
+		Assert.That(EffectToolchain.FindDotnetRoot(Path.Combine(scratch, "missing")), Is.Null);
+		var unrelated = Path.Combine(scratch, "unrelated");
+		File.WriteAllText(unrelated, "wrapper");
+		Assert.That(EffectToolchain.FindDotnetRoot(unrelated), Is.Null);
+	}
+
+	[Test]
 	public void Wine_launcher_avoids_broken_wine_and_preserves_arguments()
 	{
 		if (OperatingSystem.IsWindows()) { Assert.Ignore("Wine launchers are used on Unix."); return; }

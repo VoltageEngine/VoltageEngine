@@ -28,7 +28,8 @@ namespace Voltage.Systems;
 public class VoltageContentManager : ContentManager
 {
 	private Dictionary<string, Effect> _loadedEffects = new();
-	private readonly Dictionary<(AsepriteFile File, string Layers), SpriteAtlas> _asepriteAtlases = new();
+	private readonly Dictionary<(string Path, string Layers), (SpriteAtlas Atlas, float FirstFrameRate)> _asepriteAtlases = new();
+	private readonly Dictionary<string, WeakReference<AsepriteFile>> _asepriteSources = new(StringComparer.Ordinal);
 
 	private List<IDisposable> _disposableAssets;
 
@@ -271,27 +272,39 @@ public class VoltageContentManager : ContentManager
 			if (asset is AsepriteFile aseFile)
 				return aseFile;
 
-		if (TryLoadCompiled<AsepriteFile>(name, out var compiled))
-		{
-			LoadedAssets[name] = compiled;
-			return compiled;
-		}
-
-		var asepriteFile = AsepriteFileLoader.Load(ResolveContentPath(name));
-		LoadedAssets.Add(name, asepriteFile);
-		return asepriteFile;
+		var file = LoadAsepriteFileForRendering(name);
+		LoadedAssets[name] = file;
+		return file;
 	}
 
-	/// <summary>Returns a content-owned atlas shared by parsed file and layer selection; callers must not dispose it.</summary>
-	public SpriteAtlas LoadAsepriteAtlas(string name, IReadOnlyCollection<string> layers = null)
+	/// <summary>Weakly caches decoded pixels for texture building; use LoadAsepriteFile for persistent source access.</summary>
+	public AsepriteFile LoadAsepriteFileForRendering(string name)
 	{
-		var file = LoadAsepriteFile(name);
-		var selected = layers is { Count: > 0 } ? layers.Distinct(StringComparer.Ordinal).OrderBy(layer => layer, StringComparer.Ordinal).ToArray() : Array.Empty<string>();
-		var key = (file, string.Concat(selected.Select(layer => layer.Length + ":" + layer)));
-		if (_asepriteAtlases.TryGetValue(key, out var cached))
+		var path = Path.GetFullPath(ResolveContentPath(name));
+		if (_asepriteSources.TryGetValue(path, out var reference) && reference.TryGetTarget(out var cached))
 			return cached;
+		var file = LoadedAssets.TryGetValue(name, out var asset) && asset is AsepriteFile source ? source
+			: TryLoadCompiled<AsepriteFile>(name, out var compiled) ? compiled : AsepriteFileLoader.Load(path);
+		_asepriteSources[path] = new WeakReference<AsepriteFile>(file);
+		return file;
+	}
+
+	/// <summary>Returns a content-owned atlas shared by source path and layer selection; callers must not dispose it.</summary>
+	public SpriteAtlas LoadAsepriteAtlas(string name, IReadOnlyCollection<string> layers = null) => LoadAsepriteAtlas(name, layers, out _);
+
+	internal SpriteAtlas LoadAsepriteAtlas(string name, IReadOnlyCollection<string> layers, out float firstFrameRate)
+	{
+		var selected = layers is { Count: > 0 } ? layers.Distinct(StringComparer.Ordinal).OrderBy(layer => layer, StringComparer.Ordinal).ToArray() : Array.Empty<string>();
+		var key = (Path.GetFullPath(ResolveContentPath(name)), string.Concat(selected.Select(layer => layer.Length + ":" + layer)));
+		if (_asepriteAtlases.TryGetValue(key, out var cached))
+		{
+			firstFrameRate = cached.FirstFrameRate;
+			return cached.Atlas;
+		}
+		var file = LoadAsepriteFileForRendering(name);
 		var atlas = selected.Length > 0 ? file.ToSpriteAtlasFromLayers(true, 0, 0, 0, null, selected) : file.ToSpriteAtlas();
-		_asepriteAtlases.Add(key, atlas);
+		firstFrameRate = file.Frames.Count > 0 ? 1000f / Math.Max(1, file.Frames[0].Duration) : 10f;
+		_asepriteAtlases.Add(key, (atlas, firstFrameRate));
 		DisposableAssets.Add(atlas);
 		return atlas;
 	}
@@ -622,7 +635,7 @@ public class VoltageContentManager : ContentManager
 		if (string.IsNullOrEmpty(name))
 			return false;
 
-		var target = ResolveContentPath(name);
+		var target = Path.GetFullPath(ResolveContentPath(name));
 		var removed = false;
 
 		foreach (var key in LoadedAssets.Keys.ToList())
@@ -630,13 +643,14 @@ public class VoltageContentManager : ContentManager
 			if (!SameContentFile(key, name, target))
 				continue;
 
-			if (LoadedAssets[key] is AsepriteFile file)
-				foreach (var atlasKey in _asepriteAtlases.Keys.Where(atlasKey => ReferenceEquals(atlasKey.File, file)).ToArray())
-					_asepriteAtlases.Remove(atlasKey);
 			LoadedAssets.Remove(key);
 			removed = true;
 		}
 
+		foreach (var key in _asepriteSources.Keys.Where(key => SameContentFile(key, name, target)).ToArray())
+			removed |= _asepriteSources.Remove(key);
+		foreach (var key in _asepriteAtlases.Keys.Where(key => SameContentFile(key.Path, name, target)).ToArray())
+			removed |= _asepriteAtlases.Remove(key);
 		return removed;
 	}
 
@@ -647,7 +661,7 @@ public class VoltageContentManager : ContentManager
 
 		try
 		{
-			return string.Equals(ResolveContentPath(key), resolvedTarget, StringComparison.OrdinalIgnoreCase);
+			return string.Equals(Path.GetFullPath(ResolveContentPath(key)), resolvedTarget, StringComparison.OrdinalIgnoreCase);
 		}
 		catch
 		{
@@ -827,6 +841,7 @@ public class VoltageContentManager : ContentManager
 	{
 		base.Unload();
 		_asepriteAtlases.Clear();
+		_asepriteSources.Clear();
 
 		foreach (var key in _loadedEffects.Keys)
 			_loadedEffects[key].Dispose();

@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using NUnit.Framework;
 using Voltage.DeferredLighting;
 using Voltage.Serialization;
+using Voltage.Sprites;
 
 namespace Voltage.Effects.Tests;
 
@@ -20,6 +21,80 @@ public class DeferredLightingTests
         Assert.That(line[16 * width + 14].R, Is.GreaterThan(line[16 * width + 20].R));
         Assert.That(line[25 * width + 12].R, Is.GreaterThan(line[16 * width + 21].R), "Long emitters must keep their silhouette instead of a circular volume");
         Assert.That(line[0].R, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void Tight_sprite_light_preserves_emission_and_feathers_the_near_edge()
+    {
+        var mask = Enumerable.Repeat(Color.White, 9).ToArray();
+        var soft = SpriteLight.BuildField(mask, 1, 9, 12);
+        var explicitDefault = SpriteLight.BuildField(mask, 1, 9, 12, 1f);
+        var tight = SpriteLight.BuildField(mask, 1, 9, 12, 2f);
+        Assert.That(explicitDefault, Is.EqualTo(soft), "Existing lights must retain their exact default field");
+        const int center = 16 * 25 + 12;
+        Assert.That(tight[center].R, Is.EqualTo(255));
+        Assert.That(tight[center + 1].R, Is.InRange(16, 96), "The edge must retain local feathering");
+        Assert.That(tight[center + 4].R, Is.LessThan(soft[center + 4].R / 2));
+        Assert.That(tight.Select((color, i) => color.R <= soft[i].R).All(value => value), Is.True);
+        var translucent = SpriteLight.BuildField(Enumerable.Repeat(new Color(255, 255, 255, 128), 9).ToArray(), 1, 9, 12, 8f);
+        Assert.That(translucent[center].R, Is.GreaterThanOrEqualTo(128), "Falloff must not dim source alpha");
+        Assert.That(SpriteLight.BuildField(new Color[9], 1, 9, 12, 2f).All(color => color.R == 0), Is.True);
+    }
+
+    [TestCase(float.NaN)]
+    [TestCase(float.PositiveInfinity)]
+    [TestCase(float.NegativeInfinity)]
+    [TestCase(-1f)]
+    [TestCase(0f)]
+    public void Invalid_sprite_light_falloff_uses_the_legacy_profile(float falloff)
+    {
+        var mask = new[] { Color.White };
+        Assert.That(SpriteLight.BuildField(mask, 1, 1, 12, falloff), Is.EqualTo(SpriteLight.BuildField(mask, 1, 1, 12)));
+    }
+
+    [Test]
+    public void Sprite_visual_rotation_preserves_entity_and_child_transforms()
+    {
+        var entity = new Entity("Sprite", Entity.InstanceType.NonSerialized) { Position = new Vector2(7, 13), Rotation = 0.25f };
+        var child = new Entity("Child", Entity.InstanceType.NonSerialized);
+        child.Parent = entity.Transform;
+        child.Transform.LocalPosition = new Vector2(3, 4);
+        var renderer = entity.AddComponent(new SpriteRenderer());
+        var childPosition = child.Position;
+        renderer.RotationOffset = 0.75f;
+        Assert.That(renderer.RenderRotation, Is.EqualTo(1f));
+        Assert.That(entity.Rotation, Is.EqualTo(0.25f));
+        Assert.That(child.Position, Is.EqualTo(childPosition));
+        renderer.RotationOffset = float.NaN;
+        Assert.That(renderer.RotationOffset, Is.Zero);
+        Assert.That(renderer.RenderRotation, Is.EqualTo(0.25f));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Sprite_visual_rotation_round_trips_component_data(bool animated)
+    {
+        ComponentDataSerializationBootstrap.EnsureInitialized();
+        var type = animated ? "Voltage.Sprites.SpriteAnimator" : "Voltage.Sprites.SpriteRenderer";
+        var dataType = type + (animated ? "+SpriteAnimatorComponentData" : "+SpriteRendererComponentData");
+        ComponentData Decode(string json) => animated
+            ? Voltage.Persistence.Json.FromJson<SpriteAnimator.SpriteAnimatorComponentData>(json)
+            : ComponentDataAotDeserializer.TryDeserialize(dataType, json);
+        var renderer = (SpriteRenderer)Voltage.Serialization.Registries.ComponentAotFactory.Create(type);
+        renderer.Data = Decode("""{"RotationOffset":0.75}""");
+        Assert.That(renderer.RotationOffset, Is.EqualTo(0.75f));
+        var restored = (SpriteRenderer)Voltage.Serialization.Registries.ComponentAotFactory.Create(type);
+        restored.Data = Decode(Voltage.Persistence.Json.ToJson(renderer.Data));
+        Assert.That(restored.RotationOffset, Is.EqualTo(0.75f));
+        if (animated)
+            Assert.That(new SpriteAnimator.SpriteAnimatorComponentData((SpriteAnimator)renderer).RotationOffset, Is.EqualTo(0.75f));
+        else
+        {
+            Assert.That(new SpriteRenderer.SpriteRendererComponentData(renderer).RotationOffset, Is.EqualTo(0.75f));
+            Assert.That(((SpriteRenderer)renderer.Clone()).RotationOffset, Is.EqualTo(0.75f));
+        }
+        restored.Data = Decode("""{"Enabled":true}""");
+        Assert.That(restored.RotationOffset, Is.Zero, "Scenes authored before visual rotation keep their existing behavior");
     }
 
     [Test]

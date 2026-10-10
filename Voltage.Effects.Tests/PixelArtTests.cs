@@ -3,12 +3,72 @@ using Microsoft.Xna.Framework.Graphics;
 using NUnit.Framework;
 using Voltage.Sprites;
 using Voltage.Textures;
+using Voltage.Systems;
+using Voltage.Aseprite;
+using System.Runtime.CompilerServices;
 
 namespace Voltage.Effects.Tests;
 
 [TestFixture]
 public class PixelArtTests
 {
+    private static string SourcePath()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root != null && !File.Exists(Path.Combine(root.FullName, "VoltageEngine.sln"))) root = root.Parent;
+        Assert.That(root, Is.Not.Null);
+        return Path.Combine(root.FullName, "Voltage.Editor", "DefaultContent", "UI", "Custom", "CursorSelection-UI.aseprite");
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference<AsepriteFile> LoadSource(VoltageContentManager content, string path, bool persistent = false) =>
+        new(persistent ? content.LoadAsepriteFile(path) : content.LoadAsepriteFileForRendering(path));
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static bool IsAlive(WeakReference<AsepriteFile> source) => source.TryGetTarget(out _);
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void CheckPersistentIdentity(VoltageContentManager content, string path) =>
+        Assert.That(content.LoadAsepriteFileForRendering(path), Is.SameAs(content.LoadAsepriteFile(path)));
+
+    private static void CollectSources()
+    {
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+    }
+
+    [Test]
+    public void Rendering_sources_are_collectible_but_explicit_source_access_stays_cached()
+    {
+        using var content = new VoltageContentManager(new GameServiceContainer());
+        var path = SourcePath();
+        var temporary = LoadSource(content, path);
+        CollectSources();
+        Assert.That(IsAlive(temporary), Is.False, "Texture building must not pin decoded cel arrays");
+        var persistent = LoadSource(content, path, true);
+        CollectSources();
+        Assert.That(IsAlive(persistent), Is.True, "Explicit source access keeps the existing content lifetime");
+        CheckPersistentIdentity(content, path);
+        content.Unload();
+        CollectSources();
+        Assert.That(IsAlive(persistent), Is.False);
+    }
+
+    [Test]
+    public void Rendering_source_aliases_share_pixels_and_eviction_reloads_the_file()
+    {
+        using var content = new VoltageContentManager(new GameServiceContainer());
+        var path = SourcePath();
+        var alias = Path.Combine(Path.GetDirectoryName(path), ".", Path.GetFileName(path));
+        var first = content.LoadAsepriteFileForRendering(path);
+        Assert.That(content.LoadAsepriteFileForRendering(alias), Is.SameAs(first));
+        Assert.That(content.EvictCachedAsset(alias), Is.True);
+        var refreshed = content.LoadAsepriteFileForRendering(path);
+        Assert.That(refreshed, Is.Not.SameAs(first));
+        Assert.That(content.LoadAsepriteFile(path), Is.SameAs(refreshed), "Persistent access promotes the current source");
+    }
+
     [Test]
     public void Asset_backed_animators_share_textures_preserve_origins_and_release_on_scene_end()
     {
@@ -53,6 +113,12 @@ public class PixelArtTests
             Assert.That(animator.Origin, Is.EqualTo(new Vector2(8, 12)));
             Assert.That(other.CurrentFrame, Is.Zero);
             var texture = animator.Sprite.Texture2D;
+            var decoded = LoadSource(scene.Content, source);
+            CollectSources();
+            Assert.That(IsAlive(decoded), Is.False, "A live atlas must not retain its decoded source");
+            Assert.That(scene.Content.LoadAsepriteAtlas(source).Sprites[0].Texture2D, Is.SameAs(texture));
+            animator.LoadAllAnimations();
+            Assert.That(IsAlive(decoded), Is.False, "Reloading cached animations must not decode the source again");
             var file = scene.Content.LoadAsepriteFile(source);
             var defaultOrigin = other.Animations["Default"].Sprites[0].Origin;
             var defaultRate = other.Animations["Default"].FrameRates[0];

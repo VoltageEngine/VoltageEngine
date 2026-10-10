@@ -31,6 +31,7 @@ namespace Voltage.Sprites
 			
 			public Vector2 LocalOffset = Vector2.Zero;
 			public Vector2 Origin = Vector2.Zero;
+			public float RotationOffset = 0f;
 			public float LayerDepth = 0f;
 			public int RenderLayer = 0;
 			public SpriteEffects SpriteEffects = SpriteEffects.None;
@@ -147,6 +148,7 @@ namespace Voltage.Sprites
 				
 				LocalOffset = renderer.LocalOffset;
 				Origin = renderer.Origin;
+				RotationOffset = renderer.RotationOffset;
 				LayerDepth = renderer.LayerDepth;
 				RenderLayer = renderer.RenderLayer;
 				Enabled = renderer.Enabled;
@@ -246,6 +248,7 @@ namespace Voltage.Sprites
 				_data.Color = Color;
 				_data.LocalOffset = LocalOffset;
 				_data.Origin = Origin;
+				_data.RotationOffset = RotationOffset;
 				_data.LayerDepth = LayerDepth;
 				_data.RenderLayer = RenderLayer;
 				_data.Enabled = Enabled;
@@ -271,6 +274,7 @@ namespace Voltage.Sprites
 					Color = spriteData.Color;
 					LocalOffset = spriteData.LocalOffset;
 					Origin = spriteData.Origin;
+					RotationOffset = spriteData.RotationOffset;
 					LayerDepth = spriteData.LayerDepth;
 					RenderLayer = spriteData.RenderLayer;
 					Enabled = spriteData.Enabled;
@@ -287,7 +291,7 @@ namespace Voltage.Sprites
 				{
 					if (_sprite != null)
 						_bounds.CalculateBounds(Entity.Transform.Position, _localOffset, _origin,
-							Entity.Transform.Scale, Entity.Transform.Rotation, _sprite.SourceRect.Width,
+							Entity.Transform.Scale, RenderRotation, _sprite.SourceRect.Width,
 							_sprite.SourceRect.Height);
 					_areBoundsDirty = false;
 				}
@@ -295,6 +299,22 @@ namespace Voltage.Sprites
 				return _bounds;
 			}
 		}
+
+		/// <summary>Visual rotation in radians, added to the entity rotation without affecting physics or child transforms.</summary>
+		public float RotationOffset
+		{
+			get => _rotationOffset;
+			set
+			{
+				value = float.IsFinite(value) ? value : 0f;
+				if (_rotationOffset == value) return;
+				_rotationOffset = value;
+				_areBoundsDirty = true;
+			}
+		}
+
+		/// <summary>World rotation used by this sprite and its silhouette light.</summary>
+		public float RenderRotation => (Entity?.Rotation ?? 0f) + _rotationOffset;
 
 		/// <summary>
 		/// the origin of the Sprite. This is set automatically when setting a Sprite.
@@ -395,6 +415,7 @@ namespace Voltage.Sprites
 		public Sprite NormalMap;
 
 
+		private float _rotationOffset;
 		protected Vector2 _origin;
 		protected Sprite _sprite;
 
@@ -547,14 +568,14 @@ namespace Voltage.Sprites
 		public override void Render(Batcher batcher, Camera camera)
 		{
 			var position = Entity.Transform.Position + LocalOffset;
-			if (Entity.Scene.UsesSmoothPixelArt && camera == Entity.Scene.Camera && camera.Rotation == 0 && Entity.Transform.Rotation == 0)
+			if (Entity.Scene.UsesSmoothPixelArt && camera == Entity.Scene.Camera && camera.Rotation == 0 && RenderRotation == 0)
 			{
 				var corner = camera.WorldToScreenPoint(position - Origin * Entity.Transform.Scale);
 				corner.X = (float)Math.Round(corner.X);
 				corner.Y = (float)Math.Round(corner.Y);
 				position = camera.ScreenToWorldPoint(corner) + Origin * Entity.Transform.Scale;
 			}
-			batcher.Draw(Sprite, position, Color, Entity.Transform.Rotation,
+			batcher.Draw(Sprite, position, Color, RenderRotation,
 						 Origin, Entity.Transform.Scale, SpriteEffects, LayerDepth);
 		}
 
@@ -691,7 +712,7 @@ namespace Voltage.Sprites
 						break;
 					case SpriteRendererComponentData.ImageFileType.Aseprite:
 						// For Aseprite, you may want to load a specific layer or frame as the normal map
-						var aseFile = contentManager.LoadAsepriteFile(_data.NormalMapFilePath);
+						var aseFile = contentManager.LoadAsepriteFileForRendering(_data.NormalMapFilePath);
 						if (aseFile != null)
 						{
 							var aseData = _data.AsepriteData.Value;
@@ -833,7 +854,7 @@ namespace Voltage.Sprites
 
 			try
 			{
-				var asepriteFile = contentManager.LoadAsepriteFile(filepath);
+				var asepriteFile = contentManager.LoadAsepriteFileForRendering(filepath);
 				if (asepriteFile == null)
 				{
 					Debug.Error($"Failed to load Aseprite file: {filepath}");
@@ -877,7 +898,7 @@ namespace Voltage.Sprites
 
 			try
 			{
-				var asepriteFile = contentManager.LoadAsepriteFile(filepath);
+				var asepriteFile = contentManager.LoadAsepriteFileForRendering(filepath);
 				if (asepriteFile != null)
 				{
 					// Validate frame number
@@ -1010,6 +1031,7 @@ namespace Voltage.Sprites
 
 			// Copy SpriteRenderer-specific properties
 			clone.SpriteEffects = SpriteEffects;
+			clone.RotationOffset = RotationOffset;
 			
 			// Deep clone the sprite if it exists
 			if (_sprite != null)
@@ -1054,6 +1076,7 @@ namespace Voltage.Sprites
 			clone.ColorA = original.ColorA;
 			clone.LocalOffset = original.LocalOffset;
 			clone.Origin = original.Origin;
+			clone.RotationOffset = original.RotationOffset;
 			clone.LayerDepth = original.LayerDepth;
 			clone.RenderLayer = original.RenderLayer;
 			clone.Enabled = original.Enabled;
@@ -1114,7 +1137,7 @@ namespace Voltage.Sprites
 						normalMapTexture = contentManager.LoadTexture(_data.NormalMapFilePath);
 						break;
 					case SpriteRendererComponentData.ImageFileType.Aseprite:
-						var aseFile = contentManager.LoadAsepriteFile(_data.NormalMapFilePath);
+						var aseFile = contentManager.LoadAsepriteFileForRendering(_data.NormalMapFilePath);
 						if (aseFile != null)
 						{
 							// Use first frame by default, or extend as needed

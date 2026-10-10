@@ -13,9 +13,13 @@ public partial class SpriteLight : DeferredLight
     public SpriteRenderer Source;
     public int Radius = 24;
     public float Intensity = 1.4f;
+    /// <summary>Higher values tighten the dim halo while preserving the emitting silhouette.</summary>
+    public float GlowFalloff = 1f;
     public bool UseSourceSprite = true;
     private readonly Dictionary<Sprite, Sprite> _masks = new();
-    private readonly Dictionary<(Sprite, int), Sprite> _fields = new();
+    private readonly Dictionary<Sprite, Sprite> _fields = new();
+    private int _fieldRadius;
+    private float _fieldFalloff;
     public override RectangleF Bounds
     {
         get
@@ -33,19 +37,28 @@ public partial class SpriteLight : DeferredLight
     private Sprite GetField(Sprite mask)
     {
         int radius = Math.Clamp(Radius, 1, 128);
-        var key = (mask, radius);
-        if (_fields.TryGetValue(key, out var cached)) return cached;
+        float falloff = NormalizeFalloff(GlowFalloff);
+        if (_fieldRadius != radius || _fieldFalloff != falloff)
+        {
+            ClearFields();
+            _fieldRadius = radius;
+            _fieldFalloff = falloff;
+        }
+        if (_fields.TryGetValue(mask, out var cached)) return cached;
         var pixels = new Color[mask.SourceRect.Width * mask.SourceRect.Height];
         mask.Texture2D.GetData(0, mask.SourceRect, pixels, 0, pixels.Length);
-        var field = BuildField(pixels, mask.SourceRect.Width, mask.SourceRect.Height, radius);
+        var field = BuildField(pixels, mask.SourceRect.Width, mask.SourceRect.Height, radius, falloff);
         var texture = new Texture2D(Core.GraphicsDevice, mask.SourceRect.Width + radius * 2, mask.SourceRect.Height + radius * 2);
         texture.SetData(field);
         var sprite = new Sprite(texture);
-        _fields.Add(key, sprite);
+        _fields.Add(mask, sprite);
         return sprite;
     }
-    public static Color[] BuildField(Color[] mask, int width, int height, int radius)
+    public static Color[] BuildField(Color[] mask, int width, int height, int radius) => BuildField(mask, width, height, radius, 1f);
+
+    public static Color[] BuildField(Color[] mask, int width, int height, int radius, float glowFalloff)
     {
+        float falloff = NormalizeFalloff(glowFalloff);
         if (width < 1 || height < 1 || radius < 1 || mask.Length != width * height) throw new ArgumentException("Invalid sprite light mask dimensions.");
         int w = width + radius * 2, h = height + radius * 2;
         var emission = new float[w * h];
@@ -62,10 +75,13 @@ public partial class SpriteLight : DeferredLight
         for (int i = 0; i < result.Length; i++)
         {
             float value = Math.Min(1, emission[i] + near[i] * 2.5f + far[i] * 1.5f);
+            if (falloff != 1f) value = Math.Max(emission[i], MathF.Pow(value, falloff));
             result[i] = new Color(value, value, value, 1f);
         }
         return result;
     }
+    private static float NormalizeFalloff(float falloff) => float.IsFinite(falloff) ? Math.Clamp(falloff, 1f, 8f) : 1f;
+
     private static float[] Blur(float[] source, int width, int height, int radius)
     {
         var horizontal = new float[source.Length];
@@ -109,7 +125,7 @@ public partial class SpriteLight : DeferredLight
         var position = Source.Entity.Position + Source.LocalOffset;
         var origin = Source.Origin + new Vector2(radius);
         var scale = Source.Entity.Scale;
-        if (Source.Entity.Scene.UsesSmoothPixelArt && camera.Rotation == 0 && Source.Entity.Rotation == 0)
+        if (Source.Entity.Scene.UsesSmoothPixelArt && camera.Rotation == 0 && Source.RenderRotation == 0)
         {
             var corner = camera.WorldToScreenPoint(position - Source.Origin * scale);
             corner.X = (float)Math.Round(corner.X); corner.Y = (float)Math.Round(corner.Y);
@@ -119,13 +135,19 @@ public partial class SpriteLight : DeferredLight
         while (strength > 0)
         {
             float amount = Math.Min(1, strength);
-            batcher.Draw(field, position, new Color(Color.ToVector3() * amount), Source.Entity.Rotation, origin, scale, Source.SpriteEffects, 0);
+            batcher.Draw(field, position, new Color(Color.ToVector3() * amount), Source.RenderRotation, origin, scale, Source.SpriteEffects, 0);
             strength -= amount;
         }
     }
-    public override void OnRemovedFromEntity()
+    private void ClearFields()
     {
         foreach (var sprite in _fields.Values) sprite.Texture2D.Dispose();
-        _fields.Clear(); _masks.Clear();
+        _fields.Clear();
+    }
+
+    public override void OnRemovedFromEntity()
+    {
+        ClearFields();
+        _masks.Clear();
     }
 }

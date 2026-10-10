@@ -490,7 +490,7 @@ namespace Voltage.Tilesets
 			{
 				if (source == TilesetImageSource.Aseprite)
 				{
-					var file = content.LoadAsepriteFile(path);
+					var file = content.LoadAsepriteFileForRendering(path);
 					if (file == null)
 						return null;
 
@@ -583,7 +583,7 @@ namespace Voltage.Tilesets
 			if (string.IsNullOrEmpty(path) || content == null)
 				return null;
 
-			var file = content.LoadAsepriteFile(path);
+			var file = content.LoadAsepriteFileForRendering(path);
 			var keep = ResolveLayers(file, asset.TextureLayers, asset.TextureSyncsNewLayers, unusedLayers);
 			var layers = keep?.ToArray();
 			return BuildAsepriteStrip(file, layers, asset.TextureAnimStart, asset.TextureAnimEnd, out _, out _, out _, out _);
