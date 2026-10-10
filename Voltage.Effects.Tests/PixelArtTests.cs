@@ -131,6 +131,12 @@ public class PixelArtTests
             var selected = scene.Content.LoadAsepriteAtlas(source, new[] { layer, "missing-layer" });
             Assert.That(selected, Is.SameAs(scene.Content.LoadAsepriteAtlas(source, new[] { "missing-layer", layer })));
             Assert.That(selected.Sprites[0].Texture2D, Is.Not.SameAs(texture));
+            var includingHidden = scene.Content.LoadAsepriteAtlas(source, new[] { layer, "missing-layer" }, false);
+            Assert.That(includingHidden, Is.Not.SameAs(selected), "Visibility settings must partition the atlas cache");
+            Assert.That(includingHidden, Is.SameAs(scene.Content.LoadAsepriteAtlas(source, new[] { "missing-layer", layer }, false)));
+            var allLayerPixels = new Color[file.CanvasWidth * file.CanvasHeight];
+            includingHidden.Sprites[0].Texture2D.GetData(0, includingHidden.Sprites[0].SourceRect, allLayerPixels, 0, allLayerPixels.Length);
+            Assert.That(allLayerPixels, Is.EqualTo(file.Frames[0].FlattenFrameOnLayers(false, false, new[] { layer })));
             for (var frame = 0; frame < file.Frames.Count; frame++)
             {
                 var sprite = selected.Sprites[frame];

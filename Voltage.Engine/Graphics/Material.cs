@@ -274,19 +274,24 @@ namespace Voltage
 		public virtual void Dispose()
 		{
 			// dispose of our state only if they are not using the shared instances
-			if (BlendState != null && BlendState != BlendState.AlphaBlend)
+			if (BlendState != null && BlendState != BlendState.AlphaBlend && BlendState != BlendState.Opaque &&
+                BlendState != BlendState.Additive && BlendState != BlendState.NonPremultiplied)
 			{
 				BlendState.Dispose();
 				BlendState = null;
 			}
 
-			if (DepthStencilState != null && DepthStencilState != DepthStencilState.None)
+			if (DepthStencilState != null && DepthStencilState != DepthStencilState.None &&
+                DepthStencilState != DepthStencilState.Default && DepthStencilState != DepthStencilState.DepthRead)
 			{
 				DepthStencilState.Dispose();
 				DepthStencilState = null;
 			}
 
-			if (SamplerState != null && SamplerState != Core.DefaultSamplerState)
+			if (SamplerState != null && SamplerState != Core.DefaultSamplerState &&
+                SamplerState != SamplerState.PointClamp && SamplerState != SamplerState.PointWrap &&
+                SamplerState != SamplerState.LinearClamp && SamplerState != SamplerState.LinearWrap &&
+                SamplerState != SamplerState.AnisotropicClamp && SamplerState != SamplerState.AnisotropicWrap)
 			{
 				SamplerState.Dispose();
 				SamplerState = null;

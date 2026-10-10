@@ -1,3 +1,4 @@
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
 
@@ -35,6 +36,8 @@ namespace Voltage.DeferredLighting
 		float _selfIlluminationPower;
 
 		EffectParameter _normalMapParam;
+        EffectParameter _normalUvTransformParam;
+        EffectParameter _normalTransformParam;
 		EffectParameter _alphaCutoffParam;
 		EffectParameter _alphaAsSelfIlluminationParam;
 		EffectParameter _selfIlluminationPowerParam;
@@ -43,6 +46,10 @@ namespace Voltage.DeferredLighting
 		public DeferredSpriteEffect() : base(Core.GraphicsDevice, EffectResource.DeferredSpriteBytes)
 		{
 			_normalMapParam = Parameters["_normalMap"];
+            _normalUvTransformParam = Parameters["_normalUvTransform"];
+            _normalTransformParam = Parameters["_normalTransform"];
+            SetNormalUvTransform(new Vector4(1, 1, 0, 0));
+            SetNormalTransform(new Vector4(1, 0, 0, 1));
 			_alphaCutoffParam = Parameters["_alphaCutoff"];
 			_alphaAsSelfIlluminationParam = Parameters["_alphaAsSelfIllumination"];
 			_selfIlluminationPowerParam = Parameters["_selfIlluminationPower"];
@@ -51,6 +58,10 @@ namespace Voltage.DeferredLighting
 			SetSelfIlluminationPower(1);
 		}
 
+
+        public void SetNormalUvTransform(Vector4 transform) => _normalUvTransformParam.SetValue(transform);
+
+        public void SetNormalTransform(Vector4 transform) => _normalTransformParam.SetValue(transform);
 
 		#region Configuration
 

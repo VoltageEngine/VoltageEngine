@@ -28,7 +28,7 @@ namespace Voltage.Systems;
 public class VoltageContentManager : ContentManager
 {
 	private Dictionary<string, Effect> _loadedEffects = new();
-	private readonly Dictionary<(string Path, string Layers), (SpriteAtlas Atlas, float FirstFrameRate)> _asepriteAtlases = new();
+	private readonly Dictionary<(string Path, string Layers, bool VisibleOnly), (SpriteAtlas Atlas, float FirstFrameRate)> _asepriteAtlases = new();
 	private readonly Dictionary<string, WeakReference<AsepriteFile>> _asepriteSources = new(StringComparer.Ordinal);
 
 	private List<IDisposable> _disposableAssets;
@@ -292,17 +292,19 @@ public class VoltageContentManager : ContentManager
 	/// <summary>Returns a content-owned atlas shared by source path and layer selection; callers must not dispose it.</summary>
 	public SpriteAtlas LoadAsepriteAtlas(string name, IReadOnlyCollection<string> layers = null) => LoadAsepriteAtlas(name, layers, out _);
 
-	internal SpriteAtlas LoadAsepriteAtlas(string name, IReadOnlyCollection<string> layers, out float firstFrameRate)
+    public SpriteAtlas LoadAsepriteAtlas(string name, IReadOnlyCollection<string> layers, bool onlyVisibleLayers) => LoadAsepriteAtlas(name, layers, out _, onlyVisibleLayers);
+
+	internal SpriteAtlas LoadAsepriteAtlas(string name, IReadOnlyCollection<string> layers, out float firstFrameRate, bool onlyVisibleLayers = true)
 	{
 		var selected = layers is { Count: > 0 } ? layers.Distinct(StringComparer.Ordinal).OrderBy(layer => layer, StringComparer.Ordinal).ToArray() : Array.Empty<string>();
-		var key = (Path.GetFullPath(ResolveContentPath(name)), string.Concat(selected.Select(layer => layer.Length + ":" + layer)));
+		var key = (Path.GetFullPath(ResolveContentPath(name)), string.Concat(selected.Select(layer => layer.Length + ":" + layer)), onlyVisibleLayers);
 		if (_asepriteAtlases.TryGetValue(key, out var cached))
 		{
 			firstFrameRate = cached.FirstFrameRate;
 			return cached.Atlas;
 		}
 		var file = LoadAsepriteFileForRendering(name);
-		var atlas = selected.Length > 0 ? file.ToSpriteAtlasFromLayers(true, 0, 0, 0, null, selected) : file.ToSpriteAtlas();
+		var atlas = selected.Length > 0 ? file.ToSpriteAtlasFromLayers(onlyVisibleLayers, 0, 0, 0, null, selected) : file.ToSpriteAtlas(onlyVisibleLayers: onlyVisibleLayers);
 		firstFrameRate = file.Frames.Count > 0 ? 1000f / Math.Max(1, file.Frames[0].Duration) : 10f;
 		_asepriteAtlases.Add(key, (atlas, firstFrameRate));
 		DisposableAssets.Add(atlas);

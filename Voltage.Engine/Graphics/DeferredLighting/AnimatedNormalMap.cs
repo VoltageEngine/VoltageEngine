@@ -1,0 +1,68 @@
+using System.Collections.Generic;
+using Voltage.Materials;
+using Voltage.Serialization;
+using Voltage.Sprites;
+
+namespace Voltage.DeferredLighting;
+
+[RequireComponent(typeof(SpriteAnimator))]
+public partial class AnimatedNormalMap : Component
+{
+    [AssetType(".aseprite", ".ase")]
+    [Tooltip("Normal-map source. Leave empty to use the animator's Aseprite source.")]
+    public AssetReference Source;
+    [Tooltip("Normal-map layer names, including hidden layers. Tags and frames must match the animator.")]
+    public List<string> Layers = new();
+    private DeferredAnimatedMaterial _material;
+    private SpriteAnimator _animator;
+    private Material _previousMaterial;
+    private bool _started;
+
+    public override void OnStart()
+    {
+        _started = true;
+        Reload();
+    }
+
+    public override void OnEnabled()
+    {
+        if (_started) Reload();
+    }
+
+    public override void OnDisabled() => ReleaseMaterial();
+
+    [InspectorCallable]
+    public void Reload()
+    {
+        ReleaseMaterial();
+        _animator = GetComponent<SpriteAnimator>();
+        if (!Enabled || _animator == null || Entity?.Scene?.GetRenderer<DeferredLightingRenderer>() == null || Layers is not { Count: > 0 })
+            return;
+        var path = Source.IsValid ? Source.ResolvePath() : _animator.AsepriteAsset.IsValid
+            ? _animator.AsepriteAsset.ResolvePath() : _animator.TextureFilePath;
+        if (string.IsNullOrEmpty(path)) return;
+        var atlas = Entity.Scene.Content.LoadAsepriteAtlas(path, Layers, false);
+        var animations = new Dictionary<string, SpriteAnimation>();
+        foreach (var name in atlas.AnimationNames)
+            animations[name] = atlas.GetAnimation(name);
+        if (animations.Count == 0 && atlas.Sprites.Length > 0)
+            animations["Default"] = new SpriteAnimation(atlas.Sprites, 10);
+        _previousMaterial = _animator.Material;
+        _animator.SetMaterial(_material = new DeferredAnimatedMaterial(_animator, animations));
+    }
+
+    private void ReleaseMaterial()
+    {
+        if (_material == null) return;
+        if (_animator?.Material == _material) _animator.SetMaterial(_previousMaterial);
+        _material.Dispose();
+        _material = null;
+        _previousMaterial = null;
+    }
+
+    public override void OnRemovedFromEntity()
+    {
+        ReleaseMaterial();
+        _started = false;
+    }
+}

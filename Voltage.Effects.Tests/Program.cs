@@ -14,10 +14,12 @@ public static class Program
 			try
 			{
 				effects.Native_gpu_accepts_all_bundled_effects();
+                new AnimatedNormalMapTests().Animated_normals_track_atlas_frames_flips_rotation_and_unmapped_clips();
+                new RoomLightTests().Room_fill_renders_and_tracks_driver_edits_without_leaking_outside();
 				new PixelArtTests().Asset_backed_animators_share_textures_preserve_origins_and_release_on_scene_end();
 			}
 			finally { effects.TearDown(); }
-			System.Console.WriteLine("Native GPU effects and shared animator lifetime checks passed.");
+			System.Console.WriteLine("Native GPU effects, animated normals, room colors and shared animator lifetime checks passed.");
 			return 0;
 		}
 		if (args.Contains("flood"))
