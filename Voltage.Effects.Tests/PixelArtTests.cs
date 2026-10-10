@@ -212,6 +212,35 @@ public class PixelArtTests
             Assert.That(helperTexture.IsDisposed, Is.True);
             Assert.That(helperLayerTexture.IsDisposed, Is.True);
             Assert.That(texture.IsDisposed, Is.False);
+            int originalFrames = file.Frames.Count;
+            var firstFrame = file.Frames[0];
+            var longer = (Voltage.Aseprite.AsepriteFrame)Activator.CreateInstance(typeof(Voltage.Aseprite.AsepriteFrame),
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null,
+                new object[] { "Longer duplicate", firstFrame.Duration * 2, firstFrame.Cels, firstFrame.Width, firstFrame.Height }, null)!;
+            file.Frames.Add(longer);
+            for (int repeat = 0; repeat < 8; repeat++) file.Frames.Add(firstFrame);
+            var timedTag = (Voltage.Aseprite.AsepriteTag)Activator.CreateInstance(typeof(Voltage.Aseprite.AsepriteTag),
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null,
+                new object[] { originalFrames, file.Frames.Count - 1, Voltage.Aseprite.AsepriteLoopDirection.Forward, Color.White, "DuplicateTiming" }, null)!;
+            file.Tags.Add(timedTag);
+            var compact = scene.Content.LoadAsepriteAtlas(source, new[] { layer, "duplicate-check-only" });
+            Assert.That(compact.Sprites.Length, Is.EqualTo(file.Frames.Count));
+            Assert.That(compact.Sprites[originalFrames].SourceRect, Is.EqualTo(compact.Sprites[0].SourceRect));
+            Assert.That(compact.Sprites[originalFrames], Is.Not.SameAs(compact.Sprites[0]), "Frame metadata must remain independent");
+            Assert.That(compact.Sprites[0].Texture2D.Width * compact.Sprites[0].Texture2D.Height,
+                Is.LessThan(file.CanvasWidth * file.CanvasHeight * file.Frames.Count), "Repeated frames must not occupy repeated texture storage");
+            var timed = compact.GetAnimation("DuplicateTiming");
+            Assert.That(timed.Sprites.Length, Is.EqualTo(9));
+            Assert.That(timed.FrameRates[0], Is.EqualTo(timed.FrameRates[1] * 0.5f));
+            for (int frame = 0; frame < file.Frames.Count; frame++)
+            {
+                var sprite = compact.Sprites[frame];
+                var actual = new Color[file.CanvasWidth * file.CanvasHeight];
+                sprite.Texture2D.GetData(0, sprite.SourceRect, actual, 0, actual.Length);
+                Assert.That(actual, Is.EqualTo(file.Frames[frame].FlattenFrameOnLayers(true, false, new[] { layer })));
+            }
+            file.Frames.RemoveRange(originalFrames, file.Frames.Count - originalFrames);
+            file.Tags.Remove(timedTag);
             var privateAtlas = file.ToSpriteAtlas();
             var privateTexture = privateAtlas.Sprites[0].Texture2D;
             Assert.That(privateTexture, Is.Not.SameAs(texture));

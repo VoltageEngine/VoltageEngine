@@ -23,8 +23,10 @@ scale and sprite rotation also transform the normal direction.
 
 `DeferredAnimatedMaterial` accepts either one normal animation or a dictionary
 keyed by the animator's animation names. Content-owned Aseprite atlases are
-shared by path, layer selection and visibility setting; consumers must not
-dispose them. The component owns and disposes only its material, restoring the
+shared by path, layer selection and visibility setting. Identical full frames
+reuse atlas regions while keeping frame order, durations, tags and origins.
+Consumers must not dispose them. The component owns and disposes only its
+material, restoring the
 previous material when disabled or removed.
 
 For pixel art, start with restrained volumes for limbs, clothing and faces.

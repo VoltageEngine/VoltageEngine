@@ -304,7 +304,7 @@ public class VoltageContentManager : ContentManager
 			return cached.Atlas;
 		}
 		var file = LoadAsepriteFileForRendering(name);
-		var atlas = selected.Length > 0 ? file.ToSpriteAtlasFromLayers(onlyVisibleLayers, 0, 0, 0, null, selected) : file.ToSpriteAtlas(onlyVisibleLayers: onlyVisibleLayers);
+		var atlas = file.ToSharedSpriteAtlas(onlyVisibleLayers, selected);
 		firstFrameRate = file.Frames.Count > 0 ? 1000f / Math.Max(1, file.Frames[0].Duration) : 10f;
 		_asepriteAtlases.Add(key, (atlas, firstFrameRate));
 		DisposableAssets.Add(atlas);
