@@ -27,6 +27,8 @@ TmxMap map = Entity.Scene.Content.LoadTiledMap("Content/Maps/Level1.tmx");
 
 All loaders cache by path — loading the same path twice returns the same object. Assets are disposed when the `VoltageContentManager` is disposed (at scene end for `scene.Content`, never for `Core.Content`).
 
+`SpriteAnimator` shares its generated Aseprite atlas through the scene content manager. Identical files and layer selections reuse one texture; changing a layer selection creates a separate atlas. Playback, frame, tint and renderer origin remain per component. Removing one animator keeps the shared texture available to others; scene unload disposes it. The `AsepriteUtils` animation helpers share textures through the target animator's scene and return independent sprite metadata and frame timing. Use `LoadAsepriteAtlas(path, layers)` for a shared, content-owned atlas. Use `AsepriteFile.ToSpriteAtlas` for a private atlas when pixels or sprite metadata will be modified, and dispose that private atlas yourself.
+
 **`SpriteRenderer` convenience loaders** — these are the methods to call when loading a sprite from code inside a component. They internally use the scene's content manager and also update the component's serialized data so the path survives a save/load cycle:
 
 ```csharp

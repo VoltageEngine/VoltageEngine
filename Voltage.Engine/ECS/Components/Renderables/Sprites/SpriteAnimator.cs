@@ -163,7 +163,6 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 
 	public List<string> LoadedLayers { get; set; } = new();
 	public string LoadedTag { get; set; } = "";
-	private readonly List<SpriteAtlas> _loadedAtlases = new();
 
 	public override ComponentData Data
 	{
@@ -479,21 +478,34 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 		if (string.IsNullOrEmpty(path))
 			return 0;
 
-		var file = Entity?.Scene?.Content?.LoadAsepriteFile(path) ?? Core.Content.LoadAsepriteFile(path);
+		var content = Entity?.Scene?.Content ?? Core.Content;
+		var file = content.LoadAsepriteFile(path);
 		if (file == null)
 			return 0;
 
-		var atlas = LoadedLayers is { Count: > 0 }
-			? file.ToSpriteAtlasFromLayers(true, 0, 0, 0, null, LoadedLayers.ToArray())
-			: file.ToSpriteAtlas();
-		_loadedAtlases.Add(atlas);
+		var atlas = content.LoadAsepriteAtlas(path, LoadedLayers);
 
 		if (atlas.AnimationNames is { Length: > 0 })
 		{
+			var spriteCopies = new Dictionary<Sprite, Sprite>();
 			foreach (var name in atlas.AnimationNames)
 			{
 				if (!Animations.ContainsKey(name))
-					AddAnimation(name, atlas.GetAnimation(name));
+				{
+					var source = atlas.GetAnimation(name);
+					var sprites = new Sprite[source.Sprites.Length];
+					for (var i = 0; i < sprites.Length; i++)
+					{
+						var shared = source.Sprites[i];
+						if (!spriteCopies.TryGetValue(shared, out var sprite))
+						{
+							sprite = shared.Clone();
+							spriteCopies.Add(shared, sprite);
+						}
+						sprites[i] = sprite;
+					}
+					AddAnimation(name, new SpriteAnimation(sprites, (float[])source.FrameRates.Clone()));
+				}
 			}
 
 			return atlas.AnimationNames.Length;
@@ -503,18 +515,11 @@ public class SpriteAnimator : SpriteRenderer, IUpdatable
 		if (atlas.Sprites is { Length: > 0 })
 		{
 			var fps = file.Frames.Count > 0 ? 1000f / Math.Max(1, file.Frames[0].Duration) : 10f;
-			AddAnimation("Default", atlas.Sprites, fps);
+			AddAnimation("Default", atlas.Sprites.Select(sprite => sprite.Clone()).ToArray(), fps);
 			return 1;
 		}
 
 		return 0;
-	}
-
-	public override void OnRemovedFromEntity()
-	{
-		foreach (var atlas in _loadedAtlases) ((IDisposable)atlas).Dispose();
-		_loadedAtlases.Clear();
-		base.OnRemovedFromEntity();
 	}
 
 	/// <summary>

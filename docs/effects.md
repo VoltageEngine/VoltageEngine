@@ -23,6 +23,8 @@ The first required compilation installs `dotnet-mgfxc` at the loaded MonoGame pa
 
 On macOS and Linux, **compiling new HLSL shaders still requires Wine**; running bundled shaders does not. Follow [MonoGame's platform setup instructions](https://docs.monogame.net/errors/mgfx0001/). Voltage respects `MGFXC_WINE_PATH`, falls back to `~/.winemonogame`, checks Wine/winepath and prefix prerequisites, and supplies standard system, Homebrew, and Wine application paths to GUI-launched processes. It reports missing prerequisites without deleting or changing an existing Wine prefix.
 
+Voltage uses an explicit `WINELOADER` first, then a managed Wine installation under `Voltage/Tools/wine/bin` in user application data, then runnable system Wine loaders. A managed installation needs `wine` (or `wine64`) and `winepath` in that directory. Loader shims let MGFXC use the selected executable even when an older `wine` on PATH cannot run. The prefix must contain Windows .NET, native `d3dcompiler_47.dll`, and MonoGame's `fxccs.dll` plus runtime configuration. Wine must support that Windows .NET runtime; a successful `wine --version` alone does not establish compatibility.
+
 Both output pipes are drained concurrently. Shader compilation has a two-minute deadline; tool installation has a five-minute deadline. Cancellation terminates the compiler process tree. Output is compiled to a temporary file, checked for the current DesktopGL header, then promoted only on success. A failed build preserves the previous output and blocks publishing it as a successful build. Build completion reports failures, including prerequisite errors and cancellation.
 
 Custom effects loaded by `VoltageContentManager.LoadEffect` resolve against the project content root. Built-in effect constructors use embedded resources, with valid Editor overrides or loose exported overrides taking precedence.
@@ -34,5 +36,7 @@ dotnet test Voltage.Effects.Tests/Voltage.Effects.Tests.csproj -c Release
 ```
 
 The isolated suite covers Windows/macOS/Linux environment rules, custom Wine prefixes, nested includes and cache corruption, argument safety, output-pipe deadlocks, cancellation and deadlines. Set `VOLTAGE_TEST_MGFXC` to a compiler path to test native compilation and failure recovery. Native GPU loading runs on Windows; set `VOLTAGE_TEST_GPU=1` on another OS with a desktop graphics session. Linux CI uses Mesa/Xvfb.
+
+On macOS, run GPU checks on the process main thread with `dotnet run --project Voltage.Effects.Tests/Voltage.Effects.Tests.csproj -- --gpu-check`; Cocoa rejects graphics initialization from a test worker thread. This also checks shared animator textures, independent playback and origins, layer selections, refresh and scene-unload disposal.
 
 The Effects workflow runs first-launch and process tests on native Windows, macOS and Linux runners, native compilation on Windows, and GPU loading on Linux. Local environment simulations are not a substitute for native macOS/Linux compiler or driver verification. Native Wine compilation on those hosts remains a separate verification step after installing MonoGame's prerequisites.

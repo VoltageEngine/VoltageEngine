@@ -10,7 +10,7 @@ namespace Voltage.Effects.Tests;
 public class PixelArtTests
 {
     [Test]
-    public void Asset_backed_animator_preserves_authored_origin_and_releases_its_generated_texture()
+    public void Asset_backed_animators_share_textures_preserve_origins_and_release_on_scene_end()
     {
         if (!OperatingSystem.IsWindows() && Environment.GetEnvironmentVariable("VOLTAGE_TEST_GPU") != "1")
             Assert.Ignore("Requires a native desktop graphics session.");
@@ -38,11 +38,117 @@ public class PixelArtTests
                     Origin = new Vector2(8, 12)
                 }
             });
+            var source = animator.TextureFilePath;
+            var other = scene.SimpleCreateEntity("Other", Entity.InstanceType.NonSerialized).AddComponent(new SpriteAnimator
+            {
+                Data = new SpriteAnimator.SpriteAnimatorComponentData { TextureFilePath = source, Origin = new Vector2(2, 3) }
+            });
             scene.Update();
+            Assert.That(other.Sprite.Texture2D, Is.SameAs(animator.Sprite.Texture2D));
+            Assert.That(other.Origin, Is.EqualTo(new Vector2(2, 3)));
+            animator.LoadAllAnimations();
+            Assert.That(other.Sprite.Texture2D, Is.SameAs(animator.Sprite.Texture2D));
             Assert.That(animator.Origin, Is.EqualTo(new Vector2(8, 12)));
             animator.NextFrame();
             Assert.That(animator.Origin, Is.EqualTo(new Vector2(8, 12)));
+            Assert.That(other.CurrentFrame, Is.Zero);
             var texture = animator.Sprite.Texture2D;
+            var file = scene.Content.LoadAsepriteFile(source);
+            var defaultOrigin = other.Animations["Default"].Sprites[0].Origin;
+            var defaultRate = other.Animations["Default"].FrameRates[0];
+            animator.Animations["Default"].Sprites[0].Origin = new Vector2(31, 37);
+            animator.Animations["Default"].FrameRates[0] *= 0.5f;
+            Assert.That(other.Animations["Default"].Sprites[0].Origin, Is.EqualTo(defaultOrigin));
+            Assert.That(other.Animations["Default"].FrameRates[0], Is.EqualTo(defaultRate));
+            Assert.That(scene.Content.LoadAsepriteAtlas(source).Sprites[0].Origin, Is.EqualTo(defaultOrigin));
+            var layer = file.Layers[0].Name;
+            var selected = scene.Content.LoadAsepriteAtlas(source, new[] { layer, "missing-layer" });
+            Assert.That(selected, Is.SameAs(scene.Content.LoadAsepriteAtlas(source, new[] { "missing-layer", layer })));
+            Assert.That(selected.Sprites[0].Texture2D, Is.Not.SameAs(texture));
+            for (var frame = 0; frame < file.Frames.Count; frame++)
+            {
+                var sprite = selected.Sprites[frame];
+                var pixels = new Color[file.CanvasWidth * file.CanvasHeight];
+                sprite.Texture2D.GetData(0, sprite.SourceRect, pixels, 0, pixels.Length);
+                Assert.That(pixels, Is.EqualTo(file.Frames[frame].FlattenFrameOnLayers(true, false, new[] { layer })));
+            }
+            var helperScene = new Scene();
+            helperScene.Begin();
+            var helperEntities = Enumerable.Range(0, 4).Select(index =>
+                helperScene.SimpleCreateEntity("Helper " + index, Entity.InstanceType.NonSerialized)).ToArray();
+            var helperAnimators = helperEntities.Select((item, index) =>
+                item.AddComponent(new SpriteAnimator { Origin = new Vector2(13 + index, 17 + index) })).ToArray();
+            helperScene.Update();
+            var helperFile = helperScene.Content.LoadAsepriteFile(source);
+            const string tag = "Helper";
+            foreach (var name in new[] { tag, "Overlap" })
+                helperFile.Tags.Add((Voltage.Aseprite.AsepriteTag)Activator.CreateInstance(typeof(Voltage.Aseprite.AsepriteTag),
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null,
+                    new object[] { 0, helperFile.Frames.Count - 1, Voltage.Aseprite.AsepriteLoopDirection.Forward, Color.White, name }, null)!);
+            var helperAnimations = new[]
+            {
+                Voltage.Utils.AsepriteUtils.LoadAsepriteAnimation(helperEntities[0], source, tag, "EntityClip"),
+                Voltage.Utils.AsepriteUtils.LoadAsepriteAnimation(helperAnimators[1], source, tag, "AnimatorClip"),
+                Voltage.Utils.AsepriteUtils.LoadAsepriteAnimationWithLayers(helperEntities[2], source, tag, "EntityLayersClip", layer, "missing-layer"),
+                Voltage.Utils.AsepriteUtils.LoadAsepriteAnimationWithLayers(helperAnimators[3], source, tag, "AnimatorLayersClip", "missing-layer", layer)
+            };
+            var helperTexture = helperAnimations[0].Sprites[0].Texture2D;
+            var helperLayerTexture = helperAnimations[2].Sprites[0].Texture2D;
+            Assert.That(helperTexture, Is.Not.SameAs(texture));
+            Assert.That(helperAnimations[1].Sprites[0].Texture2D, Is.SameAs(helperTexture));
+            Assert.That(helperAnimations[3].Sprites[0].Texture2D, Is.SameAs(helperLayerTexture));
+            Assert.That(helperLayerTexture, Is.Not.SameAs(helperTexture));
+            Assert.That(helperAnimators[0].Animations["EntityClip"], Is.SameAs(helperAnimations[0]));
+            Assert.That(helperAnimators[3].Animations["AnimatorLayersClip"], Is.SameAs(helperAnimations[3]));
+            var sharedHelperAnimation = helperScene.Content.LoadAsepriteAtlas(source).GetAnimation(tag);
+            var originalHelperOrigin = sharedHelperAnimation.Sprites[0].Origin;
+            var originalHelperRate = sharedHelperAnimation.FrameRates[0];
+            helperAnimations[0].Sprites[0].Origin = new Vector2(31, 37);
+            helperAnimations[0].FrameRates[0] *= 0.5f;
+            Assert.That(helperAnimations[1].Sprites[0].Origin, Is.EqualTo(originalHelperOrigin));
+            Assert.That(sharedHelperAnimation.Sprites[0].Origin, Is.EqualTo(originalHelperOrigin));
+            Assert.That(helperAnimations[1].FrameRates[0], Is.EqualTo(originalHelperRate));
+            Assert.That(sharedHelperAnimation.FrameRates[0], Is.EqualTo(originalHelperRate));
+            var automaticAnimators = Enumerable.Range(0, 2).Select(index =>
+                helperScene.SimpleCreateEntity("Automatic " + index, Entity.InstanceType.NonSerialized)
+                    .AddComponent(new SpriteAnimator { TextureFilePath = source })).ToArray();
+            helperScene.Update();
+            Assert.That(automaticAnimators[0].Sprite.Texture2D, Is.SameAs(helperTexture));
+            Assert.That(automaticAnimators[1].Sprite.Texture2D, Is.SameAs(helperTexture));
+            var automaticClip = automaticAnimators[0].Animations[tag];
+            var automaticOtherClip = automaticAnimators[1].Animations[tag];
+            Assert.That(automaticClip.Sprites[0], Is.SameAs(automaticAnimators[0].Animations["Overlap"].Sprites[0]));
+            automaticClip.Sprites[0].Origin = new Vector2(41, 43);
+            automaticClip.FrameRates[0] *= 0.5f;
+            Assert.That(automaticOtherClip.Sprites[0].Origin, Is.EqualTo(originalHelperOrigin));
+            Assert.That(automaticOtherClip.FrameRates[0], Is.EqualTo(originalHelperRate));
+            Assert.That(sharedHelperAnimation.Sprites[0].Origin, Is.EqualTo(originalHelperOrigin));
+            Assert.That(sharedHelperAnimation.FrameRates[0], Is.EqualTo(originalHelperRate));
+            Assert.That(automaticAnimators[0].Animations["Overlap"].FrameRates[0], Is.EqualTo(originalHelperRate));
+            foreach (var (helper, index) in helperAnimators.Select((item, index) => (item, index)))
+                Assert.That(helper.Origin, Is.EqualTo(new Vector2(13 + index, 17 + index)));
+            helperAnimators[0].Play("EntityClip");
+            helperAnimators[0].NextFrame();
+            Assert.That(helperAnimators[0].Origin, Is.EqualTo(new Vector2(13, 17)));
+            Assert.That(helperAnimators[1].CurrentFrame, Is.Zero);
+            helperEntities[0].RemoveComponent(helperAnimators[0]);
+            helperScene.Update();
+            Assert.That(helperTexture.IsDisposed, Is.False);
+            helperAnimators[1].Play("AnimatorClip");
+            helperAnimators[1].NextFrame();
+            helperScene.End();
+            Assert.That(helperTexture.IsDisposed, Is.True);
+            Assert.That(helperLayerTexture.IsDisposed, Is.True);
+            Assert.That(texture.IsDisposed, Is.False);
+            var privateAtlas = file.ToSpriteAtlas();
+            var privateTexture = privateAtlas.Sprites[0].Texture2D;
+            Assert.That(privateTexture, Is.Not.SameAs(texture));
+            ((IDisposable)privateAtlas).Dispose();
+            Assert.That(privateTexture.IsDisposed, Is.True);
+            Assert.That(texture.IsDisposed, Is.False);
+            Assert.That(scene.Content.EvictCachedAsset(source), Is.True);
+            var refreshed = scene.Content.LoadAsepriteAtlas(source);
+            Assert.That(refreshed.Sprites[0].Texture2D, Is.Not.SameAs(texture));
             Assert.That(texture.IsDisposed, Is.False);
             var automatic = new SpriteAnimator();
             var first = new Sprite(texture, new Rectangle(0, 0, 2, 2));
@@ -54,8 +160,15 @@ public class PixelArtTests
             Assert.That(automatic.Origin, Is.EqualTo(second.Origin));
             entity.RemoveComponent(animator);
             scene.Update();
-            Assert.That(texture.IsDisposed, Is.True);
+            Assert.That(texture.IsDisposed, Is.False);
+            other.NextFrame();
+            Assert.That(other.Origin, Is.EqualTo(new Vector2(2, 3)));
+            var refreshedTexture = refreshed.Sprites[0].Texture2D;
+            var selectedTexture = selected.Sprites[0].Texture2D;
             scene.End();
+            Assert.That(texture.IsDisposed, Is.True);
+            Assert.That(refreshedTexture.IsDisposed, Is.True);
+            Assert.That(selectedTexture.IsDisposed, Is.True);
             ((Game)this).Exit();
         }
     }

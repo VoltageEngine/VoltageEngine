@@ -59,7 +59,7 @@ public static class EffectToolchain
 		return info;
 	}
 
-	public static void ConfigureEnvironment(ProcessStartInfo info, bool windows, bool mac, string home)
+	public static void ConfigureEnvironment(ProcessStartInfo info, bool windows, bool mac, string home, string managedWineDirectory = null)
 	{
 		if (windows)
 			return;
@@ -74,6 +74,17 @@ public static class EffectToolchain
 			: new[] { "/usr/local/bin", "/usr/bin", "/bin" })
 			if (!directories.Contains(directory, StringComparer.Ordinal))
 				directories.Add(directory);
+		managedWineDirectory ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Voltage", "Tools", "wine", "bin");
+		if (!info.Environment.TryGetValue("WINELOADER", out var loader) || string.IsNullOrWhiteSpace(loader))
+		{
+			loader = new[] { "wine64", "wine" }.Select(name => Path.Combine(managedWineDirectory, name)).FirstOrDefault(File.Exists);
+			if (loader != null)
+			{
+				info.Environment["WINELOADER"] = loader;
+				directories.Remove(managedWineDirectory);
+				directories.Insert(0, managedWineDirectory);
+			}
+		}
 		info.Environment["PATH"] = string.Join(':', directories);
 	}
 
@@ -85,14 +96,75 @@ public static class EffectToolchain
 		info.Environment.TryGetValue("PATH", out var path);
 		var dirs = (path ?? "").Split(':', StringSplitOptions.RemoveEmptyEntries);
 		bool HasCommand(string command) => dirs.Any(dir => File.Exists(Path.Combine(dir, command)));
-		if (!HasCommand("wine") && !HasCommand("wine64") || !HasCommand("winepath"))
+		info.Environment.TryGetValue("WINELOADER", out var loader);
+		bool hasLoader = !string.IsNullOrWhiteSpace(loader) && File.Exists(loader) || HasCommand("wine") || HasCommand("wine64");
+		if (!hasLoader || !HasCommand("winepath"))
 			return $"Shader compilation requires Wine and winepath. See {SetupUrl}";
 		if (string.IsNullOrEmpty(prefix)) return $"MGFXC_WINE_PATH is missing. See {SetupUrl}";
 		bool hasDotnet = File.Exists(Path.Combine(prefix, "drive_c", "windows", "system32", "dotnet.exe")) ||
-			File.Exists(Path.Combine(prefix, "drive_c", "Program Files", "dotnet", "dotnet.exe"));
-		if (!hasDotnet || !File.Exists(Path.Combine(prefix, "drive_c", "windows", "system32", "d3dcompiler_47.dll")))
+			File.Exists(Path.Combine(prefix, "drive_c", "Program Files", "dotnet", "dotnet.exe")) ||
+			File.Exists(Path.Combine(prefix, "drive_c", "dotnet", "dotnet.exe"));
+		if (!hasDotnet || !File.Exists(Path.Combine(prefix, "drive_c", "windows", "system32", "d3dcompiler_47.dll")) ||
+			!File.Exists(Path.Combine(prefix, "drive_c", "fxccs.dll")) ||
+			!File.Exists(Path.Combine(prefix, "drive_c", "fxccs.runtimeconfig.json")))
 			return $"MonoGame's Wine prefix is missing or incomplete at '{prefix}'. Configure MGFXC_WINE_PATH using {SetupUrl}";
 		return null;
+	}
+
+
+	/// <summary>Uses a runnable Wine loader for MGFXC and winepath without changing the user's prefix or PATH.</summary>
+	public static void ConfigureWineLauncher(ProcessStartInfo info, string launcherRoot, Action<string> log, CancellationToken cancel)
+	{
+		if (OperatingSystem.IsWindows()) return;
+		info.Environment.TryGetValue("PATH", out var path);
+		info.Environment.TryGetValue("WINELOADER", out var configured);
+		var dirs = (path ?? "").Split(':', StringSplitOptions.RemoveEmptyEntries);
+		var candidates = new[] { configured }.Concat(new[] { "wine64", "wine" }
+			.SelectMany(name => dirs.Select(dir => Path.Combine(dir, name))))
+			.Where(candidate => !string.IsNullOrEmpty(candidate) && File.Exists(candidate)).Distinct();
+		string loader = null;
+		foreach (var candidate in candidates)
+		{
+			var probe = CreateStartInfo(candidate, new[] { "--version" });
+			foreach (var pair in info.Environment) probe.Environment[pair.Key] = pair.Value;
+			try
+			{
+				string version = "";
+				var exit = Run(probe, message => { log(message); version += message; }, cancel, TimeSpan.FromSeconds(5));
+				var match = System.Text.RegularExpressions.Regex.Match(version, @"wine-(\d+)");
+				if (exit == 0 && match.Success && int.TryParse(match.Groups[1].Value, out var major) && major >= 8)
+				{
+					loader = candidate;
+					break;
+				}
+			}
+			catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or TimeoutException)
+			{
+				log($"Unable to run Wine loader '{candidate}': {ex.Message}");
+			}
+		}
+		if (loader == null) throw new InvalidOperationException($"No runnable Wine loader found. See {SetupUrl}");
+		loader = Path.GetFullPath(loader);
+		var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(loader)));
+		var directory = Path.Combine(launcherRoot, key);
+		Directory.CreateDirectory(directory);
+		var quotedLoader = "'" + loader.Replace("'", "'\"'\"'") + "'";
+		var script = "#!/bin/sh\n" +
+			"if [ \"$1\" = dotnet ] && [ \"$2\" = 'c:\\fxccs.dll' ] && [ \"$#\" -gt 8 ]; then\n" +
+			"  host=$1; helper=$2; source=$3; entry=$4; profile=$5; flags=$6; shift 6\n" +
+			"  display=$1; shift\n" +
+			"  while [ \"$#\" -gt 1 ]; do display=\"$display $1\"; shift; done\n" +
+			"  exec " + quotedLoader + " \"$host\" \"$helper\" \"$source\" \"$entry\" \"$profile\" \"$flags\" \"$display\" \"$1\"\n" +
+			"fi\nexec " + quotedLoader + " \"$@\"\n";
+		foreach (var command in new[] { "wine", "wine64" })
+		{
+			var shim = Path.Combine(directory, command);
+			if (!File.Exists(shim) || File.ReadAllText(shim) != script) File.WriteAllText(shim, script);
+			File.SetUnixFileMode(shim, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+		}
+		info.Environment["WINELOADER"] = loader;
+		info.Environment["PATH"] = directory + ":" + path;
+		log($"Using Wine loader: {loader}");
 	}
 
 	public static int Run(ProcessStartInfo info, Action<string> log, CancellationToken cancel, TimeSpan timeout)
@@ -175,12 +247,22 @@ public static class EffectToolchain
 		var temporary = output + "." + Guid.NewGuid().ToString("N") + ".tmp";
 		try
 		{
-			var info = CreateStartInfo(executable, new[] { shader, Path.GetFullPath(temporary), "/Profile:" + Profile });
+			var info = CreateStartInfo(executable, new[] { Path.GetFileName(shader), Path.GetFullPath(temporary), "/Profile:" + Profile });
+			info.WorkingDirectory = Path.GetDirectoryName(Path.GetFullPath(shader));
 			ConfigureEnvironment(info, OperatingSystem.IsWindows(), OperatingSystem.IsMacOS(), Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
 			var problem = WineProblem(info, OperatingSystem.IsWindows());
 			if (problem != null) throw new InvalidOperationException(problem);
-			if (Run(info, log, cancel, TimeSpan.FromMinutes(2)) != 0 || !File.Exists(temporary) || !IsDesktopGl(File.ReadAllBytes(temporary)))
-				throw new InvalidOperationException($"Effect compilation failed or produced invalid DesktopGL output: {shader}");
+			if (!OperatingSystem.IsWindows())
+				ConfigureWineLauncher(info, ToolDirectory("wine-launchers"), log, cancel);
+			var diagnostics = new StringBuilder();
+			var exitCode = Run(info, message =>
+			{
+				log(message);
+				if (!string.IsNullOrWhiteSpace(message) && diagnostics.Length < 8000)
+					diagnostics.AppendLine(message[..Math.Min(message.Length, 8000 - diagnostics.Length)]);
+			}, cancel, TimeSpan.FromMinutes(2));
+			if (exitCode != 0 || !File.Exists(temporary) || !IsDesktopGl(File.ReadAllBytes(temporary)))
+				throw new InvalidOperationException($"Effect compilation failed (exit {exitCode}) or produced invalid DesktopGL output: {shader}\n{diagnostics.ToString().TrimEnd()}");
 			cancel.ThrowIfCancellationRequested();
 			File.Move(temporary, output, overwrite: true);
 			stamp ??= output + ".sha256";

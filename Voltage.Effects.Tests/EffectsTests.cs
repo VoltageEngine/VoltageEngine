@@ -26,7 +26,7 @@ public class EffectsTests
 		var info = EffectToolchain.CreateStartInfo("mgfxc", Array.Empty<string>());
 		info.Environment.Clear();
 		info.Environment["PATH"] = windows ? "C:/system" : "/custom/bin";
-		EffectToolchain.ConfigureEnvironment(info, windows, mac, scratch);
+		EffectToolchain.ConfigureEnvironment(info, windows, mac, scratch, Path.Combine(scratch, "managed"));
 		Assert.That(info.Environment.ContainsKey("MGFXC_WINE_PATH"), Is.EqualTo(!windows));
 		if (windows) { Assert.That(EffectToolchain.WineProblem(info, true), Is.Null); return; }
 		Assert.That(info.Environment["MGFXC_WINE_PATH"], Is.EqualTo(Path.Combine(scratch, ".winemonogame")));
@@ -45,15 +45,100 @@ public class EffectsTests
 		File.WriteAllText(Path.Combine(binaries, "winepath"), "");
 		var info = EffectToolchain.CreateStartInfo("mgfxc", Array.Empty<string>());
 		info.Environment.Clear(); info.Environment["PATH"] = binaries; info.Environment["MGFXC_WINE_PATH"] = prefix;
-		EffectToolchain.ConfigureEnvironment(info, false, mac, scratch);
+		EffectToolchain.ConfigureEnvironment(info, false, mac, scratch, Path.Combine(scratch, "managed"));
 		Assert.That(EffectToolchain.WineProblem(info, false), Does.Contain("incomplete"));
 		var system = Path.Combine(prefix, "drive_c", "windows", "system32"); Directory.CreateDirectory(system);
 		File.WriteAllText(Path.Combine(system, "dotnet.exe"), ""); File.WriteAllText(Path.Combine(system, "d3dcompiler_47.dll"), "");
+		Assert.That(EffectToolchain.WineProblem(info, false), Does.Contain("incomplete"));
+		File.WriteAllText(Path.Combine(prefix, "drive_c", "fxccs.dll"), "");
+		File.WriteAllText(Path.Combine(prefix, "drive_c", "fxccs.runtimeconfig.json"), "{}");
 		Assert.That(EffectToolchain.WineProblem(info, false), Is.Null);
 		Assert.That(info.Environment["WINEPREFIX"], Is.EqualTo(prefix));
 		File.Delete(Path.Combine(binaries, "winepath"));
 		info.Environment["PATH"] = binaries;
 		Assert.That(EffectToolchain.WineProblem(info, false), Does.Contain("winepath"));
+	}
+
+
+	[TestCase(true)]
+	[TestCase(false)]
+	public void Managed_wine_is_available_to_gui_launches_and_respects_explicit_loader(bool mac)
+	{
+		var managed = Path.Combine(scratch, "managed Wine");
+		Directory.CreateDirectory(managed);
+		var loader = Path.Combine(managed, "wine");
+		File.WriteAllText(loader, "");
+		var info = EffectToolchain.CreateStartInfo("mgfxc", Array.Empty<string>());
+		info.Environment.Clear(); info.Environment["PATH"] = "/custom/bin";
+		EffectToolchain.ConfigureEnvironment(info, false, mac, scratch, managed);
+		Assert.That(info.Environment["WINELOADER"], Is.EqualTo(loader));
+		Assert.That(info.Environment["PATH"], Does.StartWith(managed + ":/custom/bin:"));
+		info.Environment["WINELOADER"] = "/custom/wine";
+		EffectToolchain.ConfigureEnvironment(info, false, mac, scratch, managed);
+		Assert.That(info.Environment["WINELOADER"], Is.EqualTo("/custom/wine"));
+	}
+
+	[TestCase(true)]
+	[TestCase(false)]
+	public void Explicit_wine_loader_outside_path_is_validated_and_still_requires_winepath(bool mac)
+	{
+		var prefix = Path.Combine(scratch, "prefix");
+		var system = Path.Combine(prefix, "drive_c", "windows", "system32");
+		Directory.CreateDirectory(system);
+		File.WriteAllText(Path.Combine(system, "dotnet.exe"), "");
+		File.WriteAllText(Path.Combine(system, "d3dcompiler_47.dll"), "");
+		File.WriteAllText(Path.Combine(prefix, "drive_c", "fxccs.dll"), "");
+		File.WriteAllText(Path.Combine(prefix, "drive_c", "fxccs.runtimeconfig.json"), "{}");
+		var binaries = Path.Combine(scratch, "bin");
+		Directory.CreateDirectory(binaries);
+		var winepath = Path.Combine(binaries, "winepath");
+		File.WriteAllText(winepath, "");
+		var loader = Path.Combine(scratch, "custom Wine Ελληνικά");
+		File.WriteAllText(loader, "");
+		var info = EffectToolchain.CreateStartInfo("mgfxc", Array.Empty<string>());
+		info.Environment.Clear();
+		info.Environment["PATH"] = binaries;
+		info.Environment["MGFXC_WINE_PATH"] = prefix;
+		info.Environment["WINELOADER"] = loader;
+		EffectToolchain.ConfigureEnvironment(info, false, mac, scratch, Path.Combine(scratch, "managed"));
+		info.Environment["PATH"] = binaries;
+		Assert.That(info.Environment["WINELOADER"], Is.EqualTo(loader));
+		Assert.That(EffectToolchain.WineProblem(info, false), Is.Null);
+		File.Delete(loader);
+		Assert.That(EffectToolchain.WineProblem(info, false), Does.Contain("requires Wine"));
+		File.WriteAllText(loader, "");
+		File.Delete(winepath);
+		Assert.That(EffectToolchain.WineProblem(info, false), Does.Contain("winepath"));
+	}
+
+	[Test]
+	public void Wine_launcher_avoids_broken_wine_and_preserves_arguments()
+	{
+		if (OperatingSystem.IsWindows()) { Assert.Ignore("Wine launchers are used on Unix."); return; }
+		var binaries = Path.Combine(scratch, "Wine's bin Ελληνικά");
+		Directory.CreateDirectory(binaries);
+		var bad = Path.Combine(binaries, "wine");
+		var good = Path.Combine(binaries, "wine64");
+		File.WriteAllText(bad, "#!/bin/sh\nexit 126\n");
+		File.WriteAllText(good, "#!/bin/sh\nif [ \"$1\" = --version ]; then echo wine-8.0.1; else printf '%s\\n' \"$@\"; fi\n");
+		foreach (var file in new[] { bad, good }) File.SetUnixFileMode(file, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+		var info = EffectToolchain.CreateStartInfo("unused", Array.Empty<string>());
+		info.Environment["PATH"] = binaries;
+		info.Environment.Remove("WINELOADER");
+		EffectToolchain.ConfigureWineLauncher(info, Path.Combine(scratch, "launchers"), TestContext.WriteLine, CancellationToken.None);
+		Assert.That(info.Environment["WINELOADER"], Is.EqualTo(good));
+		var shimDir = info.Environment["PATH"].Split(':')[0];
+		foreach (var name in new[] { "wine", "wine64" })
+		{
+			var command = EffectToolchain.CreateStartInfo(Path.Combine(shimDir, name), new[] { "path with spaces ' Ελληνικά $()" });
+			string output = "";
+			Assert.That(EffectToolchain.Run(command, message => output += message, CancellationToken.None, TimeSpan.FromSeconds(5)), Is.Zero);
+			Assert.That(output.TrimEnd(), Is.EqualTo("path with spaces ' Ελληνικά $()"));
+			var fxc = EffectToolchain.CreateStartInfo(Path.Combine(shimDir, name), new[] { "dotnet", @"c:\fxccs.dll", "source.tmp", "Main", "ps_3_0", "0", "path", "with", "spaces", "Ελληνικά.fx", "output.tmp" });
+			output = "";
+			Assert.That(EffectToolchain.Run(fxc, message => output += message, CancellationToken.None, TimeSpan.FromSeconds(5)), Is.Zero);
+			Assert.That(output.TrimEnd().Split('\n'), Is.EqualTo(new[] { "dotnet", @"c:\fxccs.dll", "source.tmp", "Main", "ps_3_0", "0", "path with spaces Ελληνικά.fx", "output.tmp" }));
+		}
 	}
 
 	[Test]
@@ -153,6 +238,7 @@ public class EffectsTests
 		var hash = EffectToolchain.Fingerprint(source, "3.8.5.1");
 		EffectToolchain.Compile(compiler, source, output, hash, TestContext.WriteLine, CancellationToken.None);
 		var good = File.ReadAllBytes(output); Assert.That(EffectToolchain.IsCurrent(output, hash), Is.True);
+		Assert.That(Encoding.UTF8.GetString(good), Does.Not.Contain(scratch));
 		File.WriteAllText(source, "invalid shader");
 		Assert.Throws<InvalidOperationException>(() => EffectToolchain.Compile(compiler, source, output, EffectToolchain.Fingerprint(source, "3.8.5.1"), TestContext.WriteLine, CancellationToken.None));
 		Assert.That(File.ReadAllBytes(output), Is.EqualTo(good)); Assert.That(Directory.GetFiles(scratch, "*.tmp"), Is.Empty);

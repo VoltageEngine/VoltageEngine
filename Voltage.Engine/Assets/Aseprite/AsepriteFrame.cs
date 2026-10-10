@@ -58,9 +58,12 @@ namespace Voltage.Aseprite
 		/// A new array of color elements where each element represents the final pixels for this frame once flattened.
 		/// Order of color element starts with the top-left most pixel and is read left-to-right from top-to-bottom.
 		/// </returns>
-		public Color[] FlattenFrame(bool onlyVisibleLayers = true, bool includeBackgroundLayer = false, string layerName = null)
+		public Color[] FlattenFrame(bool onlyVisibleLayers = true, bool includeBackgroundLayer = false, string layerName = null) =>
+			FlattenFrameInto(new Color[Width * Height], onlyVisibleLayers, includeBackgroundLayer, layerName);
+
+		internal Color[] FlattenFrameInto(Color[] result, bool onlyVisibleLayers, bool includeBackgroundLayer, string layerName)
 		{
-			Color[] result = new Color[Width * Height];
+			System.Array.Clear(result);
 
 			for (int c = 0; c < Cels.Count; c++)
 			{
@@ -116,9 +119,12 @@ namespace Voltage.Aseprite
 		/// A new array of color elements where each element represents the final pixels for this frame once flattened.
 		/// Order of color element starts with the top-left most pixel and is read left-to-right from top-to-bottom.
 		/// </returns>
-		public Color[] FlattenFrameOnLayers(bool onlyVisibleLayers = true, bool includeBackgroundLayer = false, string[] layers = null)
+		public Color[] FlattenFrameOnLayers(bool onlyVisibleLayers = true, bool includeBackgroundLayer = false, string[] layers = null) =>
+			FlattenFrameOnLayersInto(new Color[Width * Height], onlyVisibleLayers, includeBackgroundLayer, layers);
+
+		internal Color[] FlattenFrameOnLayersInto(Color[] result, bool onlyVisibleLayers, bool includeBackgroundLayer, string[] layers)
 		{
-			Color[] result = new Color[Width * Height];
+			System.Array.Clear(result);
 
 			for (int c = 0; c < Cels.Count; c++)
 			{

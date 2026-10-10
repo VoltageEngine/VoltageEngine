@@ -184,15 +184,11 @@ namespace Voltage
 		#endregion
 
 
-		/// <summary>
-		/// add an instant force impulse to the rigidbody using its mass. force is an acceleration in pixels per second per second. The
-		/// force is multiplied by 100000 to make the values more reasonable to use.
-		/// </summary>
-		/// <param name="force">Force.</param>
+		/// <summary>Applies an instantaneous impulse using the legacy 60 Hz force scale and inverse mass.</summary>
 		public void AddImpulse(Vector2 force)
 		{
 			if (!IsImmovable)
-				Velocity += force * 100000 * (_inverseMass * Time.DeltaTime * Time.DeltaTime);
+				Velocity += force * (100000f / (60f * 60f)) * _inverseMass;
 		}
 
 		public override void OnStart()
@@ -212,13 +208,63 @@ namespace Voltage
 			if (ShouldUseGravity)
 				Velocity += Physics.Gravity * Time.DeltaTime;
 
-			// Never integrate a velocity a prior degenerate collision left non-finite.
 			if (!IsFinite(Velocity))
 				Velocity = Vector2.Zero;
 
 			var startPosition = Entity.Transform.Position;
-			Entity.Transform.Position += Velocity * Time.DeltaTime;
+			var remainingTime = Time.DeltaTime;
+			var maximumStep = MaximumMovementStep();
+			for (var index = 0; index < 64; index++)
+			{
+				var speed = System.Math.Max(System.Math.Abs(Velocity.X), System.Math.Abs(Velocity.Y));
+				var stepTime = speed > 0f ? System.Math.Min(remainingTime, maximumStep / speed) : remainingTime;
+				ResolveMovement(Velocity * stepTime);
+				remainingTime -= stepTime;
+				if (remainingTime <= 0f || !IsFinite(Entity.Transform.Position) || !IsFinite(Velocity))
+					break;
+			}
+			RestoreFiniteMovement(startPosition);
+			UpdateTriggerInteractions();
+		}
 
+		/// <summary>Moves through bounded collision steps without adding gravity or polling triggers; extreme excess motion is discarded.</summary>
+		public void MoveWithCollisions(Vector2 movement)
+		{
+			if (Entity == null || _collider == null || IsImmovable || !IsFinite(movement))
+				return;
+			var startPosition = Entity.Transform.Position;
+			var maximumStep = MaximumMovementStep();
+			for (var index = 0; index < 64; index++)
+			{
+				var distance = System.Math.Max(System.Math.Abs(movement.X), System.Math.Abs(movement.Y));
+				var fraction = distance > maximumStep ? maximumStep / distance : 1f;
+				ResolveMovement(movement * fraction);
+				if (fraction >= 1f || !IsFinite(Entity.Transform.Position) || !IsFinite(Velocity))
+					break;
+				movement *= 1f - fraction;
+			}
+			RestoreFiniteMovement(startPosition);
+		}
+
+		float MaximumMovementStep()
+		{
+			var bounds = _collider.Bounds;
+			var size = System.Math.Min(bounds.Width, bounds.Height);
+			return size > 0f && float.IsFinite(size) ? System.Math.Max(float.Epsilon, size * 0.5f) : float.MaxValue;
+		}
+
+		void RestoreFiniteMovement(Vector2 startPosition)
+		{
+			if (!IsFinite(Entity.Transform.Position) || !IsFinite(Velocity))
+			{
+				Entity.Transform.Position = IsFinite(startPosition) ? startPosition : Vector2.Zero;
+				Velocity = Vector2.Zero;
+			}
+		}
+
+		void ResolveMovement(Vector2 movement)
+		{
+			Entity.Transform.Position += movement;
 			CollisionResult collisionResult;
 
 			// fetch anything that we might collide with at our new position
@@ -250,7 +296,8 @@ namespace Voltage
 						else
 						{
 							// One-way tiles only block from their solid-face side; pass through otherwise.
-							if (neighbor.ShouldOneWayPassThrough(collisionResult.MinimumTranslationVector))
+							if (Vector2.Dot(movement, neighbor.OneWayNormal) > 0f ||
+							    neighbor.ShouldOneWayPassThrough(collisionResult.MinimumTranslationVector))
 								continue;
 
 							// neighbor has no ArcadeRigidbody so we assume its immovable and only move ourself
@@ -264,15 +311,6 @@ namespace Voltage
 					}
 			}
 
-			// Safety net: if resolution still left us non-finite, restore the pre-integration position and kill
-			// velocity rather than flinging the body to infinity (which balloons the spatial hash and freezes).
-			if (!IsFinite(Entity.Transform.Position) || !IsFinite(Velocity))
-			{
-				Entity.Transform.Position = IsFinite(startPosition) ? startPosition : Vector2.Zero;
-				Velocity = Vector2.Zero;
-			}
-
-			UpdateTriggerInteractions();
 		}
 
 		static bool IsFinite(Vector2 v) => float.IsFinite(v.X) && float.IsFinite(v.Y);

@@ -246,6 +246,18 @@ end
 ----------------------------------------------------------------------
 local base = {}
 
+function base.remove_temp_file(path)
+  -- File removal requires API 33; older versions retain an empty reusable temp file.
+  if (tonumber(app.apiVersion) or 0) >= 33 then
+    local ok, removed = pcall(os.remove, path)
+    if ok and removed then return end
+  end
+  pcall(function()
+    local file = io.open(path, "wb")
+    if file then file:close() end
+  end)
+end
+
 function base.success(data)
   return { result = data or {} }
 end
@@ -707,7 +719,7 @@ function sprite_cmds.get_sprite_screenshot(params)
   end
   local data = f:read("*a")
   f:close()
-  os.remove(tmp_path)
+  base.remove_temp_file(tmp_path)
 
   local b64 = _G.MCP_BASE64
   return base.success({
@@ -1635,7 +1647,7 @@ function drawing_cmds.get_image_data(params)
     if not f then return base.error(-32603, "Failed to save image data") end
     local data = f:read("*a")
     f:close()
-    os.remove(tmp)
+    base.remove_temp_file(tmp)
 
     local b64 = _G.MCP_BASE64
     return base.success({
@@ -1713,7 +1725,7 @@ function drawing_cmds.set_image_data(params)
     f:close()
 
     local img = Image { fromFile = tmp }
-    os.remove(tmp)
+    base.remove_temp_file(tmp)
 
     if not img then return base.error(-32603, "Failed to load image data") end
 
@@ -4252,7 +4264,7 @@ function analysis_cmds.compare_screenshots(params)
   if not f then return base.error(-32603, "Failed to save diff image") end
   local data = f:read("*a")
   f:close()
-  os.remove(tmp)
+  base.remove_temp_file(tmp)
 
   local b64 = _G.MCP_BASE64
   return base.success({
@@ -4992,7 +5004,7 @@ function advanced_cmds.get_animation_preview(params)
   end
   local data = f:read("*a")
   f:close()
-  os.remove(tmp)
+  base.remove_temp_file(tmp)
 
   local b64 = _G.MCP_BASE64
 
@@ -5921,14 +5933,20 @@ local function dispatch(method, params)
   end
 
   local previous_sprite = app.sprite
+  local previous_sprite_id = previous_sprite and previous_sprite.id
   if params and params.voltage_sprite_id ~= nil then
     local target, target_error = base.resolve_sprite({ id = params.voltage_sprite_id })
     if target_error then return target_error end
     app.sprite = target
   end
   local ok, result = pcall(handler, params or {})
-  if params and params.voltage_sprite_id ~= nil and previous_sprite and previous_sprite.isValid then
-    app.sprite = previous_sprite
+  if params and params.voltage_sprite_id ~= nil and previous_sprite_id then
+    for _, sprite in ipairs(app.sprites) do
+      if sprite.id == previous_sprite_id then
+        app.sprite = sprite
+        break
+      end
+    end
   end
   if not ok then
     return {
@@ -6054,7 +6072,13 @@ local function connect()
           -- decide whether to rotate to the next port.
           connect_failed = true
         end
-        local message = tostring(err):gsub("/voltage/[A-Fa-f0-9]+", "/voltage/[redacted]")
+        local message = err
+        if type(message) ~= "string" or message == "" then
+          message = type(data) == "string" and data ~= "" and data or
+            ("Connection failed; Aseprite " .. tostring(app.version) ..
+              " did not provide error details. Check that Voltage Editor is running and the bridge port matches.")
+        end
+        message = message:gsub("/voltage/[A-Fa-f0-9]+", "/voltage/[redacted]")
         print("[Voltage] WebSocket error: " .. message)
         pcall(function() sock:close() end)
         if ws == sock then ws = nil end

@@ -28,6 +28,7 @@ namespace Voltage.Systems;
 public class VoltageContentManager : ContentManager
 {
 	private Dictionary<string, Effect> _loadedEffects = new();
+	private readonly Dictionary<(AsepriteFile File, string Layers), SpriteAtlas> _asepriteAtlases = new();
 
 	private List<IDisposable> _disposableAssets;
 
@@ -279,6 +280,20 @@ public class VoltageContentManager : ContentManager
 		var asepriteFile = AsepriteFileLoader.Load(ResolveContentPath(name));
 		LoadedAssets.Add(name, asepriteFile);
 		return asepriteFile;
+	}
+
+	/// <summary>Returns a content-owned atlas shared by parsed file and layer selection; callers must not dispose it.</summary>
+	public SpriteAtlas LoadAsepriteAtlas(string name, IReadOnlyCollection<string> layers = null)
+	{
+		var file = LoadAsepriteFile(name);
+		var selected = layers is { Count: > 0 } ? layers.Distinct(StringComparer.Ordinal).OrderBy(layer => layer, StringComparer.Ordinal).ToArray() : Array.Empty<string>();
+		var key = (file, string.Concat(selected.Select(layer => layer.Length + ":" + layer)));
+		if (_asepriteAtlases.TryGetValue(key, out var cached))
+			return cached;
+		var atlas = selected.Length > 0 ? file.ToSpriteAtlasFromLayers(true, 0, 0, 0, null, selected) : file.ToSpriteAtlas();
+		_asepriteAtlases.Add(key, atlas);
+		DisposableAssets.Add(atlas);
+		return atlas;
 	}
 
 	/// <summary>Loads a <c>.vtileset</c> asset.</summary>
@@ -615,6 +630,9 @@ public class VoltageContentManager : ContentManager
 			if (!SameContentFile(key, name, target))
 				continue;
 
+			if (LoadedAssets[key] is AsepriteFile file)
+				foreach (var atlasKey in _asepriteAtlases.Keys.Where(atlasKey => ReferenceEquals(atlasKey.File, file)).ToArray())
+					_asepriteAtlases.Remove(atlasKey);
 			LoadedAssets.Remove(key);
 			removed = true;
 		}
@@ -808,6 +826,7 @@ public class VoltageContentManager : ContentManager
 	public override void Unload()
 	{
 		base.Unload();
+		_asepriteAtlases.Clear();
 
 		foreach (var key in _loadedEffects.Keys)
 			_loadedEffects[key].Dispose();

@@ -44,10 +44,6 @@ public sealed partial class AsepriteFile
 			AnimationNames = new string[Tags.Count]
 		};
 
-		var flattenedFrames = new Color[Frames.Count][];
-
-		for (var i = 0; i < Frames.Count; i++) flattenedFrames[i] = Frames[i].FlattenFrame(onlyVisibleLayers, false, layerName);
-
 		var sqrt = Math.Sqrt(Frames.Count);
 		var columns = (int)Math.Ceiling(sqrt);
 		var rows = (Frames.Count + columns - 1) / columns;
@@ -63,13 +59,14 @@ public sealed partial class AsepriteFile
 		                  + innerPadding * 2 * rows;
 
 		var imagePixels = new Color[imageWidth * imageHeight];
+		var framePixels = new Color[CanvasWidth * CanvasHeight];
 		var regions = new Rectangle[Frames.Count];
 
-		for (var i = 0; i < flattenedFrames.GetLength(0); i++)
+		for (var i = 0; i < Frames.Count; i++)
 		{
 			var column = i % columns;
 			var row = i / columns;
-			var frame = flattenedFrames[i];
+			var frame = Frames[i].FlattenFrameInto(framePixels, onlyVisibleLayers, false, layerName);
 
 			var x = column * CanvasWidth
 			        + borderPadding
@@ -81,14 +78,8 @@ public sealed partial class AsepriteFile
 			        + spacing * row
 			        + innerPadding * (row + row + 1);
 
-			for (var p = 0; p < frame.Length; p++)
-			{
-				var px = p % CanvasWidth + x;
-				var py = p / CanvasWidth + y;
-
-				var index = py * imageWidth + px;
-				imagePixels[index] = frame[p];
-			}
+			for (var frameRow = 0; frameRow < CanvasHeight; frameRow++)
+				Array.Copy(frame, frameRow * CanvasWidth, imagePixels, (y + frameRow) * imageWidth + x, CanvasWidth);
 
 			regions[i] = new Rectangle(x, y, CanvasWidth, CanvasHeight);
 		}
@@ -132,13 +123,6 @@ public sealed partial class AsepriteFile
 			AnimationNames = new string[Tags.Count]
 		};
 
-		var flattenedFrames = new Color[Frames.Count][];
-
-		for (var i = 0; i < Frames.Count; i++)
-		{
-			flattenedFrames[i] = Frames[i].FlattenFrameOnLayers(onlyVisibleLayers, false, layers);
-		}
-
 		var sqrt = Math.Sqrt(Frames.Count);
 		var columns = (int)Math.Ceiling(sqrt);
 		var rows = (Frames.Count + columns - 1) / columns;
@@ -154,13 +138,14 @@ public sealed partial class AsepriteFile
 						  + innerPadding * 2 * rows;
 
 		var imagePixels = new Color[imageWidth * imageHeight];
+		var framePixels = new Color[CanvasWidth * CanvasHeight];
 		var regions = new Rectangle[Frames.Count];
 
-		for (var i = 0; i < flattenedFrames.GetLength(0); i++)
+		for (var i = 0; i < Frames.Count; i++)
 		{
 			var column = i % columns;
 			var row = i / columns;
-			var frame = flattenedFrames[i];
+			var frame = Frames[i].FlattenFrameOnLayersInto(framePixels, onlyVisibleLayers, false, layers);
 
 			var x = column * CanvasWidth
 					+ borderPadding
@@ -172,14 +157,8 @@ public sealed partial class AsepriteFile
 					+ spacing * row
 					+ innerPadding * (row + row + 1);
 
-			for (var p = 0; p < frame.Length; p++)
-			{
-				var px = p % CanvasWidth + x;
-				var py = p / CanvasWidth + y;
-
-				var index = py * imageWidth + px;
-				imagePixels[index] = frame[p];
-			}
+			for (var frameRow = 0; frameRow < CanvasHeight; frameRow++)
+				Array.Copy(frame, frameRow * CanvasWidth, imagePixels, (y + frameRow) * imageWidth + x, CanvasWidth);
 
 			regions[i] = new Rectangle(x, y, CanvasWidth, CanvasHeight);
 		}

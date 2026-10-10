@@ -19,58 +19,36 @@ public partial class AsepriteUtils
     /// <param name="layerName">If left as null, then animator will select ALL layers for the animation.</param>
     public static SpriteAnimation LoadAsepriteAnimation(Entity entity, string asepriteFilePath, string animationTagName, string callableAnimationName = null, string layerName = null)
     {
-        SpriteAtlas sprite = entity.Scene.Content.LoadAsepriteFile(asepriteFilePath).ToSpriteAtlas(layerName);
-
-        if (callableAnimationName == null) // animation name not assigned
-            entity.GetComponent<SpriteAnimator>().AddAnimation(animationTagName, sprite.GetAnimation(animationTagName));
-        else
-            entity.GetComponent<SpriteAnimator>().AddAnimation(callableAnimationName, sprite.GetAnimation(animationTagName));
-
-        return sprite.GetAnimation(animationTagName);
+        return LoadAsepriteAnimation(entity.GetComponent<SpriteAnimator>(), asepriteFilePath, animationTagName, callableAnimationName, layerName);
     }
 
     public static SpriteAnimation LoadAsepriteAnimation(SpriteAnimator animator, string asepriteFilePath, string animationTagName, string callableAnimationName = null, string layerName = null)
     {
-	    SpriteAtlas sprite = Core.Scene.Content.LoadAsepriteFile(asepriteFilePath).ToSpriteAtlas(layerName);
+        return LoadSharedAnimation(animator, asepriteFilePath, animationTagName, callableAnimationName, layerName == null ? null : new[] { layerName });
+    }
 
-	    if (callableAnimationName == null) // animation name not assigned
-		    animator.AddAnimation(animationTagName, sprite.GetAnimation(animationTagName));
-	    else
-		    animator.AddAnimation(callableAnimationName, sprite.GetAnimation(animationTagName));
-
-	    return sprite.GetAnimation(animationTagName);
-	}
-
-	/// <summary>
-	/// Create animation only based on its specific layers 
-	/// </summary>
-	/// <param name="entity"></param>
-	/// <param name="asepriteFilePath"></param>
-	/// <param name="animationTagName"></param>
-	/// <param name="callableAnimationName"></param>
-	/// <param name="layers"></param>
+	/// <summary>Creates an animation from the selected layers using a scene-owned texture.</summary>
 	public static SpriteAnimation LoadAsepriteAnimationWithLayers(Entity entity, string asepriteFilePath, string animationTagName, string callableAnimationName = null, params string[] layers)
     {
-        SpriteAtlas sprite = entity.Scene.Content.LoadAsepriteFile(asepriteFilePath).ToSpriteAtlasFromLayers(true, 0, 0 ,0 , null, layers);
-
-        if (callableAnimationName == null) 
-            entity.GetComponent<SpriteAnimator>().AddAnimation(animationTagName, sprite.GetAnimation(animationTagName));
-        else
-            entity.GetComponent<SpriteAnimator>().AddAnimation(callableAnimationName, sprite.GetAnimation(animationTagName));
-
-        return sprite.GetAnimation(animationTagName);
+        return LoadAsepriteAnimationWithLayers(entity.GetComponent<SpriteAnimator>(), asepriteFilePath, animationTagName, callableAnimationName, layers);
 	}
 
 	public static SpriteAnimation LoadAsepriteAnimationWithLayers(SpriteAnimator animator, string asepriteFilePath, string animationTagName, string callableAnimationName = null, params string[] layers)
 	{
-		SpriteAtlas sprite = Core.Scene.Content.LoadAsepriteFile(asepriteFilePath).ToSpriteAtlasFromLayers(true, 0, 0, 0, null, layers);
+		return LoadSharedAnimation(animator, asepriteFilePath, animationTagName, callableAnimationName, layers);
+	}
 
-		if (callableAnimationName == null)
-			animator.AddAnimation(animationTagName, sprite.GetAnimation(animationTagName));
-		else
-			animator.AddAnimation(callableAnimationName, sprite.GetAnimation(animationTagName));
-
-		return sprite.GetAnimation(animationTagName);
+	/// <summary>Shares the texture while keeping mutable sprite origins and frame timing private to the caller.</summary>
+	private static SpriteAnimation LoadSharedAnimation(SpriteAnimator animator, string path, string tag, string alias, string[] layers)
+	{
+		var content = animator.Entity?.Scene?.Content ?? Core.Scene.Content;
+		var source = content.LoadAsepriteAtlas(path, layers).GetAnimation(tag);
+		var sprites = new Sprite[source.Sprites.Length];
+		for (var i = 0; i < sprites.Length; i++)
+			sprites[i] = source.Sprites[i].Clone();
+		var animation = new SpriteAnimation(sprites, (float[])source.FrameRates.Clone());
+		animator.AddAnimation(alias ?? tag, animation);
+		return animation;
 	}
 
 	/// <summary>
