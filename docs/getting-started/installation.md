@@ -26,6 +26,18 @@ The executable lands in `Voltage.Editor/bin/Editor-Debug/win-x64/Voltage.Editor.
 
 The `Editor-*` configurations define the `EDITOR` preprocessor symbol, which adds the inspector, serialization manager and hot-reload surfaces to the engine. Plain `Debug` and `Release` build the engine the way a published game sees it.
 
+### Repeated builds on macOS
+
+Close the editor, then run the bounded build helper from the engine folder:
+
+```bash
+./tools/build-editor-macos.sh
+```
+
+It selects Intel or Apple Silicon automatically, permits one helper build per checkout, uses one MSBuild worker, and disables persistent compiler/build servers. Use `--no-restore` after dependencies have been restored, or `-c Editor-Release` for the optimized editor. It refuses to replace binaries while an editor is running and does not terminate any application. If a build is forcibly interrupted and leaves its lock directory, verify that the build has stopped before removing the directory reported by the helper.
+
+Normal macOS builds also default to non-shared compilation and sequential project-reference builds. These settings reduce build concurrency and background compiler retention; they do not cap the editor's runtime heap or diagnose a system restart. If the entire Mac restarts, inspect the macOS panic report rather than assuming a managed out-of-memory exception. Follow [Apple's unexpected-restart troubleshooting](https://support.apple.com/102382) if the problem persists.
+
 ## Run it
 
 Start the editor with no arguments to get the project picker, or pass a `.voltage` file to open a project directly:

@@ -7,4 +7,8 @@ causing each csproj file to mess up the other.
   <PropertyGroup>
     <MSBuildProjectExtensionsPath>obj\$(MSBuildProjectName)\</MSBuildProjectExtensionsPath>
   </PropertyGroup>
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <UseSharedCompilation Condition="'$(UseSharedCompilation)' == ''">false</UseSharedCompilation>
+    <BuildInParallel Condition="'$(BuildInParallel)' == ''">false</BuildInParallel>
+  </PropertyGroup>
 </Project>
