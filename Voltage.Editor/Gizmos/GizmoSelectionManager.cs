@@ -147,6 +147,7 @@ namespace Voltage.Editor.Gizmos
 			if (!cursorOverGameView && SelectionMode == CursorSelectionMode.TilePaint)
 				tilePaintTool.CommitPendingStroke();
 
+			IsMouseOverGizmo = false;
 			if (cursorInGameWindow)
 			{
 				var camera = Core.Scene.Camera;
@@ -168,7 +169,7 @@ namespace Voltage.Editor.Gizmos
 					return;
 				}
 
-				if (Core.IsEditMode)
+				if (Core.IsEditMode && Core.DebugRenderEnabled)
 				{
 					if (SelectionMode == CursorSelectionMode.Normal)
 					{

@@ -1367,6 +1367,28 @@ public partial class ImGuiManager
 		}
 	}
 
+	private void DrawDebugRenderingToggle()
+	{
+		float iconSize = ImGui.GetFontSize();
+		float buttonWidth = iconSize + ImGui.GetStyle().FramePadding.X * 2f;
+		float rightEdge = ImGui.GetWindowWidth() - buttonWidth - ImGui.GetStyle().WindowPadding.X;
+		ImGui.SetCursorPosX(Math.Max(ImGui.GetCursorPosX(), rightEdge));
+
+		bool enabled = Core.DebugRenderEnabled;
+		if (enabled)
+			ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(0.2f, 0.5f, 1f, 1f));
+		if (Gui.ImageButton("DebugRenderingToggle", enabled ? ImguiImageLoader.EyeOn : ImguiImageLoader.EyeOff,
+			new Vector2(iconSize, iconSize)))
+			Core.DebugRenderEnabled = !enabled;
+		if (enabled)
+			ImGui.PopStyleColor();
+
+		if (ImGui.IsItemHovered())
+			ImGuiSafe.SetTooltipSafe(Core.DebugRenderEnabled
+				? "Debug rendering / gizmos: ON (click to hide)"
+				: "Debug rendering / gizmos: OFF (click to show)");
+	}
+
 	/// <summary>
 	/// Audio mute toggle — right-aligned inside the Editor Tools bar.
 	/// Shows volume-up icon when <see cref="Core.IsAudioOn"/> is true, volume-mute when false.

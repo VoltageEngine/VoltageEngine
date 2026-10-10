@@ -905,9 +905,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			DrawPluginsMenu();
 			DrawBuildMenu();
 			DrawHelpMenu();
-
-			// Centering here only worked while the window was wide: the clamp that stops it overdrawing
-			// the menus puts it flush against Help on a small screen.
+			DrawDebugRenderingToggle();
 
 			Gui.EndMainMenuBar();
 		}
