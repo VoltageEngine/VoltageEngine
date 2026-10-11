@@ -1262,6 +1262,12 @@ public partial class SerializationManager : GlobalManager
 				: prefabEntity.Name;
 
 			var sourceFilePath = CrossPlatformPath.Combine(prefabsDirectory, $"{prefabFileName}.vprefab");
+			if (overrideExistingPrefab)
+			{
+				var existingPath = Scene.PrefabPathResolver?.Invoke(prefabEntity.OriginalPrefabGuid, prefabFileName);
+				if (!string.IsNullOrEmpty(existingPath) && File.Exists(existingPath))
+					sourceFilePath = existingPath;
+			}
 
 			if (File.Exists(sourceFilePath) && !overrideExistingPrefab)
 			{
