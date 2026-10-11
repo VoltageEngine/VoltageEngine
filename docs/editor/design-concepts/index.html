@@ -76,11 +76,11 @@
   <h2>Included fixes and further validation</h2>
   <p>The accompanying change replaces 84 static text tokens in the editor and engine diagnostics containing unsupported dashes, arrows, ellipses, triangles, record dots, degree symbols, and middle-dot separators with readable ASCII. Seven original monochrome asset icons cover generic files, textures, shader effects, Tiled maps, tilesets, timelines, and data assets. Existing scene, prefab, script, Aseprite, and audio icons remain; plugin supplied icons still take precedence.</p>
   <p>These fixes do not add full Unicode font coverage. Dynamic names in Greek, Cyrillic, or other scripts still need the font work above. The visual concepts are review artifacts; no framework port or global theme replacement is included.</p>
-  <p>Validation: Editor-Debug and Editor-Release build with zero errors. A syntax-aware scan finds no remaining non-ASCII string tokens in editor or engine source. Live Linux editor checks show all seven new icon types, using actual project assets and an isolated shader/generic-file fixture. SVG structure, PNG transparency, and local report links are verified. The gateway suite passes 23 of 24 tests; the remaining docking failure is also present on the baseline revision.</p>
+  <p>Validation: Editor-Debug and Editor-Release build with zero errors. A syntax-aware scan finds no remaining non-ASCII string tokens in editor or engine source. Live Linux editor checks show all seven new icon types, using actual project assets and an isolated shader/generic-file fixture. SVG structure, PNG transparency, and local report links are verified. The gateway suite passes all 24 tests. Explicit storage overrides now isolate test profiles from legacy user layouts; the Linux fixture supplies an undocked legacy layout to prevent regression.</p>
   <ul>
     <li>Check icon size and contrast at 100%, 150%, and 200% display scale on Linux, Windows, and macOS.</li>
     <li>Test localized file/entity names and text input after introducing a broader font atlas.</li>
-    <li>Resolve the existing <code>Headless_layout_is_docked</code> test failure before changing default workspace behavior; it also fails on the baseline revision.</li>
+    <li>Validate new default workspaces at multiple window sizes and display scales, and retain existing custom layouts across project loading and restarts.</li>
     <li>For shader setup, validate native macOS, package manager denial, network interruption, AOT/full asset exports, and GPU effects rendering. The existing effects documentation lists the setup validation already completed.</li>
   </ul>
 

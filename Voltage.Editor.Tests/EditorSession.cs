@@ -73,6 +73,15 @@ public sealed class EditorSession
 		};
 		start.Environment["VOLTAGE_EDITOR_DATA"] = DataDirectory;
 		start.Environment["VOLTAGE_ASEPRITE_EXTENSION"] = Path.Combine(_root, "aseprite-extension");
+		if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+		{
+			var legacyRoot = Path.Combine(_root, "legacy-data");
+			var legacyLayouts = Path.Combine(legacyRoot, "LegacyEditor", "EditorLayouts");
+			Directory.CreateDirectory(legacyLayouts);
+			File.WriteAllText(Path.Combine(legacyLayouts, "imgui_layout.ini"),
+				"[Window][###GameWindow]\nPos=48,48\nSize=640,360\nCollapsed=0\n");
+			start.Environment["XDG_DATA_HOME"] = legacyRoot;
+		}
 		foreach (var arg in new[] { "--headless", "--gateway-port", "0", "--gateway-info", InfoPath })
 			start.ArgumentList.Add(arg);
 

@@ -173,6 +173,8 @@ A modal swallows every click outside it, so an unattended agent has to notice on
 
 `Voltage.Editor.Tests` runs the gateway end to end: it writes a small project into a temp folder, starts the built editor with `--headless --gateway-port 0 --gateway-info <tmp>/gateway.json <project>.voltage` and `VOLTAGE_EDITOR_DATA` pointed at a fresh data folder, then exercises entities, components, undo, batches, events, synthetic input, click-by-label, screenshots and script compilation before `editor.exit force=true`. Run it with `dotnet test Voltage.Editor.Tests -c Editor-Debug` after building the editor; `VOLTAGE_EDITOR_EXE` overrides the executable and `VOLTAGE_TESTS_KEEP=1` leaves the temp folder behind. The `gateway-tests` CI job runs the same suite on Linux under Xvfb with Mesa and on Windows with a software `opengl32.dll` beside the editor; both are marked as unverified on hosted runners until they have been seen passing there.
 
+An explicit `VOLTAGE_EDITOR_DATA` override is an isolated editor profile: existing settings and layouts inside it are retained, and an empty profile uses the bundled defaults. Legacy user data is migrated only when no override is set. The Linux test fixture seeds an undocked legacy layout outside its override folder so `Headless_layout_is_docked` also checks that legacy settings cannot leak into the test profile.
+
 ## Crashes
 
 An unhandled exception writes `crash_<timestamp>.log` (with the tail of the editor log) to the logs folder and exits the process immediately, so no OS error dialog waits for a person. The CLI names the crash log when it finds the editor gone, and `voltage start` brings it back with the same arguments. `debug.crash confirm=true` exercises that whole path on purpose.

@@ -4,10 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace Voltage.Editor.Persistence
 {
-	/// <summary>
-	/// Editor settings, layouts, logs and plugin cache, kept in OS user storage so deleting the
-	/// engine checkout does not take them with it. VOLTAGE_EDITOR_DATA relocates both roots.
-	/// </summary>
+	/// <summary>Editor data lives in OS user storage; VOLTAGE_EDITOR_DATA selects an isolated profile with its own data and cache roots.</summary>
 	public static class EditorStorage
 	{
 		public const string OverrideEnvVar = "VOLTAGE_EDITOR_DATA";
@@ -38,10 +35,7 @@ namespace Voltage.Editor.Persistence
 
 		public static string PluginCacheDirectory => _pluginCache.Value;
 
-		/// <summary>
-		/// Idempotent, and safe from a static constructor: anything touching storage before Main
-		/// still sees migrated data.
-		/// </summary>
+		/// <summary>Initializes storage once, migrating legacy data only for the default user profile.</summary>
 		public static void Initialize()
 		{
 			if (_initialized)
@@ -56,7 +50,8 @@ namespace Voltage.Editor.Persistence
 
 				try
 				{
-					MigrateLegacyData();
+					if (OverrideRoot() == null)
+						MigrateLegacyData();
 				}
 				catch (Exception ex)
 				{
