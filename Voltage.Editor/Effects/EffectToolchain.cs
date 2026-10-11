@@ -70,6 +70,8 @@ public static class EffectToolchain
 	{
 		if (windows)
 			return;
+		if (managedWineDirectory == null && home == Environment.GetFolderPath(Environment.SpecialFolder.UserProfile))
+			ShaderToolchainSetup.Default.ApplyInstallation(info);
 		if (!info.Environment.TryGetValue("MGFXC_WINE_PATH", out var prefix) || string.IsNullOrWhiteSpace(prefix))
 			prefix = Path.Combine(home, ".winemonogame");
 		info.Environment["MGFXC_WINE_PATH"] = prefix;
@@ -248,15 +250,17 @@ public static class EffectToolchain
 	public static bool IsCurrent(string output, string fingerprint, string stamp = null) => File.Exists(output) &&
 		File.Exists(stamp ?? output + ".sha256") && File.ReadAllText(stamp ?? output + ".sha256") == OutputStamp(output, fingerprint) && IsDesktopGl(File.ReadAllBytes(output));
 
-	public static void Compile(string executable, string shader, string output, string fingerprint, Action<string> log, CancellationToken cancel, string stamp = null)
+	public static void Compile(string executable, string shader, string output, string fingerprint, Action<string> log, CancellationToken cancel, string stamp = null, ProcessStartInfo environment = null)
 	{
 		Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output)));
 		var temporary = output + "." + Guid.NewGuid().ToString("N") + ".tmp";
 		try
 		{
 			var info = CreateStartInfo(executable, new[] { Path.GetFileName(shader), Path.GetFullPath(temporary), "/Profile:" + Profile });
+			if (environment != null)
+				foreach (var pair in environment.Environment) info.Environment[pair.Key] = pair.Value;
 			info.WorkingDirectory = Path.GetDirectoryName(Path.GetFullPath(shader));
-			ConfigureEnvironment(info, OperatingSystem.IsWindows(), OperatingSystem.IsMacOS(), Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+			if (environment == null) ConfigureEnvironment(info, OperatingSystem.IsWindows(), OperatingSystem.IsMacOS(), Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
 			var problem = WineProblem(info, OperatingSystem.IsWindows());
 			if (problem != null) throw new InvalidOperationException(problem);
 			if (!OperatingSystem.IsWindows())
@@ -275,6 +279,11 @@ public static class EffectToolchain
 			stamp ??= output + ".sha256";
 			Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(stamp)));
 			File.WriteAllText(stamp, OutputStamp(output, fingerprint));
+		}
+		catch (Exception ex) when (ex is TimeoutException or System.ComponentModel.Win32Exception || ex.Message.Contains("Wine", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("fxccs", StringComparison.OrdinalIgnoreCase))
+		{
+			ShaderToolchainSetup.Default.Invalidate();
+			throw;
 		}
 		finally { if (File.Exists(temporary)) File.Delete(temporary); }
 	}

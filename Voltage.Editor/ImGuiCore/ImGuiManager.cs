@@ -557,6 +557,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		// Remap mouse coordinates to game-window space BEFORE UpdateCamera and UpdateSelection.
 		// All editor ImGui widgets (menus, inspectors, scene graph, etc...) have already
 		// finished drawing above with the raw OS mouse coordinates.
+		ShaderSetupDialog.Draw();
 		ApplyGameWindowMouseOverride();
 
 		if (DisableKeyboardInputWhenGameWindowUnfocused && !IsGameWindowFocused)

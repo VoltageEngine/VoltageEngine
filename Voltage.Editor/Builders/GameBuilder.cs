@@ -80,6 +80,9 @@ public static class GameBuilder
 
 		try
 		{
+			if (EffectsCompiler.NeedsProjectCompilation(project))
+				await ShaderSetupDialog.EnsureReadyAsync(MonoGameVersionResolver.GetVersion(), cancellationToken);
+
 			// Clean and create build directory
 			if (Directory.Exists(buildDir))
 			{
@@ -233,6 +236,7 @@ public static class GameBuilder
 		}
 		catch (Exception ex)
 		{
+			Debug.Error($"Build failed: {ex.Message}");
 			OnBuildFinished?.Invoke(false, $"Build failed: {ex.Message}");
 
 			// Restore editor DLLs on failure

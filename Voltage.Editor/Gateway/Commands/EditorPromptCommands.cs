@@ -62,8 +62,20 @@ internal static class EditorPromptCommands
 			var count = Directory.Exists(dir) ? Directory.GetFiles(dir, "*.mgfxo", SearchOption.AllDirectories).Length : 0;
 			var bundled = EffectResource.BundledEffectNames.Length;
 			return new { directory = dir, compiled = bundled > 0 || count > 0, count = Math.Max(bundled, count), bundled, overrides = count,
-				compilerAvailable = EffectsCompiler.IsMgfxcAvailable(), wineReady = EffectsCompiler.IsWineSetupComplete(), busy = EffectsCompiler.IsBusy };
+				compilerAvailable = EffectsCompiler.IsMgfxcAvailable(), wineReady = EffectsCompiler.IsWineSetupComplete(), busy = EffectsCompiler.IsBusy, setupBusy = ShaderSetupDialog.IsBusy,
+				setupVerified = OperatingSystem.IsWindows() || ShaderToolchainSetup.Default.IsVerified(ShaderToolchainSetup.Default.EnvironmentInfo(), Voltage.Editor.Utils.MonoGameVersionResolver.GetVersion()) };
 		}).ReadOnly();
+
+		table.Add("effects.setup", "Install or select the shader toolchain and verify it; use before retrying a headless build.", (args, _) =>
+		{
+			if (ShaderSetupDialog.IsBusy) throw new GatewayException("shader setup is already waiting for an answer in the editor");
+			var loader = args.String("wineLoader"); var prefix = args.String("winePrefix");
+			return Task.Run(async () =>
+			{
+				await ShaderSetupDialog.InstallAsync(Voltage.Editor.Utils.MonoGameVersionResolver.GetVersion(), loader, prefix);
+				return (object)new { ready = true };
+			});
+		}, P.Str("wineLoader", "Existing Wine executable; install automatically when omitted"), P.Str("winePrefix", "Existing shader Wine prefix")).Unsafe();
 
 		table.Add("effects.compile", "Compile changed engine shaders for DesktopGL, restoring the pinned compiler when needed; answers with counts when the build ends.", (_, ctx) =>
 		{

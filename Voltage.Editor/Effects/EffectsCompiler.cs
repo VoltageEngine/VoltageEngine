@@ -51,6 +51,11 @@ public class EffectsCompiler
 		}
 	}
 
+	public static bool NeedsProjectCompilation(IGameProject project) => NeedsCompilation(ProjectFiles(project));
+
+	private static bool NeedsCompilation(IEnumerable<(string Source, string Output, string Stamp)> files) => files.Any(file =>
+		!EffectToolchain.IsCurrent(file.Output, EffectToolchain.Fingerprint(file.Source, MonoGameVersionResolver.GetVersion()), file.Stamp));
+
 	private static bool CompileFiles(IEnumerable<(string Source, string Output, string Stamp)> files, CancellationToken token, bool progress)
 	{
 		var version = MonoGameVersionResolver.GetVersion();
@@ -75,6 +80,7 @@ public class EffectsCompiler
 					{
 						try
 						{
+							ShaderSetupDialog.EnsureReadyAsync(version, token).GetAwaiter().GetResult();
 							var environment = EffectToolchain.CreateStartInfo("mgfxc", Array.Empty<string>());
 							EffectToolchain.ConfigureEnvironment(environment, OperatingSystem.IsWindows(), OperatingSystem.IsMacOS(), Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
 							var problem = EffectToolchain.WineProblem(environment, OperatingSystem.IsWindows());

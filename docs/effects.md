@@ -21,9 +21,15 @@ The Effects menu and game publishing compile shaders from the project's configur
 
 The first required compilation installs `dotnet-mgfxc` at the loaded MonoGame package version into the user application-data folder under `Voltage/Tools/mgfxc`. It requires the .NET SDK and NuGet access. A global MGFXC installation or shell PATH configuration is unnecessary. The Editor includes built-in shader sources in its output and compiles engine overrides into `Voltage/Effects/<version>/<bundle>/OpenGL` under user application data. The bundle key prevents overrides from an older engine release from masking updated built-in shaders. These overrides are included in game exports.
 
-On macOS and Linux, **compiling new HLSL shaders still requires Wine**; running bundled shaders does not. Follow [MonoGame's platform setup instructions](https://docs.monogame.net/errors/mgfx0001/). Voltage respects `MGFXC_WINE_PATH`, falls back to `~/.winemonogame`, checks Wine/winepath and prefix prerequisites, and supplies standard system, Homebrew, and Wine application paths to GUI-launched processes. It reports missing prerequisites without deleting or changing an existing Wine prefix.
+On macOS and Linux, compiling changed HLSL shaders requires Wine. **Compile Effects** and **Build Game** share a short **Shader Setup** prompt when Wine or its shader environment is missing or fails verification. Choose **Install and Continue**, **Choose Installation**, or **Cancel**. Setup runs in the background, supports cancellation, and resumes the requested operation after compiling a test shader.
 
-Voltage uses an explicit `WINELOADER` first, then a managed Wine installation under `Voltage/Tools/wine/bin` in user application data, then runnable system Wine loaders. A managed installation needs `wine` (or `wine64`) and `winepath` in that directory. Loader shims let MGFXC use the selected executable even when an older `wine` on PATH cannot run. The prefix must contain Windows .NET, native `d3dcompiler_47.dll`, and MonoGame's `fxccs.dll` plus runtime configuration. Wine must support that Windows .NET runtime; a successful `wine --version` alone does not establish compatibility.
+After success, a per-user verification stamp checks local tool and runtime metadata. Both manual effects compilation and game builds reuse this stamp: they do not repeat downloads, installation, or the test shader while the installation is unchanged. Missing files, changed tools or permissions, a different compiler version, and toolchain failures invalidate it. Valid cached shader outputs need no Wine check at all.
+
+Automatic setup uses the detected Linux package manager with an OS authorization prompt, or an existing Homebrew installation on macOS. Immutable systems such as SteamOS retain their system filesystem: use Wine in the development container or choose an existing portable installation. Other unsupported installations can follow [MonoGame's platform setup instructions](https://docs.monogame.net/errors/mgfx0001/). Native macOS installation still needs verification on a Mac.
+
+Voltage prepares a dedicated per-user Wine prefix containing a Windows .NET runtime, native `d3dcompiler_47.dll`, and MonoGame's `fxccs.dll`. Downloads are pinned and hash-verified. An existing Wine prefix is reused when it works and is never overwritten or deleted by setup. A selected Wine executable and prefix are saved locally without editing shell profiles. With no saved selection, Voltage respects `WINELOADER` and `MGFXC_WINE_PATH`, then checks managed and system Wine installations.
+
+With `--headless` or `--no-prompts`, missing setup reports a clear error instead of waiting for a dialog. Run `effects.setup` to install explicitly, or `effects.setup wineLoader=/path/to/wine winePrefix=/path/to/prefix` to select and verify an existing installation, then retry. `effects.status` reports `setupBusy` and `setupVerified`.
 
 Both output pipes are drained concurrently. Shader compilation has a two-minute deadline; tool installation has a five-minute deadline. Cancellation terminates the compiler process tree. Output is compiled to a temporary file, checked for the current DesktopGL header, then promoted only on success. A failed build preserves the previous output and blocks publishing it as a successful build. Build completion reports failures, including prerequisite errors and cancellation.
 
@@ -40,3 +46,15 @@ The isolated suite covers Windows/macOS/Linux environment rules, custom Wine pre
 On macOS, run GPU checks on the process main thread with `dotnet run --project Voltage.Effects.Tests/Voltage.Effects.Tests.csproj -- --gpu-check`; Cocoa rejects graphics initialization from a test worker thread. This also checks shared animator textures, independent playback and origins, layer selections, refresh and scene-unload disposal.
 
 The Effects workflow runs first-launch and process tests on native Windows, macOS and Linux runners, native compilation on Windows, and GPU loading on Linux. Local environment simulations are not a substitute for native macOS/Linux compiler or driver verification. Native Wine compilation on those hosts remains a separate verification step after installing MonoGame's prerequisites.
+
+## Setup verification and follow-up
+
+Validated paths include background prefix installation, manual compilation before and after a shader edit, persisted verification after restarting, Linux and Windows Debug exports with AOT and asset rebuilding disabled, cancellation before publishing, and selecting an existing prefix after a missing dependency. The effects suite passes 72 tests with 7 GPU tests skipped. Editor-Debug and Editor-Release build successfully. The editor gateway suite passes 23 of 24 tests; `Headless_layout_is_docked` also fails against the unchanged editor.
+
+Further work and testing:
+
+- Run native macOS setup on Intel and Apple Silicon, including Homebrew, Wine loader paths, authorization, and cancellation.
+- Exercise automatic Wine and 7-Zip package installation on fresh supported Linux desktops and the portable-installation choice on immutable systems.
+- Test package-manager denial, network interruption, hash mismatch, and cancellation during download or installation.
+- Re-run game publishing with AOT and full asset compilation enabled, and opt into the GPU effect tests on supported desktops.
+- Investigate the existing headless docking failure independently of shader setup.

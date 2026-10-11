@@ -22,7 +22,7 @@ namespace Voltage.Editor.FilePickers
 	{
 		private const string Lib = "tinyfiledialogs";
 
-		/// <summary>Latched once a P/Invoke throws DllNotFound/EntryPointNotFound so we stop retrying.</summary>
+		/// <summary>Latched when the native library or its graphical backend is unavailable.</summary>
 		private static bool _unavailable;
 		private static bool _initialized;
 
@@ -66,7 +66,12 @@ namespace Voltage.Editor.FilePickers
 				// handling for the char* APIs on Windows (harmless elsewhere).
 				var ver = Marshal.PtrToStringAnsi(GetVersionPtr());
 				TrySetWindowsUtf8();
-				EditorDebug.Log($"Native file dialogs available (tinyfiledialogs {ver}).", "FileDialogs");
+				_unavailable = tinyfd_openFileDialog("tinyfd_query", "", 0, IntPtr.Zero, null, 0) == IntPtr.Zero
+					|| tinyfd_selectFolderDialog("tinyfd_query", "") == IntPtr.Zero
+					|| tinyfd_saveFileDialog("tinyfd_query", "", 0, IntPtr.Zero, null) == IntPtr.Zero;
+				EditorDebug.Log(_unavailable
+					? "Native file dialogs have no graphical backend; using the in-editor picker."
+					: $"Native file dialogs available (tinyfiledialogs {ver}).", "FileDialogs");
 			}
 			catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException)
 			{

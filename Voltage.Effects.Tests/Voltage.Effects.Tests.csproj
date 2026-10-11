@@ -14,5 +14,6 @@
 		<PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
 		<ProjectReference Include="../Voltage.Engine/Voltage.Engine.csproj" />
 		<Compile Include="../Voltage.Editor/Effects/EffectToolchain.cs" Link="EffectToolchain.cs" />
+		<Compile Include="../Voltage.Editor/Effects/ShaderToolchainSetup.cs" Link="ShaderToolchainSetup.cs" />
 	</ItemGroup>
 </Project>
