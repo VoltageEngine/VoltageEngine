@@ -206,12 +206,10 @@ namespace Voltage
 		/// parse. The reason is logged via <see cref="Debug"/>. Callers must null-check the return value.
 		/// </para>
 		/// <para>
-		/// <b>Limitations vs editor prefab instancing:</b> <see cref="Entity.OriginalPrefabGuid"/> is always
+		/// <b>Identity:</b> <see cref="Entity.OriginalPrefabGuid"/> is always
 		/// <see cref="Guid.Empty"/> at runtime because the GUID/meta system is editor-only. The entity is
 		/// identified by <see cref="Entity.OriginalPrefabName"/> (the file name without extension) instead.
-		/// Component references (<see cref="ComponentReference"/>, <see cref="EntityReference"/>) that cross
-		/// entity boundaries are not resolved — they receive their serialised default values, matching the
-		/// behaviour of entities loaded from a scene at runtime.
+		/// Each instance receives fresh entity IDs; references inside the prefab are remapped to its own subtree.
 		/// </para>
 		/// </summary>
 		/// <param name="prefabPath">
@@ -265,39 +263,28 @@ namespace Voltage
 				
 				var prefabName = Path.GetFileNameWithoutExtension(resolvedPath);
 
-				// Convert to SceneEntityData so we can drive the shared LoadEntityData path.
-				var sceneEntityData = prefabData.ToSceneEntityData(position);
+				var sceneEntityData = prefabData.ToSceneEntityData();
+				sceneEntityData.Id = prefabData.Id != Guid.Empty ? prefabData.Id : Guid.NewGuid();
 				sceneEntityData.OriginalPrefabName = prefabName;
 				sceneEntityData.OriginalPrefabGuid = null; // GUID is editor-only
-
-				var entity = new Entity(prefabData.Name);
-				entity.Type = type;
-				LoadEntityData(entity, sceneEntityData);
-				AddEntity(entity);
-
-				// Instantiate child entities.
+				var records = new List<SceneData.SceneEntityData> { sceneEntityData };
 				if (prefabData.ChildEntities != null)
-				{
-					var childrenNeedingParents = new List<Entity>();
-
 					foreach (var childData in prefabData.ChildEntities)
 					{
-						var childEntity = new Entity(childData.Name);
-						LoadEntityData(childEntity, childData);
-						childEntity.Type = type;
-						AddEntity(childEntity);
-
-						// If the parent wasn't resolved during LoadEntityData (parent not yet in
-						// the scene at that point), track it for a deferred assignment pass.
-						if (!string.IsNullOrEmpty(childEntity.GetData<string>("_PendingParentName")) ||
-							childEntity.GetData<Guid>("_PendingParentId") != Guid.Empty)
-							childrenNeedingParents.Add(childEntity);
+						if (childData.InstanceType != Entity.InstanceType.NonSerialized)
+							records.Add(childData);
 					}
-
-					if (childrenNeedingParents.Count > 0)
-						AssignParentRelationships(childrenNeedingParents);
+				foreach (var record in records)
+				{
+					if (record.Id == Guid.Empty) record.Id = Guid.NewGuid();
+					record.InstanceType = type;
+					if (record == sceneEntityData) continue;
+					if (!record.ParentId.HasValue)
+						record.ParentId = records.Find(parent => parent.Name == record.ParentEntityName)?.Id ?? sceneEntityData.Id;
 				}
-
+				var entity = InstantiateEntityData(records, position)[0];
+				entity.Type = Entity.InstanceType.SerializedPrefab;
+				entity.OriginalPrefabName = prefabName;
 				entity.Type = type;
 				return entity;
 			}
@@ -640,9 +627,8 @@ namespace Voltage
 				AddEntity(entity);
 				LoadEntityData(entity, data);
 
-				// AddEntity only queues, so earlier entities in this same paste are not in Entities yet - without
-				// passing them, two pasted siblings sharing a name would both be given the same "unique" one.
-				entity.Name = GetUniqueEntityName(data.Name, entity, created.Select(c => c.Entity));
+				// Include all queued spawns because AddEntity does not make them live immediately.
+				entity.Name = GetUniqueEntityName(data.Name, entity, Entities.EntitiesToAdd);
 
 				created.Add((entity, data, originalParentId));
 			}

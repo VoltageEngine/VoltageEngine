@@ -6,6 +6,13 @@ public static class Program
 {
 	public static int Main(string[] args)
 	{
+		if (args.Contains("--prefab-check"))
+		{
+			Environment.SetEnvironmentVariable("VOLTAGE_TEST_GPU", "1");
+			new PrefabSpawningTests().Repeated_runtime_spawns_keep_unique_ids_and_their_own_nested_hierarchy();
+			System.Console.WriteLine("Native runtime prefab checks passed.");
+			return 0;
+		}
 		if (args.Contains("--normal-check"))
 		{
 			Environment.SetEnvironmentVariable("VOLTAGE_TEST_GPU", "1");
