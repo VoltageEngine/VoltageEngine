@@ -128,7 +128,7 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
                 var groupInstance = GetValue();
                 if (groupInstance == null)
                 {
-                    ImGui.TextDisabled("(null group — not initialized)");
+                    ImGui.TextDisabled("(null group - not initialized)");
                 }
                 else
                 {

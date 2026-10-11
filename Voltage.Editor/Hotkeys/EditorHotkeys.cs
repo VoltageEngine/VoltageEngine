@@ -115,9 +115,9 @@ namespace Voltage.Editor.Hotkeys
 			Register(AssetDelete, CategoryAssetBrowser, "Delete", "Delete the selected asset.",
 				new HotkeyBinding(ImGuiKey.Delete));
 
-			Register(TileRotateLeft, CategoryTilePalette, "Rotate Brush Left", "Rotate the tile stamp 90° left.",
+			Register(TileRotateLeft, CategoryTilePalette, "Rotate Brush Left", "Rotate the tile stamp 90 degrees left.",
 				new HotkeyBinding(ImGuiKey.Q));
-			Register(TileRotateRight, CategoryTilePalette, "Rotate Brush Right", "Rotate the tile stamp 90° right.",
+			Register(TileRotateRight, CategoryTilePalette, "Rotate Brush Right", "Rotate the tile stamp 90 degrees right.",
 				new HotkeyBinding(ImGuiKey.E));
 			Register(TileFlipX, CategoryTilePalette, "Flip Brush X", "Mirror the tile stamp horizontally.",
 				new HotkeyBinding(ImGuiKey.Z));

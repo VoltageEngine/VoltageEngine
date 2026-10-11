@@ -294,7 +294,7 @@ public static class GameBuilder
 					default:
 						EditorDebug.Warn(
 							$"glibc-compat container unavailable ({containerMessage}). Falling back to a direct " +
-							"NativeAOT publish — the resulting binary may require this machine's glibc and may not " +
+							"NativeAOT publish - the resulting binary may require this machine's glibc and may not " +
 							"run on stock SteamOS or older Linux systems.", "GameBuilder");
 						break; // Fall through to the direct publish below.
 				}

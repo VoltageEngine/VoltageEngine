@@ -62,7 +62,7 @@ namespace Voltage.Audio
 		public override void OnStart()
 		{
 			if (!PlayOnStart && GetComponent<Collider>() == null)
-				Debug.Warn($"AmbienceZoneComponent on '{Entity?.Name}' has no trigger Collider and PlayOnStart is off — it will never start.");
+				Debug.Warn($"AmbienceZoneComponent on '{Entity?.Name}' has no trigger Collider and PlayOnStart is off - it will never start.");
 
 			if (PlayOnStart && Enabled && !Core.IsEditMode)
 				FadeInBed();

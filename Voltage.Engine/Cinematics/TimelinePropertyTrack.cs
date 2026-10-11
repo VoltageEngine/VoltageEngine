@@ -58,7 +58,7 @@ namespace Voltage.Cinematics
 
 			if (!TimelinePropertyRegistry.TryGetKind(TargetComponentId, Property, out var kind))
 			{
-				problems.Add($"{label}: no [TimelineProperty] with that name is registered — it may have been " +
+				problems.Add($"{label}: no [TimelineProperty] with that name is registered - it may have been " +
 							 "renamed or removed.");
 				return;
 			}

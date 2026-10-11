@@ -24,9 +24,13 @@ namespace Voltage.Editor.Utils
 		public static IntPtr AssetIconPrefab;      // .prefab
 		public static IntPtr AssetIconScene;       // .vscene
 		public static IntPtr AssetIconScript;      // .cs
-		public static IntPtr AssetIconUnsupported; // fallback (also used for Effect, Tiled)
+		public static IntPtr AssetIconUnsupported; // generic file fallback
 		public static IntPtr AssetIconAudio;       // .wav / .ogg / .mp3
 		public static IntPtr AssetIconTileset;     // .vtileset
+		public static IntPtr AssetIconEffect;
+		public static IntPtr AssetIconTiled;
+		public static IntPtr AssetIconTimeline;
+		public static IntPtr AssetIconData;
 
 		// Editor-mode controls (menu bar cluster): live in DefaultContent/UI/RemixIcon/EditorModes/.
 		public static IntPtr EditorModePlay;
@@ -59,15 +63,18 @@ namespace Voltage.Editor.Utils
 			SuccessIconId = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/checkbox-circle.png"));
 			FailIconId = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/close-circle.png"));
 
-			AssetIconTexture     = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/FileTypes/Voltage-Aseprite.png"));
+			AssetIconTexture     = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/AssetTypes/Texture.png"));
 			AssetIconPrefab      = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/FileTypes/Voltage-Prefab.png"));
 			AssetIconScene       = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/FileTypes/Voltage-Scene.png"));
 			AssetIconScript      = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/FileTypes/Voltage-Script.png"));
 			AssetIconAudio       = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/FileTypes/Voltage-Audio.png"));
-			AssetIconUnsupported = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/FileTypes/Voltage-Unsupported-File.png"));
+			AssetIconUnsupported = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/AssetTypes/File.png"));
 
-			// No dedicated .vtileset icon yet; reuse the tile-brush art.
-			AssetIconTileset = TileBrushCursorIconID;
+			AssetIconTileset  = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/AssetTypes/Tileset.png"));
+			AssetIconEffect   = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/AssetTypes/Shader.png"));
+			AssetIconTiled    = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/AssetTypes/Tilemap.png"));
+			AssetIconTimeline = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/AssetTypes/Timeline.png"));
+			AssetIconData     = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/AssetTypes/Data.png"));
 
 			EditorModePlay  = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/EditorModes/Voltage-Play.png"));
 			EditorModeStop  = renderer.BindTexture(Core.Content.LoadTexture("DefaultContent/UI/RemixIcon/EditorModes/Voltage-Stop.png"));

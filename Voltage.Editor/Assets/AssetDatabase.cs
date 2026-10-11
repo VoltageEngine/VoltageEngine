@@ -876,7 +876,7 @@ namespace Voltage.Editor.Assets
                 RemovePathUnsafe(absolutePath);
             }
 
-            EditorDebug.Log($"AssetDatabase: asset deleted, GUID now dangling — '{absolutePath}'", "AssetDatabase");
+            EditorDebug.Log($"AssetDatabase: asset deleted, GUID now dangling - '{absolutePath}'", "AssetDatabase");
         }
 
         /// <summary>

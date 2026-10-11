@@ -212,7 +212,7 @@ public class AssetBrowserWindow : IDisposable
 
         if (!File.Exists(path))
         {
-            EditorDebug.Log($"AssetBrowser: cannot reveal '{path}' — the file does not exist.", "AssetBrowser");
+            EditorDebug.Log($"AssetBrowser: cannot reveal '{path}' - the file does not exist.", "AssetBrowser");
             return;
         }
 
@@ -403,7 +403,7 @@ public class AssetBrowserWindow : IDisposable
         {
             if (!File.Exists(sourcePath))
             {
-                EditorDebug.Log($"AssetBrowser: SDL drop path '{sourcePath}' is not a file — skipped.", "AssetBrowser");
+                EditorDebug.Log($"AssetBrowser: SDL drop path '{sourcePath}' is not a file - skipped.", "AssetBrowser");
                 return;
             }
 
@@ -414,7 +414,7 @@ public class AssetBrowserWindow : IDisposable
                 var project = ProjectManager.Instance?.CurrentProject;
                 if (project == null)
                 {
-                    EditorDebug.Log("AssetBrowser: SDL drop received but no project loaded — ignoring.", "AssetBrowser");
+                    EditorDebug.Log("AssetBrowser: SDL drop received but no project loaded - ignoring.", "AssetBrowser");
                     return;
                 }
                 targetDir = project.ContentsFolder;
@@ -426,7 +426,7 @@ public class AssetBrowserWindow : IDisposable
             }
             catch (Exception ex)
             {
-                EditorDebug.Log($"AssetBrowser: failed to copy '{sourcePath}' → '{targetDir}': {ex.Message}", "AssetBrowser");
+                EditorDebug.Log($"AssetBrowser: failed to copy '{sourcePath}' -> '{targetDir}': {ex.Message}", "AssetBrowser");
             }
 
             _db.Refresh();
@@ -947,7 +947,7 @@ public class AssetBrowserWindow : IDisposable
         var newPath = Path.Combine(dir, newBaseName + ext);
         if (File.Exists(newPath))
         {
-            EditorDebug.Log($"AssetBrowser: cannot rename — '{newBaseName}{ext}' already exists.", "AssetBrowser");
+            EditorDebug.Log($"AssetBrowser: cannot rename - '{newBaseName}{ext}' already exists.", "AssetBrowser");
             return;
         }
 
@@ -967,7 +967,7 @@ public class AssetBrowserWindow : IDisposable
 
             ReplaceInSelection(oldPath, newPath);
 
-            EditorDebug.Log($"AssetBrowser: renamed '{Path.GetFileName(oldPath)}' → '{newBaseName}{ext}'", "AssetBrowser");
+            EditorDebug.Log($"AssetBrowser: renamed '{Path.GetFileName(oldPath)}' -> '{newBaseName}{ext}'", "AssetBrowser");
             _refreshRequested = true;
         }
         catch (Exception ex)
@@ -1040,7 +1040,7 @@ public class AssetBrowserWindow : IDisposable
         {
             if (!File.Exists(sourcePath))
             {
-                EditorDebug.Log($"AssetBrowser: paste source '{sourcePath}' no longer exists — skipped.", "AssetBrowser");
+                EditorDebug.Log($"AssetBrowser: paste source '{sourcePath}' no longer exists - skipped.", "AssetBrowser");
                 continue;
             }
 
@@ -1067,7 +1067,7 @@ public class AssetBrowserWindow : IDisposable
     {
         if (!File.Exists(absolutePath))
         {
-            EditorDebug.Log($"AssetBrowser: cannot duplicate '{absolutePath}' — file not found.", "AssetBrowser");
+            EditorDebug.Log($"AssetBrowser: cannot duplicate '{absolutePath}' - file not found.", "AssetBrowser");
             return;
         }
 
@@ -1269,7 +1269,7 @@ public class AssetBrowserWindow : IDisposable
 
             ReplaceInSelection(sourcePath, destPath);
 
-            EditorDebug.Log($"AssetBrowser: moved '{Path.GetFileName(sourcePath)}' → '{targetDir}'", "AssetBrowser");
+            EditorDebug.Log($"AssetBrowser: moved '{Path.GetFileName(sourcePath)}' -> '{targetDir}'", "AssetBrowser");
             _refreshRequested = true;
         }
         catch (Exception ex)
@@ -1287,7 +1287,7 @@ public class AssetBrowserWindow : IDisposable
     {
         if (!File.Exists(sourcePath))
         {
-            EditorDebug.Log($"AssetBrowser: source '{sourcePath}' is not a file — skipped.", "AssetBrowser");
+            EditorDebug.Log($"AssetBrowser: source '{sourcePath}' is not a file - skipped.", "AssetBrowser");
             return;
         }
 
@@ -1308,7 +1308,7 @@ public class AssetBrowserWindow : IDisposable
         }
 
         File.Copy(sourcePath, destPath, overwrite: false);
-        EditorDebug.Log($"AssetBrowser: copied '{Path.GetFileName(sourcePath)}' → '{destPath}'", "AssetBrowser");
+        EditorDebug.Log($"AssetBrowser: copied '{Path.GetFileName(sourcePath)}' -> '{destPath}'", "AssetBrowser");
     }
 
     private void LoadCollapsedState()
@@ -1711,7 +1711,7 @@ public class AssetBrowserWindow : IDisposable
         var newPath = Path.Combine(parent, newName);
         if (Directory.Exists(newPath))
         {
-            EditorDebug.Log($"AssetBrowser: cannot rename — folder '{newName}' already exists.", "AssetBrowser");
+            EditorDebug.Log($"AssetBrowser: cannot rename - folder '{newName}' already exists.", "AssetBrowser");
             return;
         }
 
@@ -1719,7 +1719,7 @@ public class AssetBrowserWindow : IDisposable
         {
             Directory.Move(oldPath, newPath);
             RepointShortcutsAfterMove(oldPath, newPath);
-            EditorDebug.Log($"AssetBrowser: renamed folder '{oldName}' → '{newName}'.", "AssetBrowser");
+            EditorDebug.Log($"AssetBrowser: renamed folder '{oldName}' -> '{newName}'.", "AssetBrowser");
             _refreshRequested = true;
         }
         catch (Exception ex)
@@ -1761,7 +1761,7 @@ public class AssetBrowserWindow : IDisposable
         {
             Directory.Move(sourceDir, destPath);
             RepointShortcutsAfterMove(sourceDir, destPath);
-            EditorDebug.Log($"AssetBrowser: moved folder '{name}' → '{targetParentDir}'.", "AssetBrowser");
+            EditorDebug.Log($"AssetBrowser: moved folder '{name}' -> '{targetParentDir}'.", "AssetBrowser");
             _refreshRequested = true;
         }
         catch (Exception ex)

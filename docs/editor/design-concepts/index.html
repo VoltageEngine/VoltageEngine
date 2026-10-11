@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Voltage Editor: design concepts and framework assessment</title>
+  <style>
+    :root{color-scheme:dark;--bg:#141719;--panel:#202427;--line:#384047;--text:#e3e8eb;--muted:#a3b0ba;--accent:#e4b15b}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 system-ui,sans-serif}
+    main{max-width:1400px;margin:auto;padding:40px 28px 72px}h1{font-size:clamp(26px,4vw,42px);line-height:1.2;margin:8px 0 20px}h2{margin:36px 0 12px;font-size:24px}h3{margin:22px 0 8px;font-size:18px}
+    p{max-width:100ch;margin:12px 0}a{color:#9bd2eb}code{font-size:.9em;color:#d2d8db;overflow-wrap:anywhere}.eyebrow{color:var(--accent);letter-spacing:.14em;font-size:12px;text-transform:uppercase}
+    .lead{font-size:19px;color:#c2cdd4}.muted{color:var(--muted)}.tabs{display:flex;gap:10px;flex-wrap:wrap;margin:24px 0 14px}
+    button{border:1px solid var(--line);border-radius:6px;padding:11px 18px;background:var(--panel);color:var(--text);font:inherit;cursor:pointer}button[aria-pressed=true]{background:#393126;color:var(--accent);border-color:var(--accent)}button:focus-visible{outline:3px solid #9bd2eb;outline-offset:3px}
+    figure{margin:0}figure img{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:8px}figcaption{color:var(--muted);font-size:14px;margin-top:10px}
+    .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:20px}.card{border:1px solid var(--line);border-radius:8px;padding:20px;background:var(--panel)}.card h3{margin-top:0}.card p{font-size:14px}
+    .table-scroll{overflow-x:auto;margin:20px 0}table{width:100%;border-collapse:collapse;font-size:14px;min-width:760px}th,td{text-align:left;vertical-align:top;padding:16px;border:1px solid var(--line)}th{background:var(--panel);font-weight:600}td:first-child{font-weight:600;min-width:165px}
+    li{margin-bottom:10px}.note{border-left:3px solid var(--accent);padding:8px 18px;background:var(--panel);margin:22px 0}.sources{font-size:14px}footer{margin-top:36px;border-top:1px solid var(--line);padding-top:16px;color:var(--muted);font-size:14px}
+    @media(max-width:800px){main{padding:24px 16px 48px}.cards{grid-template-columns:1fr}}
+    @media print{body{background:white;color:#17212b}.muted,figcaption{color:#47515a}.card,th,.note{background:#f2f4f6}a{color:#195675}.tabs{display:none}figure img{break-inside:avoid}main{padding:0}}
+  </style>
+</head>
+<body><main>
+  <div class="eyebrow">Voltage Editor / design exploration</div>
+  <h1>A clearer editor around the pixel game</h1>
+  <p class="lead">Keep Dear ImGui for the next presentation pass. The current architecture can support a professional editor without changing the engine host. A different framework becomes worthwhile if accessibility, localization, or native desktop workflows become product requirements.</p>
+  <p class="muted">These are design sketches, not implemented editor themes. All three preserve a pixel art game viewport with sharp integer scaling and use readable, resolution independent editor controls.</p>
+
+  <div class="tabs" aria-label="Choose a design concept">
+    <button type="button" data-concept="studio" aria-pressed="true">Studio Graphite</button>
+    <button type="button" data-concept="blueprint" aria-pressed="false">Blueprint</button>
+    <button type="button" data-concept="atelier" aria-pressed="false">Atelier</button>
+  </div>
+  <figure>
+    <img id="preview" src="studio.svg" width="1280" height="800" alt="Studio Graphite: charcoal panels, restrained amber accents, a central pixel art viewport, scene tree, inspector, and bottom asset shelf">
+    <figcaption id="caption" aria-live="polite">Studio Graphite: the recommended general purpose direction. Amber marks selection and primary actions; everyday controls stay neutral.</figcaption>
+  </figure>
+  <div class="cards">
+    <div class="card"><h3>Studio Graphite</h3><p>Charcoal surfaces, a warm accent, 26-28 px rows, and grouped inspector fields. A predictable scene / viewport / inspector layout with assets below the viewport. Console and build output become tabs with error counts.</p><a href="studio.svg">Open the full SVG</a></div>
+    <div class="card"><h3>Blueprint</h3><p>Cool slate and cyan for a technical workspace. Compact hierarchy and asset folders leave room for timeline, profiler, coordinates, and diagnostics. Good for scripting, effects, and animation work.</p><a href="blueprint.svg">Open the full SVG</a></div>
+    <div class="card"><h3>Atelier</h3><p>Warm charcoal and sage for content creation. Larger asset tiles, a visible tile palette, and quieter diagnostics put painting and animation ahead of logs. The game remains pixelated; the surrounding UI stays sharp.</p><a href="atelier.svg">Open the full SVG</a></div>
+  </div>
+
+  <h2>What the current architecture allows</h2>
+  <p><code>Editor : Core</code> runs inside the MonoGame host. <code>ImGuiManager</code> is a global manager and final render delegate; it binds the game render target into the viewport, computes viewport bounds, and maps input between window and scene coordinates. <code>ImGuiRenderer</code> owns font textures, UI texture bindings, and MonoGame rendering. The overlay is a presentation choice, not a requirement that all editor widgets look like the pixel game.</p>
+  <p>The editor has approximately 73,000 lines in 261 C# files, with about 25,000 lines in its windows, inspectors, and ImGui integration. Those counts indicate the scale of a port; they are not a rewrite estimate by themselves. The current inspector implementations, popup behavior, drag and drop, plugins, and gateway UI registration all use ImGui directly.</p>
+  <p>Scene data, serialization, runtime components, asset formats, math, and most build logic can remain. Reusable editor session services should expose selection, commands, undo, assets, and build progress without depending on a GUI toolkit. Engine code must continue to have no dependency on the editor.</p>
+
+  <h2>Framework choices and expected effort</h2>
+  <p class="muted">Planning estimates for one experienced developer familiar with this codebase, with Linux, Windows, and macOS support. These are ranges for prioritization, not delivery promises. New features, additional developers, plugin compatibility, and platform issues can change the schedule.</p>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Direction</th><th>What it gains</th><th>What it costs</th><th>Estimated effort</th></tr></thead>
+    <tbody>
+      <tr><td>Polish Dear ImGui<br>Recommended first</td><td>Clear typography, consistent spacing, restrained colors, stronger panel hierarchy, better defaults, and purpose built asset browsing. Keeps the current viewport, input, inspectors, and plugins.</td><td>A shared style and widget layer plus changes to individual windows. ImGui does not automatically provide platform accessibility or native desktop semantics.</td><td>2-4 weeks for a shared foundation and first polished shell; 6-10 weeks total for key windows, HiDPI behavior, and consistent workflows. Accessibility would be additional work.</td></tr>
+      <tr><td>Avalonia</td><td>A C# desktop UI with layout, styling, localization infrastructure, and platform accessibility support. A good candidate for a document oriented editor and richer desktop forms.</td><td>Rewrite presentation, inspectors, drag and drop, focus/input, dialogs, and plugin UI integration. Prototype MonoGame rendering and lifecycle inside the new host. Choose and validate a docking solution; neither MonoGame nor existing ImGui inspectors transfer automatically.</td><td>2-4 weeks for a viewport and input feasibility prototype; approximately 4-9 months for production parity across three operating systems, including plugin and gateway integration.</td></tr>
+      <tr><td>Qt</td><td>Mature desktop widgets and docking via QDockWidget, with strong desktop conventions and tooling.</td><td>Most editor presentation still needs rewriting. The current C# engine needs a supported interop or process boundary, an additional build/distribution stack, and a deliberate licensing choice.</td><td>Approximately 6-12 months for broad parity, depending heavily on the interop approach. A poor first choice solely to improve appearance.</td></tr>
+      <tr><td>Selective native tools</td><td>Improve file dialogs and specific workflows while keeping the fast game viewport and current editor session.</td><td>Maintain focus and modal boundaries. Separate process tools need a small explicit protocol and ownership rules.</td><td>Days to weeks per isolated workflow. Useful incrementally; it does not replace the editor's overall presentation pass.</td></tr>
+    </tbody>
+  </table></div>
+  <p>The gains from Avalonia would primarily be desktop interaction, accessibility, and richer forms. It would not make the pixel game render faster or remove the need for engine specific tooling. WPF would give up native Linux and macOS support and does not fit the stated platform goals.</p>
+
+  <h2>The viewport is the first migration gate</h2>
+  <p>Avalonia's <code>NativeControlHost</code> can host platform native views, but native content sits above Avalonia drawing and cannot support arbitrary Avalonia overlays, clipping, transforms, or transparency. <code>OpenGlControlBase</code> owns a GL lifecycle; it is not a drop-in replacement for MonoGame's SDL window and graphics device. GPU interop is another option, but the existing samples do not establish a working MonoGame integration.</p>
+  <p>A prototype must prove GPU context ownership, resize and disposal, monitor scaling, mouse capture, keyboard focus, viewport coordinates, and gizmos on all three platforms. A solution that copies the full game frame back to the CPU every frame should not become the production baseline. Embedding an SDL child window also requires deliberate overlay and z-order design.</p>
+  <p>A separate editor process can isolate failures from the game host, but it introduces scene/session synchronization, command routing, object identity, and viewport transport. Existing gateway commands can support prototypes and external tools; they do not by themselves provide a full speed shared GPU viewport.</p>
+
+  <h2>A practical presentation pass on ImGui</h2>
+  <ol>
+    <li><strong>Typography and scale:</strong> bundle a suitably licensed UI font, add explicit punctuation and required language glyph ranges, and rebuild the atlas for display scale. Keep editor DPI independent of game pixel zoom. Use a separate monospace font for code and logs. Do not enlarge every game texture to make the UI readable.</li>
+    <li><strong>Shared visual rules:</strong> centralize neutral surfaces, semantic warning/error colors, a restrained accent, row heights, spacing, field widths, icons, and disabled states. Extend <code>ThemeManager</code> / <code>VoltageEditorThemes</code> and common <code>Gui</code> widgets instead of styling each window differently.</li>
+    <li><strong>Default layouts:</strong> ship general, technical, and art workspaces, plus a reset layout action. Keep the inspector aligned, make assets wider when needed, and give the console a badge/tab rather than a permanent oversized pane.</li>
+    <li><strong>Key windows:</strong> clean up inspector groups, asset search and previews, scene hierarchy affordances, the build/effect setup dialogs, and timeline controls. Keep stable widget IDs and gateway registration so automation remains useful.</li>
+    <li><strong>Runtime separation:</strong> give Play mode a clear state, preserve selection across play/stop, and ensure background build progress cannot block UI input. Keep the scene's point sampling while choosing the appropriate filtering for high resolution UI assets.</li>
+  </ol>
+  <p>Upgrade ImGui.NET, the native cimgui binary, and the renderer adapter as a coordinated compatibility task. The currently pinned integration is 1.89.5; a package upgrade should not be mixed into a cosmetic pass without validating input, font, docking, and plugin behavior.</p>
+
+  <h2>Included fixes and further validation</h2>
+  <p>The accompanying change replaces 84 static text tokens in the editor and engine diagnostics containing unsupported dashes, arrows, ellipses, triangles, record dots, degree symbols, and middle-dot separators with readable ASCII. Seven original monochrome asset icons cover generic files, textures, shader effects, Tiled maps, tilesets, timelines, and data assets. Existing scene, prefab, script, Aseprite, and audio icons remain; plugin supplied icons still take precedence.</p>
+  <p>These fixes do not add full Unicode font coverage. Dynamic names in Greek, Cyrillic, or other scripts still need the font work above. The visual concepts are review artifacts; no framework port or global theme replacement is included.</p>
+  <p>Validation: Editor-Debug and Editor-Release build with zero errors. A syntax-aware scan finds no remaining non-ASCII string tokens in editor or engine source. Live Linux editor checks show all seven new icon types, using actual project assets and an isolated shader/generic-file fixture. SVG structure, PNG transparency, and local report links are verified. The gateway suite passes 23 of 24 tests; the remaining docking failure is also present on the baseline revision.</p>
+  <ul>
+    <li>Check icon size and contrast at 100%, 150%, and 200% display scale on Linux, Windows, and macOS.</li>
+    <li>Test localized file/entity names and text input after introducing a broader font atlas.</li>
+    <li>Resolve the existing <code>Headless_layout_is_docked</code> test failure before changing default workspace behavior; it also fails on the baseline revision.</li>
+    <li>For shader setup, validate native macOS, package manager denial, network interruption, AOT/full asset exports, and GPU effects rendering. The existing effects documentation lists the setup validation already completed.</li>
+  </ul>
+
+  <h2>Source references</h2>
+  <p class="sources">Repository architecture: <a href="../../../Voltage.Editor/Editor.cs">Editor.cs</a>, <a href="../../../Voltage.Editor/ImGuiCore/ImGuiManager.cs">ImGuiManager.cs</a>, <a href="../../../Voltage.Editor/ImGuiCore/ImGuiManager.Impl.cs">ImGuiManager.Impl.cs</a>, <a href="../../../Voltage.Editor/ImGuiCore/ImGuiRenderer.cs">ImGuiRenderer.cs</a>, and <a href="../asset-browser.md">asset browser documentation</a>.</p>
+  <p class="sources">Framework documentation: <a href="https://github.com/ocornut/imgui/blob/master/docs/FAQ.md">Dear ImGui FAQ</a>; <a href="https://docs.avaloniaui.net/docs/app-development/native-interop">Avalonia native interop and embedding limits</a>; <a href="https://docs.avaloniaui.net/api/avalonia/opengl/controls/openglcontrolbase">Avalonia OpenGlControlBase</a>; <a href="https://docs.avaloniaui.net/docs/app-development/accessibility">Avalonia accessibility</a>; <a href="https://github.com/AvaloniaUI/Avalonia/tree/main/samples/GpuInterop">Avalonia GPU interop samples</a>; <a href="https://doc.qt.io/qt-6/qdockwidget.html">Qt QDockWidget</a>; <a href="https://doc.qt.io/qt-6/licensing.html">Qt licensing options</a>; <a href="https://docs.monogame.net/articles/getting_started/platforms.html">MonoGame platforms</a>.</p>
+  <footer>Choose a concept to review its palette and workspace priorities. The SVG files are standalone, scalable design artifacts.</footer>
+</main>
+<script>
+  const concepts = {
+    studio: {alt: 'Studio Graphite: charcoal panels, restrained amber accents, a central pixel art viewport, scene tree, inspector, and bottom asset shelf', caption: 'Studio Graphite: the recommended general purpose direction. Amber marks selection and primary actions; everyday controls stay neutral.'},
+    blueprint: {alt: 'Blueprint: cool slate panels and cyan accents, a pixel art viewport, asset library, inspector, and animation timeline', caption: 'Blueprint: a compact technical workspace with a prominent timeline and easy access to profiling and diagnostics.'},
+    atelier: {alt: 'Atelier: warm charcoal panels and sage accents, larger asset tiles, a pixel art viewport, inspector, and tile palette', caption: 'Atelier: a content creation workspace with larger asset tiles and a palette beside the scene workflow.'}
+  };
+  document.querySelectorAll('[data-concept]').forEach(button => button.addEventListener('click', () => {
+    const id = button.dataset.concept;
+    document.getElementById('preview').src = id + '.svg';
+    document.getElementById('preview').alt = concepts[id].alt;
+    document.getElementById('caption').textContent = concepts[id].caption;
+    document.querySelectorAll('[data-concept]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+  }));
+</script>
+</body>
+</html>

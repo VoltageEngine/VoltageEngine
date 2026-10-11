@@ -37,7 +37,7 @@ namespace Voltage.Editor.Scripting
 			if (!IsValidIdentifier(newName))
 			{
 				EditorDebug.Log(
-					$"ScriptClassRenamer: '{newName}' is not a valid C# identifier — file renamed, class left as '{oldName}'.",
+					$"ScriptClassRenamer: '{newName}' is not a valid C# identifier - file renamed, class left as '{oldName}'.",
 					"AssetBrowser");
 				return;
 			}

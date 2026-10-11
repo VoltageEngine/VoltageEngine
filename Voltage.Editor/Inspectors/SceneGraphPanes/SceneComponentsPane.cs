@@ -98,7 +98,7 @@ public class SceneComponentsPane
 			{
 				ImGui.BeginTooltip();
 				ImGui.TextColored(new Num.Vector4(0.5f, 1f, 0.5f, 1f), "Runtime Only");
-				ImGui.Text("Added via code — not saved to the .vscene file.");
+				ImGui.Text("Added via code - not saved to the .vscene file.");
 				ImGui.EndTooltip();
 			}
 

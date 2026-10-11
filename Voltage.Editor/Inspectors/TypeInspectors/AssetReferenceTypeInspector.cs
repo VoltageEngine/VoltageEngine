@@ -57,7 +57,7 @@ public class AssetReferenceTypeInspector : AbstractTypeInspector
 			ImGui.BeginTooltip();
 			ImGuiSafe.TextSafe($"Path: {current.AssetPath}");
 			ImGuiSafe.TextSafe($"GUID: {current.AssetGuid}");
-			ImGuiSafe.TextSafe("Click to reveal in the Asset Browser — double-click to change.");
+			ImGuiSafe.TextSafe("Click to reveal in the Asset Browser - double-click to change.");
 			ImGui.EndTooltip();
 		}
 		else

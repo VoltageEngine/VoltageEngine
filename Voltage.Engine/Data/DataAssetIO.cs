@@ -195,7 +195,7 @@ namespace Voltage.Data
 			var asset = CreateDefault(assetTypeId);
 			if (asset == null)
 			{
-				Debug.Error($"[DataAssetIO] Cannot create '{assetTypeId}' — no such data asset type is registered.");
+				Debug.Error($"[DataAssetIO] Cannot create '{assetTypeId}' - no such data asset type is registered.");
 				return null;
 			}
 

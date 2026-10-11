@@ -963,7 +963,7 @@ public partial class SerializationManager : GlobalManager
 		// above are identical to the pre-Phase-4a code.
 		if (TypeRenameRegistry.TryResolve(typeName, out var renamedType))
 		{
-			Debug.Warn($"[Editor] Type '{typeName}' resolved via TypeRenameRegistry → '{renamedType.FullName}'. " +
+			Debug.Warn($"[Editor] Type '{typeName}' resolved via TypeRenameRegistry -> '{renamedType.FullName}'. " +
 				"Re-save the scene/prefab to update the stored type name.");
 			return renamedType;
 		}

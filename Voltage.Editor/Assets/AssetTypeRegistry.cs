@@ -84,18 +84,20 @@ namespace Voltage.Editor.Assets
         public static int Version { get; private set; }
 
         private const string IconDir         = "DefaultContent/UI/RemixIcon/FileTypes/";
-        private const string IconTexture     = IconDir + "Voltage-Aseprite.png"; 
+        private const string IconTexture     = "DefaultContent/UI/AssetTypes/Texture.png";
+        private const string IconAseprite    = IconDir + "Voltage-Aseprite.png";
         private const string IconPrefab      = IconDir + "Voltage-Prefab.png";
         private const string IconScene       = IconDir + "Voltage-Scene.png";
         private const string IconScript      = IconDir + "Voltage-Script.png";
-        private const string IconUnsupported = IconDir + "Voltage-Unsupported-File.png";
+        private const string IconUnsupported = "DefaultContent/UI/AssetTypes/File.png";
         private const string IconAudio       = IconDir + "Voltage-Audio.png";
 
-		private const string IconEffect = IconUnsupported;
-        private const string IconTiled  = IconUnsupported;
-        private const string IconData   = IconUnsupported;
+		private const string IconEffect = "DefaultContent/UI/AssetTypes/Shader.png";
+        private const string IconTiled  = "DefaultContent/UI/AssetTypes/Tilemap.png";
+        private const string IconData   = "DefaultContent/UI/AssetTypes/Data.png";
+        private const string IconTimeline = "DefaultContent/UI/AssetTypes/Timeline.png";
 
-        private const string IconTileset = "DefaultContent/UI/Custom/CursorSelection-UI-TileBrush.png";
+        private const string IconTileset = "DefaultContent/UI/AssetTypes/Tileset.png";
 
         private static readonly AssetTypeDescriptor _fallback = new(
             Extensions: Array.Empty<string>(),
@@ -118,7 +120,7 @@ namespace Voltage.Editor.Assets
             // Aseprite drops as an ANIMATED sprite (SpriteAnimator with every tag loaded), not a flat sprite.
             Register(new AssetTypeDescriptor(
                 Extensions: new[] { ".aseprite", ".ase" },
-                IconPath: IconTexture,
+                IconPath: IconAseprite,
                 Kind: AssetKind.Texture,
                 DropFactory: (reference, position) => DropHandlers.DropAsepriteAnimated(reference, position)
             ));
@@ -168,7 +170,7 @@ namespace Voltage.Editor.Assets
             // TimelineDirector component bound to it.
             Register(new AssetTypeDescriptor(
                 Extensions: new[] { ".vtimeline" },
-                IconPath: IconScene,
+                IconPath: IconTimeline,
                 Kind: AssetKind.Timeline,
                 DropFactory: DropHandlers.DropTimeline
             ));

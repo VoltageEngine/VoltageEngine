@@ -28,7 +28,10 @@ namespace Voltage.Editor.Assets
             AssetKind.Script      => ImguiImageLoader.AssetIconScript,
 			AssetKind.Audio       => ImguiImageLoader.AssetIconAudio,
 			AssetKind.Tileset     => ImguiImageLoader.AssetIconTileset,
-			AssetKind.Effect      => ImguiImageLoader.AssetIconUnsupported,
+			AssetKind.Effect      => ImguiImageLoader.AssetIconEffect,
+			AssetKind.Tiled       => ImguiImageLoader.AssetIconTiled,
+			AssetKind.Timeline    => ImguiImageLoader.AssetIconTimeline,
+			AssetKind.Data        => ImguiImageLoader.AssetIconData,
             _                     => ImguiImageLoader.AssetIconUnsupported,
         };
 

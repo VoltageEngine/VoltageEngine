@@ -259,7 +259,7 @@ namespace Voltage.Editor.Windows
 				ImGui.PushStyleColor(ImGuiCol.Button, new Num.Vector4(0.75f, 0.15f, 0.15f, 1f));
 				ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Num.Vector4(0.9f, 0.25f, 0.25f, 1f));
 			}
-			if (Gui.Button(_recording ? "● Recording" : "● Record"))
+			if (Gui.Button(_recording ? "Recording" : "Record"))
 				SetRecording(!_recording);
 			if (_recording)
 				ImGui.PopStyleColor(2);
@@ -414,7 +414,7 @@ namespace Voltage.Editor.Windows
 			var path = _director.Timeline.ResolvePath();
 			if (string.IsNullOrEmpty(path))
 			{
-				_status = "No .vtimeline file path — assign the director's Timeline asset first.";
+				_status = "No .vtimeline file path - assign the director's Timeline asset first.";
 				return;
 			}
 			try
@@ -494,7 +494,7 @@ namespace Voltage.Editor.Windows
 				else if (!string.IsNullOrEmpty(track.Property))
 				{
 					ImGui.TextColored(Warn,
-						$"'{track.TargetComponentId}.{track.Property}' is no longer registered — it was renamed or removed.");
+						$"'{track.TargetComponentId}.{track.Property}' is no longer registered - it was renamed or removed.");
 				}
 
 				ImGui.PopID();
@@ -589,7 +589,7 @@ namespace Voltage.Editor.Windows
 		private void DrawMarkers()
 		{
 			ImGui.TextColored(Muted,
-				"Named points for navigation — jump the playhead, or seek to one at runtime with\n" +
+				"Named points for navigation - jump the playhead, or seek to one at runtime with\n" +
 				"director.SeekToMarker(\"name\"). Markers have no effect of their own; use an event's\n" +
 				"Broadcast field to signal game code.");
 			ImGui.Spacing();
@@ -1841,7 +1841,7 @@ namespace Voltage.Editor.Windows
 				ImGui.SameLine();
 				Gui.Checkbox("Keep after", ref s.KeepAfterTimeline);
 
-				ImGui.TextColored(Muted, $"Prefab: {(s.Prefab.IsValid ? s.Prefab.PrefabName : "(assign in inspector — drag a prefab)")}");
+				ImGui.TextColored(Muted, $"Prefab: {(s.Prefab.IsValid ? s.Prefab.PrefabName : "(assign in inspector - drag a prefab)")}");
 
 				ImGui.SameLine();
 				if (Gui.SmallButton("Remove")) { _asset.SpawnClips.RemoveAt(i); ImGui.PopID(); break; }

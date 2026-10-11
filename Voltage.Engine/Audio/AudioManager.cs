@@ -385,8 +385,8 @@ namespace Voltage.Audio
 			_statsLogTimer = 0f;
 
 			var s = sw.GetStats();
-			Debug.Log($"[Audio] mix {s.MixAvgMs:0.00}ms / {s.BudgetMs:0.0}ms ({s.LoadPercent:0}% budget) · " +
-				$"peak {s.MixPeakMs:0.00}ms · voices {s.ActiveVoices} · underruns {s.Underruns}");
+			Debug.Log($"[Audio] mix {s.MixAvgMs:0.00}ms / {s.BudgetMs:0.0}ms ({s.LoadPercent:0}% budget) | " +
+				$"peak {s.MixPeakMs:0.00}ms | voices {s.ActiveVoices} | underruns {s.Underruns}");
 		}
 
 		#endregion

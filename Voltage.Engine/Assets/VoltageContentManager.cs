@@ -483,7 +483,7 @@ public class VoltageContentManager : ContentManager
 
 		if (typeof(Effect).IsAssignableFrom(type))
 		{
-			sb.Append("Effects cannot be loaded through an AssetReference — they are not file-backed assets. Use ")
+			sb.Append("Effects cannot be loaded through an AssetReference - they are not file-backed assets. Use ")
 			  .Append($"Core.Content.LoadMonoGameEffect<{type.Name}>() for a built-in MonoGame effect, ")
 			  .Append($"LoadVoltageEffect<{type.Name}>() for a built-in Voltage effect, or ")
 			  .Append("LoadEffect(name) for an effect file.");

@@ -144,7 +144,7 @@ namespace Voltage.Editor.Hotkeys
 				HotkeyErrorPopup.Show(
 					"A shortcut needs a normal key, not just modifiers.\n\n" +
 					"Hold Ctrl, Shift or Alt and then press a letter, number or function key " +
-					"— for example Ctrl+Shift+Z.");
+					"- for example Ctrl+Shift+Z.");
 				return;
 			}
 

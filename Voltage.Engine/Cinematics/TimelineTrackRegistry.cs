@@ -33,7 +33,7 @@ namespace Voltage.Cinematics
 			{
 				throw new InvalidOperationException(
 					$"Timeline track '{trackType?.FullName}' has no [TrackTypeId]. Give it a short, permanent " +
-					"id — it is what .vtimeline files store, and it is what keeps them working when the class " +
+					"id - it is what .vtimeline files store, and it is what keeps them working when the class " +
 					"is renamed.");
 			}
 
@@ -78,7 +78,7 @@ namespace Voltage.Cinematics
 		internal static string RequireId(Type trackType) =>
 			IdFor(trackType) ?? throw new InvalidOperationException(
 				$"Timeline track '{trackType?.FullName}' is not registered, so it cannot be saved. Add " +
-				"[TrackTypeId(\"…\")] and register it via TimelineTrackRegistry.Register from a [ModuleInitializer].");
+				"[TrackTypeId(\"...\")] and register it via TimelineTrackRegistry.Register from a [ModuleInitializer].");
 
 		/// <summary>
 		/// Reader hook.

@@ -361,6 +361,6 @@ public static class LinuxContainerBuild
 		if (string.IsNullOrEmpty(s))
 			return s;
 		s = s.Trim();
-		return s.Length <= max ? s : s.Substring(0, max) + "…";
+		return s.Length <= max ? s : s.Substring(0, max) + "...";
 	}
 }

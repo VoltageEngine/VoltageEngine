@@ -359,7 +359,7 @@ namespace Voltage.Editor.Inspectors.ObjectInspectors
 				if (enabled && _component.Entity != null && !_component.Entity.Enabled)
 				{
 					NotificationSystem.ShowTimedNotification(
-						$"Can't enable '{_component.Name}' — the Entity '{_component.Entity.Name}' is disabled!"
+						$"Can't enable '{_component.Name}' - the Entity '{_component.Entity.Name}' is disabled!"
 					);
 					return;
 				}

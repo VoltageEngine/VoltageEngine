@@ -248,7 +248,7 @@ namespace Voltage
 
 				if (prefabData.Name == null)
 				{
-					Debug.Error($"[Scene.LoadPrefab] Prefab at '{resolvedPath}' is missing a Name field — invalid .vprefab format.");
+					Debug.Error($"[Scene.LoadPrefab] Prefab at '{resolvedPath}' is missing a Name field - invalid .vprefab format.");
 					return null;
 				}
 			}
@@ -1240,7 +1240,7 @@ namespace Voltage
 								// Not fatal: the entity loads without it, and the raw entry is preserved
 								// across saves (see CollectUnresolvableEntries) until explicitly removed.
 								Debug.Warn(
-									$"Could not create component '{componentEntry.ComponentTypeName}' (id: {componentEntry.ComponentId ?? "-"}) — " +
+									$"Could not create component '{componentEntry.ComponentTypeName}' (id: {componentEntry.ComponentId ?? "-"}) - " +
 									"it may come from a plugin that is not installed. The entity loads without it; its data is preserved.");
 								continue;
 							}
@@ -1327,7 +1327,7 @@ namespace Voltage
 				return null;
 			}
 
-			Debug.Warn($"[Scene] Component '{componentTypeName}' has no AOT factory registration — using reflection. " +
+			Debug.Warn($"[Scene] Component '{componentTypeName}' has no AOT factory registration - using reflection. " +
 				"Ensure the class is 'partial' and Voltage.SourceGenerators is referenced.");
 			return (Component)Activator.CreateInstance(type);
 		}
@@ -1358,7 +1358,7 @@ namespace Voltage
 			if (type == null)
 				return null;
 
-			Debug.Warn($"[Scene] SceneComponent '{typeName}' has no AOT factory registration — using reflection. " +
+			Debug.Warn($"[Scene] SceneComponent '{typeName}' has no AOT factory registration - using reflection. " +
 				"Ensure the class is 'partial' and Voltage.SourceGenerators is referenced.");
 			return (SceneComponent)Activator.CreateInstance(type);
 		}
@@ -1521,7 +1521,7 @@ namespace Voltage
 			// above are identical to the pre-Phase-4a code.
 			if (Serialization.TypeRenameRegistry.TryResolve(typeName, out var renamedType))
 			{
-				Debug.Warn($"[Scene] Type '{typeName}' resolved via TypeRenameRegistry → '{renamedType.FullName}'. " +
+				Debug.Warn($"[Scene] Type '{typeName}' resolved via TypeRenameRegistry -> '{renamedType.FullName}'. " +
 					"Re-save the scene/prefab to update the stored type name.");
 				return renamedType;
 			}

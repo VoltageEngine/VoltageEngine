@@ -333,7 +333,7 @@ public class GameBuildWindow
 				ImGui.SetTooltip(
 					"Verify the NativeAOT build toolchain for the current platform\n" +
 					"(clang/ld/zlib on Linux, MSVC + Windows SDK on Windows, Xcode tools on macOS).\n\n" +
-					"Informational only — this never blocks building.");
+					"Informational only - this never blocks building.");
 			}
 
 			VoltageEditorUtils.MediumVerticalSpace();
@@ -518,7 +518,7 @@ public class GameBuildWindow
 		_depPreflightDialog.Open(
 			title: "Build dependencies may be missing",
 			intro: "Building a standalone game uses NativeAOT, which needs a few native toolchain components. " +
-			       "The following were not detected on this system. Detection is best-effort — if you've " +
+			       "The following were not detected on this system. Detection is best-effort - if you've " +
 			       "installed them in a non-standard way the build may still succeed. Install them and press " +
 			       "Recheck, or just Build anyway.",
 			result: result,
@@ -559,7 +559,7 @@ public class GameBuildWindow
 				$"{stray.Count} data asset(s) will NOT be included in the build because they are outside " +
 				$"Content/ and Data/:\n  {string.Join("\n  ", stray)}\n" +
 				"Move them under Content/ or Data/ (references resolve by GUID, so moving is safe), or add " +
-				"a matching <Content Include=\"…\"> item to the project's .csproj.",
+				"a matching <Content Include=\"...\"> item to the project's .csproj.",
 				"GameBuildWindow");
 		}
 		catch (Exception ex)

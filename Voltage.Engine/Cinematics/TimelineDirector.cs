@@ -312,7 +312,7 @@ namespace Voltage.Cinematics
 				if (ResolveBoundEntity(binding.Entity) == null)
 					problems.Add($"role '{binding.Role}' is bound to an entity that no longer exists.");
 				else if (_asset.Roles.TrueForAll(r => r?.Name != binding.Role))
-					problems.Add($"binding for role '{binding.Role}' matches no role on the asset — it was probably renamed.");
+					problems.Add($"binding for role '{binding.Role}' matches no role on the asset - it was probably renamed.");
 			}
 
 			foreach (var spawn in _asset.SpawnClips)
@@ -326,7 +326,7 @@ namespace Voltage.Cinematics
 
 			var contentEnd = _asset.ContentEndTime();
 			if (contentEnd > _asset.Duration + 0.001f)
-				problems.Add($"content runs to {contentEnd:0.00}s but Length is {_asset.Duration:0.00}s — the rest never plays.");
+				problems.Add($"content runs to {contentEnd:0.00}s but Length is {_asset.Duration:0.00}s - the rest never plays.");
 
 			return problems;
 		}
@@ -457,7 +457,7 @@ namespace Voltage.Cinematics
 			{
 				WarnOnce($"event-role:{e.TargetRole}:{method}",
 					$"[TimelineDirector] Event '{e.Name ?? method}' targets role '{e.TargetRole}', which is not " +
-					"bound to any entity — the event did nothing.");
+					"bound to any entity - the event did nothing.");
 				return;
 			}
 
@@ -646,7 +646,7 @@ namespace Voltage.Cinematics
 			{
 				WarnOnce($"timeline-unresolved:{Timeline.AssetGuid}",
 					$"[TimelineDirector] '{Entity?.Name}' references timeline {Timeline} but it could not be " +
-					"resolved. The file may have been deleted, or the asset manifest may be stale — reopen the " +
+					"resolved. The file may have been deleted, or the asset manifest may be stale - reopen the " +
 					"project in the editor to regenerate it.");
 				return null;
 			}

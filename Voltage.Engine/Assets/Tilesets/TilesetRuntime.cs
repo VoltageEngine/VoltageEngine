@@ -198,7 +198,7 @@ namespace Voltage.Tilesets
 				{
 					var message =
 						$"Normal map is {normal.Width}x{normal.Height} but the source image is " +
-						$"{texture.Width}x{texture.Height}. They must match exactly — the normal map is ignored.";
+						$"{texture.Width}x{texture.Height}. They must match exactly - the normal map is ignored.";
 
 					runtime._issues.Add(message);
 					Debug.Warn($"TilesetRuntime: tileset '{asset.Name}': {message}");
@@ -372,7 +372,7 @@ namespace Voltage.Tilesets
 			{
 				_issues.Add(
 					$"A {tw}x{th} tile size with margin {margin} does not fit inside the " +
-					$"{Texture.Width}x{Texture.Height} image — the grid produces no tiles.");
+					$"{Texture.Width}x{Texture.Height} image - the grid produces no tiles.");
 			}
 			else
 			{

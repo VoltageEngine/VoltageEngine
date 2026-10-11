@@ -1201,7 +1201,7 @@ namespace Voltage.Editor.Tools.Tilemap
 				tool.RotateSelection(-1);
 
 			if (ImGui.IsItemHovered())
-				ImGui.SetTooltip($"Rotate the selected tiles 90° left ({EditorHotkeys.Hint(EditorHotkeys.TileRotateLeft)})");
+				ImGui.SetTooltip($"Rotate the selected tiles 90 degrees left ({EditorHotkeys.Hint(EditorHotkeys.TileRotateLeft)})");
 
 			ImGui.SameLine();
 
@@ -1209,7 +1209,7 @@ namespace Voltage.Editor.Tools.Tilemap
 				tool.RotateSelection(1);
 
 			if (ImGui.IsItemHovered())
-				ImGui.SetTooltip($"Rotate the selected tiles 90° right ({EditorHotkeys.Hint(EditorHotkeys.TileRotateRight)})");
+				ImGui.SetTooltip($"Rotate the selected tiles 90 degrees right ({EditorHotkeys.Hint(EditorHotkeys.TileRotateRight)})");
 
 			ImGui.SameLine();
 
@@ -1338,11 +1338,11 @@ namespace Voltage.Editor.Tools.Tilemap
 			ImGui.SameLine();
 
 			if (Gui.SmallButton("Rot -##orient")) tool.RotateBrush(-1);
-			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Rotate 90° left (Q, palette focused)");
+			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Rotate 90 degrees left (Q, palette focused)");
 			ImGui.SameLine();
 
 			if (Gui.SmallButton("Rot +##orient")) tool.RotateBrush(1);
-			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Rotate 90° right (E, palette focused)");
+			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Rotate 90 degrees right (E, palette focused)");
 			ImGui.SameLine();
 
 			var flipX = tool.OrientationFlipX;
@@ -1362,7 +1362,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (tool.CurrentOrientation != 0)
 			{
 				ImGui.SameLine();
-				ImGui.TextDisabled($"({tool.OrientationRotation * 90}°{(flipX ? " X" : "")}{(flipY ? " Y" : "")})");
+				ImGui.TextDisabled($"({tool.OrientationRotation * 90} degrees{(flipX ? " X" : "")}{(flipY ? " Y" : "")})");
 			}
 		}
 
@@ -1463,7 +1463,7 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			if (_tileset.Asset?.TextureIsAsepriteAnimation == true)
 			{
-				ImGui.TextDisabled("Animated tileset: the strip below is the animation frames. Paint tile 0 (top-left) — it plays automatically.");
+				ImGui.TextDisabled("Animated tileset: the strip below is the animation frames. Paint tile 0 (top-left) - it plays automatically.");
 			}
 
 			// Logarithmic + a sub-1x floor so an oversized atlas can be zoomed OUT to fit, not only scrolled.

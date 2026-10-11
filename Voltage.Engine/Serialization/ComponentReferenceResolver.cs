@@ -284,7 +284,7 @@ public static class ComponentReferenceResolver
 
 				if (liveField == null || !typeof(Component).IsAssignableFrom(liveField.FieldType))
 				{
-					Debug.Warn($"[ComponentReferenceResolver] '{target}' — no matching live field for data field '{dataField.Name}' of Component type found.");
+					Debug.Warn($"[ComponentReferenceResolver] '{target}' - no matching live field for data field '{dataField.Name}' of Component type found.");
 					continue;
 				}
 

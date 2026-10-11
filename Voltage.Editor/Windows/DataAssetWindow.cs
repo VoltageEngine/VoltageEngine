@@ -62,7 +62,7 @@ namespace Voltage.Editor.Windows
 			var asset = DataAssetCache.GetByPath(absolutePath);
 			if (asset == null)
 			{
-				_status = $"Could not open '{Path.GetFileName(absolutePath)}' — see the console.";
+				_status = $"Could not open '{Path.GetFileName(absolutePath)}' - see the console.";
 				_statusClearAt = ImGui.GetTime() + 6.0;
 				IsOpen = true;
 				return;
@@ -238,7 +238,7 @@ namespace Voltage.Editor.Windows
 			{
 				ImGuiSafe.TextColoredSafe(new Num.Vector4(0.6f, 0.6f, 0.6f, 1f),
 					"No data asset open.\n\nDouble-click a .vasset in the Asset Browser, or create one with\n" +
-					"right-click ▸ Create ▸ Data Asset.");
+					"right-click > Create > Data Asset.");
 				DrawStatus();
 				Gui.End();
 				return;
@@ -256,12 +256,12 @@ namespace Voltage.Editor.Windows
 					_inspectors = TypeInspectorUtils.GetInspectableProperties(current);
 					_seenReloadVersion = DataAssetCache.ReloadCountFor(current);
 					_seenValueWrites = AbstractTypeInspector.WriteCountFor(current);
-					SetStatus("Scripts recompiled — retained unsaved values.");
+					SetStatus("Scripts recompiled - retained unsaved values.");
 				}
 				else
 				{
 					RefreshFromDisk();
-					SetStatus("Reloaded — the file changed on disk.");
+					SetStatus("Reloaded - the file changed on disk.");
 				}
 			}
 
@@ -339,12 +339,12 @@ namespace Voltage.Editor.Windows
 				ImGuiSafe.TextSafe($"GUID:          {_asset.SourceGuid}");
 				ImGuiSafe.TextSafe($"Path:          {_path}");
 				ImGuiSafe.TextSafe(string.Empty);
-				ImGuiSafe.TextSafe("The id — not the class name — is what .vasset files store,");
+				ImGuiSafe.TextSafe("The id - not the class name - is what .vasset files store,");
 				ImGuiSafe.TextSafe("so renaming the class keeps every reference working.");
 				ImGui.EndTooltip();
 			}
 
-			ImGuiSafe.TextColoredSafe(grey, "Shared instance — edits apply everywhere this asset is used.");
+			ImGuiSafe.TextColoredSafe(grey, "Shared instance - edits apply everywhere this asset is used.");
 		}
 
 		private void DrawStatus()

@@ -454,7 +454,7 @@ public class EntityPane
 				entity.Name,
 				$"{_renameStartValue}.Name"),
 			entity,
-			$"Rename {_renameStartValue} → {entity.Name}");
+			$"Rename {_renameStartValue} -> {entity.Name}");
 
 		_imGuiManager?.RefreshMainEntityInspector();
 	}

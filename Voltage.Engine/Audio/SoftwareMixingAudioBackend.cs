@@ -96,7 +96,7 @@ namespace Voltage.Audio
 			if (!device.Open(PreferredSampleRate, Channels, BufferFrames, FillAudio))
 			{
 				device.Dispose();
-				Debug.Warn("[SoftwareAudio] SDL audio device could not be opened — no sound will play. " +
+				Debug.Warn("[SoftwareAudio] SDL audio device could not be opened - no sound will play. " +
 					"Set AudioManager.PreferSoftwareBackend=false to use the MonoGame backend instead.");
 				return;
 			}
@@ -131,7 +131,7 @@ namespace Voltage.Audio
 			var path = reference.ResolvePath();
 			if (string.IsNullOrEmpty(path) || !File.Exists(path))
 			{
-				Debug.Warn($"[SoftwareAudio] cannot resolve a raw source file for {reference} — the software backend decodes .wav/.ogg/.mp3 from disk.");
+				Debug.Warn($"[SoftwareAudio] cannot resolve a raw source file for {reference} - the software backend decodes .wav/.ogg/.mp3 from disk.");
 				return null;
 			}
 

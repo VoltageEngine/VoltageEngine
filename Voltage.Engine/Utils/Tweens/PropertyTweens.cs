@@ -10,7 +10,7 @@ namespace Voltage.Utils.Tweens
 	/// <summary>
 	/// generic ITweenTarget used for all property tweens
 	/// </summary>
-	[RequiresUnreferencedCode("Uses FieldInfo/PropertyInfo reflection to locate fields/properties by name — not compatible with NativeAOT/trimming.")]
+	[RequiresUnreferencedCode("Uses FieldInfo/PropertyInfo reflection to locate fields/properties by name - not compatible with NativeAOT/trimming.")]
 	class PropertyTarget<T> : ITweenTarget<T> where T : struct
 	{
 		protected object _target;
@@ -61,7 +61,7 @@ namespace Voltage.Utils.Tweens
 	}
 
 
-	[RequiresUnreferencedCode("Uses PropertyTarget<T> which reflects field/property names at runtime — not compatible with NativeAOT/trimming.")]
+	[RequiresUnreferencedCode("Uses PropertyTarget<T> which reflects field/property names at runtime - not compatible with NativeAOT/trimming.")]
 	public static class PropertyTweens
 	{
 		public static ITween<int> IntPropertyTo(object self, string memberName, int to, float duration)

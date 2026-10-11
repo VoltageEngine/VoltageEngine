@@ -165,14 +165,14 @@ namespace Voltage.Cinematics
 				var nested = Resolve(clip);
 				if (nested == null)
 				{
-					problems.Add($"nested track: '{label}' could not be loaded — the file may have been deleted.");
+					problems.Add($"nested track: '{label}' could not be loaded - the file may have been deleted.");
 					continue;
 				}
 
 				if (nested.SpawnClips.Count > 0)
 				{
 					problems.Add($"nested track: '{label}' has {nested.SpawnClips.Count} spawn clip(s), which a " +
-								 "nested timeline cannot run — move them to the parent timeline.");
+								 "nested timeline cannot run - move them to the parent timeline.");
 				}
 
 				foreach (var track in nested.ParameterTracks)

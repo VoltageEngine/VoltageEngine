@@ -125,7 +125,7 @@ namespace Voltage.AI.FSM
 			}
 			catch (Exception ex)
 			{
-				Debug.Error($"[{GetType().Name}] Exception in state '{_currentState}' Tick() — {ex.Message}, from {ex}");
+				Debug.Error($"[{GetType().Name}] Exception in state '{_currentState}' Tick() - {ex.Message}, from {ex}");
 			}
 		}
 	}

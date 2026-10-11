@@ -54,7 +54,7 @@ public class PrefabReferenceTypeInspector : AbstractTypeInspector
             ImGui.BeginTooltip();
             ImGuiSafe.TextSafe($"Path: {current.PrefabPath}");
             ImGuiSafe.TextSafe($"GUID: {current.PrefabGuid}");
-            ImGuiSafe.TextSafe("Click to reveal in the Asset Browser — double-click to change.");
+            ImGuiSafe.TextSafe("Click to reveal in the Asset Browser - double-click to change.");
             ImGui.EndTooltip();
         }
         else

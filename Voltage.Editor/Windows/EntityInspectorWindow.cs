@@ -712,7 +712,7 @@ public class EntityInspectorWindow
 			ImGui.TextColored(warnColor, $"Missing Component: {shortName}");
 			if (ImGui.IsItemHovered())
 				ImGui.SetTooltip($"Type: {entry.ComponentTypeName ?? "-"}\nComponentId: {entry.ComponentId ?? "-"}\n\n" +
-					"This component's type is not loaded — it likely comes from a plugin that is not installed " +
+					"This component's type is not loaded - it likely comes from a plugin that is not installed " +
 					"or a script that no longer compiles. Its data is preserved when saving.");
 
 			ImGui.TextDisabled($"id: {entry.ComponentId ?? "-"}");
@@ -1627,7 +1627,7 @@ public class EntityInspectorWindow
 		if (overrides == null)
 		{
 			ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(0.7f, 0.7f, 0.7f, 1f));
-			ImGui.TextWrapped("(Legacy entry — no override tracking. Re-save scene to enable delta model.)");
+			ImGui.TextWrapped("(Legacy entry - no override tracking. Re-save scene to enable delta model.)");
 			ImGui.PopStyleColor();
 			return;
 		}
@@ -1637,7 +1637,7 @@ public class EntityInspectorWindow
 		if (totalOverrides == 0)
 		{
 			ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(0.5f, 0.9f, 0.5f, 1f));
-			ImGui.Text("No overrides — all components match prefab.");
+			ImGui.Text("No overrides - all components match prefab.");
 			ImGui.PopStyleColor();
 			return;
 		}
