@@ -8,7 +8,8 @@
     "build": "docusaurus build",
     "swizzle": "docusaurus swizzle",
     "serve": "docusaurus serve",
-    "clear": "docusaurus clear"
+    "clear": "docusaurus clear",
+    "test:security": "node --test tests/dependency-security.test.cjs"
   },
   "dependencies": {
     "@docusaurus/core": "^3.10.2",
@@ -33,11 +34,22 @@
     ]
   },
   "engines": {
-    "node": ">=20.0"
+    "node": ">=24"
   },
   "overrides": {
-    "serialize-javascript": "^7.0.5",
+    "serialize-javascript": "^7.1.2",
     "image-size": "^2.0.3",
-    "sockjs": { "uuid": "^11.1.1" }
-  }
+    "sockjs": {
+      "uuid": "^11.1.1"
+    },
+    "tinypool": "^2.1.2",
+    "katex": "^0.18.2",
+    "postcss-selector-parser": "^7.1.6"
+  },
+  "devDependencies": {
+    "braces": "3.0.3+voltage.1"
+  },
+  "workspaces": [
+    "vendor/braces"
+  ]
 }

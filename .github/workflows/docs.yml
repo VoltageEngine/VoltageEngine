@@ -29,11 +29,15 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: Voltage.github.io/package-lock.json
 
       - run: npm ci
+
+      - run: npm run test:security
+
+      - run: npm audit --audit-level=low
 
       - run: npm run build
 

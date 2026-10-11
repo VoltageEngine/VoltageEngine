@@ -1,0 +1,28 @@
+{
+  "license": "MIT",
+  "author": "Jon Schlinkert (https://github.com/jonschlinkert)",
+  "contributors": [
+    "Brian Woodward (https://twitter.com/doowb)",
+    "Elan Shanker (https://github.com/es128)",
+    "Eugene Sharygin (https://github.com/eush77)",
+    "hemanth.hm (http://h3manth.com)",
+    "Jon Schlinkert (http://twitter.com/jonschlinkert)"
+  ],
+  "main": "index.js",
+  "dependencies": {
+    "fill-range": "^7.1.1"
+  },
+  "name": "braces",
+  "version": "3.0.3+voltage.1",
+  "private": true,
+  "description": "Local braces 3.0.3 fork with bounded pattern and AST nesting.",
+  "files": [
+    "index.js",
+    "lib",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=24"
+  }
+}
