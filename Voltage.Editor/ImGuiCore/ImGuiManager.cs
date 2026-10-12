@@ -1426,39 +1426,68 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void DrawSavePromptModal(string popupId, Action onDiscardChanges)
 	{
-		var center = new System.Numerics.Vector2(Screen.Width * 0.5f, Screen.Height * 0.4f);
-		ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new System.Numerics.Vector2(0.5f, 0.5f));
-		ImGui.SetNextWindowSize(new System.Numerics.Vector2(450, 0), ImGuiCond.Appearing);
+		string actionContext = "continuing";
+		if (popupId.Contains("Exit"))
+			actionContext = "exiting";
+		else if (popupId.Contains("SceneChange"))
+			actionContext = "changing scenes";
+		else if (popupId.Contains("ResetScene"))
+			actionContext = "resetting the scene";
+		else if (popupId.Contains("ProjectClose"))
+			actionContext = "closing the project";
+		else if (popupId.Contains("Relaunch"))
+			actionContext = "restarting the editor";
+
+		var style = ImGui.GetStyle();
+		var viewport = ImGui.GetMainViewport();
+		var maximum = System.Numerics.Vector2.Max(new(1), viewport.WorkSize - style.WindowPadding * 2);
+		float buttonWidth = Math.Max(120 * FontSizeMultiplier, ImGui.CalcTextSize("Don't Save").X + style.FramePadding.X * 2);
+		float buttonsWidth = buttonWidth * 3 + style.ItemSpacing.X * 2;
+		bool stackButtons = buttonsWidth + style.WindowPadding.X * 2 > maximum.X;
+		float minimumWidth = Math.Min(maximum.X, Math.Max(450 * FontSizeMultiplier, buttonsWidth + style.WindowPadding.X * 2));
+		if (stackButtons)
+		{
+			buttonWidth = Math.Min(buttonWidth, minimumWidth - style.WindowPadding.X * 2);
+			buttonsWidth = buttonWidth;
+		}
+		float textWidth = Math.Max(1, minimumWidth - style.WindowPadding.X * 2 - style.ScrollbarSize);
+		var pendingChanges = EditorChangeTracker.ChangedObjects;
+		string warning = $"The following changes will be lost if you don't save before {actionContext}:";
+		string question = $"Do you want to save your changes before {actionContext}?";
+		float textHeight = ImGui.CalcTextSize("You have unsaved changes!", false, textWidth).Y + ImGui.CalcTextSize(question, false, textWidth).Y;
+		float listHeight = 0;
+		if (pendingChanges.Count > 0)
+		{
+			textHeight += ImGui.CalcTextSize(warning, false, textWidth).Y;
+			float rowWidth = Math.Max(1, textWidth - style.WindowPadding.X * 2 - ImGui.GetFontSize() - style.ItemSpacing.X);
+			foreach (var (_, description) in pendingChanges)
+				listHeight += ImGui.CalcTextSize(description, false, rowWidth).Y + style.ItemSpacing.Y;
+			listHeight = Math.Min(300 * FontSizeMultiplier, listHeight + style.WindowPadding.Y * 2);
+		}
+		float minimumList = Math.Min(listHeight, ImGui.GetTextLineHeightWithSpacing() * 3 + style.WindowPadding.Y * 2);
+		float chrome = ImGui.GetFrameHeight() * (stackButtons ? 4 : 2) + style.WindowPadding.Y * 2 + style.ItemSpacing.Y * (stackButtons ? 12 : 10) + 10;
+		ImGui.SetNextWindowSizeConstraints(new(minimumWidth, Math.Min(maximum.Y, textHeight + chrome + minimumList)), maximum);
+		ImGui.SetNextWindowPos(viewport.WorkPos + viewport.WorkSize * 0.5f, ImGuiCond.Appearing, new(0.5f, 0.5f));
+		ImGui.SetNextWindowSize(new(minimumWidth, Math.Min(maximum.Y, textHeight + chrome + listHeight)), ImGuiCond.Appearing);
 
 		bool open = true;
 		if (Gui.BeginPopupModal(popupId, ref open, ImGuiWindowFlags.AlwaysAutoResize))
 		{
-			// Determine the action context from popup ID
-			string actionContext = "continuing";
-			if (popupId.Contains("Exit"))
-				actionContext = "exiting";
-			else if (popupId.Contains("SceneChange"))
-				actionContext = "changing scenes";
-			else if (popupId.Contains("ResetScene"))
-				actionContext = "resetting the scene";
-			else if (popupId.Contains("ProjectClose"))
-				actionContext = "closing the project";
-			else if (popupId.Contains("Relaunch"))
-				actionContext = "restarting the editor";
-
-			ImGui.Text("You have unsaved changes!");
+			float buttonsHeight = ImGui.GetFrameHeight() * (stackButtons ? 3 : 1) + style.ItemSpacing.Y * (stackButtons ? 4 : 2) + 10;
+			ImGui.BeginChild("##save_prompt_body", new System.Numerics.Vector2(0, Math.Max(1, ImGui.GetContentRegionAvail().Y - buttonsHeight)));
+			ImGuiSafe.TextWrappedSafe("You have unsaved changes!");
 			ImGui.Spacing();
 
 			// Display pending changes
 			var pendingChanges = EditorChangeTracker.ChangedObjects;
 			if (pendingChanges.Count > 0)
 			{
-				ImGuiSafe.TextWrappedSafe($"The following changes will be lost if you don't save before {actionContext}:");
+				ImGuiSafe.TextWrappedSafe(warning);
 				ImGui.Spacing();
 
-				float maxHeight = Math.Min(300f, pendingChanges.Count * 25f);
-
-				ImGui.BeginChild("##changes_list", new System.Numerics.Vector2(420, maxHeight), ImGuiChildFlags.Borders);
+				float footer = ImGui.CalcTextSize(question, false, ImGui.GetContentRegionAvail().X).Y + style.ItemSpacing.Y * 3;
+				float available = Math.Max(minimumList, ImGui.GetContentRegionAvail().Y - footer);
+				ImGui.BeginChild("##changes_list", new System.Numerics.Vector2(0, Math.Min(listHeight, available)), ImGuiChildFlags.Borders);
 
 				foreach (var (obj, description) in pendingChanges)
 				{
@@ -1474,15 +1503,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				ImGui.Spacing();
 			}
 
-			ImGuiSafe.TextWrappedSafe($"Do you want to save your changes before {actionContext}?");
+			ImGuiSafe.TextWrappedSafe(question);
+			ImGui.EndChild();
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
-			var buttonWidth = 120f;
-			var spacing = 10f;
-			var totalButtonWidth = (buttonWidth * 3) + (spacing * 2);
 			var windowWidth = ImGui.GetWindowSize().X;
-			var centerStart = (windowWidth - totalButtonWidth) * 0.5f;
+			var centerStart = Math.Max(style.WindowPadding.X, (windowWidth - buttonsWidth) * 0.5f);
 
 			ImGui.SetCursorPosX(centerStart);
 
@@ -1496,7 +1523,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				ImGui.CloseCurrentPopup();
 			}
 
-			ImGui.SameLine();
+			if (stackButtons) ImGui.SetCursorPosX(centerStart);
+			else ImGui.SameLine();
 
 			if (Gui.Button("Don't Save", new System.Numerics.Vector2(buttonWidth, 0)))
 			{
@@ -1507,7 +1535,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				ImGui.CloseCurrentPopup();
 			}
 
-			ImGui.SameLine();
+			if (stackButtons) ImGui.SetCursorPosX(centerStart);
+			else ImGui.SameLine();
 
 			if (Gui.Button("Cancel", new System.Numerics.Vector2(buttonWidth, 0)))
 			{

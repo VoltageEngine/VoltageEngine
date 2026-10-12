@@ -206,6 +206,7 @@ public sealed class GatewayServer : IDisposable
 			jsonWriter.WriteNumber("pid", Environment.ProcessId);
 			jsonWriter.WriteString("started", DateTime.UtcNow);
 			jsonWriter.WriteString("exe", Environment.ProcessPath);
+			if (!string.IsNullOrEmpty(_options.SourceExecutable)) jsonWriter.WriteString("sourceExe", _options.SourceExecutable);
 			jsonWriter.WriteStartArray("args");
 			foreach (var arg in _options.Args ?? Array.Empty<string>()) jsonWriter.WriteStringValue(arg);
 			jsonWriter.WriteEndArray();

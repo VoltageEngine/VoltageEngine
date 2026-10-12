@@ -72,6 +72,7 @@ public class Editor : Core
 			LogsDirectory = EditorStorage.LogsDirectory,
 			Host = "editor",
 			Name = "Voltage Editor",
+			SourceExecutable = gatewayOptions.SourceExecutable,
 			NoPrompts = gatewayOptions.NoPrompts,
 			Headless = gatewayOptions.Headless
 		}, imGuiManager);

@@ -27,6 +27,7 @@ public static class Lifecycle
 
 		if (info.Pid == 0 || !GatewayInfo.IsRunning(info.Pid))
 		{
+			EditorBinarySnapshot.Remove(info.Exe, info.SourceExe);
 			Console.WriteLine($"no {info.HostLabel} is running (last pid {info.Pid})");
 			return 0;
 		}
@@ -53,6 +54,7 @@ public static class Lifecycle
 		{
 			if (!GatewayInfo.IsRunning(info.Pid))
 			{
+				EditorBinarySnapshot.Remove(info.Exe, info.SourceExe);
 				Console.WriteLine($"stopped the {info.HostLabel} (pid {info.Pid})");
 				return 0;
 			}
@@ -74,7 +76,7 @@ public static class Lifecycle
 			return stop;
 
 		if (rebuild)
-			Rebuild(info.Exe);
+			Rebuild(info.SourceExe ?? info.Exe);
 
 		var started = game
 			? GatewayInfo.StartGame(infoPath, info.Exe, wait)

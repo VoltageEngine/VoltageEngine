@@ -12,6 +12,7 @@ namespace Voltage.Cli;
 /// <summary>What a running (or last-run) editor or game wrote to gateway.json.</summary>
 public sealed record GatewayInfo(int Port, string Token, int Pid, DateTime Started, string Exe, string[] Args, string Logs, string Host, string Game)
 {
+	public string SourceExe { get; init; }
 	/// <summary>Mirrors the engine's GatewayStorage layout so the CLI needs no engine reference. host is "editor" or "game".</summary>
 	public static string DefaultInfoPath(string host = "editor")
 	{
@@ -58,7 +59,10 @@ public sealed record GatewayInfo(int Port, string Token, int Pid, DateTime Start
 			root.TryGetProperty("args", out var args) && args.ValueKind == JsonValueKind.Array ? args.EnumerateArray().Select(a => a.GetString()).ToArray() : Array.Empty<string>(),
 			root.TryGetProperty("logs", out var logs) ? logs.GetString() : null,
 			root.TryGetProperty("host", out var host) && host.ValueKind == JsonValueKind.String ? host.GetString() : "editor",
-			root.TryGetProperty("game", out var game) && game.ValueKind == JsonValueKind.String ? game.GetString() : null);
+			root.TryGetProperty("game", out var game) && game.ValueKind == JsonValueKind.String ? game.GetString() : null)
+		{
+			SourceExe = root.TryGetProperty("sourceExe", out var source) && source.ValueKind == JsonValueKind.String ? source.GetString() : null
+		};
 	}
 
 	/// <summary>Reads the file and insists the process that wrote it is still running; a crash log, when one exists, is named in the error.</summary>
@@ -110,7 +114,7 @@ public sealed record GatewayInfo(int Port, string Token, int Pid, DateTime Start
 		if (previous != null && previous.Pid != 0 && IsRunning(previous.Pid))
 			throw new CliException($"an editor is already running (pid {previous.Pid})");
 
-		var exe = exeOverride ?? previous?.Exe;
+		var exe = exeOverride ?? previous?.SourceExe ?? previous?.Exe;
 		if (string.IsNullOrWhiteSpace(exe) || !File.Exists(exe))
 			throw new CliException("no editor executable is known yet; pass --exe <path to Voltage.Editor> the first time");
 
@@ -125,7 +129,7 @@ public sealed record GatewayInfo(int Port, string Token, int Pid, DateTime Start
 		return Launch(exe, arguments.ToArray(), infoPath, wait, "editor");
 	}
 
-	private static readonly string[] ValueFlags = { "--gateway-port", "--gateway-info" };
+	private static readonly string[] ValueFlags = { "--gateway-port", "--gateway-info", EditorBinarySnapshot.SourceExeArgument };
 
 	/// <summary>Appends flags, replacing any earlier occurrence (and its value) so a relaunch does not stack duplicates.</summary>
 	private static void MergeFlags(List<string> arguments, IReadOnlyList<string> extra)
@@ -164,6 +168,16 @@ public sealed record GatewayInfo(int Port, string Token, int Pid, DateTime Start
 
 	private static GatewayInfo Launch(string exe, string[] arguments, string infoPath, TimeSpan wait, string what)
 	{
+		EditorBinarySnapshot snapshot = null;
+		var sourceExe = Path.GetFullPath(exe);
+		if (what == "editor" && arguments.Contains("--headless", StringComparer.OrdinalIgnoreCase))
+		{
+			snapshot = EditorBinarySnapshot.Create(sourceExe);
+			exe = snapshot.Executable;
+			var launchArgs = new List<string>(arguments);
+			MergeFlags(launchArgs, new[] { EditorBinarySnapshot.SourceExeArgument, sourceExe });
+			arguments = launchArgs.ToArray();
+		}
 		// The child must not inherit this process's stdout: a caller capturing our output would otherwise
 		// block until the child exits. Windows can detach through the shell; elsewhere the pipes are drained.
 		var windows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
@@ -172,43 +186,62 @@ public sealed record GatewayInfo(int Port, string Token, int Pid, DateTime Start
 			UseShellExecute = windows,
 			RedirectStandardOutput = !windows,
 			RedirectStandardError = !windows,
+			WindowStyle = snapshot != null ? ProcessWindowStyle.Hidden : ProcessWindowStyle.Normal,
 			WorkingDirectory = Path.GetDirectoryName(exe) ?? "."
 		};
 		foreach (var arg in arguments)
 			startInfo.ArgumentList.Add(arg);
 
-		var process = Process.Start(startInfo) ?? throw new CliException($"could not start {exe}");
-		if (!windows)
+		Process process = null;
+		try
 		{
-			process.OutputDataReceived += (_, _) => { };
-			process.ErrorDataReceived += (_, _) => { };
-			process.BeginOutputReadLine();
-			process.BeginErrorReadLine();
-		}
-		var deadline = DateTime.UtcNow + wait;
+			process = Process.Start(startInfo) ?? throw new CliException($"could not start {exe}");
+			if (!windows)
+			{
+				process.OutputDataReceived += (_, _) => { };
+				process.ErrorDataReceived += (_, _) => { };
+				process.BeginOutputReadLine();
+				process.BeginErrorReadLine();
+			}
+			var deadline = DateTime.UtcNow + wait;
 
-		while (DateTime.UtcNow < deadline)
+			while (DateTime.UtcNow < deadline)
+			{
+				Thread.Sleep(500);
+				if (process.HasExited)
+					throw new CliException($"the {what} exited during startup with code {process.ExitCode}");
+
+				GatewayInfo info;
+				try { info = Read(infoPath); } catch (Exception) { continue; }
+				if (info.Pid != process.Id)
+					continue;
+
+				try
+				{
+					using var connection = new GatewayConnection(info.Port, info.Token, TimeSpan.FromSeconds(5));
+					connection.Call("ping", null);
+					return info;
+				}
+				catch (CliException)
+				{
+				}
+			}
+
+			throw new CliException($"the {what} (pid {process.Id}) did not answer within {wait.TotalSeconds:0}s");
+		}
+		catch
 		{
-			Thread.Sleep(500);
-			if (process.HasExited)
-				throw new CliException($"the {what} exited during startup with code {process.ExitCode}");
-
-			GatewayInfo info;
-			try { info = Read(infoPath); } catch (Exception) { continue; }
-			if (info.Pid != process.Id)
-				continue;
-
-			try
+			if (snapshot != null)
 			{
-				using var connection = new GatewayConnection(info.Port, info.Token, TimeSpan.FromSeconds(5));
-				connection.Call("ping", null);
-				return info;
+				if (process != null && !process.HasExited)
+				{
+					process.Kill(entireProcessTree: true);
+					process.WaitForExit(10_000);
+				}
+				snapshot.Dispose();
 			}
-			catch (CliException)
-			{
-			}
+			throw;
 		}
-
-		throw new CliException($"the {what} (pid {process.Id}) did not answer within {wait.TotalSeconds:0}s");
+		finally { if (windows || process?.HasExited == true) process?.Dispose(); }
 	}
 }

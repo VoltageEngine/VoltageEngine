@@ -17,6 +17,7 @@ public sealed class EditorSession
 	private static string _root;
 	private static TextWriter _processLog;
 	private static string _processLogPath;
+	private static EditorBinarySnapshot _binaries;
 
 	public static GatewayConnection Connection { get; private set; }
 
@@ -65,13 +66,15 @@ public sealed class EditorSession
 		DataDirectory = Path.Combine(_root, "data");
 		Directory.CreateDirectory(DataDirectory);
 		InfoPath = Path.Combine(_root, "gateway.json");
+		_binaries = EditorBinarySnapshot.Create(exe, Path.Combine(_root, "editor"));
 
-		var start = new ProcessStartInfo(exe)
+		var start = new ProcessStartInfo(_binaries.Executable)
 		{
 			UseShellExecute = false,
 			RedirectStandardOutput = true,
 			RedirectStandardError = true,
-			WorkingDirectory = Path.GetDirectoryName(exe) ?? "."
+			WorkingDirectory = Path.GetDirectoryName(_binaries.Executable) ?? ".",
+			WindowStyle = ProcessWindowStyle.Hidden
 		};
 		start.Environment["VOLTAGE_EDITOR_DATA"] = DataDirectory;
 		start.Environment["VOLTAGE_ASEPRITE_EXTENSION"] = Path.Combine(_root, "aseprite-extension");
@@ -86,6 +89,8 @@ public sealed class EditorSession
 		}
 		foreach (var arg in new[] { "--headless", "--gateway-port", "0", "--gateway-info", InfoPath })
 			start.ArgumentList.Add(arg);
+		start.ArgumentList.Add(EditorBinarySnapshot.SourceExeArgument);
+		start.ArgumentList.Add(exe);
 
 		_processLogPath = Path.Combine(TestContext.CurrentContext.WorkDirectory, "editor-process.log");
 		_processLog = TextWriter.Synchronized(File.CreateText(_processLogPath));
@@ -126,6 +131,7 @@ public sealed class EditorSession
 
 		Connection?.Dispose();
 		_processLog?.Dispose();
+		_binaries?.Dispose();
 		if (Environment.GetEnvironmentVariable("VOLTAGE_TESTS_KEEP") != "1")
 			try { Directory.Delete(_root, true); } catch (Exception) { }
 		else
