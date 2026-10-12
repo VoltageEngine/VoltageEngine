@@ -649,7 +649,7 @@ namespace Voltage.Editor.Windows
 
 			var io = ImGui.GetIO();
 
-			ImGui.BeginChild("##tlcanvas", new Num.Vector2(0, boxH), true, ImGuiWindowFlags.HorizontalScrollbar);
+			ImGui.BeginChild("##tlcanvas", new Num.Vector2(0, boxH), ImGuiChildFlags.Borders, ImGuiWindowFlags.HorizontalScrollbar);
 
 			var dl = ImGui.GetWindowDrawList();
 			var origin = ImGui.GetCursorScreenPos();

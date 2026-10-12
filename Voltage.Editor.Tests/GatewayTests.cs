@@ -210,7 +210,9 @@ public class UiTests
 		Call("input.type", new { text = "ClickMe" });
 		Thread.Sleep(300);
 		var row = WaitForWidget("ClickMe (0)", "Scene Graph");
-		Assert.That(row.GetProperty("y").GetInt32(), Is.LessThan(250), "the filter should have moved the row to the top");
+		var header = WaitForWidget("Entities (double-click label to inspect)", "Scene Graph");
+		Assert.That(row.GetProperty("y").GetInt32(), Is.LessThan(header.GetProperty("y").GetInt32() + header.GetProperty("height").GetInt32() * 3),
+			"the filtered entity should be immediately below the Entities header at every interface scale");
 		Call("ui.click", new { label = "ClickMe (0)", window = "Scene Graph", exact = true });
 		Call("ui.click", new { label = "x", window = "Scene Graph", exact = true });
 		Call("input.release");

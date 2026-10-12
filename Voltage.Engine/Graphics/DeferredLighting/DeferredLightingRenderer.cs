@@ -306,6 +306,11 @@ namespace Voltage.DeferredLighting
 
 		void RenderLight(DeferredLight light)
 		{
+            if (light is ProjectedLight projectedLight)
+            {
+                projectedLight.RenderLight(Graphics.Instance.Batcher, light.Entity.Scene.Camera, NormalRT.RenderTarget);
+                return;
+            }
             if (light is RoomLight roomLight)
             {
                 var batcher = Graphics.Instance.Batcher;

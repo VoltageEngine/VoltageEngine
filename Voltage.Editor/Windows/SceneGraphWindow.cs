@@ -20,6 +20,7 @@ using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Undo.EntityActions;
 using Voltage.Editor.Assets;
 using Voltage.Serialization;
+using Voltage.Editor.Persistence;
 using PrefabData = Voltage.Data.PrefabData;
 
 namespace Voltage.Editor.Windows;
@@ -35,6 +36,10 @@ public class SceneGraphWindow
 	private RenderersPane _renderersPane = new();
 	private EntityPane _entityPane = new();
 	private SceneComponentsPane _sceneComponentsPane = new();
+	private readonly PersistentBool _showSceneComponents = new("SceneGraph_ShowSceneComponents", true);
+	private readonly PersistentBool _showPostProcessors = new("SceneGraph_ShowPostProcessors", true);
+	private readonly PersistentBool _showRenderers = new("SceneGraph_ShowRenderers", true);
+	private readonly PersistentBool _showEntities = new("SceneGraph_ShowEntities", true);
 	private ImGuiManager _imGuiManager;
 	public float SceneGraphWidth => _sceneGraphWidth;
 	public float SceneGraphPosY { get; set; }
@@ -137,6 +142,40 @@ public class SceneGraphWindow
 		}
 	}
 
+	private static bool DrawSectionHeader(string label, PersistentBool setting, ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags.None)
+	{
+		var visible = setting.Value;
+		if (!visible)
+			return false;
+		var expanded = Gui.CollapsingHeader(label, ref visible, flags);
+		if (!visible)
+			setting.Value = false;
+		return expanded && visible;
+	}
+
+	private void DrawSectionMenu()
+	{
+		if (Gui.ArrowButton("Scene Graph Sections", ImGuiDir.Down))
+			ImGui.OpenPopup("scene-graph-sections");
+		if (ImGui.IsItemHovered())
+			ImGui.SetTooltip("Show or hide Scene Graph sections");
+		if (!Gui.BeginPopup("scene-graph-sections"))
+			return;
+		ImGui.TextDisabled("Visible sections");
+		DrawSectionOption("Scene Components", _showSceneComponents);
+		DrawSectionOption("Post Processors", _showPostProcessors);
+		DrawSectionOption("Renderers", _showRenderers);
+		DrawSectionOption("Entities", _showEntities);
+		Gui.EndPopup();
+	}
+
+	private static void DrawSectionOption(string label, PersistentBool setting)
+	{
+		var visible = setting.Value;
+		if (Gui.MenuItem(label, "", ref visible))
+			setting.Value = visible;
+	}
+
 	public bool Show(bool isOpen)
 	{
 		IsOpen = isOpen;
@@ -160,7 +199,11 @@ public class SceneGraphWindow
 				_sceneGraphWidth = Math.Clamp(currentWidth, _minSceneGraphWidth, _maxSceneGraphWidth);
 
 			// Above the scrolling child, so it stays pinned no matter how far the panes below are scrolled.
+			DrawSectionMenu();
+			ImGui.SameLine();
+			ImGui.BeginDisabled(!_showEntities.Value);
 			_entityPane.DrawSearchBar();
+			ImGui.EndDisabled();
 			ImGui.Separator();
 
 			// Wrap all content in a child so BeginDragDropTarget() after EndChild() binds
@@ -168,7 +211,7 @@ public class SceneGraphWindow
 			// Child is borderless/transparent so it is invisible to the user.
 			var childSize = ImGui.GetContentRegionAvail();
 			// border: false — child is invisible; the window provides the border.
-			ImGui.BeginChild("##SceneGraphContent", childSize, false, ImGuiWindowFlags.None);
+			ImGui.BeginChild("##SceneGraphContent", childSize, ImGuiChildFlags.None, ImGuiWindowFlags.None);
 
 			// Prefab edit scene: a "Go Back" control at the very top returns to the previous game scene.
 			if (_imGuiManager != null && _imGuiManager.IsInPrefabEditScene)
@@ -185,16 +228,16 @@ public class SceneGraphWindow
 			}
 
 			VoltageEditorUtils.MediumVerticalSpace();
-			if (Gui.CollapsingHeader("Scene Components"))
+			if (DrawSectionHeader("Scene Components", _showSceneComponents))
 				_sceneComponentsPane.Draw();
 
-			if (Gui.CollapsingHeader("Post Processors"))
+			if (DrawSectionHeader("Post Processors", _showPostProcessors))
 				_postProcessorsPane.Draw();
 
-			if (Gui.CollapsingHeader("Renderers"))
+			if (DrawSectionHeader("Renderers", _showRenderers))
 				_renderersPane.Draw();
 
-			if (Gui.CollapsingHeader("Entities (double-click label to inspect)", ImGuiTreeNodeFlags.DefaultOpen))
+			if (DrawSectionHeader("Entities (double-click label to inspect)", _showEntities, ImGuiTreeNodeFlags.DefaultOpen))
 				_entityPane.Draw();
 
 			VoltageEditorUtils.MediumVerticalSpace();
@@ -562,12 +605,6 @@ public class SceneGraphWindow
 			AddEntityAndChildren(entity.Transform.GetChild(i).Entity, result);
 		}
 	}
-
-
-
-
-
-
 
 	private void ExpandParentsAndChildren(Entity entity)
 	{

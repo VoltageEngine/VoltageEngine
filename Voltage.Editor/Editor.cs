@@ -44,17 +44,14 @@ public class Editor : Core
 
 		if (Screen.ActualMonitorWidth <= 1920)
 		{
-			options.FontSizeMultiplier = 1f;
 			DebugConsole.RenderScale = 1.5f;
 		}
 		else if (Screen.ActualMonitorWidth < 3840)
 		{ 
-			options.FontSizeMultiplier = 1.1f;
 			DebugConsole.RenderScale = 2.5f;
 		}
 		else
 		{
-			options.FontSizeMultiplier = 1.2f;
 			DebugConsole.RenderScale = 3f;
 		}
 

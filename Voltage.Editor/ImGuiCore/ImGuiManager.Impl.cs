@@ -184,13 +184,21 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		GameWindowWidth = ImGui.GetWindowSize().X;
 		GameWindowHeight = ImGui.GetWindowSize().Y;
 
+		var stripHeight = ImGui.GetFrameHeight() + 12 * FontSizeMultiplier;
+		ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Num.Vector2(4, 4) * FontSizeMultiplier);
+		ImGui.BeginChild("Playback", new Num.Vector2(0, stripHeight), ImGuiChildFlags.AlwaysUseWindowPadding,
+			ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
+		DrawPlaybackControls();
+		ImGui.EndChild();
+		ImGui.PopStyleVar();
+
 		Num.Vector2 imageSize;
 		Num.Vector2 cursorOffset = Num.Vector2.Zero;
 
 		if (Core.Scene?.UsesSmoothPixelArt == true)
 		{
 			// Use the panel bounds so an oversized image from the previous frame cannot hold the viewport open.
-			var available = ImGui.GetWindowSize() - ImGui.GetWindowContentRegionMin();
+			var available = Num.Vector2.Max(Num.Vector2.One, ImGui.GetWindowSize() - ImGui.GetCursorPos());
 			ImGui.SetScrollX(0);
 			ImGui.SetScrollY(0);
 			Core.Scene.SetPixelArtViewportSize(new Point(Math.Max(1, (int)available.X), Math.Max(1, (int)available.Y)));
@@ -203,7 +211,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		}
 		else if (PreserveGameWindowAspectRatio)
 		{
-			var availableRegion = ImGui.GetContentRegionAvail();
+			var availableRegion = Num.Vector2.Max(Num.Vector2.One, ImGui.GetContentRegionAvail());
 			var targetAspect = (float)_lastRenderTarget.Width / _lastRenderTarget.Height;
 			var availableAspect = availableRegion.X / availableRegion.Y;
 
@@ -226,7 +234,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		}
 		else
 		{
-			imageSize = ImGui.GetContentRegionAvail();
+			imageSize = Num.Vector2.Max(Num.Vector2.One, ImGui.GetContentRegionAvail());
 		}
 
 		// Capture the screen-space position of the image BEFORE drawing it.
@@ -244,6 +252,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			ImGui.Dummy(imageSize);
 		}
+		IsGameWindowHovered = ImGui.IsItemHovered();
 
 		// Draw buttons and text on top using screen coordinates
 		var camera = Core.Scene?.Camera;
@@ -253,8 +262,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (showZoomButton || showSpeedButton)
 		{
 			var windowPos = ImGui.GetWindowPos();
-			var contentMin = ImGui.GetWindowContentRegionMin();
-			var buttonStartPos = windowPos + contentMin + cursorOffset +
+			var contentMin = ImGui.GetCursorStartPos();
+			var buttonStartPos = _gameImageScreenPos +
 			                     new Num.Vector2(8, 8) * ImGui.GetIO().FontGlobalScale;
 
 			ImGui.SetCursorScreenPos(buttonStartPos);
@@ -297,12 +306,12 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			var speedTextSize = ImGui.CalcTextSize(speedText);
 
 			var windowPos = ImGui.GetWindowPos();
-			var contentMin = ImGui.GetWindowContentRegionMin();
+			var contentMin = ImGui.GetCursorStartPos();
 			var margin = new Num.Vector2(8, 8) * ImGui.GetIO().FontGlobalScale;
 
 			var speedTextPos = new Num.Vector2(
-				windowPos.X + contentMin.X + cursorOffset.X + imageSize.X - speedTextSize.X - margin.X,
-				windowPos.Y + contentMin.Y + cursorOffset.Y + margin.Y
+				_gameImageScreenPos.X + imageSize.X - speedTextSize.X - margin.X,
+				_gameImageScreenPos.Y + margin.Y
 			);
 
 			var drawList = ImGui.GetWindowDrawList();
@@ -427,6 +436,17 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (!_hasValidGameWindowData || _lastRenderTarget == null)
 			return;
 
+		var raw = Input.RawMousePosition.ToVector2();
+		var overPlayback = raw.X >= GameWindowPosition.X && raw.X < GameWindowPosition.X + GameWindowSize.X
+			&& raw.Y >= GameWindowPosition.Y && raw.Y < _gameImageScreenPos.Y;
+		if (overPlayback)
+		{
+			var current = Input.CurrentMouseState;
+			Input.SetCurrentMouseState(new MouseState(current.X, current.Y, current.ScrollWheelValue,
+				ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released));
+			IsGameWindowHovered = false;
+			return;
+		}
 		var offset = new Vector2(_gameImageScreenPos.X, _gameImageScreenPos.Y);
 		var normalizedPos = Input.RawMousePosition.ToVector2() - offset;
 

@@ -368,12 +368,12 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                         _selectedLayerIndices.Add(i);
                 }
 
-                ImGui.BeginChild("layer-listbox", new Num.Vector2(400, 150), true);
+                ImGui.BeginChild("layer-listbox", new Num.Vector2(400, 150), ImGuiChildFlags.Borders);
 
                 for (int i = 0; i < _availableLayers.Count; i++)
                 {
                     bool selected = _selectedLayerIndices.Contains(i);
-                    if (Gui.Selectable(_availableLayers[i], selected, ImGuiSelectableFlags.AllowDoubleClick | ImGuiSelectableFlags.DontClosePopups))
+                    if (Gui.Selectable(_availableLayers[i], selected, ImGuiSelectableFlags.AllowDoubleClick | ImGuiSelectableFlags.NoAutoClosePopups))
                     {
                         // Toggle selection on click
                         if (selected)
@@ -426,11 +426,11 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
             ImGui.Text("Select Animation Tag:");
             if (_availableTags.Count > 0)
             {
-                ImGui.BeginChild("tag-listbox", new Num.Vector2(400, 80), true);
+                ImGui.BeginChild("tag-listbox", new Num.Vector2(400, 80), ImGuiChildFlags.Borders);
                 for (int i = 0; i < _availableTags.Count; i++)
                 {
                     bool selected = _selectedTagIndex == i;
-                    if (Gui.Selectable(_availableTags[i], selected, ImGuiSelectableFlags.DontClosePopups))
+                    if (Gui.Selectable(_availableTags[i], selected, ImGuiSelectableFlags.NoAutoClosePopups))
                     {
                         _selectedTagIndex = i;
                     }

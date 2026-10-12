@@ -61,7 +61,8 @@
 
 	<!-- Copy ImGui native code to output -->
 	<PropertyGroup>
-		<ImGuiRuntimes>$(NuGetPackageRoot)\imgui.net\1.89.5\runtimes\</ImGuiRuntimes>
+		<ImGuiVersion>1.91.6.1</ImGuiVersion>
+		<ImGuiRuntimes>$(NuGetPackageRoot)\imgui.net\$(ImGuiVersion)\runtimes\</ImGuiRuntimes>
 	</PropertyGroup>
 
 	<!-- Suppress Roslyn satellite assemblies globally -->
@@ -96,7 +97,11 @@
 			<Link>%(Filename)%(Extension)</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
-		<Content Include="$(ImGuiRuntimes)osx-x64\native\*.dylib" Condition="'$(OS)' != 'Windows_NT' AND $(IsOSX) == 'true'">
+		<Content Include="$(ImGuiRuntimes)win-arm64\native\*.dll" Condition="'$(OS)' == 'Windows_NT' AND '$(RuntimeIdentifier)' == 'win-arm64'">
+			<Link>%(Filename)%(Extension)</Link>
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+		<Content Include="$(ImGuiRuntimes)osx\native\*.dylib" Condition="'$(OS)' != 'Windows_NT' AND $(IsOSX) == 'true'">
 			<Link>libcimgui.dylib</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
@@ -142,7 +147,7 @@
 	</Target>
 
 	<ItemGroup>
-		<PackageReference Include="ImGui.NET" Version="1.89.5" />
+		<PackageReference Include="ImGui.NET" Version="$(ImGuiVersion)" />
 		<PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.5.1" />
 		<PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5.1" />
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />

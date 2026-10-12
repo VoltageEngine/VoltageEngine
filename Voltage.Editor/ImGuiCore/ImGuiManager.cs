@@ -98,6 +98,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private SpriteAtlasEditorWindow _spriteAtlasEditorWindow;
 	private List<Action> _drawCommands = new();
 	private ImGuiRenderer _renderer;
+	internal ImGuiRenderer Renderer => _renderer;
+	internal ImFontPtr LogFont => _renderer.LogFontPtr;
+	internal ImFontPtr HeadingFont => _renderer.HeadingFontPtr;
 
 	/// <summary>Closes the frame Update opened when Draw is skipped, as on a minimized window.</summary>
 	public void DiscardFrame() => _renderer?.DiscardFrame();
@@ -108,7 +111,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private IntPtr _renderTargetId = IntPtr.Zero;
 	private Num.Vector2? _gameViewForcedSize;
 	private WindowPosition? _gameViewForcedPos;
-	private readonly float _editorToolsBarHeight = 30f;
 
 	// Camera Params
 	public static float EditModeCameraSpeed = 400f;
@@ -374,6 +376,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		_renderer = new ImGuiRenderer(Core.Instance);
 		_renderer.RebuildFontAtlas(options);
+		FontSizeMultiplier = _renderer.AppliedDisplayScale;
 
 		Core.Emitter.AddObserver(CoreEvents.SceneChanged, OnSceneChanged);
 
@@ -394,7 +397,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		LoadLastSelectedLayout();
 
 		// Initialize theme manager (will apply last selected theme automatically)
-		_themeManager = new ThemeManager();
+		_themeManager = new ThemeManager(_renderer.AppliedDisplayScale);
 
 		SceneGraphWindow = new SceneGraphWindow();
 		_cursorSelectionManager = new GizmoSelectionManager(this);
@@ -464,7 +467,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			return;
 		}
 
-		ImGui.LoadIniSettingsFromDisk(_layoutFilePath);
+		var savedLayout = File.ReadAllText(_layoutFilePath);
+		var compatibleLayout = LayoutCompatibility.Upgrade(savedLayout);
+		if (compatibleLayout != savedLayout && !File.Exists(_layoutFilePath + ".pre-imgui-1.91.bak"))
+			File.Copy(_layoutFilePath, _layoutFilePath + ".pre-imgui-1.91.bak");
+		ImGui.LoadIniSettingsFromMemory(compatibleLayout);
 	}
 
 	/// <summary>
@@ -472,6 +479,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	/// </summary>
 	private void LayoutGui()
 	{
+		FontSizeMultiplier = _renderer.AppliedDisplayScale;
+		_themeManager.SetDisplayScale(FontSizeMultiplier);
 		if (_layoutManager.HasPendingReload)
 		{
 			_layoutManager.ApplyPendingReload();
@@ -800,7 +809,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		var dockspaceId = ImGui.GetID("MainDockSpace");
 		ImGui.DockSpace(dockspaceId, new Num.Vector2(0.0f, 0.0f),
-			ImGuiDockNodeFlags.PassthruCentralNode | ImGuiDockNodeFlags.NoDockingInCentralNode);
+			ImGuiDockNodeFlags.PassthruCentralNode | ImGuiDockNodeFlags.NoDockingOverCentralNode);
 		_dockspaceFrame = ImGui.GetFrameCount();
 
 		Gui.End();
@@ -927,151 +936,87 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void DrawEditorToolsBar()
 	{
-		Gui.Begin("Editor Tools", ImGuiWindowFlags.NoScrollbar);
-
-		float spacing = 12f * FontSizeMultiplier;
-		float iconSize = 24f * FontSizeMultiplier;
-
-
-		System.Numerics.Vector4 normalButtonColor;
-		if (_cursorSelectionManager.SelectionMode == CursorSelectionMode.Normal)
-			normalButtonColor = new System.Numerics.Vector4(0.2f, 0.5f, 1f, 1f);
-		else
-			normalButtonColor = ImGui.GetStyle().Colors[(int)ImGuiCol.Button];
-
-		ImGui.PushStyleColor(ImGuiCol.Button, normalButtonColor);
-		bool normalHovered =
-			Gui.ImageButton("Normal", ImguiImageLoader.NormalCursorIconID, new Num.Vector2(iconSize, iconSize));
-		if (normalHovered)
-			_cursorSelectionManager.SelectionMode = CursorSelectionMode.Normal;
+		if (!Gui.Begin("Editor Tools")) { Gui.End(); return; }
+		var flow = new ToolbarFlow();
+		var size = new Num.Vector2(ImGui.GetFrameHeight() + 4 * FontSizeMultiplier);
+		bool Icon(string label, string glyph, bool active, string tooltip)
+		{
+			flow.Next(size.X);
+			var clicked = Gui.IconButton(label, glyph, _renderer.IconFontPtr, size, active);
+			if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled)) ImGuiSafe.SetTooltipSafe(tooltip);
+			return clicked;
+		}
+		void Cursor(string label, string glyph, CursorSelectionMode mode, string hint)
+		{
+			if (Icon(label, glyph, _cursorSelectionManager.SelectionMode == mode, hint))
+			{
+				_cursorSelectionManager.SelectionMode = mode;
+				if (mode == CursorSelectionMode.TilePaint) ShowTilePaletteWindow = true;
+			}
+		}
+		Cursor("Normal", "\uf245", CursorSelectionMode.Normal, $"Default Cursor ({EditorHotkeys.Hint(EditorHotkeys.CursorNormal)})");
+		Cursor("Resize", "\uf065", CursorSelectionMode.Resize, $"Resize Entities ({EditorHotkeys.Hint(EditorHotkeys.CursorResize)})");
+		Cursor("Rotate", "\uf2f1", CursorSelectionMode.Rotate, $"Rotate Entities ({EditorHotkeys.Hint(EditorHotkeys.CursorRotate)})");
+		Cursor("Collider Resize", "\uf5cb", CursorSelectionMode.ColliderResize, $"Resize Colliders ({EditorHotkeys.Hint(EditorHotkeys.CursorColliderResize)})");
+		Cursor("Tile Brush", "\uf1fc", CursorSelectionMode.TilePaint, $"Paint Tiles ({EditorHotkeys.Hint(EditorHotkeys.CursorTilePaint)})");
+		var debugVisible = Core.DebugRenderEnabled && DebugRenderFilter.EnabledCategories != DebugRenderCategory.None;
+		if (Icon("DebugRenderingToggle", debugVisible ? "\uf06e" : "\uf070", debugVisible, "Show or hide the selected debug rendering categories"))
+			ToggleDebugRendering();
+		if (Icon("DebugRenderingFilters", "\uf0d7", DebugRenderFilter.EnabledCategories != DebugRenderCategory.All, "Choose debug rendering categories"))
+			ImGui.OpenPopup("DebugRenderingCategories");
+		DrawDebugRenderingFilters();
+		if (Icon("AudioToggle", Core.IsAudioOn ? "\uf028" : "\uf6a9", !Core.IsAudioOn, Core.IsAudioOn ? "Mute audio" : "Unmute audio"))
+			Core.IsAudioOn = !Core.IsAudioOn;
+		void Toggle(string label, bool active, Action action, string tooltip)
+		{
+			var caption = label;
+			var padding = ImGui.GetStyle().FramePadding.X * 2;
+			if (ImGui.CalcTextSize(label).X + padding > ImGui.GetContentRegionAvail().X)
+				caption = label == "Snap to Grid" ? "Snap" : "Grid";
+			flow.Next(ImGui.CalcTextSize(caption).X + padding);
+			DrawToggleButton(label, active, action, caption);
+			if (ImGui.IsItemHovered()) ImGuiSafe.SetTooltipSafe(tooltip);
+		}
+		Toggle("Snap to Grid", EditorSettingsWindow.SnapToGrid, () => EditorSettingsWindow.SnapToGrid = !EditorSettingsWindow.SnapToGrid,
+			"Snap entities to the grid. Hold Ctrl while dragging to invert.");
+		Toggle("Show Grid", ShowPlacementGrid, () => ShowPlacementGrid = !ShowPlacementGrid, "Show the placement grid");
+		flow.Next(BackgroundSwatchWidth);
+		DrawBackgroundColorControl(compact: true);
+		var zoom = $"Zoom: {(int)(Core.Scene.Camera.RawZoom * 100)}%";
+		flow.Next(ImGui.CalcTextSize(zoom).X);
+		ImGui.AlignTextToFramePadding();
+		ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled]);
+		ImGui.TextUnformatted(zoom);
 		ImGui.PopStyleColor();
-
-		if (ImGui.IsItemHovered())
-		{
-			ImGui.SetTooltip($"Default Cursor ({EditorHotkeys.Hint(EditorHotkeys.CursorNormal)})");
-		}
-
-		ImGui.SameLine(0, spacing);
-
-		System.Numerics.Vector4 resizeButtonColor;
-		if (_cursorSelectionManager.SelectionMode == CursorSelectionMode.Resize)
-			resizeButtonColor = new System.Numerics.Vector4(0.2f, 0.5f, 1f, 1f);
-		else
-			resizeButtonColor = ImGui.GetStyle().Colors[(int)ImGuiCol.Button];
-
-		ImGui.PushStyleColor(ImGuiCol.Button, resizeButtonColor);
-		bool resizeHovered =
-			Gui.ImageButton("Resize", ImguiImageLoader.ResizeCursorIconID, new Num.Vector2(iconSize, iconSize));
-		if (resizeHovered)
-			_cursorSelectionManager.SelectionMode = CursorSelectionMode.Resize;
-		ImGui.PopStyleColor();
-
-		if (ImGui.IsItemHovered())
-		{
-			ImGui.SetTooltip($"Resize Entities ({EditorHotkeys.Hint(EditorHotkeys.CursorResize)})");
-		}
-
-		ImGui.SameLine(0, spacing);
-
-		System.Numerics.Vector4 rotateButtonColor;
-		if (_cursorSelectionManager.SelectionMode == CursorSelectionMode.Rotate)
-			rotateButtonColor = new System.Numerics.Vector4(0.2f, 0.5f, 1f, 1f);
-		else
-			rotateButtonColor = ImGui.GetStyle().Colors[(int)ImGuiCol.Button];
-
-		ImGui.PushStyleColor(ImGuiCol.Button, rotateButtonColor);
-		bool rotateHovered =
-			Gui.ImageButton("Rotate", ImguiImageLoader.RotateCursorIconID, new Num.Vector2(iconSize, iconSize));
-		if (rotateHovered)
-			_cursorSelectionManager.SelectionMode = CursorSelectionMode.Rotate;
-		ImGui.PopStyleColor();
-
-		if (ImGui.IsItemHovered())
-		{
-			ImGui.SetTooltip($"Rotate Entities ({EditorHotkeys.Hint(EditorHotkeys.CursorRotate)})");
-		}
-
-		ImGui.SameLine(0, spacing);
-
-		System.Numerics.Vector4 colliderResizeButtonColor;
-		if (_cursorSelectionManager.SelectionMode == CursorSelectionMode.ColliderResize)
-			colliderResizeButtonColor = new System.Numerics.Vector4(0.2f, 0.5f, 1f, 1f);
-		else
-			colliderResizeButtonColor = ImGui.GetStyle().Colors[(int)ImGuiCol.Button];
-
-		ImGui.PushStyleColor(ImGuiCol.Button, colliderResizeButtonColor);
-
-		bool colliderResizeHovered = Gui.ImageButton("Collider Resize", ImguiImageLoader.ColliderResizeCursorIconID,
-			new Num.Vector2(iconSize, iconSize));
-		if (colliderResizeHovered)
-			_cursorSelectionManager.SelectionMode = CursorSelectionMode.ColliderResize;
-
-		ImGui.PopStyleColor();
-
-		if (ImGui.IsItemHovered())
-		{
-			ImGui.SetTooltip($"Resize Colliders ({EditorHotkeys.Hint(EditorHotkeys.CursorColliderResize)})");
-		}
-
-		ImGui.SameLine(0, spacing);
-
-		System.Numerics.Vector4 tilePaintButtonColor;
-		if (_cursorSelectionManager.SelectionMode == CursorSelectionMode.TilePaint)
-			tilePaintButtonColor = new System.Numerics.Vector4(0.2f, 0.5f, 1f, 1f);
-		else
-			tilePaintButtonColor = ImGui.GetStyle().Colors[(int)ImGuiCol.Button];
-
-		ImGui.PushStyleColor(ImGuiCol.Button, tilePaintButtonColor);
-		bool tilePaintHovered = Gui.ImageButton("Tile Brush", ImguiImageLoader.TileBrushCursorIconID,
-			new Num.Vector2(iconSize, iconSize));
-		if (tilePaintHovered)
-		{
-			_cursorSelectionManager.SelectionMode = CursorSelectionMode.TilePaint;
-			ShowTilePaletteWindow = true;
-		}
-
-		ImGui.PopStyleColor();
-
-		if (ImGui.IsItemHovered())
-		{
-			ImGui.SetTooltip($"Paint Tiles ({EditorHotkeys.Hint(EditorHotkeys.CursorTilePaint)})");
-		}
-
-		// Zoom indicator
-		ImGui.SameLine(0, spacing * 2f);
-		float currentZoom = Core.Scene.Camera.Zoom;
-		int zoomPercentage = (int)(currentZoom * 100f);
-		string zoomText = $"Zoom: {zoomPercentage}%";
-
-		// NOTE: do NOT use ImGui.TextColored here. TextColored forwards the string to the
-		// native printf-style igTextColored(col, fmt, ...), so the literal '%' in the zoom
-		// text is parsed as a format specifier and ImGui reads a non-existent vararg —
-		// over-reading adjacent memory and rendering garbage (log fragments, etc.), which
-		// also balloons the text width and pushes the mode/audio buttons off-screen.
-		// TextUnformatted renders the raw string verbatim; push the tint color manually.
-		ImGui.PushStyleColor(ImGuiCol.Text, new System.Numerics.Vector4(0.7f, 0.7f, 0.7f, 1.0f));
-		ImGui.TextUnformatted(zoomText);
-		ImGui.PopStyleColor();
-
-		if (ImGui.IsItemHovered())
-		{
-			ImGui.SetTooltip("Camera zoom level (Mouse Wheel to adjust)");
-		}
-
-		// Keep the mode cluster, grid toggles and audio toggle on the same row as the cursor tools.
-		ImGui.SameLine(0, spacing);
-		DrawEditorModeControls();
-
-		ImGui.SameLine();
-		var gizmosPosition = DrawGridControlsRightAligned();
-
-		ImGui.SameLine();
-		DrawAudioToggleRightAligned();
-
-		ImGui.SetCursorPos(gizmosPosition);
-		DrawDebugRenderingToggle();
-
+		if (!ShowSeparateGameWindow) { ImGui.NewLine(); DrawPlaybackControls(); }
 		Gui.End();
+	}
+
+	private void DrawPlaybackControls()
+	{
+		var width = ImGui.GetContentRegionAvail().X;
+		var gap = Math.Min(ImGui.GetStyle().ItemSpacing.X, width / 12);
+		var side = Math.Max(1, Math.Min(ImGui.GetFrameHeight() + 4 * FontSizeMultiplier, (width - 2 * gap) / 3));
+		ImGui.SetCursorPosX(ImGui.GetCursorPosX() + MathF.Floor((width - side * 3 - gap * 2) / 2));
+		bool Button(string label, string glyph, bool active, string tooltip)
+		{
+			var clicked = Gui.IconButton(label, glyph, _renderer.IconFontPtr, new Num.Vector2(side), active);
+			if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled)) ImGuiSafe.SetTooltipSafe(tooltip);
+			return clicked;
+		}
+		if (Button("EditorPlay", Core.IsEditMode ? "\uf04b" : "\uf04d", !Core.IsEditMode,
+			$"{(Core.IsEditMode ? "Play" : "Stop")} ({EditorHotkeys.Hint(EditorHotkeys.TogglePlay)})"))
+		{
+			if (!Core.IsEditMode) Core.IsPauseMode = false;
+			Core.InvokeSwitchEditMode(!Core.IsEditMode);
+		}
+		ImGui.SameLine(0, gap);
+		ImGui.BeginDisabled(Core.IsEditMode);
+		if (Button("EditorPause", "\uf04c", Core.IsPauseMode, $"Pause ({EditorHotkeys.Hint(EditorHotkeys.TogglePause)})"))
+			Core.InvokeSwitchPauseMode(!Core.IsPauseMode);
+		ImGui.EndDisabled();
+		ImGui.SameLine(0, gap);
+		if (Button("EditorReset", "\uf2ea", false, $"Reload Scene ({EditorHotkeys.Hint(EditorHotkeys.ResetScene)})")) Core.InvokeResetScene();
 	}
 
 	/// <summary>
@@ -1513,7 +1458,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 				float maxHeight = Math.Min(300f, pendingChanges.Count * 25f);
 
-				ImGui.BeginChild("##changes_list", new System.Numerics.Vector2(420, maxHeight), true);
+				ImGui.BeginChild("##changes_list", new System.Numerics.Vector2(420, maxHeight), ImGuiChildFlags.Borders);
 
 				foreach (var (obj, description) in pendingChanges)
 				{

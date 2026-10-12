@@ -45,6 +45,7 @@ public class DebugRenderFilterTests
             (new PointLight(), DebugRenderCategory.Lights),
             (new SpotLight(), DebugRenderCategory.Lights),
             (new RoomLight(), DebugRenderCategory.Lights),
+            (new ProjectedLight(), DebugRenderCategory.Lights),
             (new UICanvas(), DebugRenderCategory.UI),
             (new Probe(), DebugRenderCategory.Other)
         };

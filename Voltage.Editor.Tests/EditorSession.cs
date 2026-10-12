@@ -15,6 +15,8 @@ public sealed class EditorSession
 {
 	private static Process _editor;
 	private static string _root;
+	private static TextWriter _processLog;
+	private static string _processLogPath;
 
 	public static GatewayConnection Connection { get; private set; }
 
@@ -85,9 +87,11 @@ public sealed class EditorSession
 		foreach (var arg in new[] { "--headless", "--gateway-port", "0", "--gateway-info", InfoPath })
 			start.ArgumentList.Add(arg);
 
+		_processLogPath = Path.Combine(TestContext.CurrentContext.WorkDirectory, "editor-process.log");
+		_processLog = TextWriter.Synchronized(File.CreateText(_processLogPath));
 		_editor = Process.Start(start) ?? throw new InvalidOperationException($"could not start {exe}");
-		_editor.OutputDataReceived += (_, _) => { };
-		_editor.ErrorDataReceived += (_, _) => { };
+		_editor.OutputDataReceived += (_, e) => { if (e.Data != null) { _processLog.WriteLine(e.Data); _processLog.Flush(); } };
+		_editor.ErrorDataReceived += (_, e) => { if (e.Data != null) { _processLog.WriteLine(e.Data); _processLog.Flush(); } };
 		_editor.BeginOutputReadLine();
 		_editor.BeginErrorReadLine();
 
@@ -118,8 +122,10 @@ public sealed class EditorSession
 		{
 			try { _editor.Kill(true); } catch (Exception) { }
 		}
+		if (_editor != null) _editor.WaitForExit(); // Drain asynchronous output before disposing its writer.
 
 		Connection?.Dispose();
+		_processLog?.Dispose();
 		if (Environment.GetEnvironmentVariable("VOLTAGE_TESTS_KEEP") != "1")
 			try { Directory.Delete(_root, true); } catch (Exception) { }
 		else
@@ -143,7 +149,10 @@ public sealed class EditorSession
 		while (DateTime.UtcNow < deadline)
 		{
 			if (_editor.HasExited)
-				throw new InvalidOperationException($"the editor exited with code {_editor.ExitCode} during startup; see {DataDirectory}");
+			{
+				_editor.WaitForExit(); // Drain redirected output before reporting the assertion.
+				throw new InvalidOperationException($"the editor exited with code {_editor.ExitCode} during startup; see {_processLogPath}");
+			}
 
 			Thread.Sleep(500);
 			GatewayInfo info;

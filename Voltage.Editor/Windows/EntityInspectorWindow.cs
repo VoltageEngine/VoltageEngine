@@ -122,9 +122,9 @@ public class EntityInspectorWindow
 		// If more than one entity is selected
 		if (_imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities.Count > 1 && !_imGuiManager.IsInspectorTabLocked)
 		{
-			ImGui.SetWindowFontScale(1.5f);
+			ImGui.PushFont(_imGuiManager.HeadingFont);
 			ImGui.Text("Multiple Entities Selected");
-			ImGui.SetWindowFontScale(1.0f);
+			ImGui.PopFont();
 
 			ImGui.PushFont(ImGui.GetIO().FontDefault); // Use default font (smallest)
 			ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(0.8f, 0.8f, 0.8f, 1.0f));
@@ -153,9 +153,9 @@ public class EntityInspectorWindow
 		else if (_imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities.Count == 1 && Entity != null || _lockedEntity != null)
 		{
 			var entityName = Entity.Name;
-			ImGui.SetWindowFontScale(1.5f);
+			ImGui.PushFont(_imGuiManager.HeadingFont);
 			ImGuiSafe.TextSafe(entityName);
-			ImGui.SetWindowFontScale(1.0f);
+			ImGui.PopFont();
 
 			float spacing = 12f * _imGuiManager.FontSizeMultiplier;
 			float iconSize = 20f * _imGuiManager.FontSizeMultiplier;
@@ -709,7 +709,7 @@ public class EntityInspectorWindow
 
 			ImGui.PushStyleColor(ImGuiCol.Border, warnColor);
 			ImGui.BeginChild("missingcard",
-				new System.Numerics.Vector2(0, ImGui.GetFrameHeightWithSpacing() * 2.2f), true);
+				new System.Numerics.Vector2(0, ImGui.GetFrameHeightWithSpacing() * 2.2f), ImGuiChildFlags.Borders);
 
 			ImGui.TextColored(warnColor, $"Missing Component: {shortName}");
 			if (ImGui.IsItemHovered())
@@ -776,7 +776,7 @@ public class EntityInspectorWindow
 			ImGuiSafe.TextSafe($"Available Components ({componentTypes.Count}):");
 			ImGui.Separator();
 
-			if (ImGui.BeginChild("ComponentList", new Num.Vector2(0, 350), true))
+			if (ImGui.BeginChild("ComponentList", new Num.Vector2(0, 350), ImGuiChildFlags.Borders))
 			{
 				foreach (var componentType in componentTypes)
 				{
@@ -1474,7 +1474,7 @@ public class EntityInspectorWindow
 			ImGuiSafe.TextColoredSafe(new Num.Vector4(0.8f, 0.8f, 0.8f, 1.0f), $"Entities to be modified ({_prefabCopiesToModify.Count}):");
 
 			// Create a scrollable region for the entity list
-			if (ImGui.BeginChild("EntityList", new Num.Vector2(0, Math.Min(200, _prefabCopiesToModify.Count * 80 + 20)), true))
+			if (ImGui.BeginChild("EntityList", new Num.Vector2(0, Math.Min(200, _prefabCopiesToModify.Count * 80 + 20)), ImGuiChildFlags.Borders))
 			{
 				foreach (var prefabCopy in _prefabCopiesToModify)
 				{
@@ -1653,7 +1653,7 @@ public class EntityInspectorWindow
 
 		// Per-component list.
 		if (ImGui.BeginChild("##PrefabOverrideList",
-			new Num.Vector2(0, Math.Min(150, (totalOverrides + 1) * 22 + 10)), true))
+			new Num.Vector2(0, Math.Min(150, (totalOverrides + 1) * 22 + 10)), ImGuiChildFlags.Borders))
 		{
 			// Overridden / added components.
 			foreach (var name in overrides)

@@ -370,7 +370,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			var rows = Math.Min(matches.Count, 6);
 			var height = rows * ImGui.GetTextLineHeightWithSpacing() + ImGui.GetStyle().FramePadding.Y * 2f;
 
-			ImGui.BeginChild("layer-search-results", new Num.Vector2(inputWidth, height), true);
+			ImGui.BeginChild("layer-search-results", new Num.Vector2(inputWidth, height), ImGuiChildFlags.Borders);
 
 			for (var i = 0; i < matches.Count; i++)
 			{
@@ -657,11 +657,10 @@ namespace Voltage.Editor.Tools.Tilemap
 
 					var picked = _selectedLayers.Contains(map);
 					var rowClicked = Gui.Selectable($"{i + 1}##layerrow", picked,
-						ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap,
+						ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowOverlap,
 						new Num.Vector2(0f, ImGui.GetFrameHeight()));
 
 					ImGui.PopStyleVar();
-					ImGui.SetItemAllowOverlap();
 
 					// Read before the drag-drop calls: they push windows, which moves "last item" on.
 					var rowRightClicked = ImGui.IsItemClicked(ImGuiMouseButton.Right);
@@ -972,14 +971,14 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			ImGui.Separator();
 
-			if (Gui.Selectable("Select all layers", false, ImGuiSelectableFlags.DontClosePopups))
+			if (Gui.Selectable("Select all layers", false, ImGuiSelectableFlags.NoAutoClosePopups))
 			{
 				_selectedLayers.Clear();
 				foreach (var other in maps)
 					_selectedLayers.Add(other);
 			}
 
-			if (Gui.Selectable("Clear pick", false, ImGuiSelectableFlags.DontClosePopups))
+			if (Gui.Selectable("Clear pick", false, ImGuiSelectableFlags.NoAutoClosePopups))
 			{
 				_selectedLayers.Clear();
 				_layerRangeAnchor = null;
@@ -1519,7 +1518,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			// Both scrollbars, so a large atlas at any zoom pans in every direction. NoScrollWithMouse because
 			// the wheel is ours: Ctrl zooms, Shift pans sideways, plain scrolls.
 			ImGui.PushStyleColor(ImGuiCol.ChildBg, TileAtlasBackground.Color);
-			ImGui.BeginChild("tile_atlas", new Num.Vector2(0, 0), true,
+			ImGui.BeginChild("tile_atlas", new Num.Vector2(0, 0), ImGuiChildFlags.Borders,
 				ImGuiWindowFlags.HorizontalScrollbar | ImGuiWindowFlags.AlwaysVerticalScrollbar |
 				ImGuiWindowFlags.NoScrollWithMouse);
 

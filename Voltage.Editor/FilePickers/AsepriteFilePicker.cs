@@ -169,7 +169,7 @@ namespace Voltage.Editor.FilePickers
 
 				if (_availableLayers.Count > 0)
                 {
-                    if (ImGui.BeginChild("selection-section", new Num.Vector2(800, 300), true))
+                    if (ImGui.BeginChild("selection-section", new Num.Vector2(800, 300), ImGuiChildFlags.Borders))
                     {
                         DrawLayerSelection();
                         ImGui.Separator();
@@ -310,7 +310,7 @@ namespace Voltage.Editor.FilePickers
             Gui.InputText("Search Layers", ref _layerSearchFilter, 256);
             ImGui.Spacing();
 
-            if (ImGui.BeginChild("layer-list", new Num.Vector2(-1, 120), true))
+            if (ImGui.BeginChild("layer-list", new Num.Vector2(-1, 120), ImGuiChildFlags.Borders))
             {
                 var filteredLayers = string.IsNullOrEmpty(_layerSearchFilter)
                     ? _availableLayers

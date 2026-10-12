@@ -107,7 +107,9 @@ namespace Voltage.Editor.Utils
 				
 				VoltageEditorUtils.SmallVerticalSpace();
 				
+				ImGui.PushFont(Core.GetGlobalManager<ImGuiCore.ImGuiManager>().LogFont);
 				DrawCurrentItemStatus();
+				ImGui.PopFont();
 				
 				VoltageEditorUtils.MediumVerticalSpace();
 				

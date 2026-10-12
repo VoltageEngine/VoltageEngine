@@ -82,7 +82,7 @@ public class TransformInspector
                         : allEntities.Where(e => e.Name != null && e.Name.Contains(_parentSearch, StringComparison.OrdinalIgnoreCase)).ToList();
 
                     // List selectable entities
-                    ImGui.BeginChild("ParentList", new Num.Vector2(320, 300), true);
+                    ImGui.BeginChild("ParentList", new Num.Vector2(320, 300), ImGuiChildFlags.Borders);
                     for (int i = 0; i < filtered.Count; i++)
                     {
                         bool selected = i == _parentListSelectedIndex;

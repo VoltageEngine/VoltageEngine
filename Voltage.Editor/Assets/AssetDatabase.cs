@@ -849,12 +849,21 @@ namespace Voltage.Editor.Assets
         }
 
         /// <summary>
-        /// Only <c>.vasset</c> files act on a content-only write: the cached header is dropped and any live instance is re-read <b>in place</b>, so an open window and a running play session both pick up an external edit without a restart.
+        /// Refreshes cached data and tile collision shapes after an external asset edit.
         /// </summary>
         private void HandleContentChanged(string absolutePath)
         {
-            if (string.IsNullOrEmpty(absolutePath) ||
-                !absolutePath.EndsWith(Voltage.Data.DataAssetIO.FileExtension, StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrEmpty(absolutePath))
+                return;
+
+            if (absolutePath.EndsWith(Voltage.Tilesets.TilesetAssetIO.FileExtension, StringComparison.OrdinalIgnoreCase))
+            {
+                Voltage.Tilesets.TilesetRuntime.Invalidate(absolutePath);
+                Voltage.Editor.Tools.Tilemap.TilemapSceneUtils.ReloadTilesetsInScene();
+                return;
+            }
+
+            if (!absolutePath.EndsWith(Voltage.Data.DataAssetIO.FileExtension, StringComparison.OrdinalIgnoreCase))
                 return;
 
             Guid guid;

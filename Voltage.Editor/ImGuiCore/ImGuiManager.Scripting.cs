@@ -260,9 +260,11 @@ public partial class ImGuiManager
 			ImGui.TextColored(new Num.Vector4(0.2f, 0.8f, 1.0f, 1.0f), "Compilation Log");
 			ImGui.Separator();
 
-			if (ImGui.BeginChild("CompilationLog", new Num.Vector2(0, 150), true))
+			if (ImGui.BeginChild("CompilationLog", new Num.Vector2(0, 150), ImGuiChildFlags.Borders))
 			{
+				ImGui.PushFont(LogFont);
 				ImGuiSafe.TextWrappedSafe(_compilationLog);
+				ImGui.PopFont();
 				ImGui.EndChild();
 			}
 

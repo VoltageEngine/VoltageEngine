@@ -590,7 +590,7 @@ namespace Voltage.Editor.Tools.Tilemap
 				: Math.Max(availY, MinAtlasHeight);
 
 			ImGui.PushStyleColor(ImGuiCol.ChildBg, TileAtlasBackground.Color);
-			ImGui.BeginChild("tileset_preview", new Num.Vector2(0, atlasHeight), true,
+			ImGui.BeginChild("tileset_preview", new Num.Vector2(0, atlasHeight), ImGuiChildFlags.Borders,
 				ImGuiWindowFlags.HorizontalScrollbar);
 
 			var origin = ImGui.GetCursorScreenPos();
@@ -607,7 +607,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (hasSelection)
 			{
 				// Fixed height with its own scrollbar so a long frame list never clips.
-				ImGui.BeginChild("tileset_tilepanel", new Num.Vector2(0, SelectedPanelHeight), true);
+				ImGui.BeginChild("tileset_tilepanel", new Num.Vector2(0, SelectedPanelHeight), ImGuiChildFlags.Borders);
 				DrawSelectedTilePanel();
 				ImGui.EndChild();
 			}

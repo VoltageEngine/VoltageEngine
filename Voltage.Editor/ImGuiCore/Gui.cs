@@ -91,6 +91,20 @@ public static class Gui
 	public static bool Button(string label) => Item(ImGui.Button(label), "button", label);
 
 	public static bool Button(string label, Vector2 size) => Item(ImGui.Button(label, size), "button", label);
+	internal static bool CaptionButton(string label, string caption) => Item(ImGui.Button(caption + "###" + label), "button", label);
+
+	public static bool IconButton(string label, string glyph, ImFontPtr font, Vector2 size, bool selected = false)
+	{
+		// A real ImGui button retains keyboard navigation, focus feedback and the gateway's stable label.
+		if (selected) ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetStyle().Colors[(int)ImGuiCol.HeaderActive]);
+		var pressed = Item(ImGui.Button("##" + label, size), "button", label);
+		if (selected) ImGui.PopStyleColor();
+		var glyphSize = font.CalcTextSizeA(font.FontSize, float.MaxValue, 0, glyph);
+		var position = ImGui.GetItemRectMin() + (size - glyphSize) * 0.5f;
+		position = new Vector2(System.MathF.Floor(position.X), System.MathF.Floor(position.Y));
+		ImGui.GetWindowDrawList().AddText(font, font.FontSize, position, ImGui.GetColorU32(ImGuiCol.Text), glyph);
+		return pressed;
+	}
 
 	public static bool SmallButton(string label) => Item(ImGui.SmallButton(label), "button", label);
 
@@ -117,6 +131,8 @@ public static class Gui
 	public static bool Selectable(string label, bool selected, ImGuiSelectableFlags flags) => Item(ImGui.Selectable(label, selected, flags), "selectable", label);
 
 	public static bool Selectable(string label, bool selected, ImGuiSelectableFlags flags, Vector2 size) => Item(ImGui.Selectable(label, selected, flags, size), "selectable", label);
+	internal static bool CaptionSelectable(string label, string caption, bool selected, ImGuiSelectableFlags flags, Vector2 size) =>
+		Item(ImGui.Selectable(caption + "###" + label, selected, flags, size), "selectable", label);
 
 	public static bool Selectable(string label, ref bool selected) => Item(ImGui.Selectable(label, ref selected), "selectable", label);
 
@@ -251,6 +267,8 @@ public static class Gui
 	public static bool SliderInt(string label, ref int value, int min, int max) => Item(ImGui.SliderInt(label, ref value, min, max), "slider", label);
 
 	public static bool SliderInt(string label, ref int value, int min, int max, string format) => Item(ImGui.SliderInt(label, ref value, min, max, format), "slider", label);
+	internal static bool CaptionSliderInt(string label, ref int value, int min, int max, string format) =>
+		Item(ImGui.SliderInt("##" + label, ref value, min, max, format), "slider", label);
 
 	public static bool Combo(string label, ref int current, string[] items, int count) => Item(ImGui.Combo(label, ref current, items, count), "combo", label);
 

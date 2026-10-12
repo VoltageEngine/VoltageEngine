@@ -209,7 +209,7 @@ namespace Voltage.Editor.Styling
                     return;
                 }
 
-                string layoutContent = File.ReadAllText(sourcePath);
+                string layoutContent = LayoutCompatibility.Upgrade(File.ReadAllText(sourcePath));
 
                 // Schedule layout reload for NEXT FRAME (before windows are created)
                 _pendingLayoutContent = layoutContent;

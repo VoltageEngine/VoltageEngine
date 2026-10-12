@@ -138,13 +138,15 @@ public class EntityPane
 	{
 		var clearWidth = ImGui.GetFrameHeight();
 
-		var inputWidth = Math.Max(60f,
-			ImGui.GetContentRegionAvail().X - clearWidth - ImGui.GetStyle().ItemSpacing.X);
+		var available = ImGui.GetContentRegionAvail().X;
+		var inputWidth = available - clearWidth - ImGui.GetStyle().ItemSpacing.X;
+		var clearOnSameRow = inputWidth >= 60;
+		if (!clearOnSameRow) inputWidth = Math.Max(1, available);
 
 		ImGui.SetNextItemWidth(inputWidth);
 		Gui.InputTextWithHint("##EntitySearch", "Search entities...", ref _entitySearch, 128);
 
-		ImGui.SameLine();
+		if (clearOnSameRow) ImGui.SameLine();
 
 		ImGui.BeginDisabled(!IsFiltering);
 		if (Gui.Button("x##ClearEntitySearch", new System.Numerics.Vector2(clearWidth, 0)))
@@ -230,7 +232,7 @@ public class EntityPane
 
 			clipper.Begin(_rows.Count, -1);
 			int scrollIndex = _rows.FindIndex(row => row.Entity == _scrollToEntity);
-			if (scrollIndex >= 0) clipper.ForceDisplayRangeByIndices(scrollIndex, scrollIndex + 1);
+			if (scrollIndex >= 0) clipper.IncludeItemByIndex(scrollIndex);
 
 			while (clipper.Step())
 				for (var i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
@@ -981,7 +983,7 @@ public class EntityPane
                 }
             }
 
-			if (Gui.Selectable("Create Child", false, ImGuiSelectableFlags.DontClosePopups))
+			if (Gui.Selectable("Create Child", false, ImGuiSelectableFlags.NoAutoClosePopups))
 			{
 				var child = new Entity("Child Entity");
 				child.Transform.SetParent(entity.Transform);

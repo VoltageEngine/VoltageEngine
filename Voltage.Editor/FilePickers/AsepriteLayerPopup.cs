@@ -306,7 +306,7 @@ namespace Voltage.Editor.FilePickers
 				? "Layers added to the file later are included automatically."
 				: "Layers added to the file later are NOT included until you tick them here.");
 
-			ImGui.BeginChild("layers", new Num.Vector2(0, 150), true);
+			ImGui.BeginChild("layers", new Num.Vector2(0, 150), ImGuiChildFlags.Borders);
 
 			// Layer names repeat across groups, so the name alone is not a unique ImGui ID.
 			for (var i = 0; i < _layers.Count; i++)

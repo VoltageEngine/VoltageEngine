@@ -6,5 +6,7 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<Compile Include="../../Voltage.Editor/Effects/EffectToolchain.cs" Link="EffectToolchain.cs" />
+		<Compile Include="../../Voltage.Editor/Effects/ShaderToolchainSetup.cs" Link="ShaderToolchainSetup.cs" />
+		<Compile Include="../../Voltage.Engine/Diagnostics/HostPackageManager.cs" Link="HostPackageManager.cs" />
 	</ItemGroup>
 </Project>

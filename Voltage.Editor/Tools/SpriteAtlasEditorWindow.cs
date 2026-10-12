@@ -89,7 +89,7 @@ namespace Voltage.Editor.Tools
 
 				if (_hasSlicedContent)
 				{
-					ImGui.BeginChild("Slice Origins", new Num.Vector2(250, 0), true);
+					ImGui.BeginChild("Slice Origins", new Num.Vector2(250, 0), ImGuiChildFlags.Borders);
 					DrawLeftPane();
 					ImGui.EndChild();
 
@@ -101,7 +101,7 @@ namespace Voltage.Editor.Tools
 				if (!_hasSlicedContent)
 					rightPanePaddedSize = 0;
 
-				ImGui.BeginChild("item view", new Num.Vector2(ImGui.GetContentRegionAvail().X - rightPanePaddedSize, 0), false, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
+				ImGui.BeginChild("item view", new Num.Vector2(ImGui.GetContentRegionAvail().X - rightPanePaddedSize, 0), ImGuiChildFlags.None, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
 				if (_textureLoadedThisFrame)
 				{
 					FrameImage();
@@ -114,7 +114,7 @@ namespace Voltage.Editor.Tools
 
 				if (_hasSlicedContent)
 				{
-					ImGui.BeginChild("Right Pane", new Num.Vector2(300, 0), true);
+					ImGui.BeginChild("Right Pane", new Num.Vector2(300, 0), ImGuiChildFlags.Borders);
 					DrawRightPane();
 					ImGui.EndChild();
 				}
@@ -648,7 +648,7 @@ namespace Voltage.Editor.Tools
 
 		Num.Vector2 CalcFitToScreen()
 		{
-			var availSize = ImGui.GetContentRegionMax();
+			var availSize = ImGui.GetContentRegionAvail();
 			var autoScale = _textureSize / availSize;
 			if (autoScale.X > autoScale.Y)
 				return new Num.Vector2(availSize.X, availSize.X / _textureAspectRatio);

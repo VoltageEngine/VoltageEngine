@@ -32,7 +32,6 @@ public partial class SpriteLight : DeferredLight
     public void SetFrameMask(Sprite frame, Sprite mask)
     {
         _masks[frame] = mask;
-        GetField(mask);
     }
     private Sprite GetField(Sprite mask)
     {

@@ -56,7 +56,7 @@ public struct AssetReference
 
 		// 2. GUID via the baked asset manifest — published builds.
 		if (AssetGuid != Guid.Empty &&
-		    Voltage.Assets.AssetManifest.TryGetAbsolutePath(AssetGuid, out var byGuid))
+		    Voltage.Assets.AssetManifest.TryGetReferencePath(AssetGuid, out var byGuid))
 			return byGuid;
 
 		// 3. Stored path fallback (project-relative → game base directory; absolute as-is).
