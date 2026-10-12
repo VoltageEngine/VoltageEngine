@@ -13,6 +13,7 @@ using Voltage.Editor.Persistence;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.SceneFile;
 using Voltage.Editor.Utils;
+using Voltage.Project;
 using Voltage.Utils;
 using Num = System.Numerics;
 
@@ -24,6 +25,7 @@ namespace Voltage.Editor.Builders;
 public class GameBuildWindow
 {
 	private bool _showBuildPopup = false;
+	private bool _resetBuildScroll, _focusScenes;
 	private bool _isBuilding = false;
 
 	// Persistent user preferences
@@ -45,6 +47,8 @@ public class GameBuildWindow
 	// Initial scene selection
 	private List<string> _availableScenes = new();
 	private int _selectedSceneIndex = 0;
+	private readonly HashSet<int> _selectedBuildScenes = new();
+	private int _sceneSelectionAnchor = -1;
 
 	// Progress tracking
 	private CompilationProgressWindow _progressWindow;
@@ -67,9 +71,11 @@ public class GameBuildWindow
 	/// <summary>
 	/// Opens the build options popup.
 	/// </summary>
-	public void OpenBuildPopup()
+	public void OpenBuildPopup(bool focusScenes = false)
 	{
 		_showBuildPopup = true;
+		_resetBuildScroll = true;
+		_focusScenes = focusScenes;
 		RefreshAvailableScenes();
 	}
 
@@ -130,6 +136,8 @@ public class GameBuildWindow
 	{
 		_availableScenes.Clear();
 		_selectedSceneIndex = 0;
+		_selectedBuildScenes.Clear();
+		_sceneSelectionAnchor = -1;
 
 		var projectManager = ProjectManager.Instance;
 		if (!projectManager.HasActiveProject)
@@ -142,10 +150,11 @@ public class GameBuildWindow
 		var settings = projectManager.CurrentProject.Settings;
 		if (settings != null && !string.IsNullOrEmpty(settings.InitialScene))
 		{
-			var idx = _availableScenes.IndexOf(settings.InitialScene);
+			var idx = _availableScenes.IndexOf(SceneCatalog.NormalizeKey(settings.InitialScene));
 			if (idx >= 0)
 				_selectedSceneIndex = idx;
 		}
+		if (_availableScenes.Count > 0) SelectBuildSceneRow(_selectedSceneIndex, false, false);
 	}
 
 	private void DrawBuildOptionsPopup()
@@ -156,13 +165,15 @@ public class GameBuildWindow
 			_showBuildPopup = false;
 		}
 
-		var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.4f);
+		var display = ImGui.GetIO().DisplaySize;
+		var center = display * 0.5f;
 		ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
-		ImGui.SetNextWindowSize(new Num.Vector2(550, 0), ImGuiCond.Appearing);
+		ImGui.SetNextWindowSize(new Num.Vector2(Math.Min(display.X - 40, Math.Max(660, ImGui.GetFontSize() * 32)), Math.Min(860, display.Y - 60)), ImGuiCond.Appearing);
 
 		bool open = true;
-		if (Gui.BeginPopupModal("Build Game##Options", ref open, ImGuiWindowFlags.AlwaysAutoResize))
+		if (Gui.BeginPopupModal("Build Game##Options", ref open))
 		{
+			if (_resetBuildScroll) { ImGui.SetScrollY(0); _resetBuildScroll = false; }
 			var projectManager = ProjectManager.Instance;
 			if (!projectManager.HasActiveProject)
 			{
@@ -204,6 +215,7 @@ public class GameBuildWindow
 			VoltageEditorUtils.SmallVerticalSpace();
 
 			DrawInitialSceneSelector();
+			DrawSceneBuildSelector(project);
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
@@ -349,8 +361,10 @@ public class GameBuildWindow
 
 			ImGui.SetCursorPosX(centerStart);
 
-			bool hasScene = _availableScenes.Count > 0;
+			bool hasScene = _availableScenes.Count > 0 && SceneCatalog.Included(_availableScenes[_selectedSceneIndex], project.Settings.BuildScenes, _debugBuild.Value);
 			bool canBuild = selectedPlatform.IsAvailable && !_isBuilding && hasScene;
+			if (!hasScene && _availableScenes.Count > 0)
+				ImGui.TextColored(new Num.Vector4(1, 0.5f, 0.3f, 1), "Include the startup scene in this build configuration to build.");
 			if (!canBuild)
 				ImGui.BeginDisabled();
 
@@ -387,6 +401,86 @@ public class GameBuildWindow
 	/// <summary>
 	/// Draws the initial scene combo selector.
 	/// </summary>
+	private void SelectBuildSceneRow(int index, bool control, bool shift)
+	{
+		if (shift && _sceneSelectionAnchor >= 0)
+		{
+			if (!control) _selectedBuildScenes.Clear();
+			for (int i = Math.Min(index, _sceneSelectionAnchor); i <= Math.Max(index, _sceneSelectionAnchor); i++)
+				_selectedBuildScenes.Add(i);
+			return;
+		}
+		if (!control) _selectedBuildScenes.Clear();
+		if (!control || !_selectedBuildScenes.Remove(index)) _selectedBuildScenes.Add(index);
+		_sceneSelectionAnchor = index;
+	}
+
+	private void SetSceneAvailability(IGameProject project, string scene, bool? debug, bool? release)
+	{
+		var rules = project.Settings.BuildScenes ??= new();
+		var rule = rules.Find(r => r?.Scene == scene);
+		if (rule == null) { rule = new ProjectSettings.SceneBuildRule { Scene = scene }; rules.Add(rule); }
+		if (debug.HasValue) rule.Debug = debug.Value;
+		if (release.HasValue) rule.Release = release.Value;
+		if (rule.Debug && rule.Release) rules.Remove(rule);
+	}
+
+	private void DrawSceneBuildSelector(IGameProject project)
+	{
+		VoltageEditorUtils.MediumVerticalSpace();
+		ImGui.TextColored(new Num.Vector4(0.8f, 0.9f, 1, 1), "Scenes in Build");
+		if (_focusScenes) { ImGui.SetScrollHereY(0); _focusScenes = false; }
+		ImGui.TextWrapped("Ctrl-click to toggle rows; Shift-click to select a range. Debug and Release checkboxes control which scenes ship.");
+		if (Gui.Button("Select All"))
+		{
+			_selectedBuildScenes.UnionWith(Enumerable.Range(0, _availableScenes.Count));
+			_sceneSelectionAnchor = _availableScenes.Count > 0 ? 0 : -1;
+		}
+		ImGui.SameLine();
+		if (Gui.Button("Clear Selection")) { _selectedBuildScenes.Clear(); _sceneSelectionAnchor = -1; }
+		ImGui.SameLine();
+		ImGui.Text($"{_selectedBuildScenes.Count} selected");
+		ImGui.BeginDisabled(_selectedBuildScenes.Count == 0 || _isBuilding);
+		void Bulk(string label, bool debug, bool release)
+		{
+			if (!Gui.Button(label)) return;
+			foreach (var row in _selectedBuildScenes) SetSceneAvailability(project, _availableScenes[row], debug, release);
+			SaveBuildSettings(project);
+		}
+		Bulk("Include selected", true, true);
+		ImGui.SameLine(); Bulk("Exclude selected", false, false);
+		Bulk("Debug only", true, false);
+		ImGui.SameLine(); Bulk("Release only", false, true);
+		ImGui.EndDisabled();
+		if (ImGui.BeginTable("BuildScenes", 3, ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersInnerV | ImGuiTableFlags.ScrollY, new Num.Vector2(0, 200)))
+		{
+			ImGui.TableSetupColumn("Scene", ImGuiTableColumnFlags.WidthStretch);
+			ImGui.TableSetupColumn("Debug", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFontSize() * 4);
+			ImGui.TableSetupColumn("Release", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFontSize() * 4);
+			ImGui.TableSetupScrollFreeze(0, 1);
+			ImGui.TableHeadersRow();
+			for (int i = 0; i < _availableScenes.Count; i++)
+			{
+				var scene = _availableScenes[i];
+				ImGui.TableNextRow();
+				ImGui.TableNextColumn();
+				if (Gui.Selectable(scene, _selectedBuildScenes.Contains(i), ImGuiSelectableFlags.NoAutoClosePopups))
+					SelectBuildSceneRow(i, ImGui.GetIO().KeyCtrl || ImGui.GetIO().KeySuper, ImGui.GetIO().KeyShift);
+				ImGui.TableNextColumn();
+				bool debug = SceneCatalog.Included(scene, project.Settings.BuildScenes, true);
+				ImGui.BeginDisabled(_isBuilding);
+				if (Gui.Checkbox("##Debug:" + scene, ref debug)) { SetSceneAvailability(project, scene, debug, null); SaveBuildSettings(project); }
+				ImGui.TableNextColumn();
+				bool release = SceneCatalog.Included(scene, project.Settings.BuildScenes, false);
+				if (Gui.Checkbox("##Release:" + scene, ref release)) { SetSceneAvailability(project, scene, null, release); SaveBuildSettings(project); }
+				ImGui.EndDisabled();
+			}
+			ImGui.EndTable();
+		}
+		int included = _availableScenes.Count(scene => SceneCatalog.Included(scene, project.Settings.BuildScenes, _debugBuild.Value));
+		ImGui.Text($"{included} of {_availableScenes.Count} scenes included in {(_debugBuild.Value ? "Debug" : "Release")}");
+	}
+
 	private void DrawInitialSceneSelector()
 	{
 		if (_availableScenes.Count == 0)
@@ -407,6 +501,7 @@ public class GameBuildWindow
 				if (Gui.Selectable(_availableScenes[i], isSelected))
 				{
 					_selectedSceneIndex = i;
+					SaveInitialSceneSetting(ProjectManager.Instance.CurrentProject);
 				}
 
 				if (isSelected)
@@ -440,16 +535,20 @@ public class GameBuildWindow
 			return;
 
 		settings.InitialScene = selectedScene;
+		SaveBuildSettings(project);
+	}
 
+	private void SaveBuildSettings(IGameProject project)
+	{
 		try
 		{
 			var settingsPath = Path.Combine(project.ProjectPath, "ProjectSettings.json");
-			var json = Voltage.Persistence.Json.ToJson(settings, new Voltage.Persistence.JsonSettings { PrettyPrint = true });
+			var json = Voltage.Persistence.Json.ToJson(project.Settings, new Voltage.Persistence.JsonSettings { PrettyPrint = true });
 			File.WriteAllText(settingsPath, json, new System.Text.UTF8Encoding(false));
 		}
 		catch (Exception ex)
 		{
-			Debug.Error($"Failed to save InitialScene setting: {ex.Message}", "GameBuildWindow");
+			Debug.Error($"Failed to save build settings: {ex.Message}", "GameBuildWindow");
 		}
 	}
 

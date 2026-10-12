@@ -80,6 +80,7 @@ public static class GameBuilder
 
 		try
 		{
+			var scenes = SceneBuildSelection.Plan(project.ScenesFolder, project.Settings, debugBuild);
 			if (EffectsCompiler.NeedsProjectCompilation(project))
 				await ShaderSetupDialog.EnsureReadyAsync(MonoGameVersionResolver.GetVersion(), cancellationToken);
 
@@ -204,6 +205,7 @@ public static class GameBuilder
 			// 5) Copy project Data folder (scenes, prefabs, serialized data)
 			OnBuildStepStarted?.Invoke("Copying project data...");
 			bool dataSuccess = CopyProjectData(project, buildDir);
+			if (dataSuccess) SceneBuildSelection.Package(project.ProjectPath, project.ScenesFolder, buildDir, scenes);
 			OnBuildStepCompleted?.Invoke("Copy project data", dataSuccess);
 
 			cancellationToken.ThrowIfCancellationRequested();

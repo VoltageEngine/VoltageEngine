@@ -24,7 +24,7 @@ namespace Voltage.Project
 		private static ProjectSettings _instance;
 
 		/// <summary>
-		/// The .vscene file name (without extension) that the game loads on startup.
+		/// The scene path relative to Scenes (without extension) that the game loads on startup.
 		/// When empty, the game creates a default empty scene (called MainScene).
 		/// </summary>
 		public string InitialScene;
@@ -37,6 +37,9 @@ namespace Voltage.Project
 		public string ContentDirectory;
 		public AssetBuildSettings AssetBuild;
 
+		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(List<SceneBuildRule>))]
+		public List<SceneBuildRule> BuildScenes = new();
+
 		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(ProjectSettings))]
 		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(DisplaySettings))]
 		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(AudioSettings))]
@@ -45,6 +48,7 @@ namespace Voltage.Project
 		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(RenderingSettings))]
 		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(EntitySettings))]
 		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(AssetBuildSettings))]
+		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(SceneBuildRule))]
 		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(string))]
 		public ProjectSettings()
 		{
@@ -57,6 +61,15 @@ namespace Voltage.Project
 			Entities = new EntitySettings();
 			ContentDirectory = "Content";
 			AssetBuild = new AssetBuildSettings();
+		}
+
+		/// <summary>Per-scene build availability; scenes without a rule are included in both configurations.</summary>
+		[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
+		public class SceneBuildRule
+		{
+			public string Scene = "";
+			public bool Debug = true;
+			public bool Release = true;
 		}
 
 		/// <summary>How a game build compiles the Content folder with MGCB; off by default and ignored by the editor.</summary>

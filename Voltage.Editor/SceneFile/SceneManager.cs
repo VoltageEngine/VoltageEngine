@@ -128,11 +128,10 @@ public class SceneManager : GlobalManager
 	/// </summary>
 	public List<string> GetAllSceneNames()
 	{
-		return GetAllSceneFiles()
-			.Select(path => Path.GetFileNameWithoutExtension(path))
-			.OrderBy(name => name)
-			.ToList();
+		return GetSceneCatalog().AllScenes().ToList();
 	}
+
+	public Voltage.Project.SceneCatalog GetSceneCatalog() => Voltage.Project.SceneCatalog.Read(GetActiveScenesFolder());
 
 	/// <summary>
 	/// Checks if a scene file exists
@@ -312,7 +311,7 @@ public class SceneManager : GlobalManager
 		if (scenesFolder == null)
 			return null;
 
-		return Path.Combine(scenesFolder, $"{sceneName}.vscene");
+		return Voltage.Project.SceneCatalog.Resolve(scenesFolder, sceneName);
 	}
 
 	#endregion

@@ -238,6 +238,18 @@ public partial class ImGuiManager
 		}
 	}
 
+	private void DrawSceneFolders(Voltage.Project.SceneCatalog folder)
+	{
+		foreach (var child in folder.Folders)
+		{
+			if (!Gui.BeginMenu(child.Name)) continue;
+			DrawSceneFolders(child);
+			Gui.EndMenu();
+		}
+		foreach (var scene in folder.Scenes)
+			if (Gui.MenuItem(Path.GetFileName(scene))) RequestSceneChange(scene);
+	}
+
 	private void DrawProjectMenu()
 	{
 		if (Gui.BeginMenu("Project"))
@@ -261,20 +273,14 @@ public partial class ImGuiManager
 				if (_projectManager.HasActiveProject)
 				{
 					var sceneManager = SceneManager.Instance;
-					var sceneNames = sceneManager.GetAllSceneNames();
+					var scenes = sceneManager.GetSceneCatalog();
 					
-					if (sceneNames.Count > 0)
+					if (scenes.Scenes.Count > 0 || scenes.Folders.Count > 0)
 					{
 						ImGui.TextColored(new Vector4(0.7f, 1.0f, 0.7f, 1.0f), "Project Scenes:");
 						ImGui.Separator();
 						
-						foreach (var sceneName in sceneNames)
-						{
-							if (Gui.MenuItem(sceneName))
-							{
-								RequestSceneChange(sceneName);
-							}
-						}
+						DrawSceneFolders(scenes);
 
 					}
 					else
@@ -1216,6 +1222,9 @@ public partial class ImGuiManager
 			{
 				_gameBuildWindow.OpenBuildPopup();
 			}
+
+			if (Gui.MenuItem("Scenes in Build"))
+				_gameBuildWindow.OpenBuildPopup(focusScenes: true);
 
 			bool isBuildInProgress = _gameBuildWindow.IsBuilding;
 			if (isBuildInProgress)

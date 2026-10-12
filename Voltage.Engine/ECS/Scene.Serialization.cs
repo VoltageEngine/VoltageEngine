@@ -303,7 +303,7 @@ namespace Voltage
 		/// <c>AppContext.BaseDirectory/Data/Scenes</c>. To reload the active scene, prefer
 		/// <see cref="ReloadCurrentLevel"/>, which reuses the exact file the scene was loaded from.</para>
 		/// </summary>
-		/// <param name="levelName">The .vscene file name without extension (e.g. "MainScene").</param>
+		/// <param name="levelName">The relative scene path without extension (e.g. "Act 1/Room").</param>
 		/// <param name="applyDisplaySettings">
 		/// When true, applies the ProjectSettings Display block (screen size, fullscreen, vsync) to the window.
 		/// Intended for the initial load at startup; leave false for in-game level switches so the window is not reset.
@@ -318,7 +318,7 @@ namespace Voltage
 			var scenesDir = string.IsNullOrEmpty(ScenesDirectory)
 				? Path.Combine(AppContext.BaseDirectory, "Data", "Scenes")
 				: ScenesDirectory;
-			var scenePath = Path.Combine(scenesDir, levelName + ".vscene");
+			var scenePath = SceneCatalog.Resolve(scenesDir, levelName);
 
 			return LoadLevelFromPath(scenePath, applyDisplaySettings);
 		}
