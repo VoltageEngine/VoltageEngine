@@ -15,13 +15,24 @@ namespace Voltage.Cinematics
 	{
 		private static readonly Dictionary<(string ComponentId, string Method), Action<Component, TimelineArg[]>> _invokers
 			= new();
+		private static readonly Dictionary<(string ComponentId, Type ComponentType, string Method), Action<Component, TimelineArg[]>> _typedInvokers = new();
+		private static readonly HashSet<(string ComponentId, string Method)> _legacy = new();
 
 		/// <summary>Registers an invoker for a component method. Called by generated module initializers.</summary>
 		public static void Register(string componentId, string method, Action<Component, TimelineArg[]> invoker)
+			=> Register(componentId, method, invoker, null);
+
+		public static void Register(string componentId, string method, Action<Component, TimelineArg[]> invoker, Type componentType)
 		{
 			if (string.IsNullOrEmpty(componentId) || string.IsNullOrEmpty(method) || invoker == null)
 				return;
 			_invokers[(componentId, method)] = invoker;
+			if (componentType == null) _legacy.Add((componentId, method));
+			else
+			{
+				_legacy.Remove((componentId, method));
+				_typedInvokers[(componentId, componentType, method)] = invoker;
+			}
 		}
 
 		/// <summary>True when a <c>[TimelineEvent]</c> method with this id+name has been registered.</summary>
@@ -37,7 +48,20 @@ namespace Voltage.Cinematics
 			if (target == null || string.IsNullOrEmpty(componentId) || string.IsNullOrEmpty(method))
 				return false;
 
-			if (_invokers.TryGetValue((componentId, method), out var invoker))
+			var key = (componentId, method);
+			var found = _legacy.Contains(key)
+				? _invokers.TryGetValue(key, out var invoker)
+				: _typedInvokers.TryGetValue((componentId, target.GetType(), method), out invoker);
+			if (!found)
+				foreach (var registered in _typedInvokers)
+					if (registered.Key.ComponentId == componentId && registered.Key.Method == method &&
+						registered.Key.ComponentType.IsInstanceOfType(target))
+					{
+						invoker = registered.Value;
+						found = true;
+						break;
+					}
+			if (found)
 			{
 				invoker(target, args ?? Array.Empty<TimelineArg>());
 				return true;

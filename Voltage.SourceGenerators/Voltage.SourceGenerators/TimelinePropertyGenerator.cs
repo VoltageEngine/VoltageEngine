@@ -185,7 +185,7 @@ namespace Voltage.SourceGenerators
 					sb.AppendLine($"\t\t\t\t\"{Escape(reg.ComponentId)}\",");
 					sb.AppendLine($"\t\t\t\t\"{Escape(reg.Member)}\",");
 					sb.AppendLine($"\t\t\t\tstatic c => (({reg.ComponentFullName})c).{reg.Member},");
-					sb.AppendLine($"\t\t\t\tstatic (c, v) => (({reg.ComponentFullName})c).{reg.Member} = v);");
+					sb.AppendLine($"\t\t\t\tstatic (c, v) => (({reg.ComponentFullName})c).{reg.Member} = v, typeof({reg.ComponentFullName}));");
 					sb.AppendLine();
 				}
 

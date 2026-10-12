@@ -209,7 +209,7 @@ namespace Voltage.SourceGenerators
 					sb.AppendLine("\t\t\tglobal::Voltage.Cinematics.TimelineDispatch.Register(");
 					sb.AppendLine($"\t\t\t\t\"{Escape(reg.ComponentId)}\",");
 					sb.AppendLine($"\t\t\t\t\"{Escape(reg.Method)}\",");
-					sb.AppendLine($"\t\t\t\tstatic (c, a) => {invocation});");
+					sb.AppendLine($"\t\t\t\tstatic (c, a) => {invocation}, typeof({reg.ComponentFullName}));");
 					sb.AppendLine();
 				}
 
