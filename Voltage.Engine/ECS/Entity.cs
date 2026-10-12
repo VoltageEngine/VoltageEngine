@@ -159,6 +159,19 @@ public sealed class Entity : IComparable<Entity>
 		set => _debugRenderEnabled = value;
 	}
 
+	/// <summary>Whether this entity and every ancestor allow debug rendering.</summary>
+	[JsonExclude]
+	public bool DebugRenderEnabledInHierarchy
+	{
+		get
+		{
+			for (var transform = Transform; transform != null; transform = transform.Parent)
+				if (!transform.Entity.DebugRenderEnabled)
+					return false;
+			return true;
+		}
+	}
+
 	/// <summary>
 	/// update order of this Entity. updateOrder is also used to sort tag lists on scene.entities
 	/// </summary>
@@ -736,7 +749,8 @@ public sealed class Entity : IComparable<Entity>
 	/// <param name="batcher">Batcher.</param>
 	public void DebugRender(Batcher batcher)
 	{
-		Components.DebugRender(batcher);
+		if (DebugRenderEnabledInHierarchy)
+			Components.DebugRender(batcher);
 	}
 
 	#endregion

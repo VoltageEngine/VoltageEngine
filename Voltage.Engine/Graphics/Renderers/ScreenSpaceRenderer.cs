@@ -52,7 +52,7 @@ namespace Voltage
 				for (var j = 0; j < renderables.Length; j++)
 				{
 					var entity = renderables.Buffer[j];
-					if (entity.Enabled)
+					if (entity.Enabled && DebugRenderFilter.ShouldRender(entity))
 						entity.DebugRender(Graphics.Instance.Batcher);
 				}
 			}

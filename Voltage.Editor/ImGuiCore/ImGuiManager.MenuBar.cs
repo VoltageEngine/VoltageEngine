@@ -1375,12 +1375,12 @@ public partial class ImGuiManager
 	{
 		float iconSize = ImGui.GetFontSize();
 
-		bool enabled = Core.DebugRenderEnabled;
+		bool enabled = Core.DebugRenderEnabled && DebugRenderFilter.EnabledCategories != DebugRenderCategory.None;
 		if (enabled)
 			ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(0.2f, 0.5f, 1f, 1f));
 		if (Gui.ImageButton("DebugRenderingToggle", enabled ? ImguiImageLoader.EyeOn : ImguiImageLoader.EyeOff,
 			new Vector2(iconSize, iconSize)))
-			Core.DebugRenderEnabled = !enabled;
+			ToggleDebugRendering();
 		if (enabled)
 			ImGui.PopStyleColor();
 
@@ -1388,6 +1388,11 @@ public partial class ImGuiManager
 			ImGuiSafe.SetTooltipSafe(Core.DebugRenderEnabled
 				? "Debug rendering / gizmos: ON (click to hide)"
 				: "Debug rendering / gizmos: OFF (click to show)");
+		ImGui.SameLine();
+		if (Gui.ArrowButton("DebugRenderingFilters", ImGuiDir.Down))
+			ImGui.OpenPopup("DebugRenderingCategories");
+		if (ImGui.IsItemHovered()) ImGuiSafe.SetTooltipSafe("Choose debug rendering categories");
+		DrawDebugRenderingFilters();
 	}
 
 	/// <summary>

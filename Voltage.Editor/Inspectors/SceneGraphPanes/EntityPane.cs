@@ -22,7 +22,6 @@ public class EntityPane
 	#region Fields and Properties
 
     private const int MIN_ENTITIES_FOR_CLIPPER = 100;
-    private Entity _previousEntity;
 
 	// Inner drops allowed here: dropping ON a row reparents, and opens no seam.
 	private readonly Voltage.Editor.Utils.DragReorderStrip _dragReorder = new(DragDropPayloadType);
@@ -60,6 +59,14 @@ public class EntityPane
 	// When clicking an already-selected entity with no modifier, we
 	// wait for mouse release without drag before collapsing the selection.
 	private Entity _pendingSelectEntity;
+	private Entity _scrollToEntity;
+
+	public void SelectForNavigation(Entity entity)
+	{
+		_pendingSelectEntity = _renameCandidateEntity = null;
+		SetSelectedEntity(entity, false);
+		_scrollToEntity = entity;
+	}
 
 	// Inline rename state. When _renamingEntity is set, that row shows an editable text field.
 	private Entity _renamingEntity;
@@ -222,6 +229,8 @@ public class EntityPane
 			var clipper = new ImGuiListClipperPtr(clipperPtr);
 
 			clipper.Begin(_rows.Count, -1);
+			int scrollIndex = _rows.FindIndex(row => row.Entity == _scrollToEntity);
+			if (scrollIndex >= 0) clipper.ForceDisplayRangeByIndices(scrollIndex, scrollIndex + 1);
 
 			while (clipper.Step())
 				for (var i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
@@ -706,6 +715,11 @@ public class EntityPane
 			}
 		}
 		VoltageEditorUtils.ShowContextMenuTooltip();
+		if (_scrollToEntity == entity)
+		{
+			ImGui.SetScrollHereY(0.5f);
+			_scrollToEntity = null;
+		}
 
 		ImGui.OpenPopupOnItemClick("entityContextMenu", ImGuiPopupFlags.MouseButtonRight);
 		DrawEntityContextMenuPopup(entity);
@@ -722,6 +736,8 @@ public class EntityPane
 				// drag, so there is no focus-steal to guard against).
 				SetSelectedEntity(entity, ctrlDown, shiftDown);
 				_imGuiManager.OpenMainEntityInspector(entity);
+				if (Core.IsEditMode)
+					_imGuiManager.CursorSelectionManager.SetCameraTargetPosition(entity.Transform.Position);
 				ImGui.SetWindowFocus();
 				_pendingSelectEntity = null;
 			}
@@ -752,21 +768,11 @@ public class EntityPane
 		{
 			SetSelectedEntity(entity, false, false);
 			_imGuiManager.OpenMainEntityInspector(entity);
+			if (Core.IsEditMode)
+				_imGuiManager.CursorSelectionManager.SetCameraTargetPosition(entity.Transform.Position);
 			ImGui.SetWindowFocus();
 			_pendingSelectEntity = null;
 		}
-
-		if (ImGui.IsMouseClicked(0) && ImGui.IsItemClicked() &&
-			ImGui.GetMousePos().X - ImGui.GetItemRectMin().X > ImGui.GetTreeNodeToLabelSpacing())
-			if (Core.Scene.Entities.Count > 0 && Core.IsEditMode)
-			{
-				if (_previousEntity == null || !_previousEntity.Equals(entity))
-				{
-					_previousEntity = entity;
-				}
-
-				_imGuiManager.CursorSelectionManager.SetCameraTargetPosition(entity.Transform.Position);
-			}
 
 		// Drag source
 		if (ImGui.BeginDragDropSource(ImGuiDragDropFlags.SourceNoDisableHover | ImGuiDragDropFlags.SourceNoHoldToOpenOthers))
@@ -924,7 +930,11 @@ public class EntityPane
             // Entity Commands
             if (Gui.Selectable("Move Camera Here"))
                 if (Core.Scene.Entities.Count > 0 && Core.IsEditMode)
+                {
+                    if (!_selectedEntities.Contains(entity))
+                        SetSelectedEntity(entity, false);
                     _imGuiManager.CursorSelectionManager.SetCameraTargetPosition(entity.Transform.Position);
+                }
 
             
             string reason = null;

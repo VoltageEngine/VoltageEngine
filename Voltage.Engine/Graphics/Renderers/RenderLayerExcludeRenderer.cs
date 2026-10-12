@@ -44,7 +44,7 @@ namespace Voltage
 			for (var i = 0; i < scene.RenderableComponents.Count; i++)
 			{
 				var renderable = scene.RenderableComponents[i];
-				if (!ExcludedRenderLayers.Contains(renderable.RenderLayer) && renderable.Enabled &&
+				if (!ExcludedRenderLayers.Contains(renderable.RenderLayer) && renderable.Enabled && DebugRenderFilter.ShouldRender(renderable) &&
 				    renderable.IsVisibleFromCamera(cam))
 					renderable.DebugRender(Graphics.Instance.Batcher);
 			}

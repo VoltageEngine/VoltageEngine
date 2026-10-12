@@ -44,12 +44,6 @@ public class SceneGraphWindow
 	private readonly float _minSceneGraphWidth = 1f;
 	private readonly float _maxSceneGraphWidth = Screen.MonitorWidth;
 
-	// Key Hold duration params
-	private float _upKeyHoldTime = 0f;
-	private float _downKeyHoldTime = 0f;
-	private double _lastRepeatTime = 0f;
-	private const float RepeatDelay = 0.3f;
-	private const float RepeatRate = 0.08f;
 	public HashSet<Entity> ExpandedEntities = new();
 
 	// SerializedPrefab caching
@@ -252,6 +246,7 @@ public class SceneGraphWindow
 				}
 			}
 
+			HandleEntitySelectionNavigation();
 			ImGui.EndChild(); // ##SceneGraphContent
 
 			// BeginDragDropTarget() immediately after EndChild() binds to the child item,
@@ -288,7 +283,6 @@ public class SceneGraphWindow
 		// Draw delete confirmation popup outside of the main window
 		DrawDeletePrefabConfirmationPopup();
 
-		HandleEntitySelectionNavigation();
 
 		if (ImGui.IsMouseClicked(ImGuiMouseButton.Left)
 		    && !ImGui.IsAnyItemHovered()
@@ -527,88 +521,22 @@ public class SceneGraphWindow
 	#region Entity Selection Navigation
 	private void HandleEntitySelectionNavigation()
 	{
-		var selectedEntity = _imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities.FirstOrDefault();
-
-		if (!Core.IsEditMode || selectedEntity == null || !ImGui.IsWindowFocused(ImGuiFocusedFlags.AnyWindow))
-			return; 
-
-		var hierarchyList = BuildHierarchyList();
-		var currentEntity = _imGuiManager?.MainEntityInspectorWindow?.Entity;
-		if (currentEntity == null || hierarchyList.Count == 0)
-			return;
-
-		bool upPressed = EditorHotkeys.Pressed(EditorHotkeys.SelectPrevEntity);
-		bool downPressed = EditorHotkeys.Pressed(EditorHotkeys.SelectNextEntity);
-		bool upHeld = ImGui.IsKeyDown(ImGuiKey.UpArrow);
-		bool downHeld = ImGui.IsKeyDown(ImGuiKey.DownArrow);
-
-		double now = ImGui.GetTime();
-
-		if (upPressed)
-		{
-			_upKeyHoldTime = (float)now;
-			var next = NavigateUp(currentEntity, hierarchyList);
-			if (next != null)
-			{
-				_imGuiManager.OpenMainEntityInspector(next);
-				EntityPane.SetSelectedEntity(next, false);
-				ExpandParentsAndChildren(next);
-				_imGuiManager.CursorSelectionManager.SetCameraTargetPosition(next.Transform.Position);
-			}
-			_lastRepeatTime = now;
-		}
-		else if (upHeld)
-		{
-			if (now - _upKeyHoldTime > RepeatDelay && now - _lastRepeatTime > RepeatRate)
-			{
-				var next = NavigateUp(currentEntity, hierarchyList);
-				if (next != null)
-				{
-					_imGuiManager.OpenMainEntityInspector(next);
-					EntityPane.SetSelectedEntity(next, false);
-					ExpandParentsAndChildren(next);
-					_imGuiManager.CursorSelectionManager.SetCameraTargetPosition(next.Transform.Position);
-				}
-				_lastRepeatTime = now;
-			}
-		}
-		else if (!upHeld)
-		{
-			_upKeyHoldTime = 0f;
-		}
-
-		if (downPressed)
-		{
-			_downKeyHoldTime = (float)now;
-			var next = NavigateDown(currentEntity, hierarchyList);
-			if (next != null)
-			{
-				_imGuiManager.OpenMainEntityInspector(next);
-				EntityPane.SetSelectedEntity(next, false);
-				ExpandParentsAndChildren(next);
-				_imGuiManager.CursorSelectionManager.SetCameraTargetPosition(next.Transform.Position); 
-			}
-			_lastRepeatTime = now;
-		}
-		else if (downHeld)
-		{
-			if (now - _downKeyHoldTime > RepeatDelay && now - _lastRepeatTime > RepeatRate)
-			{
-				var next = NavigateDown(currentEntity, hierarchyList);
-				if (next != null)
-				{
-					_imGuiManager.OpenMainEntityInspector(next);
-					EntityPane.SetSelectedEntity(next, false);
-					ExpandParentsAndChildren(next);
-					_imGuiManager.CursorSelectionManager.SetCameraTargetPosition(next.Transform.Position);
-				}
-				_lastRepeatTime = now;
-			}
-		}
-		else if (!downHeld)
-		{
-			_downKeyHoldTime = 0f;
-		}
+		if (!Core.IsEditMode || !ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows) ||
+		    ImGui.GetIO().WantTextInput || ImGui.IsAnyItemActive()) return;
+		var current = EntityPane.SelectedEntities.LastOrDefault();
+		if (current == null) return;
+		int direction = EditorHotkeys.Pressed(EditorHotkeys.SelectPrevEntity, true) ? -1 :
+		    EditorHotkeys.Pressed(EditorHotkeys.SelectNextEntity, true) ? 1 : 0;
+		if (direction == 0) return;
+		var hierarchy = BuildHierarchyList();
+		int index = hierarchy.IndexOf(current);
+		int nextIndex = index + direction;
+		if (index < 0 || nextIndex < 0 || nextIndex >= hierarchy.Count) return;
+		var next = hierarchy[nextIndex];
+		EntityPane.SelectForNavigation(next);
+		_imGuiManager.OpenMainEntityInspector(next);
+		ExpandParentsAndChildren(next);
+		_imGuiManager.CursorSelectionManager.SetCameraTargetPosition(next.Position);
 	}
 
 	public List<Entity> BuildHierarchyList()
@@ -635,37 +563,11 @@ public class SceneGraphWindow
 		}
 	}
 
-	private Entity GetLastDescendant(Entity entity)
-	{
-		while (entity.Transform.ChildCount > 0)
-			entity = entity.Transform.GetChild(entity.Transform.ChildCount - 1).Entity;
-		return entity;
-	}
 
-	private Entity NavigateUp(Entity current, List<Entity> hierarchyList)
-	{
-		int idx = hierarchyList.IndexOf(current);
-		if (idx <= 0)
-			return null;
 
-		Entity prev = hierarchyList[idx - 1];
 
-		if (current.Transform.Parent != null && prev == current.Transform.Parent.Entity)
-			return prev;
 
-		if (prev.Transform.ChildCount > 0)
-			return GetLastDescendant(prev);
 
-		return prev;
-	}
-
-	private Entity NavigateDown(Entity current, List<Entity> hierarchyList)
-	{
-		int idx = hierarchyList.IndexOf(current);
-		if (idx < 0 || idx >= hierarchyList.Count - 1)
-			return null;
-		return hierarchyList[idx + 1];
-	}
 
 	private void ExpandParentsAndChildren(Entity entity)
 	{

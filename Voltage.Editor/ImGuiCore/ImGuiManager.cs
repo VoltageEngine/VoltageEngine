@@ -356,7 +356,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	public ImGuiManager(ImGuiOptions options = null)
 	{
 		Core.IsEditorMode = true;
-		Core.DebugRenderEnabled = true;
+		DebugRenderFilter.EnabledCategories = (DebugRenderCategory)_debugRenderCategories.Value & DebugRenderCategory.All;
+		Core.DebugRenderEnabled = DebugRenderFilter.EnabledCategories != DebugRenderCategory.None;
 
 		if (options == null)
 			options = new ImGuiOptions();
@@ -637,7 +638,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private void OnEditModeSwitched(bool isEditMode)
 	{
 		if(EditorSettingsWindow.DisableDebugInPlayMode)
-			Core.DebugRenderEnabled = isEditMode;
+			Core.DebugRenderEnabled = isEditMode && DebugRenderFilter.EnabledCategories != DebugRenderCategory.None;
 
 		// Returning to EditMode always clears PauseMode
 		if (isEditMode)

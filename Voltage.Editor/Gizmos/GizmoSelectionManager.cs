@@ -169,7 +169,7 @@ namespace Voltage.Editor.Gizmos
 					return;
 				}
 
-				if (Core.IsEditMode && Core.DebugRenderEnabled)
+				if (Core.IsEditMode && Core.DebugRenderEnabled && DebugRenderFilter.IsEnabled(DebugRenderCategory.Gizmos))
 				{
 					if (SelectionMode == CursorSelectionMode.Normal)
 					{
@@ -186,7 +186,7 @@ namespace Voltage.Editor.Gizmos
 						_rotateGizmoHandler.Draw(selectedEntities, worldMouse, camera);
 						IsMouseOverGizmo = _rotateGizmoHandler.IsMouseOverGizmo;
 					}
-					else if (SelectionMode == CursorSelectionMode.ColliderResize)
+					else if (SelectionMode == CursorSelectionMode.ColliderResize && DebugRenderFilter.IsEnabled(DebugRenderCategory.Colliders))
 					{
 						DrawColliderResizeGizmo();
 					}
@@ -392,19 +392,15 @@ namespace Voltage.Editor.Gizmos
 				return;
 			}
 
-			var gizmoCenter = _transformGizmoHandler.GetArrowGizmoCenter(selectedEntities);
+			var contentCenter = Voltage.Editor.Utils.EntityFocusBounds.Center(selectedEntities);
 
-			if (MathUtils.IsVectorNaNOrInfinite(gizmoCenter))
+			if (MathUtils.IsVectorNaNOrInfinite(contentCenter))
 			{
 				_imGuiManager.CameraTargetPosition = position;
 				return;
 			}
 
-			var renderSize = Core.Scene.SceneRenderTargetSize;
-			var zoom = Core.Scene.Camera.RawZoom;
-			var centeredTarget = gizmoCenter - new Vector2(renderSize.X * 0.5f / zoom, renderSize.Y * 0.5f / zoom);
-
-			_imGuiManager.CameraTargetPosition = centeredTarget;
+			_imGuiManager.CameraTargetPosition = Voltage.Editor.Utils.EntityFocusBounds.CameraPosition(Core.Scene.Camera, contentCenter);
 		}
 
 		private void TrySelectEntityAtMouse()

@@ -423,6 +423,8 @@ public class EntityInspectorWindow
 						);
 						Entity.DebugRenderEnabled = debugEnabled;
 					}
+					if (ImGui.IsItemHovered())
+						ImGui.SetTooltip("Disabling this hides debug rendering for this entity and all descendants. Each child's own setting is preserved.");
 				}
 				#endregion
 
@@ -858,7 +860,7 @@ public class EntityInspectorWindow
 			"If FALSE, you won't be able select these \n Entities with your cursor in the game window.",
 			e => e.CanBeSelected, (e, v) => e.CanBeSelected = v);
 
-		MultiCheckbox(entities, "Debug Render Enabled", null,
+		MultiCheckbox(entities, "Debug Render Enabled", "Disabling this also hides debug rendering for descendants. Each child's own setting is preserved.",
 			e => e.DebugRenderEnabled, (e, v) => e.DebugRenderEnabled = v);
 	}
 
