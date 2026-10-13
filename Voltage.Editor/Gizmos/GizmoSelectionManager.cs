@@ -186,9 +186,9 @@ namespace Voltage.Editor.Gizmos
 						_rotateGizmoHandler.Draw(selectedEntities, worldMouse, camera);
 						IsMouseOverGizmo = _rotateGizmoHandler.IsMouseOverGizmo;
 					}
-					else if (SelectionMode == CursorSelectionMode.ColliderResize && DebugRenderFilter.IsEnabled(DebugRenderCategory.Colliders))
+					else if (SelectionMode == CursorSelectionMode.ColliderResize)
 					{
-						DrawColliderResizeGizmo();
+						DrawBoundsResizeGizmo();
 					}
 				}
 
@@ -615,7 +615,7 @@ namespace Voltage.Editor.Gizmos
 			}
 		}
 
-		private void DrawColliderResizeGizmo()
+		private void DrawBoundsResizeGizmo()
 		{
 			var entityPane = _imGuiManager.SceneGraphWindow.EntityPane;
 			IsMouseOverGizmo = false;
@@ -628,15 +628,24 @@ namespace Voltage.Editor.Gizmos
 			var worldMouse = camera.ScreenToWorldPoint(mousePos);
 
 			// Collect all colliders and lights from selected entities
-			var polygonColliders = new List<PolygonCollider>();
+			var polygonColliders = new List<Component>();
 			var boxColliders = new List<BoxCollider>();
-			var areaLights = new List<AreaLight>();
+			var lights = new List<DeferredLight>();
 
 			foreach (var entity in entityPane.SelectedEntities)
 			{
-				polygonColliders.AddRange(entity.GetComponents<PolygonCollider>());
-				boxColliders.AddRange(entity.GetComponents<BoxCollider>());
-				areaLights.AddRange(entity.GetComponents<AreaLight>());
+				if (DebugRenderFilter.IsEnabled(DebugRenderCategory.Colliders))
+                {
+                    polygonColliders.AddRange(entity.GetComponents<PolygonCollider>());
+                    boxColliders.AddRange(entity.GetComponents<BoxCollider>());
+                }
+                if (DebugRenderFilter.IsEnabled(DebugRenderCategory.Lights))
+                    foreach (var light in entity.GetComponents<DeferredLight>())
+                        if (LightBoundsResizeState.CanResize(light))
+                        {
+                            lights.Add(light);
+                            if (light is RoomLight) polygonColliders.Add(light);
+                        }
 			}
 
 			// Draw polygon colliders (unless we're dragging a rectangle)
@@ -647,10 +656,10 @@ namespace Voltage.Editor.Gizmos
 			}
 
 			// Draw box colliders and area lights (unless we're dragging a polygon)
-			if ((boxColliders.Count > 0 || areaLights.Count > 0) && !_polygonGizmoHandler.IsDragging)
+			if ((boxColliders.Count > 0 || lights.Count > 0) && !_polygonGizmoHandler.IsDragging)
 			{
-				_rectangleGizmoHandler.Draw(boxColliders, areaLights, worldMouse, camera, _shiftDown);
-				IsMouseOverGizmo = _rectangleGizmoHandler.IsMouseOverGizmo;
+				_rectangleGizmoHandler.Draw(boxColliders, lights, worldMouse, camera, _shiftDown);
+				IsMouseOverGizmo |= _rectangleGizmoHandler.IsMouseOverGizmo;
 			}
 		}
 	}

@@ -957,7 +957,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		Cursor("Normal", "\uf245", CursorSelectionMode.Normal, $"Default Cursor ({EditorHotkeys.Hint(EditorHotkeys.CursorNormal)})");
 		Cursor("Resize", "\uf065", CursorSelectionMode.Resize, $"Resize Entities ({EditorHotkeys.Hint(EditorHotkeys.CursorResize)})");
 		Cursor("Rotate", "\uf2f1", CursorSelectionMode.Rotate, $"Rotate Entities ({EditorHotkeys.Hint(EditorHotkeys.CursorRotate)})");
-		Cursor("Collider Resize", "\uf5cb", CursorSelectionMode.ColliderResize, $"Resize Colliders ({EditorHotkeys.Hint(EditorHotkeys.CursorColliderResize)})");
+		Cursor("Resize Bounds", "\uf5cb", CursorSelectionMode.ColliderResize, $"Resize Bounds ({EditorHotkeys.Hint(EditorHotkeys.CursorColliderResize)})");
 		Cursor("Tile Brush", "\uf1fc", CursorSelectionMode.TilePaint, $"Paint Tiles ({EditorHotkeys.Hint(EditorHotkeys.CursorTilePaint)})");
 		var debugVisible = Core.DebugRenderEnabled && DebugRenderFilter.EnabledCategories != DebugRenderCategory.None;
 		if (Icon("DebugRenderingToggle", debugVisible ? "\uf06e" : "\uf070", debugVisible, "Show or hide the selected debug rendering categories"))

@@ -8,6 +8,8 @@ public class EntityCreateDeleteUndoAction : EditorChangeTracker.IEditorAction
 	private readonly Entity _entity;
 	private readonly bool _wasCreated; // true = creation, false = deletion
 	private readonly string _description;
+	private readonly Transform _parent;
+	private readonly int _siblingIndex;
 
 	public string Description => _description;
 
@@ -17,21 +19,35 @@ public class EntityCreateDeleteUndoAction : EditorChangeTracker.IEditorAction
 		_entity = entity;
 		_wasCreated = wasCreated;
 		_description = description;
+		_parent = entity.Transform.Parent;
+		_siblingIndex = _parent?.Children.IndexOf(entity.Transform) ?? -1;
 	}
 
 	public void Undo()
 	{
 		if (_wasCreated)
-			_entity.DetachFromScene();
+			Detach();
 		else
-			_entity.AttachToScene(_scene);
+			Attach();
 	}
 
 	public void Redo()
 	{
 		if (_wasCreated)
-			_entity.AttachToScene(_scene);
+			Attach();
 		else
-			_entity.DetachFromScene();
+			Detach();
+	}
+
+	private void Detach()
+	{
+		_entity.DetachFromScene();
+		_entity.Transform.SetParent(null);
+	}
+
+	private void Attach()
+	{
+		_entity.Transform.SetParentAt(_parent, _siblingIndex);
+		_entity.AttachToScene(_scene);
 	}
 }

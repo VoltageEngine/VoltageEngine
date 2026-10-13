@@ -1200,6 +1200,7 @@ public class EntityPane
 		if (clone == null)
 			return null;
 
+		PlaceDuplicateBesideSource(entity, clone);
 		ComponentReferenceResolver.RemapEntitySubtree(clone, idMap);
 		ComponentReferenceResolver.ResolveEntitySubtree(clone, Core.Scene);
 
@@ -1211,6 +1212,18 @@ public class EntityPane
 
 		_imGuiManager.MainEntityInspectorWindow.DelayedSetEntity(clone);
 		return clone;
+	}
+
+	private static void PlaceDuplicateBesideSource(Entity source, Entity clone)
+	{
+		var parent = source.Transform.Parent;
+		if (parent == null)
+			return;
+
+		clone.Transform.SetParentAt(parent, parent.Children.IndexOf(source.Transform) + 1);
+		clone.LocalPosition = source.LocalPosition;
+		clone.LocalRotation = source.LocalRotation;
+		clone.LocalScale = source.LocalScale;
 	}
 
 	/// <summary>
@@ -1315,11 +1328,10 @@ public class EntityPane
 			var clonedChild = DuplicateEntityInternal(childEntity, null, idMap);
 			if (clonedChild != null)
 			{
-				var cWorldPos = childEntity.Transform.Position;
-				var cWorldRot = childEntity.Transform.Rotation;
-				var cWorldScale = childEntity.Transform.Scale;
 				clonedChild.Transform.SetParent(clone.Transform);
-				clonedChild.Transform.RecomputeLocalsFromWorld(cWorldPos, cWorldRot, cWorldScale);
+				clonedChild.LocalPosition = childEntity.LocalPosition;
+				clonedChild.LocalRotation = childEntity.LocalRotation;
+				clonedChild.LocalScale = childEntity.LocalScale;
 			}
 		}
 
@@ -1333,8 +1345,15 @@ public class EntityPane
     public List<Entity> DuplicateEntities(IEnumerable<Entity> entitiesToDuplicate)
     {
         var clones = new List<Entity>();
+        var selected = new HashSet<Entity>(entitiesToDuplicate.Where(e => e != null && e.Scene != null));
+        var roots = selected.Where(entity =>
+        {
+            for (var parent = entity.Transform.Parent; parent != null; parent = parent.Parent)
+                if (selected.Contains(parent.Entity)) return false;
+            return true;
+        }).ToList();
 
-        foreach (var entity in entitiesToDuplicate)
+        foreach (var entity in roots)
         {
 			// Same guard DuplicateEntity has: cloning a torn-down entity yields an empty husk.
 			if (entity == null || entity.Scene == null)
@@ -1345,12 +1364,20 @@ public class EntityPane
 			if (clone == null)
 				continue;
 
+			PlaceDuplicateBesideSource(entity, clone);
 			ComponentReferenceResolver.RemapEntitySubtree(clone, idMap);
 			ComponentReferenceResolver.ResolveEntitySubtree(clone, Core.Scene);
 
             clones.Add(clone);
         }
 
+        if (clones.Count > 0)
+        {
+            var description = $"Duplicated: {string.Join(", ", clones.Select(e => e.Name))}";
+            var actions = clones.Select(clone => (EditorChangeTracker.IEditorAction)
+                new EntityCreateDeleteUndoAction(Core.Scene, clone, wasCreated: true, description)).ToList();
+            EditorChangeTracker.PushUndo(new CompositeUndoAction(actions, description), clones[0], description);
+        }
         return clones;
 	}
 	#endregion

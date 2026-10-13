@@ -10,14 +10,14 @@ using Voltage.Editor.Undo.Core;
 namespace Voltage.Editor.Gizmos
 {
 	/// <summary>
-	/// Handles gizmo rendering and interaction for PolygonCollider components
+	/// Handles gizmo rendering and interaction for polygon colliders and room lights
 	/// </summary>
 	public class PolygonColliderGizmoHandler
 	{
 		private bool _isDragging = false;
-		private PolygonCollider _selectedCollider;
+		private Component _selectedCollider;
 		private int _selectedPointIndex = -1;
-		private Dictionary<PolygonCollider, List<Vector2>> _originalPolygonPoints = new();
+		private Dictionary<Component, List<Vector2>> _originalPolygonPoints = new();
 
 		public bool IsDragging => _isDragging;
 		public bool IsMouseOverGizmo { get; private set; }
@@ -25,7 +25,7 @@ namespace Voltage.Editor.Gizmos
 		/// <summary>
 		/// Draws polygon collider gizmos and handles interaction
 		/// </summary>
-		public void Draw(List<PolygonCollider> polygonColliders, Vector2 worldMouse, Camera camera)
+		public void Draw(List<Component> polygonColliders, Vector2 worldMouse, Camera camera)
 		{
 			IsMouseOverGizmo = false;
 
@@ -47,22 +47,22 @@ namespace Voltage.Editor.Gizmos
 			DrawPolygonPoints(polygonColliders, camera);
 		}
 
-		private void TryStartDragging(List<PolygonCollider> polygonColliders, Vector2 worldMouse, Camera camera)
+		private void TryStartDragging(List<Component> polygonColliders, Vector2 worldMouse, Camera camera)
 		{
 			float minDist = 10f / camera.RawZoom;
-			PolygonCollider closestCollider = null;
+			Component closestCollider = null;
 			int closestPointIndex = -1;
 			float closestDistance = float.MaxValue;
 
 			foreach (var collider in polygonColliders)
 			{
-				var polygon = collider.Shape as Polygon;
-				if (polygon == null || polygon.Points == null)
+				var points = PolygonBoundsEditor.Points(collider);
+				if (points == null)
 					continue;
 
-				for (int i = 0; i < polygon.Points.Length; i++)
+				for (int i = 0; i < points.Count; i++)
 				{
-					var worldPoint = collider.Entity.Transform.Position + collider.LocalOffset + polygon.Points[i];
+					var worldPoint = PolygonBoundsEditor.WorldPoint(collider, i);
 					float dist = Vector2.Distance(worldMouse, worldPoint);
 
 					if (dist < minDist && dist < closestDistance)
@@ -84,7 +84,7 @@ namespace Voltage.Editor.Gizmos
 				_originalPolygonPoints.Clear();
 				foreach (var collider in polygonColliders)
 				{
-					_originalPolygonPoints[collider] = new List<Vector2>(collider.Points);
+					_originalPolygonPoints[collider] = new List<Vector2>(PolygonBoundsEditor.Points(collider));
 				}
 			}
 		}
@@ -93,11 +93,7 @@ namespace Voltage.Editor.Gizmos
 		{
 			if (_selectedCollider != null && _selectedPointIndex >= 0)
 			{
-				var worldCenter = _selectedCollider.Entity.Transform.Position + _selectedCollider.LocalOffset;
-				var newLocalPoint = worldMouse - worldCenter;
-
-				_selectedCollider.Points[_selectedPointIndex] = newLocalPoint;
-				_selectedCollider.UpdateShapeFromPoints();
+				PolygonBoundsEditor.MovePoint(_selectedCollider, _selectedPointIndex, worldMouse);
 
 				ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeAll);
 				IsMouseOverGizmo = true;
@@ -108,20 +104,20 @@ namespace Voltage.Editor.Gizmos
 		{
 			if (_selectedCollider != null)
 			{
-				var finalPoints = new Dictionary<PolygonCollider, List<Vector2>>
+				var finalPoints = new Dictionary<Component, List<Vector2>>
 				{
-					[_selectedCollider] = new List<Vector2>(_selectedCollider.Points)
+					[_selectedCollider] = new List<Vector2>(PolygonBoundsEditor.Points(_selectedCollider))
 				};
 
 				EditorChangeTracker.PushUndo(
-					new PolygonColliderPointEditUndoAction(
+					new PolygonBoundsPointEditUndoAction(
 						_selectedCollider,
 						_originalPolygonPoints[_selectedCollider],
 						finalPoints[_selectedCollider],
-						$"Edited PolygonCollider point on {_selectedCollider.Entity.Name}"
+						$"Edited bounds vertex on {_selectedCollider.Entity.Name}"
 					),
 					_selectedCollider.Entity,
-					$"Edited PolygonCollider point"
+					$"Edited bounds vertex"
 				);
 			}
 
@@ -131,19 +127,19 @@ namespace Voltage.Editor.Gizmos
 			_originalPolygonPoints.Clear();
 		}
 
-		private void DrawPolygonPoints(List<PolygonCollider> polygonColliders, Camera camera)
+		private void DrawPolygonPoints(List<Component> polygonColliders, Camera camera)
 		{
 			float pointSize = 6f / camera.RawZoom;
 
 			foreach (var collider in polygonColliders)
 			{
-				var polygon = collider.Shape as Polygon;
-				if (polygon == null || polygon.Points == null)
+				var points = PolygonBoundsEditor.Points(collider);
+				if (points == null)
 					continue;
 
-				for (int i = 0; i < polygon.Points.Length; i++)
+				for (int i = 0; i < points.Count; i++)
 				{
-					var worldPoint = collider.Entity.Transform.Position + collider.LocalOffset + polygon.Points[i];
+					var worldPoint = PolygonBoundsEditor.WorldPoint(collider, i);
 
 					bool isSelected = _isDragging &&
 					                  collider == _selectedCollider &&
@@ -159,20 +155,20 @@ namespace Voltage.Editor.Gizmos
 					), pointColor);
 
 					// Draw lines between points
-					if (i < polygon.Points.Length - 1)
+					if (i < points.Count - 1)
 					{
-						var nextWorldPoint = collider.Entity.Transform.Position + collider.LocalOffset + polygon.Points[i + 1];
+						var nextWorldPoint = PolygonBoundsEditor.WorldPoint(collider, i + 1);
 						Debug.DrawLine(worldPoint, nextWorldPoint, Color.Cyan * 0.5f);
 					}
 					else
 					{
 						// Connect last point to first
-						var firstWorldPoint = collider.Entity.Transform.Position + collider.LocalOffset + polygon.Points[0];
+						var firstWorldPoint = PolygonBoundsEditor.WorldPoint(collider, 0);
 						Debug.DrawLine(worldPoint, firstWorldPoint, Color.Cyan * 0.5f);
 					}
 				}
 
-				var centerPoint = collider.Entity.Transform.Position + collider.LocalOffset;
+				var centerPoint = collider.Entity.Position;
 				Debug.DrawPixel(centerPoint, 4 * Debug.Size.LineSizeMultiplier, new Color(200, 0, 255));
 			}
 		}

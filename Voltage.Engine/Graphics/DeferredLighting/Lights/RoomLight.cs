@@ -25,7 +25,7 @@ public partial class RoomLight : DeferredLight
     }
     private Color _secondaryColor = new(255, 207, 158);
     private Vector2 _colorBlendDirection = Vector2.UnitX;
-    public List<Vector2> Vertices = new() { new(-160, -80), new(160, -80), new(160, 80), new(-160, 80) };
+    public List<Vector2> Vertices { get; set; } = new() { new(-160, -80), new(160, -80), new(160, 80), new(-160, 80) };
     public float Intensity = 0.35f;
     public float AmbientFill = 0.3f;
     public Vector2 LightOrigin = new(0, -60);
