@@ -24,8 +24,8 @@ namespace Voltage.Shadows
 			{
 				if (_areBoundsDirty)
 				{
-					_bounds.CalculateBounds(Entity.Transform.Position, _localOffset, new Vector2(_radius, _radius),
-						Vector2.One, 0, _radius * 2f, _radius * 2f);
+					var center = Entity.Position + _localOffset;
+					_bounds = new RectangleF(center.X - _radius, center.Y - _radius, _radius * 2f, _radius * 2f);
 					_areBoundsDirty = false;
 				}
 

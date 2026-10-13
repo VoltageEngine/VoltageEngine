@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Voltage.DeferredLighting;
+using Voltage.Shadows;
 using Voltage.Sprites;
 using Voltage.Utils;
 using Voltage.Editor.Hotkeys;
@@ -630,22 +631,22 @@ namespace Voltage.Editor.Gizmos
 			// Collect all colliders and lights from selected entities
 			var polygonColliders = new List<Component>();
 			var boxColliders = new List<BoxCollider>();
-			var lights = new List<DeferredLight>();
+			var lights = new List<RenderableComponent>();
 
 			foreach (var entity in entityPane.SelectedEntities)
 			{
-				if (DebugRenderFilter.IsEnabled(DebugRenderCategory.Colliders))
-                {
-                    polygonColliders.AddRange(entity.GetComponents<PolygonCollider>());
-                    boxColliders.AddRange(entity.GetComponents<BoxCollider>());
-                }
-                if (DebugRenderFilter.IsEnabled(DebugRenderCategory.Lights))
-                    foreach (var light in entity.GetComponents<DeferredLight>())
-                        if (LightBoundsResizeState.CanResize(light))
-                        {
-                            lights.Add(light);
-                            if (light is RoomLight) polygonColliders.Add(light);
-                        }
+				polygonColliders.AddRange(entity.GetComponents<PolygonCollider>());
+				boxColliders.AddRange(entity.GetComponents<BoxCollider>());
+				foreach (var light in entity.GetComponents<DeferredLight>())
+					if (LightBoundsResizeState.CanResize(light))
+					{
+						lights.Add(light);
+						if (light is RoomLight) polygonColliders.Add(light);
+					}
+				foreach (var light in entity.GetComponents<PolyLight>())
+					if (LightBoundsResizeState.CanResize(light)) lights.Add(light);
+				foreach (var light in entity.GetComponents<StencilLight>())
+					if (LightBoundsResizeState.CanResize(light)) lights.Add(light);
 			}
 
 			// Draw polygon colliders (unless we're dragging a rectangle)

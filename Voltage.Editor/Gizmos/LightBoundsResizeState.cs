@@ -2,32 +2,40 @@ using System;
 using System.Linq;
 using Microsoft.Xna.Framework;
 using Voltage.DeferredLighting;
+using Voltage.Shadows;
 
 namespace Voltage.Editor.Gizmos;
 
 /// <summary>Captures editable light geometry, without changing its entity or illumination source.</summary>
 public sealed class LightBoundsResizeState
 {
-    private readonly DeferredLight _light;
+    private readonly RenderableComponent _light;
     private readonly RectangleF _bounds;
     private readonly Vector2 _offset;
     private readonly Vector2[] _vertices;
     private readonly float _width, _height, _radius;
+    private readonly Vector3 _direction;
 
     private static Vector2 Abs(Vector2 value) => new(Math.Abs(value.X), Math.Abs(value.Y));
 
-    public static bool CanResize(DeferredLight light)
+    public static bool CanResize(RenderableComponent light)
     {
-        if (light?.Entity == null || light is not (RoomLight or AreaLight or PointLight or SpriteLight or ProjectedLight)) return false;
+        if (light?.Entity == null) return false;
+        if (light is DirLight direction)
+            return float.IsFinite(direction.Direction.X) && float.IsFinite(direction.Direction.Y) &&
+                float.IsFinite(direction.Direction.Z) && float.IsFinite(light.Entity.Position.X) &&
+                float.IsFinite(light.Entity.Position.Y);
+        if (light is not (RoomLight or AreaLight or PointLight or SpriteLight or ProjectedLight or PolyLight or StencilLight)) return false;
         if (light is SpriteLight sprite && sprite.Source?.Sprite == null) return false;
         var scale = light.Entity.Scale;
         var bounds = light.Bounds;
-        return float.IsFinite(scale.X) && float.IsFinite(scale.Y) && Math.Abs(scale.X) > .0001f && Math.Abs(scale.Y) > .0001f
+        return float.IsFinite(scale.X) && float.IsFinite(scale.Y) &&
+            (light is PolyLight || Math.Abs(scale.X) > .0001f && Math.Abs(scale.Y) > .0001f)
             && float.IsFinite(bounds.X) && float.IsFinite(bounds.Y) && float.IsFinite(bounds.Width) && float.IsFinite(bounds.Height)
             && bounds.Width > 0 && bounds.Height > 0;
     }
 
-    public LightBoundsResizeState(DeferredLight light)
+    public LightBoundsResizeState(RenderableComponent light)
     {
         _light = light;
         _bounds = light.Bounds;
@@ -36,6 +44,9 @@ public sealed class LightBoundsResizeState
         if (light is AreaLight area) { _width = area.RectangleWidth; _height = area.RectangleHeight; }
         if (light is PointLight point) _radius = point.Radius;
         if (light is SpriteLight sprite) _radius = sprite.Radius;
+        if (light is DirLight directional) _direction = directional.Direction;
+        if (light is PolyLight polygon) _radius = polygon.Radius;
+        if (light is StencilLight stencil) _radius = stencil.Radius;
     }
 
     public void Restore()
@@ -46,11 +57,23 @@ public sealed class LightBoundsResizeState
         if (_light is PointLight point) point.SetRadius(_radius);
         if (_light is SpriteLight sprite) sprite.Radius = (int)_radius;
         if (_light is ProjectedLight projected) projected.RoomArea = _bounds;
+        if (_light is DirLight directional) directional.Direction = _direction;
+        if (_light is PolyLight polygon) polygon.SetRadius(_radius);
+        if (_light is StencilLight stencil) stencil.SetRadius(_radius);
     }
 
     public void Drag(Vector2 mouse, RectangleHandleType handle, bool mirrored)
     {
         if (!CanResize(_light) || !float.IsFinite(mouse.X) || !float.IsFinite(mouse.Y)) return;
+        if (_light is DirLight directional)
+        {
+            var delta = mouse - (directional.Entity.Position + _offset);
+            if (delta.LengthSquared() < .0001f) return;
+            var length = new Vector2(_direction.X, _direction.Y).Length();
+            delta.Normalize();
+            directional.Direction = new Vector3(delta * (length > .001f ? length : 50f), _direction.Z);
+            return;
+        }
         bool left = handle is RectangleHandleType.Left or RectangleHandleType.TopLeft or RectangleHandleType.BottomLeft;
         bool right = handle is RectangleHandleType.Right or RectangleHandleType.TopRight or RectangleHandleType.BottomRight;
         bool top = handle is RectangleHandleType.Top or RectangleHandleType.TopLeft or RectangleHandleType.TopRight;
@@ -63,6 +86,22 @@ public sealed class LightBoundsResizeState
             var delta = Abs(mouse - _bounds.Center);
             float radius = Math.Max(left || right ? delta.X : 0, top || bottom ? delta.Y : 0);
             point.SetRadius(Math.Clamp(radius / Math.Abs(point.Entity.Scale.X), 1, 16384));
+            return;
+        }
+        if (_light is PolyLight polygon)
+        {
+            var delta = Abs(mouse - polygon.Entity.Position - polygon.LocalOffset);
+            var radius = polygon is PolySpotLight ? delta.Length() :
+                Math.Max(left || right ? delta.X : 0, top || bottom ? delta.Y : 0);
+            polygon.SetRadius(Math.Clamp(radius, 1, 2000));
+            return;
+        }
+        if (_light is StencilLight stencil)
+        {
+            var delta = Abs(mouse - _bounds.Center);
+            var radius = Math.Max(left || right ? delta.X : 0, top || bottom ? delta.Y : 0);
+            var scale = stencil.Entity.Scale;
+            stencil.SetRadius(Math.Clamp(radius / Math.Max(Math.Abs(scale.X), Math.Abs(scale.Y)), 1, 2000));
             return;
         }
         if (_light is SpriteLight sprite)

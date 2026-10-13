@@ -23,10 +23,10 @@ namespace Voltage.Editor.Gizmos
 		private ImGuiManager _imGuiManager;
 		private bool _isDragging = false;
 		private BoxCollider _selectedBoxCollider;
-		private DeferredLight _selectedLight;
+		private RenderableComponent _selectedLight;
 		private RectangleHandleType _selectedHandleType;
 		private Dictionary<BoxCollider, RectangleF> _originalBoxBounds = new();
-		private Dictionary<DeferredLight, LightBoundsResizeState> _originalLightStates = new();
+		private Dictionary<RenderableComponent, LightBoundsResizeState> _originalLightStates = new();
 		private bool _shiftDown;
 		private float _handleSize = 10f;
 
@@ -38,7 +38,7 @@ namespace Voltage.Editor.Gizmos
 		/// <summary>
 		/// Draws rectangle gizmos for BoxColliders and finite lights
 		/// </summary>
-		public void Draw(List<BoxCollider> boxColliders, List<DeferredLight> lights, Vector2 worldMouse, Camera camera, bool shiftDown)
+		public void Draw(List<BoxCollider> boxColliders, List<RenderableComponent> lights, Vector2 worldMouse, Camera camera, bool shiftDown)
 		{
 			if (_imGuiManager == null)
 				throw new NullReferenceException();
@@ -67,10 +67,10 @@ namespace Voltage.Editor.Gizmos
 			DrawHandles(boxColliders, lights, finalHandleSize, camera);
 		}
 
-		private void TryStartDragging(List<BoxCollider> boxColliders, List<DeferredLight> lights, Vector2 worldMouse, float handleSize, float edgeThreshold)
+		private void TryStartDragging(List<BoxCollider> boxColliders, List<RenderableComponent> lights, Vector2 worldMouse, float handleSize, float edgeThreshold)
 		{
 			BoxCollider closestCollider = null;
-			DeferredLight closestLight = null;
+			RenderableComponent closestLight = null;
 			RectangleHandleType closestHandle = RectangleHandleType.None;
 			float closestDistance = float.MaxValue;
 
@@ -83,9 +83,22 @@ namespace Voltage.Editor.Gizmos
 					() => { closestCollider = collider; closestLight = null; });
 			}
 
-			// AreaLights
+		// Lights
 			foreach (var light in lights)
 			{
+			if (light is DirLight directional)
+			{
+				var tip = DirectionTip(directional);
+				var distance = Vector2.Distance(worldMouse, tip);
+				if (distance < handleSize && distance < closestDistance)
+				{
+					closestDistance = distance;
+					closestLight = light;
+					closestCollider = null;
+					closestHandle = RectangleHandleType.Right;
+				}
+				continue;
+			}
 				var bounds = GetLightWorldBounds(light);
 				CheckHandlesForBounds(bounds, worldMouse, handleSize, edgeThreshold,
 					ref closestDistance, ref closestHandle,
@@ -191,7 +204,7 @@ namespace Voltage.Editor.Gizmos
 			_originalLightStates.Clear();
 		}
 
-		private void DrawHandles(List<BoxCollider> boxColliders, List<DeferredLight> lights, float handleSize, Camera camera)
+		private void DrawHandles(List<BoxCollider> boxColliders, List<RenderableComponent> lights, float handleSize, Camera camera)
 		{
 			// Draw handles for BoxColliders
 			foreach (var collider in boxColliders)
@@ -201,9 +214,18 @@ namespace Voltage.Editor.Gizmos
 					_isDragging && collider == _selectedBoxCollider, camera);
 			}
 
-			// Draw handles for AreaLights
+		// Draw handles for lights
 			foreach (var light in lights)
 			{
+			if (light is DirLight directional)
+			{
+				var start = directional.Entity.Position + directional.LocalOffset;
+				var tip = DirectionTip(directional);
+				Debug.DrawLine(start, tip, Color.Yellow);
+				Debug.DrawHollowRect(new RectangleF(tip.X - handleSize / 2f, tip.Y - handleSize / 2f,
+					handleSize, handleSize), _isDragging && light == _selectedLight ? Color.White : Color.Yellow);
+				continue;
+			}
 				var bounds = GetLightWorldBounds(light);
 				DrawRectangleHandles(bounds, handleSize, Color.Yellow,
 					_isDragging && light == _selectedLight, camera);
@@ -629,9 +651,15 @@ namespace Voltage.Editor.Gizmos
 
 		#endregion
 
-        private RectangleF GetLightWorldBounds(DeferredLight light) => light.Bounds;
+        private RectangleF GetLightWorldBounds(RenderableComponent light) => light.Bounds;
 
-
+		private static Vector2 DirectionTip(DirLight light)
+		{
+			var direction = new Vector2(light.Direction.X, light.Direction.Y);
+			if (direction.LengthSquared() < .0001f) direction = Vector2.UnitX;
+			direction.Normalize();
+			return light.Entity.Position + light.LocalOffset + direction * 48f;
+		}
 
 		/// <summary>
 		/// Resets the dragging state

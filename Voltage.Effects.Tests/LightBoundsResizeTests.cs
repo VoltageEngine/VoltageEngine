@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using NUnit.Framework;
 using Voltage.DeferredLighting;
 using Voltage.Editor.Gizmos;
+using Voltage.Shadows;
 
 namespace Voltage.Effects.Tests;
 
@@ -121,14 +122,72 @@ public class LightBoundsResizeTests
     }
 
     [Test]
-    public void Infinite_missing_source_and_zero_scale_lights_have_no_resize_handles()
+    public void Missing_source_and_zero_scale_lights_have_no_resize_handles()
     {
         var entity = new Entity("lights");
-        Assert.That(LightBoundsResizeState.CanResize(entity.AddComponent(new DirLight())), Is.False);
         Assert.That(LightBoundsResizeState.CanResize(entity.AddComponent(new SpriteLight())), Is.False);
         var room = entity.AddComponent(new RoomLight());
         entity.Scale = new(0, 1);
         Assert.That(LightBoundsResizeState.CanResize(room), Is.False);
+    }
+
+    [Test]
+    public void Directional_light_handle_turns_direction_without_changing_z_or_entity()
+    {
+        var entity = new Entity("sun") { Position = new(20, 30) };
+        var light = entity.AddComponent(new DirLight { Direction = new(30, 40, 100), LocalOffset = new(5, -5) });
+        Assert.That(LightBoundsResizeState.CanResize(light), Is.True);
+        var before = new LightBoundsResizeState(light);
+        before.Drag(new(75, 25), RectangleHandleType.Right, false);
+        Assert.That(light.Direction.X, Is.EqualTo(50).Within(.001));
+        Assert.That(light.Direction.Y, Is.EqualTo(0).Within(.001));
+        Assert.That(light.Direction.Z, Is.EqualTo(100));
+        Assert.That(entity.Position, Is.EqualTo(new Vector2(20, 30)));
+        before.Restore();
+        Assert.That(light.Direction, Is.EqualTo(new Vector3(30, 40, 100)));
+    }
+
+    [Test]
+    public void Polygon_light_radius_matches_bounds_and_round_trips()
+    {
+        var entity = new Entity("polygon") { Position = new(20, 30) };
+        var light = entity.AddComponent(new PolyLight(30) { LocalOffset = new(5, 7) });
+        EqualBounds(light.Bounds, new(-5, 7, 60, 60));
+        Assert.That(LightBoundsResizeState.CanResize(light), Is.True);
+        var before = new LightBoundsResizeState(light);
+        before.Drag(new(75, 37), RectangleHandleType.Right, false);
+        EqualBounds(light.Bounds, new(-25, -13, 100, 100));
+        before.Restore();
+        EqualBounds(light.Bounds, new(-5, 7, 60, 60));
+        Assert.That(entity.Position, Is.EqualTo(new Vector2(20, 30)));
+    }
+
+    [Test]
+    public void Polygon_spotlight_has_resize_handles_before_scene_start()
+    {
+        var entity = new Entity("polygon spot") { Position = new(20, 30) };
+        var light = entity.AddComponent(new PolySpotLight(30));
+        Assert.That(LightBoundsResizeState.CanResize(light), Is.True);
+        var before = new LightBoundsResizeState(light);
+        before.Drag(new(70, 30), RectangleHandleType.Right, false);
+        Assert.That(light.Radius, Is.EqualTo(50).Within(.001));
+        before.Restore();
+        Assert.That(light.Radius, Is.EqualTo(30).Within(.001));
+    }
+
+    [Test]
+    public void Stencil_light_radius_uses_absolute_largest_scale_and_round_trips()
+    {
+        var entity = new Entity("stencil") { Position = new(20, 30), Scale = new(-2, 3) };
+        var light = entity.AddComponent(new StencilLight(30) { LocalOffset = new(5, 7) });
+        EqualBounds(light.Bounds, new(-65, -53, 180, 180));
+        Assert.That(LightBoundsResizeState.CanResize(light), Is.True);
+        var before = new LightBoundsResizeState(light);
+        before.Drag(new(145, 37), RectangleHandleType.Right, false);
+        Assert.That(light.Radius, Is.EqualTo(40).Within(.001));
+        EqualBounds(light.Bounds, new(-95, -83, 240, 240));
+        before.Restore();
+        EqualBounds(light.Bounds, new(-65, -53, 180, 180));
     }
 
     [TestCase(false)]
