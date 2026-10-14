@@ -30,6 +30,8 @@ public class SceneMenuTests
 	public void Restore()
 	{
 		Call("input.release");
+		if (Call("ui.find", new { label = "Cancel", window = "load-scene-popup", exact = true }).GetArrayLength() > 0)
+			Call("ui.click", new { label = "Cancel", window = "load-scene-popup", exact = true });
 		if (Call("ui.find", new { label = Keys[0], window = "Build Game", exact = true }).GetArrayLength() > 0)
 		{
 			Click("Select All"); Click("Include selected"); CloseBuild();
@@ -73,13 +75,16 @@ public class SceneMenuTests
         Call("ui.click", new { label = "Cancel", window = "create-scene-popup", exact = true });
     }
 
-    private static void ScrollPickerTo(string label)
+    internal static void ScrollPickerTo(string label)
     {
         for (var attempt = 0; attempt < 12; attempt++)
         {
             if (Call("ui.find", new { label, window = "load-scene-popup", exact = true }).GetArrayLength() > 0) return;
             var row = Call("ui.find", new { label = "/", kind = "selectable", window = "load-scene-popup" })[0];
-            Call("input.scroll", new { x = row.GetProperty("x").GetInt32() + 30, y = row.GetProperty("y").GetInt32() + 15, notches = -3 });
+            var target = Call("ui.find", new { label, window = "load-scene-popup", exact = true, visibleOnly = false });
+            var direction = target.GetArrayLength() > 0 && target[0].GetProperty("y").GetInt32() < row.GetProperty("y").GetInt32() ? 3 : -3;
+            Call("input.scroll", new { x = row.GetProperty("x").GetInt32() + 30, y = row.GetProperty("y").GetInt32() + 15, notches = direction });
+            Call("input.wait", new { frames = 2 });
         }
         WaitForWidget(label, "load-scene-popup");
     }
@@ -252,6 +257,7 @@ public class SceneMenuTests
             Call("input.wait", new { frames = 3 });
             return;
         }
+		if (label.Contains("Scenes/")) ScrollBuildTo(label);
 		WaitForWidget(label, "Build Game");
 		Call("ui.click", new { label, window = "Build Game", exact = true });
 	}
@@ -259,13 +265,32 @@ public class SceneMenuTests
 	private static void OpenBuild()
 	{
 		Call("ui.click", new { path = "Build/Scenes in Build" });
+		ScrollBuildTo(Keys[0]);
 		WaitForWidget(Keys[0], "Build Game");
+	}
+
+	private static void ScrollBuildTo(string label)
+	{
+		for (var attempt = 0; attempt < 20; attempt++)
+		{
+			if (Call("ui.find", new { label, window = "Build Game", exact = true }).GetArrayLength() > 0) return;
+			var rows = Call("ui.find", new { label = "Scenes/", kind = "selectable", window = "Build Game" });
+			if (rows.GetArrayLength() == 0) { Call("input.wait", new { frames = 3 }); continue; }
+			var row = rows[0];
+			var target = Call("ui.find", new { label, window = "Build Game", exact = true, visibleOnly = false });
+			var direction = target.GetArrayLength() > 0 && target[0].GetProperty("y").GetInt32() < row.GetProperty("y").GetInt32() ? 1 : -1;
+			Call("input.scroll", new { x = row.GetProperty("x").GetInt32() + 30, y = row.GetProperty("y").GetInt32() + 10, notches = direction });
+			Call("input.wait", new { frames = 2 });
+		}
 	}
 
 	private static void CloseBuild()
 	{
-		var row = WaitForWidget(Keys[0], "Build Game");
-		Call("input.scroll", new { x = row.GetProperty("x").GetInt32() + 350, y = row.GetProperty("y").GetInt32(), notches = -30 });
+		WaitForWidget(Keys[0], "Build Game");
+		// The wheel over the scene table scrolls only the table, so scroll the popup at its own scrollbar.
+		var panel = Call("ui.windows").EnumerateArray().First(w => w.GetProperty("name").GetString().StartsWith("Build Game"));
+		Call("input.scroll", new { x = panel.GetProperty("x").GetInt32() + panel.GetProperty("width").GetInt32() - 6,
+			y = panel.GetProperty("y").GetInt32() + panel.GetProperty("height").GetInt32() / 2, notches = -30 });
 		Click("Cancel");
 	}
 

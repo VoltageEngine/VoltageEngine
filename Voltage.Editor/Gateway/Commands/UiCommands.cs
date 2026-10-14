@@ -284,7 +284,7 @@ internal static class UiCommands
 		|| string.Equals(window.Name, wanted, StringComparison.Ordinal)
 		|| window.Display.Contains(wanted, StringComparison.OrdinalIgnoreCase);
 
-	private static (int x, int y) Center(UiItem item) => ((int)MathF.Round(item.X + item.W / 2f), (int)MathF.Round(item.Y + item.H / 2f));
+	private static (int x, int y) Center(UiItem item) => ((int)MathF.Round(item.ClickX), (int)MathF.Round(item.ClickY));
 
 	private static object Describe(UiItem item, int index) => new
 	{

@@ -64,9 +64,10 @@ public class TimelineReloadTests
             Call("scene.save");
             Call("play.start");
             RunProbe();
-            Compile();
+            Assert.That(Call("scripts.compile", new { reloadScene = false }).GetProperty("deferred").GetBoolean(), Is.True);
             RunProbe();
             Call("play.stop");
+            Compile();
             Call("scene.load", new { name = "TestScene", force = true });
             Call("play.start");
             RunProbe();

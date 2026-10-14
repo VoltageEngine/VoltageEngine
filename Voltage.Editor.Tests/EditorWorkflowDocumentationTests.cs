@@ -11,47 +11,56 @@ public class EditorWorkflowDocumentationTests
     [Test]
     public void Core_plugin_and_timeline_controls_remain_inside_their_windows()
     {
-        Call("ui.resize", new { width = 1600, height = 1200 });
-        Call("ui.click", new { path = "View/UI font/Inter" });
-        Call("ui.click", new { path = "View/Interface scale/100%" });
-        Call("window.show", new { name = "CoreWindow", visible = true });
-        Call("input.wait", new { frames = 5 });
-        Call("ui.focus", new { window = "Core Settings" });
-        Call("input.drag", new { x1 = 1278, y1 = 400, x2 = 1050, y2 = 400, frames = 15 });
-        WaitForWidget("ResetSceneAutomatically", "Core Settings");
-        Capture("Core Settings", "core-settings.png");
-        Call("ui.click", new { path = "Plugins/Plugin Manager" });
-        WaitForWidget("Create New Plugin", "Plugin Manager");
-        var pluginBounds = Call("ui.windows").EnumerateArray().Single(w => w.GetProperty("name").GetString() == "Plugin Manager");
-        Call("input.drag", new { x1 = pluginBounds.GetProperty("x").GetInt32() + 718, y1 = pluginBounds.GetProperty("y").GetInt32() + 458, x2 = pluginBounds.GetProperty("x").GetInt32() + 718, y2 = pluginBounds.GetProperty("y").GetInt32() + 998, frames = 15 });
-        Check("Plugin Manager", "Create New Plugin", "Reload Plugins");
-        Call("ui.click", new { label = "Add Plugin", window = "Plugin Manager", kind = "header", exact = true });
-        Check("Plugin Manager", "Browse");
-        Capture("Plugin Manager", "plugin-manager.png");
-        ClosePluginManager();
-        Call("timeline.create", new { name = "ExampleSequence" });
-        Call("entity.create", new { name = "Sequence director" });
-        Call("component.add", new { entity = "Sequence director", type = "TimelineDirector" });
-        Call("component.set", new { entity = "Sequence director", type = "TimelineDirector", member = "Timeline", value = "Data/Timelines/ExampleSequence.vtimeline" });
-        Call("entity.select", new { entity = "Sequence director" });
-        Call("window.show", new { name = "TimelineWindow", visible = true });
-        WaitForWidget("Save", "Timeline");
-        Call("input.drag", new { x1 = 700, y1 = 978, x2 = 700, y2 = 380, frames = 15 });
-        Check("Timeline", "Play", "Stop", "Record", "Zoom out", "Zoom in", "Fit", "Save", "Load...");
-        Call("input.drag", new { x1 = 1048, y1 = 300, x2 = 1530, y2 = 300, frames = 15 });
-        Capture("Timeline", "timeline-editor.png");
-        Call("input.drag", new { x1 = 1528, y1 = 300, x2 = 1050, y2 = 300, frames = 15 });
-        foreach (var scale in new[] { "150%", "200%" })
+        try
         {
-            Call("ui.click", new { path = "View/Interface scale/" + scale });
+            Call("ui.resize", new { width = 1600, height = 1200 });
+            Call("ui.click", new { path = "View/UI font/Inter" });
+            Call("ui.click", new { path = "View/Interface scale/100%" });
+            Call("window.show", new { name = "CoreWindow", visible = true });
             Call("input.wait", new { frames = 5 });
-            Call("ui.focus", new { window = "Timeline" });
-            Check("Timeline", "Play", "Stop", "Record", "Zoom out", "Zoom in", "Fit", "Save", "Load...");
+            Call("ui.focus", new { window = "Core Settings" });
+            Call("input.drag", new { x1 = 1278, y1 = 400, x2 = 1050, y2 = 400, frames = 15 });
+            WaitForWidget("ResetSceneAutomatically", "Core Settings");
+            Capture("Core Settings", "core-settings.png");
             Call("ui.click", new { path = "Plugins/Plugin Manager" });
-            Call("input.wait", new { frames = 5 });
+            WaitForWidget("Create New Plugin", "Plugin Manager");
+            var pluginBounds = Call("ui.windows").EnumerateArray().Single(w => w.GetProperty("name").GetString() == "Plugin Manager");
+            Call("input.drag", new { x1 = pluginBounds.GetProperty("x").GetInt32() + 718, y1 = pluginBounds.GetProperty("y").GetInt32() + 458, x2 = pluginBounds.GetProperty("x").GetInt32() + 718, y2 = pluginBounds.GetProperty("y").GetInt32() + 998, frames = 15 });
             Check("Plugin Manager", "Create New Plugin", "Reload Plugins");
+            Call("ui.click", new { label = "Add Plugin", window = "Plugin Manager", kind = "header", exact = true });
             Check("Plugin Manager", "Browse");
+            Capture("Plugin Manager", "plugin-manager.png");
             ClosePluginManager();
+            Call("timeline.create", new { name = "ExampleSequence" });
+            Call("entity.create", new { name = "Sequence director" });
+            Call("component.add", new { entity = "Sequence director", type = "TimelineDirector" });
+            Call("component.set", new { entity = "Sequence director", type = "TimelineDirector", member = "Timeline", value = "Data/Timelines/ExampleSequence.vtimeline" });
+            Call("entity.select", new { entity = "Sequence director" });
+            Call("window.show", new { name = "TimelineWindow", visible = true });
+            WaitForWidget("Save", "Timeline");
+            Call("input.drag", new { x1 = 700, y1 = 978, x2 = 700, y2 = 380, frames = 15 });
+            Check("Timeline", "Play", "Stop", "Record", "Zoom out", "Zoom in", "Fit", "Save", "Load");
+            Call("input.drag", new { x1 = 1048, y1 = 300, x2 = 1530, y2 = 300, frames = 15 });
+            Capture("Timeline", "timeline-editor.png");
+            Call("input.drag", new { x1 = 1528, y1 = 300, x2 = 1050, y2 = 300, frames = 15 });
+            foreach (var scale in new[] { "150%", "200%" })
+            {
+                Call("ui.click", new { path = "View/Interface scale/" + scale });
+                Call("input.wait", new { frames = 5 });
+                Call("ui.focus", new { window = "Timeline" });
+                Check("Timeline", "Play", "Stop", "Record", "Zoom out", "Zoom in", "Fit", "Save", "Load");
+                Call("ui.click", new { path = "Plugins/Plugin Manager" });
+                Call("input.wait", new { frames = 5 });
+                Check("Plugin Manager", "Create New Plugin", "Reload Plugins");
+                Check("Plugin Manager", "Browse");
+                ClosePluginManager();
+            }
+        }
+        finally
+        {
+            Call("ui.click", new { path = "View/UI font/Classic (ProggyClean)" });
+            Call("ui.click", new { path = "View/Interface scale/100%" });
+            Call("ui.resize", new { width = 1600, height = 900 });
         }
     }
 

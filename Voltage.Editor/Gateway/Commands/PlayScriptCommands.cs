@@ -69,6 +69,13 @@ internal static class PlayScriptCommands
 	{
 		var manager = ctx.ImGui().ScriptManager ?? throw new GatewayException("no project with a scripts folder is loaded");
 
+		if (!Core.IsEditMode)
+		{
+			manager.CompileScripts(reloadScene);
+			return Task.FromResult<object>(new { success = false, deferred = true, errors = Array.Empty<string>(),
+				note = "Compilation queued until Play stops." });
+		}
+
 		// The watcher does nothing at all for an empty scripts folder, so the completion event would never come.
 		var scriptsFolder = ProjectFile.ProjectManager.Instance.GetScriptsFolder();
 		if (string.IsNullOrEmpty(scriptsFolder) || !Directory.Exists(scriptsFolder) || !Directory.EnumerateFiles(scriptsFolder, "*.cs", SearchOption.AllDirectories).Any())

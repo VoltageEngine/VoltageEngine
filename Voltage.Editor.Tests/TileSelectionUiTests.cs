@@ -132,6 +132,10 @@ public class TileSelectionUiTests
         Call("input.wait", new { frames = 5 });
         var build = Call("ui.windows").EnumerateArray().Single(w => w.GetProperty("name").GetString() == "Build Game");
         Capture("build-scenes-modern.png", "Build Game with six scene rows and selected-set controls", build);
+        Call("input.scroll", new { x = build.GetProperty("x").GetInt32() + build.GetProperty("width").GetInt32() - 6,
+            y = build.GetProperty("y").GetInt32() + build.GetProperty("height").GetInt32() / 2, notches = -30 });
+        WaitForWidget("Cancel", "Build Game");
+        Call("ui.click", new { label = "Cancel", window = "Build Game", exact = true });
     }
 
     private static void Resize(JsonElement window, int width, int height)

@@ -22,7 +22,13 @@ public class SavePromptTests
             Call("ui.resize", new { width, height });
             Call("ui.click", new { path = $"View/Interface scale/{scale}%" });
             Call("entity.create", new { name = "An unsaved entity with a deliberately long description so the changes list needs to wrap across multiple lines" });
-            Call("ui.click", new { path = "Project/Load Scene.../TestScene" });
+            Call("ui.click", new { path = "Project/Load Scene" });
+            SceneMenuTests.ScrollPickerTo("Scenes/");
+            Call("ui.click", new { label = "Scenes/", window = "load-scene-popup", exact = true });
+            SceneMenuTests.ScrollPickerTo("TestScene.vscene");
+            Call("ui.click", new { label = "TestScene.vscene", window = "load-scene-popup", exact = true });
+            WaitForWidget("Open", "load-scene-popup");
+            Call("ui.click", new { label = "Open", window = "load-scene-popup", exact = true });
             WaitForWidget("Cancel", "Save Changes?");
             var popup = Popup();
             Call("screenshot", new { path = Path.Combine(Path.GetTempPath(), "Voltage-HeadlessHurt", $"save-dialog-{scale}.png"), window = true });
@@ -52,8 +58,9 @@ public class SavePromptTests
         }
         finally
         {
-            if (Call("ui.popups").GetArrayLength() > 0)
-                Call("ui.click", new { label = "Cancel", window = "Save Changes?", exact = true });
+            foreach (var window in new[] { "Save Changes?", "load-scene-popup" })
+                if (Call("ui.find", new { label = "Cancel", window, exact = true }).GetArrayLength() > 0)
+                    Call("ui.click", new { label = "Cancel", window, exact = true });
             Call("input.release");
             Call("scene.load", new { name = "TestScene", force = true });
             Call("ui.click", new { path = "View/Interface scale/100%" });

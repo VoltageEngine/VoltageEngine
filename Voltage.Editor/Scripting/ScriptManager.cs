@@ -157,10 +157,8 @@ namespace GameScripts
 					Debug.Error($"  {error}");
 			}
 
-			bool shouldReloadScene = result.Success &&
-			                         EnableHotReload &&
-			                         AutoReloadSceneOnChange &&
-			                         Core.IsEditMode;
+			bool shouldReloadScene = result.Success && Core.IsEditMode &&
+			                         (_scriptWatcher.ReloadAfterDeferredCompile || (EnableHotReload && AutoReloadSceneOnChange));
 
 			OnCompilationComplete?.Invoke(result, shouldReloadScene);
 
@@ -218,6 +216,11 @@ namespace GameScripts
 		/// <param name="reloadSceneOnSuccess">Whether to reload the scene if compilation succeeds</param>
 		public void CompileScripts(bool reloadSceneOnSuccess = false)
 		{
+			if (!Core.IsEditMode)
+			{
+				_scriptWatcher.CompileAllScripts(false);
+				return;
+			}
 			// Ensure EngineLibs are up-to-date before compiling so Roslyn
 			// references the latest engine DLLs, not stale on-disk builds.
 			var projectPath = ProjectManager.Instance?.CurrentProject?.ProjectPath;

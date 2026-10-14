@@ -143,6 +143,14 @@ public class PrefabFramingTests
         protected override void Initialize()
         {
             base.Initialize();
+            // Prefab framing runs in the editor; in play mode AddEntity marks entities NonSerialized and framing skips them.
+            Core.IsEditMode = true;
+            try { Check(); } finally { Core.IsEditMode = false; }
+            ((Game)this).Exit();
+        }
+
+        private void Check()
+        {
             using var texture = new Texture2D(GraphicsDevice, 32, 16);
             var scene = new Scene();
             Core.Scene = scene;
@@ -175,7 +183,6 @@ public class PrefabFramingTests
                 Assert.That(b.X, Is.LessThan(size.X)); Assert.That(b.Y, Is.LessThan(size.Y));
                 Assert.That(target, Is.EqualTo(scene.Camera.Position));
             }
-            ((Game)this).Exit();
         }
     }
 }

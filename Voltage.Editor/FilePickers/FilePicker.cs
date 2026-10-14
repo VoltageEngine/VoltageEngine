@@ -19,6 +19,7 @@ namespace Voltage.Editor.FilePickers
 		public bool HideHiddenFolders = true;
 		public bool OnlyAllowFolders;
 		public bool DontAllowTraverselBeyondRootFolder;
+		private string _lastDrawnFolder;
 
 		public static FilePicker GetFolderPicker(object o, string startingPath)
 			=> GetFilePicker(o, startingPath, null, true);
@@ -82,6 +83,7 @@ namespace Voltage.Editor.FilePickers
 			ImGuiSafe.TextSafe("Current Folder: " + Path.GetFileName(RootFolder) + CurrentFolder.Replace(RootFolder, ""));
 			bool result = false;
 
+			if (_lastDrawnFolder != CurrentFolder) { ImGui.SetNextWindowScroll(Num.Vector2.Zero); _lastDrawnFolder = CurrentFolder; }
 			if (ImGui.BeginChild(1, new Num.Vector2(500, 400), ImGuiChildFlags.FrameStyle))
 			{
 				var di = new DirectoryInfo(CurrentFolder);
@@ -209,6 +211,7 @@ namespace Voltage.Editor.FilePickers
 		{
 			ImGuiSafe.TextSafe("Current Folder: " + Path.GetFileName(picker.RootFolder) + picker.CurrentFolder.Replace(picker.RootFolder, ""));
 
+			if (picker._lastDrawnFolder != picker.CurrentFolder) { ImGui.SetNextWindowScroll(Num.Vector2.Zero); picker._lastDrawnFolder = picker.CurrentFolder; }
 			if (ImGui.BeginChild(1, new Num.Vector2(500, 400), ImGuiChildFlags.FrameStyle))
 			{
 				var di = new DirectoryInfo(picker.CurrentFolder);

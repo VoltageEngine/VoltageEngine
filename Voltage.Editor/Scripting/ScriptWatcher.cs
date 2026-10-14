@@ -1,9 +1,12 @@
 	using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Timers;
 using Voltage.Editor.DebugUtils;
+using Voltage.Utils;
+using Voltage.Utils.Coroutines;
 
 namespace Voltage.Editor.Scripting
 {
@@ -19,6 +22,10 @@ namespace Voltage.Editor.Scripting
 		private readonly HashSet<string> _changedFiles = new();
 		private readonly object _lockObject = new();
 		private bool _isCompiling = false;
+		private bool _compileDeferred;
+		private bool _disposed;
+		private ICoroutine _resumeCompile;
+		public bool ReloadAfterDeferredCompile { get; private set; }
 		private ScriptCompilationProgressWindow _progressWindow;
 
 		public event Action<CompilationResult> OnCompilationComplete;
@@ -29,7 +36,7 @@ namespace Voltage.Editor.Scripting
 			get
 			{
 				lock (_lockObject)
-					return _isCompiling || _changedFiles.Count > 0 || _debounceTimer.Enabled;
+					return _isCompiling || _compileDeferred || _changedFiles.Count > 0 || _debounceTimer.Enabled;
 			}
 		}
 
@@ -71,6 +78,7 @@ namespace Voltage.Editor.Scripting
 			_debounceTimer = new Timer(DebounceDelay);
 			_debounceTimer.Elapsed += OnDebounceTimerElapsed;
 			_debounceTimer.AutoReset = false;
+			Core.OnSwitchEditMode += OnEditModeSwitched;
 
 			// Dev-mode plugin source folders hot-reload like project scripts. Cache-installed plugin
 			// payloads are immutable, so they compile with the scripts but are never watched.
@@ -157,13 +165,21 @@ namespace Voltage.Editor.Scripting
 		{
 			lock (_lockObject)
 			{
-				if (_isCompiling || _changedFiles.Count == 0)
+				if (_disposed || _isCompiling || _changedFiles.Count == 0)
 					return;
 
 				if (!AutoCompileOnFileChange)
 				{
 					EditorDebug.Log($"Script files changed but auto-compile is disabled. Use 'Compile Scripts' to apply changes.");
 					_changedFiles.Clear();
+					return;
+				}
+
+				if (!Core.IsEditMode)
+				{
+					_compileDeferred = true;
+					_changedFiles.Clear();
+					EditorDebug.Log("Script changes queued. Compilation will run after Play stops.");
 					return;
 				}
 
@@ -181,6 +197,20 @@ namespace Voltage.Editor.Scripting
 
 		private void CompileScripts(List<string> changedFiles, bool reloadScene = true)
 		{
+			lock (_lockObject)
+			{
+				if (_disposed) return;
+				if (!Core.IsEditMode || _resumeCompile != null)
+				{
+					_compileDeferred = true;
+					_isCompiling = false;
+					EditorDebug.Log("Script changes queued. Compilation will run after Play stops.");
+					return;
+				}
+				_isCompiling = true;
+				_debounceTimer.Stop();
+				_changedFiles.Clear();
+			}
 			try
 			{
 				EditorDebug.Log($"Hot reloading scripts: {string.Join(", ", changedFiles.Select(Path.GetFileName))}");
@@ -228,6 +258,31 @@ namespace Voltage.Editor.Scripting
 			}
 		}
 
+		private void OnEditModeSwitched(bool editMode)
+		{
+			if (!editMode) return;
+			_resumeCompile?.Stop();
+			_resumeCompile = Core.StartCoroutine(ResumeCompilation(Core.Scene));
+		}
+
+		private IEnumerator ResumeCompilation(Scene stoppedScene)
+		{
+			// Wait in frames so gameplay slow motion cannot delay completion of the stop transition.
+			yield return null;
+			while (!Core.IsEditMode || (Core.ResetSceneAutomatically && stoppedScene != null && ReferenceEquals(Core.Scene, stoppedScene)) ||
+				(Core.Scene != null && !Core.Scene.DidAllEntitiesLoad) || _isCompiling)
+				yield return null;
+			_resumeCompile = null;
+			lock (_lockObject)
+			{
+				if (_disposed || (!_compileDeferred && (!AutoCompileOnFileChange || _changedFiles.Count == 0))) yield break;
+				_compileDeferred = false;
+			}
+			ReloadAfterDeferredCompile = true;
+			try { CompileAllScripts(true); }
+			finally { ReloadAfterDeferredCompile = false; }
+		}
+
 		/// <summary>
 		/// Manually trigger compilation of all scripts
 		/// </summary>
@@ -251,6 +306,9 @@ namespace Voltage.Editor.Scripting
 
 		public void Dispose()
 		{
+			_disposed = true;
+			Core.OnSwitchEditMode -= OnEditModeSwitched;
+			_resumeCompile?.Stop();
 			_fileWatcher?.Dispose();
 			foreach (var watcher in _devPluginWatchers)
 				watcher.Dispose();

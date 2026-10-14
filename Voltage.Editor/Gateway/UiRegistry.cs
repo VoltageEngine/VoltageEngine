@@ -14,6 +14,8 @@ internal sealed class UiItem
 	public string Window;
 	public string Path;
 	public float X, Y, W, H;
+	/// <summary>Center of the part left unclipped, so a click on a half-scrolled row lands on the row.</summary>
+	public float ClickX, ClickY;
 	public bool Visible, Enabled, Hovered, Active;
 }
 
@@ -183,6 +185,12 @@ internal static class UiRegistry
 		item.W = max.X - min.X;
 		item.H = max.Y - min.Y;
 		item.Visible = ImGui.IsItemVisible();
+		var draw = ImGui.GetWindowDrawList();
+		var clipMin = System.Numerics.Vector2.Max(min, draw.GetClipRectMin());
+		var clipMax = System.Numerics.Vector2.Min(max, draw.GetClipRectMax());
+		var unclipped = clipMax.X > clipMin.X && clipMax.Y > clipMin.Y;
+		item.ClickX = unclipped ? (clipMin.X + clipMax.X) / 2f : item.X + item.W / 2f;
+		item.ClickY = unclipped ? (clipMin.Y + clipMax.Y) / 2f : item.Y + item.H / 2f;
 		item.Enabled = enabled;
 		item.Hovered = ImGui.IsItemHovered();
 		item.Active = ImGui.IsItemActive();
