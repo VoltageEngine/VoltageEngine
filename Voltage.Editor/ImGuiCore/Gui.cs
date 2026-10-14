@@ -90,7 +90,14 @@ public static class Gui
 
 	public static bool Button(string label) => Item(ImGui.Button(label), "button", label);
 
-	public static bool Button(string label, Vector2 size) => Item(ImGui.Button(label, size), "button", label);
+	public static bool Button(string label, Vector2 size)
+	{
+		var caption = label.Split(new[] { "##" }, System.StringSplitOptions.None)[0];
+		var minimum = ImGui.CalcTextSize(caption) + ImGui.GetStyle().FramePadding * 2;
+		if (size.X > 0) size.X = System.Math.Max(size.X, minimum.X);
+		if (size.Y > 0) size.Y = System.Math.Max(size.Y, minimum.Y);
+		return Item(ImGui.Button(label, size), "button", label);
+	}
 	internal static bool CaptionButton(string label, string caption) => Item(ImGui.Button(caption + "###" + label), "button", label);
 
 	public static bool IconButton(string label, string glyph, ImFontPtr font, Vector2 size, bool selected = false)

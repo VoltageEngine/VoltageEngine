@@ -27,5 +27,8 @@
 		<Compile Remove="ImGuiFrameTests.cs" />
 		<Compile Remove="ImGuiInputTests.cs;EditorLayoutTests.cs" />
 		<Compile Remove="AssetPreviewTests.cs" />
+		<Compile Remove="TileSelectionTests.cs" />
+		<Compile Remove="TimelineDocumentTests.cs" />
+		<Compile Remove="PluginAssemblyReloadTests.cs" />
 	</ItemGroup>
 </Project>

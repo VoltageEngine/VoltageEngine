@@ -37,6 +37,11 @@ public class DebugRenderingTests
         Call("scene.save");
         try
         {
+            var toggle = WaitForWidget("DebugRenderingToggle", "Editor Tools");
+            var arrow = WaitForWidget("DebugRenderingFilters", "Editor Tools");
+            Assert.That(arrow.GetProperty("x").GetInt32(), Is.EqualTo(toggle.GetProperty("x").GetInt32() + toggle.GetProperty("width").GetInt32()).Within(1));
+            Assert.That(arrow.GetProperty("y").GetInt32(), Is.EqualTo(toggle.GetProperty("y").GetInt32()));
+            Assert.That(arrow.GetProperty("width").GetInt32(), Is.EqualTo(toggle.GetProperty("width").GetInt32() * 0.5f).Within(1));
             Open();
             foreach (var category in new[] { "All", "Colliders", "Sprite renderers", "Tilemaps", "Lights", "UI", "Other components", "Transform gizmos" })
                 WaitForWidget(category, "DebugRenderingCategories");

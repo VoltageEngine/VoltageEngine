@@ -11,6 +11,86 @@ namespace Voltage.Editor.Tests;
 [TestFixture, NonParallelizable]
 public class AssetBrowserUiTests
 {
+    [TestCase("Project root"), TestCase("ProjectRootGap:Data")]
+    public void Root_folder_drops_preserve_defaults_current_scene_and_asset_guids(string target)
+    {
+        Call("ui.resize", new { width = 1600, height = 1200 });
+        Call("ui.click", new { path = "View/Interface scale/75%" });
+        Zoom(false);
+        var browser = Call("ui.windows").EnumerateArray().Single(w => w.GetProperty("name").GetString() == "Asset Browser");
+        Call("input.drag", new { x1 = 800, y1 = browser.GetProperty("y").GetInt32() - 3, x2 = 800, y2 = 550, frames = 20 });
+        var project = Path.GetDirectoryName(ProjectFile);
+        Call("scene.create", new { name = "RootDragScene" });
+        Call("entity.create", new { name = "RootDragActor" });
+        var prefab = Call("prefab.create", new { entity = "RootDragActor", keepOriginal = false });
+        var prefabGuid = prefab.GetProperty("guid").GetString();
+        var actorGuid = prefab.GetProperty("instance").GetProperty("guid").GetString();
+        Call("asset.refresh");
+        var sceneMeta = File.ReadAllText(Path.Combine(project, "Scenes/RootDragScene.vscene.meta"));
+        Directory.CreateDirectory(Path.Combine(project, "Data"));
+        File.Copy(Path.Combine(project, "Scenes/MainScene.vscene"), Path.Combine(project, "Data/RootDragMarker.vscene"), true);
+        Call("scene.save");
+        Call("asset.refresh");
+        try
+        {
+            Search("RootDrag");
+            foreach (var folder in new[] { "Scenes", "Prefabs" })
+            {
+                DragFolder(folder, "Data");
+                WaitForFolder(Path.Combine(project, "Data", folder));
+                if (Call("ui.find", new { label = folder, window = "Asset Browser", exact = true }).GetArrayLength() == 0)
+                {
+                    var data = WaitForWidget("Data", "Asset Browser");
+                    Call("input.click", new { x = data.GetProperty("x").GetInt32() + 18, y = data.GetProperty("y").GetInt32() + data.GetProperty("height").GetInt32() / 2 });
+                }
+                DragFolder(folder, target);
+                WaitForFolder(Path.Combine(project, folder));
+            }
+            using var metadata = JsonDocument.Parse(File.ReadAllText(ProjectFile));
+            Assert.That(metadata.RootElement.GetProperty("ScenesFolder").GetString(), Is.EqualTo("Scenes"));
+            Assert.That(metadata.RootElement.GetProperty("PrefabsFolder").GetString(), Is.EqualTo("Prefabs"));
+            Assert.That(File.ReadAllText(Path.Combine(project, "Scenes/RootDragScene.vscene.meta")), Is.EqualTo(sceneMeta));
+            Assert.That(Call("prefab.list").EnumerateArray().Any(p => p.GetProperty("guid").GetString() == prefabGuid && p.GetProperty("path").GetString().Replace('\\', '/').Contains("/Prefabs/")), Is.True);
+            Assert.That(Call("status").GetProperty("scene").GetProperty("path").GetString().Replace('\\', '/'), Does.EndWith("/Scenes/RootDragScene.vscene"));
+            Call("scene.save");
+            Call("scene.reload");
+            Assert.That(Call("prefab.info", new { entity = actorGuid }).GetProperty("guid").GetString(), Is.EqualTo(prefabGuid));
+            Assert.That(Directory.Exists(Path.Combine(project, "Data/Scenes")), Is.False);
+            Assert.That(Directory.Exists(Path.Combine(project, "Data/Prefabs")), Is.False);
+        }
+        finally
+        {
+            Call("input.release");
+            Search("");
+            Call("scene.load", new { name = "TestScene", force = true });
+            foreach (var file in new[] { "Scenes/RootDragScene.vscene", "Prefabs/RootDragActor.vprefab", "Data/RootDragMarker.vscene" })
+            {
+                File.Delete(Path.Combine(project, file));
+                File.Delete(Path.Combine(project, file + ".meta"));
+            }
+            Call("asset.refresh");
+            Call("ui.click", new { path = "View/Interface scale/100%" });
+            Call("ui.resize", new { width = 1600, height = 900 });
+        }
+    }
+
+    private static void DragFolder(string folder, string destination)
+    {
+        var source = WaitForWidget(folder, "Asset Browser");
+        var target = WaitForWidget(destination, "Asset Browser");
+        Call("input.drag", new { x1 = source.GetProperty("x").GetInt32() + 45, y1 = source.GetProperty("y").GetInt32() + source.GetProperty("height").GetInt32() / 2,
+            x2 = target.GetProperty("x").GetInt32() + 45, y2 = target.GetProperty("y").GetInt32() + target.GetProperty("height").GetInt32() / 2, frames = 15 });
+    }
+
+    private static void WaitForFolder(string path)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!Directory.Exists(path) && DateTime.UtcNow < deadline) Thread.Sleep(50);
+        Assert.That(Directory.Exists(path), Is.True, "Folder was not relocated: " + path);
+        Call("asset.refresh");
+        Call("input.wait", new { frames = 3 });
+    }
+
     private static void Search(string text)
     {
         Call("ui.focus", new { window = "Asset Browser" });

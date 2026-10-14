@@ -57,19 +57,26 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		                    new FileDataStore(EditorStorage.Root);
 		KeyValueDataStore.Default.Load(fileDataStore);
 
-		ShowStyleEditor = KeyValueDataStore.Default.GetBool(kShowStyleEditor, ShowStyleEditor);
-		ShowSceneGraphWindow = KeyValueDataStore.Default.GetBool(kShowSceneGraphWindow, ShowSceneGraphWindow);
-		ShowCoreWindow = KeyValueDataStore.Default.GetBool(kShowCoreWindow, ShowCoreWindow);
-		ShowMainInspectorWindow = KeyValueDataStore.Default.GetBool(kShowMainInspectorWindow, ShowMainInspectorWindow);
-		ShowSeparateGameWindow = KeyValueDataStore.Default.GetBool(kShowSeperateGameWindow, ShowSeparateGameWindow);
-		PreserveGameWindowAspectRatio =
-			KeyValueDataStore.Default.GetBool(kPreserveGameWindowAspectRatio, PreserveGameWindowAspectRatio);
+		if (!EditorSettingsLoader.ContainsSetting(kShowStyleEditor))
+			ShowStyleEditor = KeyValueDataStore.Default.GetBool(kShowStyleEditor, ShowStyleEditor);
+		if (!EditorSettingsLoader.ContainsSetting(kShowSceneGraphWindow))
+			ShowSceneGraphWindow = KeyValueDataStore.Default.GetBool(kShowSceneGraphWindow, ShowSceneGraphWindow);
+		if (!EditorSettingsLoader.ContainsSetting(kShowCoreWindow))
+			ShowCoreWindow = KeyValueDataStore.Default.GetBool(kShowCoreWindow, ShowCoreWindow);
+		if (!EditorSettingsLoader.ContainsSetting(kShowMainInspectorWindow))
+			ShowMainInspectorWindow = KeyValueDataStore.Default.GetBool(kShowMainInspectorWindow, ShowMainInspectorWindow);
+		if (!EditorSettingsLoader.ContainsSetting("ImGui_ShowSeparateGameWindow"))
+			ShowSeparateGameWindow = KeyValueDataStore.Default.GetBool(kShowSeperateGameWindow, ShowSeparateGameWindow);
+		if (!EditorSettingsLoader.ContainsSetting(kPreserveGameWindowAspectRatio))
+			PreserveGameWindowAspectRatio = KeyValueDataStore.Default.GetBool(kPreserveGameWindowAspectRatio, PreserveGameWindowAspectRatio);
 
 		Core.Emitter.AddObserver(CoreEvents.Exiting, PersistSettings);
 	}
 
 	private void PersistSettings()
 	{
+		_timelineWindow?.DisposePreview();
+		_layoutManager.SaveWorkingLayout();
 		KeyValueDataStore.Default.Set(kShowStyleEditor, ShowStyleEditor);
 		KeyValueDataStore.Default.Set(kShowSceneGraphWindow, ShowSceneGraphWindow);
 		KeyValueDataStore.Default.Set(kShowCoreWindow, ShowCoreWindow);
@@ -764,13 +771,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			if (disposing)
 			{
 				Core.Emitter.RemoveObserver(CoreEvents.SceneChanged, OnSceneChanged);
-				_layoutManager.AutoSaveCurrentLayout();
+				_layoutManager.SaveWorkingLayout();
 
-				// Always save the default .ini for next startup
-				if (!string.IsNullOrEmpty(_layoutFilePath))
-				{
-					ImGui.SaveIniSettingsToDisk(_layoutFilePath);
-				}
 			}
 
 			// Free the pinned GCHandle to avoid a memory leak.

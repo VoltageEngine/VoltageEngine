@@ -99,13 +99,13 @@ public partial class Scene
 	public string Name => SceneData?.Name;
 
 	/// <summary>
-	/// The level key relative to the Scenes folder, without extension (e.g. "Act 1/Room").
+	/// The level key relative to the project root, without extension (e.g. "Act 1/Room").
 	/// Returns null if the scene was not loaded from a file.
 	/// Pass this to <see cref="LoadLevel"/> to load/reload the same level.
 	/// </summary>
 	public string LevelName => string.IsNullOrEmpty(SceneData?.FilePath) ? null :
 		System.IO.Path.ChangeExtension(System.IO.Path.GetRelativePath(
-			string.IsNullOrEmpty(ScenesDirectory) ? System.IO.Path.Combine(System.AppContext.BaseDirectory, "Data", "Scenes") : ScenesDirectory,
+			ProjectDirectory ?? ScenesDirectory ?? System.AppContext.BaseDirectory,
 			SceneData.FilePath), null).Replace('\\', '/');
 
 	/// <summary>

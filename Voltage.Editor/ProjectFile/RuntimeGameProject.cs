@@ -89,9 +89,9 @@ namespace Voltage.Editor.ProjectFile
 
 		public string DataFolder => CrossPlatformPath.Combine(ProjectPath, CrossPlatformPath.Normalize(_metadata.DataFolder));
 
-		public string ScenesFolder => CrossPlatformPath.Combine(ProjectPath, CrossPlatformPath.Normalize(_metadata.ScenesFolder));
+		public string ScenesFolder => CrossPlatformPath.Combine(ProjectPath, CrossPlatformPath.Normalize(string.IsNullOrWhiteSpace(_metadata.ScenesFolder) ? "Scenes" : _metadata.ScenesFolder));
 
-		public string PrefabsFolder => CrossPlatformPath.Combine(ProjectPath, CrossPlatformPath.Normalize(_metadata.PrefabsFolder));
+		public string PrefabsFolder => CrossPlatformPath.Combine(ProjectPath, CrossPlatformPath.Normalize(string.IsNullOrWhiteSpace(_metadata.PrefabsFolder) ? "Prefabs" : _metadata.PrefabsFolder));
 
 
 		public void Initialize()

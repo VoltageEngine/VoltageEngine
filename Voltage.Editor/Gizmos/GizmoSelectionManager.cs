@@ -444,7 +444,7 @@ namespace Voltage.Editor.Gizmos
 				_imGuiManager.SceneGraphWindow.EntityPane.SetSelectedEntity(selected, additive, false);
 				_imGuiManager.OpenMainEntityInspector(selected);
 
-				if (!MathUtils.IsVectorNaNOrInfinite(selected.Transform.Position))
+				if (!MathUtils.IsVectorNaNOrInfinite(selected.Transform.Position) && selected.GetComponent<TilemapRenderer>() == null)
 				{
 					SetCameraTargetPosition(selected.Transform.Position);
 				}
@@ -524,6 +524,9 @@ namespace Voltage.Editor.Gizmos
 				if (!_selectableCandidates.Contains(entity))
 					_selectableCandidates.Add(entity);
 			}
+			var tilemap = Voltage.Editor.Tools.Tilemap.TilemapSceneUtils.PickTilemap(mouseWorld);
+			if (tilemap != null && !_selectableCandidates.Contains(tilemap.Entity))
+				_selectableCandidates.Add(tilemap.Entity);
 
 			// Priority 3: Entities with DeferredLight
 			var lightsAtPosition = new List<(Entity entity, float distance)>();
@@ -609,7 +612,7 @@ namespace Voltage.Editor.Gizmos
 				_imGuiManager.SceneGraphWindow.EntityPane.SetSelectedEntity(selected, additive, false);
 				_imGuiManager.OpenMainEntityInspector(selected);
 
-				if (!MathUtils.IsVectorNaNOrInfinite(selected.Transform.Position))
+				if (!MathUtils.IsVectorNaNOrInfinite(selected.Transform.Position) && selected.GetComponent<TilemapRenderer>() == null)
 				{
 					SetCameraTargetPosition(selected.Transform.Position);
 				}

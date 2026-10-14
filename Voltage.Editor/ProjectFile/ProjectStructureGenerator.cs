@@ -220,6 +220,13 @@ namespace Voltage.Editor.ProjectFile
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update=""**\*.vscene;**\*.vscene.meta;**\*.vprefab;**\*.vprefab.meta;**\*.prefab;**\*.prefab.meta"">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+
   <!-- Icon files embedded into the assembly so the executable carries its own icon -->
   <ItemGroup>
     <EmbeddedResource Include=""Icon.ico"" Condition=""Exists('Icon.ico')"" />

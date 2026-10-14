@@ -198,26 +198,12 @@ public class PrefabReferenceTypeInspector : AbstractTypeInspector
     private static List<PrefabEntry> CollectPrefabEntries()
     {
         var result = new List<PrefabEntry>();
-        var prefabsDir = ProjectManager.Instance?.CurrentProject?.PrefabsFolder;
-        if (string.IsNullOrEmpty(prefabsDir) || !Directory.Exists(prefabsDir))
-            return result;
-
-        // Mirror SceneGraphWindow.RefreshPrefabCache: subdirectory → files
-        var subDirs = Directory.GetDirectories(prefabsDir);
-        foreach (var subDir in subDirs)
-        {
-            string folderName = Path.GetFileName(subDir);
-            var files = Directory.GetFiles(subDir, "*.vprefab")
-                .Concat(Directory.GetFiles(subDir, "*.prefab"));
-            foreach (var file in files)
-                result.Add(new PrefabEntry(file, Path.GetFileNameWithoutExtension(file), folderName));
-        }
-
-        // Also scan the root prefabs folder directly (flat layout)
-        var rootFiles = Directory.GetFiles(prefabsDir, "*.vprefab")
-            .Concat(Directory.GetFiles(prefabsDir, "*.prefab"));
-        foreach (var file in rootFiles)
-            result.Add(new PrefabEntry(file, Path.GetFileNameWithoutExtension(file), null));
+        var project = ProjectManager.Instance?.CurrentProject;
+        if (project == null) return result;
+        foreach (var item in AssetDatabase.Instance.Items.DistinctBy(i => i.AbsolutePath, Voltage.Project.ProjectAssetFiles.PathComparer))
+            if (item.Extension is ".vprefab" or ".prefab")
+                result.Add(new PrefabEntry(item.AbsolutePath, Path.GetFileNameWithoutExtension(item.FileName),
+                    Path.GetDirectoryName(Path.GetRelativePath(project.ProjectPath, item.AbsolutePath))));
 
         return result;
     }

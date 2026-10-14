@@ -93,13 +93,19 @@ internal static class ProjectSceneCommands
 			var name = args.Require("name");
 			if (name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
 				throw new GatewayException($"invalid scene name '{name}'");
+            var project = ProjectManager.Instance.CurrentProject;
+            var requestedPath = args.String("path");
+            var path = string.IsNullOrWhiteSpace(requestedPath) ? Path.Combine(project.ScenesFolder, name + ".vscene") :
+                Path.GetFullPath(Path.Combine(project.ProjectPath, requestedPath.Replace('\\', Path.DirectorySeparatorChar)));
+            if (!ProjectManager.Instance.IsPathInCurrentProject(path) || !Path.GetExtension(path).Equals(".vscene", StringComparison.OrdinalIgnoreCase))
+                throw new GatewayException("path must name a .vscene file inside the project");
 			var template = args.String("template", "empty").ToLowerInvariant();
 			var load = args.Bool("load", true);
 			var sm = SceneManager.Instance;
 
 			if (template == "copy")
 			{
-				if (!sm.CreateSceneFile(name))
+				if (!sm.CreateSceneFile(name, path))
 					throw new GatewayException("scene creation failed; see log.tail");
 				return SceneInfo();
 			}
@@ -108,9 +114,7 @@ internal static class ProjectSceneCommands
 			if (load && EditorChangeTracker.IsDirty && !args.Bool("force"))
 				throw new GatewayException("scene has unsaved changes; call scene.save, pass force=true, or load=false");
 
-			var scenesFolder = ProjectManager.Instance.CurrentProject.ScenesFolder;
-			Directory.CreateDirectory(scenesFolder);
-			var path = Path.Combine(scenesFolder, $"{name}.vscene");
+			Directory.CreateDirectory(Path.GetDirectoryName(path));
 			if (File.Exists(path))
 				throw new GatewayException($"scene file already exists: {path}");
 
@@ -123,7 +127,7 @@ internal static class ProjectSceneCommands
 			var created = sm.LoadScene(path) ?? throw new GatewayException("scene created but failed to load; see log.tail");
 			EditorChangeTracker.Clear();
 			return WhenCurrent(created, () => new { path, loaded = true, scene = SceneInfo() });
-		}, P.Str("name", "Scene file name without extension", required: true), P.Enum("template", "empty: a new blank scene; copy: the open scene saved under the new name", new[] { "empty", "copy" }, "empty"), P.Bool("load", "Open the new scene", true), P.Bool("force", "Discard unsaved changes when loading", false));
+		}, P.Str("name", "Scene file name without extension", required: true), P.Str("path", "Destination .vscene path inside the project; defaults to the scene creation folder"), P.Enum("template", "empty: a new blank scene; copy: the open scene saved under the new name", new[] { "empty", "copy" }, "empty"), P.Bool("load", "Open the new scene", true), P.Bool("force", "Discard unsaved changes when loading", false));
 
 		table.Add("project.create", "Create a new project like the New Project window and open it; answers once it has loaded.", (args, ctx) =>
 		{

@@ -29,7 +29,20 @@ namespace Voltage.Editor.Tools.Tilemap
 	/// <summary>Turns mouse input in the game view into tilemap edits, and draws the grid/cursor overlays.</summary>
 	public partial class TilePaintTool
 	{
-		public TilemapRenderer Target;
+		private TilemapRenderer _target;
+		public TilemapRenderer Target
+		{
+			get => _target;
+			set
+			{
+				if (ReferenceEquals(_target, value)) return;
+				CommitPendingStroke();
+				ClearTileSelection();
+				_target = value;
+			}
+		}
+
+		public bool PickLayerInScene = true;
 
 		/// <summary>Tileset staged in the palette; the first stroke creates a layer bound to it if there is no Target.</summary>
 		public EngineAssetReference StagedTileset;
@@ -37,7 +50,12 @@ namespace Voltage.Editor.Tools.Tilemap
 		public int FallbackTileWidth = 16;
 		public int FallbackTileHeight = 16;
 
-		public TileTool Tool = TileTool.Brush;
+		private TileTool _tool = TileTool.Brush;
+		public TileTool Tool
+		{
+			get => _tool;
+			set { if (_tool != value) CancelSelectionGesture(); _tool = value; }
+		}
 
 		public TileEditMode EditMode = TileEditMode.Tiles;
 
@@ -250,15 +268,15 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (Target.Entity != null && Target.Entity.Scene != null)
 				return;
 
-			Target = null;
 			AbandonStroke();
+			Target = null;
 		}
 
 		/// <summary>Clears scene-scoped state on scene load. The staged tileset and selection are asset-scoped and survive.</summary>
 		public void OnSceneChanged()
 		{
-			Target = null;
 			AbandonStroke();
+			Target = null;
 		}
 
 		private void AbandonStroke()
@@ -299,6 +317,14 @@ namespace Voltage.Editor.Tools.Tilemap
 		public void Update(Vector2 worldMouse, Camera camera)
 		{
 			IsHovering = false;
+			if (Tool == TileTool.Select && PickLayerInScene && Input.LeftMouseButtonPressed &&
+				!_isMovingSelection && !_isMarqueeing && !ImGui.GetIO().KeyCtrl &&
+				!ImGui.GetIO().KeySuper && !ImGui.GetIO().KeyShift &&
+				!IsCellSelected(WorldToCell(worldMouse)))
+			{
+				var picked = TilemapSceneUtils.PickTilemap(worldMouse);
+				if (picked != null) Target = picked;
+			}
 
 			var cell = WorldToCell(worldMouse);
 			HoveredCell = cell;
@@ -365,6 +391,7 @@ namespace Voltage.Editor.Tools.Tilemap
 		/// </summary>
 		public void CommitPendingStroke()
 		{
+			CancelSelectionGesture();
 			_isDraggingRect = false;
 
 			if (_isStroking)

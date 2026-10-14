@@ -40,11 +40,11 @@ internal static class PlayScriptCommands
 				: PlayState();
 		});
 
-		table.Add("play.pause", "Pause or resume play mode.", (args, _) =>
+		table.Add("play.pause", "Pause or resume play mode.", (args, ctx) =>
 		{
 			if (Core.IsEditMode)
 				throw new GatewayException("not in play mode");
-			Core.InvokeSwitchPauseMode(args.Bool("paused", true));
+			ctx.ImGui().SetEditorPause(args.Bool("paused", true));
 			return PlayState();
 		}, P.Bool("paused", "Pause (true) or resume (false)", true));
 

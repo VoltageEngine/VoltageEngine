@@ -76,7 +76,7 @@ public sealed class InputSimulator
 		return done.Task;
 	}
 
-	/// <summary>Main thread, after Input.Update and before ImGui reads the frame's input.</summary>
+	/// <summary>Main thread, after hardware polling and before virtual inputs cache the frame.</summary>
 	public void Apply()
 	{
 		if (_waitFrames > 0 && --_waitFrames == 0)

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
 using Voltage.Editor.DebugUtils;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Scripting;
@@ -87,6 +88,8 @@ namespace Voltage.Editor.Plugins
 
 		/// <summary>Simple assembly names contributed by plugins, for collision checks and sync exclusion.</summary>
 		private readonly HashSet<string> _pluginAssemblyNames = new(StringComparer.OrdinalIgnoreCase);
+		private readonly Dictionary<string, (string Owner, Assembly Assembly, byte[] Hash)> _assemblyOwners = new(StringComparer.OrdinalIgnoreCase);
+		private readonly HashSet<string> _editorReferenceAssemblyPaths = new(StringComparer.OrdinalIgnoreCase);
 
 		/// <summary>All plugins.json entries with their live state, in config order.</summary>
 		public IReadOnlyList<PluginInstance> Plugins => _plugins;
@@ -101,6 +104,7 @@ namespace Voltage.Editor.Plugins
 		public void RestoreForProject(IGameProject project)
 		{
 			_plugins.Clear();
+			_editorReferenceAssemblyPaths.Clear();
 			_projectPath = project.ProjectPath;
 
 			ProjectPluginsConfig config;
@@ -251,6 +255,7 @@ namespace Voltage.Editor.Plugins
 		private void LoadGameplayAssemblies()
 		{
 			var loadedAny = false;
+			_editorReferenceAssemblyPaths.Clear();
 
 			foreach (var plugin in _plugins)
 			{
@@ -270,6 +275,7 @@ namespace Voltage.Editor.Plugins
 
 				try
 				{
+					var references = new List<string>();
 					foreach (var relPath in assemblyList)
 					{
 						var dllPath = Path.Combine(plugin.PayloadPath, PluginManifest.NormalizeRelative(relPath));
@@ -278,7 +284,13 @@ namespace Voltage.Editor.Plugins
 
 						ValidateNoAssemblyNameCollision(plugin, dllPath);
 
-						var assembly = Assembly.LoadFrom(dllPath);
+						var simpleName = AssemblyName.GetAssemblyName(dllPath).Name;
+						var hash = SHA256.HashData(File.ReadAllBytes(dllPath));
+						var assembly = _assemblyOwners.TryGetValue(simpleName, out var prior)
+							? prior.Assembly : Assembly.LoadFrom(dllPath);
+						if (prior.Assembly != null && !hash.SequenceEqual(prior.Hash))
+							plugin.StaleAssemblyWarning = $"'{simpleName}.dll' changed after loading. Restart the editor to use the updated plugin assembly.";
+						_assemblyOwners.TryAdd(simpleName, (plugin.Id, assembly, hash));
 
 						// An initializer could P/Invoke, so natives must resolve first.
 						PluginNativeResolver.Register(assembly, plugin.PayloadPath, plugin.Manifest);
@@ -288,6 +300,7 @@ namespace Voltage.Editor.Plugins
 
 						_loadedAssemblyPaths.Add(dllPath);
 						_pluginAssemblyNames.Add(assembly.GetName().Name ?? Path.GetFileNameWithoutExtension(dllPath));
+						references.Add(dllPath);
 
 						if (plugin.Manifest.Gameplay.RootTypes is not { Count: > 0 })
 						{
@@ -302,6 +315,7 @@ namespace Voltage.Editor.Plugins
 					}
 
 					plugin.State = PluginState.Loaded;
+					_editorReferenceAssemblyPaths.UnionWith(references);
 					loadedAny = true;
 				}
 				catch (Exception ex)
@@ -338,7 +352,7 @@ namespace Voltage.Editor.Plugins
 		/// <summary>A plugin assembly whose simple name matches an engine DLL would be silently shadowed, so fail hard instead. An EDITOR twin of the plugin's own runtime DLL is the exception.</summary>
 		private void ValidateNoAssemblyNameCollision(PluginInstance plugin, string dllPath)
 		{
-			var simpleName = Path.GetFileNameWithoutExtension(dllPath);
+			var simpleName = AssemblyName.GetAssemblyName(dllPath).Name;
 
 			var collidesWithEngine = EngineLibsSync.ManagedReferenceDlls
 				.Select(Path.GetFileNameWithoutExtension)
@@ -348,7 +362,7 @@ namespace Voltage.Editor.Plugins
 				throw new PluginResolveException(
 					$"Plugin '{plugin.Id}' ships assembly '{simpleName}.dll', which collides with an engine assembly of the same name.");
 
-			if (_pluginAssemblyNames.Contains(simpleName) && !_loadedAssemblyPaths.Contains(dllPath))
+			if (_assemblyOwners.TryGetValue(simpleName, out var owner) && !string.Equals(owner.Owner, plugin.Id, StringComparison.OrdinalIgnoreCase))
 				throw new PluginResolveException(
 					$"Plugin '{plugin.Id}' ships assembly '{simpleName}.dll', which collides with an assembly from another plugin.");
 		}
@@ -356,7 +370,7 @@ namespace Voltage.Editor.Plugins
 		/// <summary>Manifest-listed plugin DLLs for the script compiler. Never glob PluginLibs.</summary>
 		public IReadOnlyCollection<string> GetEditorReferenceAssemblyPaths()
 		{
-			return _loadedAssemblyPaths;
+			return _editorReferenceAssemblyPaths;
 		}
 
 		/// <summary>True when the assembly belongs to a loaded plugin; keeps editor-flavored DLLs out of EngineLibs.</summary>
@@ -461,6 +475,7 @@ namespace Voltage.Editor.Plugins
 		{
 			EditorPluginHost.ShutdownPlugins();
 			_plugins.Clear();
+			_editorReferenceAssemblyPaths.Clear();
 			_projectPath = null;
 		}
 

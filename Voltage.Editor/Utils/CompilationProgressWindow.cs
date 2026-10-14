@@ -31,15 +31,17 @@ namespace Voltage.Editor.Utils
 		private bool _isVisible = false;
 		private CompilationProgress _currentProgress;
 		private readonly bool _isScriptProgress;
+		private readonly bool _isGameProgress;
 		private bool _hasClosedAfterCompletion = false;
 		private readonly Action _onCancel;
 
 		public bool IsVisible => _isVisible;
 
-		public CompilationProgressWindow(bool isScriptProgress = false, Action onCancel = null)
+		public CompilationProgressWindow(bool isScriptProgress = false, Action onCancel = null, bool isGameProgress = false)
 		{
 			_isScriptProgress = isScriptProgress;
 			_onCancel = onCancel;
+			_isGameProgress = isGameProgress;
 		}
 
 		/// <summary>
@@ -69,6 +71,7 @@ namespace Voltage.Editor.Utils
 		{
 			if (!_isVisible || _currentProgress == null)
 				return;
+			if (_isGameProgress) { DrawGameProgress(); return; }
 
 			// Handle immediate auto-close when compilation completes
 			if (_currentProgress.IsComplete && !_hasClosedAfterCompletion)
@@ -128,6 +131,49 @@ namespace Voltage.Editor.Utils
 
 				Gui.End();
 			}
+		}
+
+		private void DrawGameProgress()
+		{
+			var progress = _currentProgress;
+			bool failed = progress.FailureCount > 0;
+			var accent = ImGui.GetStyle().Colors[failed ? (int)ImGuiCol.PlotHistogramHovered : (int)ImGuiCol.CheckMark];
+			var viewport = ImGui.GetMainViewport();
+			ImGui.SetNextWindowPos(viewport.WorkPos + viewport.WorkSize * 0.5f, ImGuiCond.Always, new Num.Vector2(0.5f));
+			ImGui.SetNextWindowSize(new Num.Vector2(480, 0), ImGuiCond.Always);
+			ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Num.Vector2(24, 22));
+			ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 8f);
+			bool visible = Gui.Begin("Game build##Progress", ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove |
+				ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.AlwaysAutoResize);
+			if (visible)
+			{
+				ImGuiSafe.TextColoredSafe(accent, progress.IsComplete ? (failed ? "Build needs attention" : "Game build ready") : "Building your game");
+				ImGui.Spacing();
+				ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled]);
+				ImGuiSafe.TextWrappedSafe(progress.IsComplete ? (failed ? "Review the details below and try again." : "Your game is ready to run.") : "Preparing the game and its assets.");
+				ImGui.PopStyleColor();
+				ImGui.Dummy(new Num.Vector2(0, 12));
+				ImGui.PushStyleColor(ImGuiCol.PlotHistogram, accent);
+				ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 4f);
+				ImGui.ProgressBar(Math.Clamp(progress.Progress, 0, 1), new Num.Vector2(-1, 10), "");
+				ImGui.PopStyleVar();
+				ImGui.PopStyleColor();
+				ImGui.Spacing();
+				ImGuiSafe.TextDisabledSafe($"{Math.Min(progress.CompletedItems, progress.TotalItems)} of {progress.TotalItems} steps complete");
+				ImGui.Dummy(new Num.Vector2(0, 8));
+				if (!progress.IsComplete)
+					ImGuiSafe.TextWrappedSafe(progress.CurrentItem);
+				else if (!string.IsNullOrWhiteSpace(progress.CompletionMessage) && ImGui.CollapsingHeader("Build details", failed ? ImGuiTreeNodeFlags.DefaultOpen : ImGuiTreeNodeFlags.None))
+					ImGuiSafe.TextWrappedSafe(progress.CompletionMessage);
+				ImGui.Dummy(new Num.Vector2(0, 12));
+				if (progress.IsComplete)
+				{
+					if (Gui.Button("Close", new Num.Vector2(90, 0))) Hide();
+				}
+				else if (_onCancel != null) DrawCancelButton();
+			}
+			Gui.End();
+			ImGui.PopStyleVar(2);
 		}
 
 		private void DrawCancelButton()

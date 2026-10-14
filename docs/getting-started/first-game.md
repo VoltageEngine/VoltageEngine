@@ -16,7 +16,7 @@ This walkthrough creates a new project, adds a scene, and writes a component tha
 
 ## Create a Scene
 
-1. In the **Asset Browser**, navigate to `Data/Scenes/`.
+1. In the **Asset Browser**, choose a folder for your scene. New projects default to `Scenes/`, but `.vscene` files can live anywhere inside the project.
 2. Right-click the folder and choose *New Scene*. Name it `GameScene`.
 3. Double-click `GameScene.vscene` to open it. The Scene Graph shows a default Camera entity.
 

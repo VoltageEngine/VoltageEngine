@@ -252,7 +252,9 @@ namespace Voltage.Editor.Tools.Tilemap
 		{
 			if (cursor.SelectionMode == CursorSelectionMode.TilePaint)
 			{
-				ImGui.TextColored(new Num.Vector4(0.4f, 0.9f, 0.5f, 1f), "Tile cursor active - paint in the game view.");
+				ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(0.4f, 0.9f, 0.5f, 1f));
+				ImGui.TextWrapped("Tile cursor active - edit tiles in the game view.");
+				ImGui.PopStyleColor();
 				return;
 			}
 
@@ -554,7 +556,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (Gui.Button("New Tileset..."))
 				tilesetEditor.NewTileset();
 
-			ImGui.SameLine();
+			SameLineIfFits("Edit Tileset");
 
 			var canEdit = _tilesetPath != null;
 			ImGui.BeginDisabled(!canEdit);
@@ -562,7 +564,7 @@ namespace Voltage.Editor.Tools.Tilemap
 				tilesetEditor.Open(_tilesetPath);
 			ImGui.EndDisabled();
 
-			ImGui.SameLine();
+			SameLineIfFits("Sync Changes");
 
 			var canSync = _tileset?.Asset != null && _tilesetPath != null;
 			ImGui.BeginDisabled(!canSync);
@@ -1159,7 +1161,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			ImGui.SameLine();
 			DrawToolButton(tool, TileTool.Picker, "Pick", "Pick the tile under the cursor into the palette.");
 			ImGui.SameLine();
-			DrawToolButton(tool, TileTool.Select, "Select",
+			DrawToolButton(tool, TileTool.Select, "Scene Select",
 				"Marquee placed tiles in the game view, then drag to move them a whole number of cells. " +
 				"Ctrl or Shift adds another box. Tiles and their collision move together.");
 
@@ -1187,6 +1189,10 @@ namespace Voltage.Editor.Tools.Tilemap
 		/// <summary>Actions for a live in-viewport tile selection: rotate the block, or drop the selection.</summary>
 		private static void DrawSelectionControls(TilePaintTool tool)
 		{
+			Gui.Checkbox("Pick layer in scene", ref tool.PickLayerInScene);
+			ImGui.TextWrapped("Click-drag a tile to move. Ctrl/Cmd or Shift-drag adds a box.");
+			ImGui.TextWrapped("Edits one layer. Turn picking off to work on the active layer.");
+			if (tool.SelectionMessage != null) ImGui.TextWrapped(tool.SelectionMessage);
 			if (!tool.HasTileSelection)
 			{
 				ImGui.TextDisabled("Drag in the game view to select placed tiles.");
@@ -1194,7 +1200,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			}
 
 			ImGui.TextDisabled($"{tool.SelectedCellCount} cells selected");
-			ImGui.SameLine();
+			SameLineIfFits("Rot -");
 
 			if (Gui.SmallButton("Rot -##seltiles"))
 				tool.RotateSelection(-1);
@@ -1202,7 +1208,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (ImGui.IsItemHovered())
 				ImGui.SetTooltip($"Rotate the selected tiles 90 degrees left ({EditorHotkeys.Hint(EditorHotkeys.TileRotateLeft)})");
 
-			ImGui.SameLine();
+			SameLineIfFits("Rot +");
 
 			if (Gui.SmallButton("Rot +##seltiles"))
 				tool.RotateSelection(1);
@@ -1210,7 +1216,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (ImGui.IsItemHovered())
 				ImGui.SetTooltip($"Rotate the selected tiles 90 degrees right ({EditorHotkeys.Hint(EditorHotkeys.TileRotateRight)})");
 
-			ImGui.SameLine();
+			SameLineIfFits("Delete");
 
 			if (Gui.SmallButton("Delete##seltiles"))
 				tool.DeleteSelection();
@@ -1218,7 +1224,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (ImGui.IsItemHovered())
 				ImGui.SetTooltip("Clear the selected tiles and their collision (Delete or Backspace).");
 
-			ImGui.SameLine();
+			SameLineIfFits("Deselect");
 
 			if (Gui.SmallButton("Deselect##seltiles"))
 				tool.ClearTileSelection();
@@ -1330,29 +1336,29 @@ namespace Voltage.Editor.Tools.Tilemap
 				ImGui.SetTooltip("Paint a terrain; the right edge/corner tile is chosen automatically from neighbours.\nDefine terrains and per-tile masks in the Tileset Editor.");
 		}
 
-		/// <summary>Orientation applied to newly painted tiles. Hotkeys Z/X rotate, V/C flip.</summary>
+		/// <summary>Orientation applied to newly painted tiles. Q/E rotate, Z/X flip.</summary>
 		private static void DrawOrientationControls(TilePaintTool tool)
 		{
 			ImGui.TextUnformatted("Orient");
-			ImGui.SameLine();
+			SameLineIfFits("Rot -");
 
 			if (Gui.SmallButton("Rot -##orient")) tool.RotateBrush(-1);
 			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Rotate 90 degrees left (Q, palette focused)");
-			ImGui.SameLine();
+			SameLineIfFits("Rot +");
 
 			if (Gui.SmallButton("Rot +##orient")) tool.RotateBrush(1);
 			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Rotate 90 degrees right (E, palette focused)");
-			ImGui.SameLine();
+			SameLineIfFits("Flip X");
 
 			var flipX = tool.OrientationFlipX;
 			if (ToggleSmall("Flip X##orient", flipX)) tool.ToggleFlipX();
 			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Flip horizontally (Z, palette focused)");
-			ImGui.SameLine();
+			SameLineIfFits("Flip Y");
 
 			var flipY = tool.OrientationFlipY;
 			if (ToggleSmall("Flip Y##orient", flipY)) tool.ToggleFlipY();
 			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Flip vertically (X, palette focused)");
-			ImGui.SameLine();
+			SameLineIfFits("Reset");
 
 			ImGui.BeginDisabled(tool.CurrentOrientation == 0);
 			if (Gui.SmallButton("Reset##orient")) tool.ResetOrientation();
@@ -1380,19 +1386,33 @@ namespace Voltage.Editor.Tools.Tilemap
 
 		private static void DrawToolButton(TilePaintTool tool, TileTool value, string label, string tooltip)
 		{
+			if (ImGui.GetContentRegionAvail().X < ImGui.CalcTextSize(label).X + ImGui.GetStyle().FramePadding.X * 2)
+				ImGui.NewLine();
 			var active = tool.Tool == value;
 
 			if (active)
 				ImGui.PushStyleColor(ImGuiCol.Button, new Num.Vector4(0.2f, 0.5f, 1f, 1f));
 
 			if (Gui.Button(label))
+			{
+				tool.CancelSelectionGesture();
 				tool.Tool = value;
+				var cursor = Core.GetGlobalManager<ImGuiManager>()?.CursorSelectionManager;
+				if (cursor != null) cursor.SelectionMode = CursorSelectionMode.TilePaint;
+			}
 
 			if (active)
 				ImGui.PopStyleColor();
 
 			if (ImGui.IsItemHovered())
 				ImGui.SetTooltip(tooltip);
+		}
+
+		private static void SameLineIfFits(string label)
+		{
+			ImGui.SameLine();
+			if (ImGui.GetContentRegionAvail().X < ImGui.CalcTextSize(label).X + ImGui.GetStyle().FramePadding.X * 2)
+				ImGui.NewLine();
 		}
 
 		private void DrawGridOptions(TilePaintTool tool)
@@ -1455,6 +1475,7 @@ namespace Voltage.Editor.Tools.Tilemap
 
 		private void DrawAtlas(TilePaintTool tool)
 		{
+			ImGui.TextWrapped("Palette source: choose a brush stamp here. Scene Select moves placed tiles.");
 			if (_tileset?.Texture == null || _atlasTextureId == IntPtr.Zero)
 				return;
 

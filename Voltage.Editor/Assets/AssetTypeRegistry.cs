@@ -500,9 +500,6 @@ namespace Voltage.Editor.Assets
             }
 
             // Load directly from the resolved absolute path rather than re-searching by name.
-            // The name-based scan in SerializationManager.LoadPrefabData only looks one level
-            // deep under PrefabsFolder, so prefabs at other nesting depths (or in arbitrary
-            // locations from an OS file-drop) would throw and produce nothing.
             PrefabData prefabData;
             try
             {

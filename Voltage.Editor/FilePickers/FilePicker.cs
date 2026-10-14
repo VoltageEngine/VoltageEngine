@@ -91,7 +91,7 @@ namespace Voltage.Editor.FilePickers
 					{
 						ImGui.PushStyleColor(ImGuiCol.Text, Color.Yellow.PackedValue);
 						if (Gui.Selectable("../", false, ImGuiSelectableFlags.NoAutoClosePopups))
-							CurrentFolder = di.Parent.FullName;
+							{ CurrentFolder = di.Parent.FullName; SelectedFile = null; }
 						
 						ImGui.PopStyleColor();
 					}
@@ -104,7 +104,7 @@ namespace Voltage.Editor.FilePickers
 							var name = Path.GetFileName(fse);
 							ImGui.PushStyleColor(ImGuiCol.Text, Color.Yellow.PackedValue);
 							if (Gui.Selectable(name + "/", false, ImGuiSelectableFlags.NoAutoClosePopups))
-								CurrentFolder = fse;
+								{ CurrentFolder = fse; SelectedFile = null; }
 							ImGui.PopStyleColor();
 						}
 						else
@@ -114,7 +114,7 @@ namespace Voltage.Editor.FilePickers
 							if (Gui.Selectable(name, isSelected, ImGuiSelectableFlags.NoAutoClosePopups))
 								SelectedFile = fse;
 
-							if (ImGui.IsMouseDoubleClicked(0))
+							if (isSelected && ImGui.IsItemHovered() && ImGui.IsMouseDoubleClicked(0))
 							{
 								result = true;
 								ImGui.CloseCurrentPopup();
@@ -186,7 +186,7 @@ namespace Voltage.Editor.FilePickers
 					if (AllowedExtensions != null)
 					{
 						var ext = Path.GetExtension(fse);
-						if (AllowedExtensions.Contains(ext))
+						if (AllowedExtensions.Exists(e => string.Equals(e, ext, StringComparison.OrdinalIgnoreCase)))
 							files.Add(fse);
 					}
 					else
@@ -218,7 +218,7 @@ namespace Voltage.Editor.FilePickers
 					{
 						ImGui.PushStyleColor(ImGuiCol.Text, Color.Yellow.PackedValue);
 						if (Gui.Selectable("../", false, ImGuiSelectableFlags.NoAutoClosePopups))
-							picker.CurrentFolder = di.Parent.FullName;
+							{ picker.CurrentFolder = di.Parent.FullName; picker.SelectedFile = null; }
 						ImGui.PopStyleColor();
 					}
 
@@ -230,7 +230,7 @@ namespace Voltage.Editor.FilePickers
 							var name = Path.GetFileName(fse);
 							ImGui.PushStyleColor(ImGuiCol.Text, Color.Yellow.PackedValue);
 							if (Gui.Selectable(name + "/", false, ImGuiSelectableFlags.NoAutoClosePopups))
-								picker.CurrentFolder = fse;
+								{ picker.CurrentFolder = fse; picker.SelectedFile = null; }
 							ImGui.PopStyleColor();
 						}
 						else

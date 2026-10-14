@@ -63,65 +63,9 @@ public class SceneManager : GlobalManager
 
 	#region Scene File Management
 
-        /// <summary>
-        /// Gets the current project's scenes folder, with a guard against no active project.
-        /// Performs a cross-platform fallback search when the stored path doesn't resolve.
-        /// </summary>
-        private string GetActiveScenesFolder()
-        {
-                var project = ProjectManager.Instance.CurrentProject;
-                if (project == null)
-                {
-                        Debug.Error("No active project. Cannot resolve scenes folder.");
-                        return null;
-                }
-
-                // Primary: use the folder from RuntimeGameProject (already normalized)
-                var folder = project.ScenesFolder;
-                if (!string.IsNullOrEmpty(folder) && Directory.Exists(folder))
-                        return folder;
-
-                // Fallback: scan well-known relative locations under the project root
-                var candidates = new[]
-                {
-                        Path.Combine(project.ProjectPath, "Data", "Scenes"),
-                        Path.Combine(project.ProjectPath, "Scenes"),
-                        Path.Combine(project.ProjectPath, "Data", "Scene"),
-                };
-
-                foreach (var candidate in candidates)
-                {
-                        if (Directory.Exists(candidate))
-                        {
-                                Debug.Warn($"Scenes folder '{folder}' not found. Using fallback: '{candidate}'.");
-                                return candidate;
-                        }
-                }
-
-                // Last resort: create the canonical folder so future saves work
-                var canonical = Path.Combine(project.ProjectPath, "Data", "Scenes");
-                Debug.Warn($"Scenes folder not found. Creating canonical path: '{canonical}'.");
-                Directory.CreateDirectory(canonical);
-                return canonical;
-        }
-
-        /// <summary>
-        /// Gets all scene JSON files in the Scenes directory (and sub-directories).
-        /// </summary>
-        public List<string> GetAllSceneFiles()
-        {
-                var scenesDir = GetActiveScenesFolder();
-                if (scenesDir == null)
-                        return new List<string>();
-
-                if (!Directory.Exists(scenesDir))
-                {
-                        Debug.Warn($"Scenes directory does not exist: {scenesDir}");
-                        return new List<string>();
-                }
-
-                return Directory.GetFiles(scenesDir, "*.vscene", SearchOption.AllDirectories).ToList();
-        }
+	/// <summary>All scene files in the project, excluding generated output.</summary>
+	public List<string> GetAllSceneFiles() => Voltage.Project.ProjectAssetFiles.Find(
+		ProjectManager.Instance.CurrentProject?.ProjectPath, ".vscene");
 
 	/// <summary>
 	/// Gets all scene names (without extension)
@@ -131,7 +75,7 @@ public class SceneManager : GlobalManager
 		return GetSceneCatalog().AllScenes().ToList();
 	}
 
-	public Voltage.Project.SceneCatalog GetSceneCatalog() => Voltage.Project.SceneCatalog.Read(GetActiveScenesFolder());
+	public Voltage.Project.SceneCatalog GetSceneCatalog() => Voltage.Project.SceneCatalog.Read(ProjectManager.Instance.CurrentProject?.ProjectPath);
 
 	/// <summary>
 	/// Checks if a scene file exists
@@ -150,7 +94,7 @@ public class SceneManager : GlobalManager
         /// Loads the last used scene from persistent settings, validating it belongs
         /// to the currently loaded project.
         /// If the stored path is stale (different OS / machine), falls back to the
-        /// first .vscene discovered in the project's Scenes folder.
+        /// first .vscene discovered in the project.
         /// </summary>
         public Scene LoadLastUsedScene()
         {
@@ -168,9 +112,9 @@ public class SceneManager : GlobalManager
                         // Normalize separators from the stored value (may be from a different OS)
                         lastScenePath = CrossPlatformPath.Normalize(lastScenePath);
 
-                        // If the stored path is a relative path, resolve it against ScenesFolder
+                        // If the stored path is a relative path, resolve its project or legacy folder-relative key
                         if (!Path.IsPathRooted(lastScenePath))
-                                lastScenePath = Path.Combine(project.ScenesFolder, lastScenePath);
+                                lastScenePath = GetScenePath(lastScenePath);
 
                         // Reject if the path looks like an absolute path from a different OS
                         // (e.g. "C:\Users\..." on macOS) — detect by checking it exists
@@ -242,6 +186,9 @@ public class SceneManager : GlobalManager
 			return null;
 		}
 
+		if (Core.GetGlobalManager<Voltage.Editor.ImGuiCore.ImGuiManager>() is { } editor &&
+			!editor.PrepareTimelineSceneSwitch(() => LoadScene(scenePath))) return null;
+
 		try
 		{
 			var scene = Scene.LoadFromFile(scenePath);
@@ -305,13 +252,12 @@ public class SceneManager : GlobalManager
 		return LoadScene(scenePath);
 	}
 
-	private string GetScenePath(string sceneName)
+	public string GetScenePath(string sceneName)
 	{
-		var scenesFolder = GetActiveScenesFolder();
-		if (scenesFolder == null)
-			return null;
-
-		return Voltage.Project.SceneCatalog.Resolve(scenesFolder, sceneName);
+		var project = ProjectManager.Instance.CurrentProject;
+		if (project == null) return null;
+		try { return Voltage.Project.ProjectAssetFiles.Resolve(project.ProjectPath, sceneName, ".vscene", project.ScenesFolder); }
+		catch (Exception ex) { Debug.Error(ex.Message); return null; }
 	}
 
 	#endregion
@@ -324,6 +270,7 @@ public class SceneManager : GlobalManager
 	/// </summary>
 	public bool SaveCurrentScene()
 	{
+		Core.GetGlobalManager<Voltage.Editor.ImGuiCore.ImGuiManager>()?.DisposeTimelinePreview();
 		if (Core.Scene == null)
 		{
 			Debug.Error("No active scene to save");
@@ -379,7 +326,7 @@ public class SceneManager : GlobalManager
 	/// </summary>
 	/// <param name="sceneName">Name for the new scene file (without extension)</param>
 	/// <returns>True if successful, false otherwise</returns>
-	public bool CreateSceneFile(string sceneName)
+	public bool CreateSceneFile(string sceneName, string destinationPath = null)
 	{
 		if (Core.Scene == null)
 		{
@@ -387,7 +334,9 @@ public class SceneManager : GlobalManager
 			return false;
 		}
 
-		var sceneFilePath = GetScenePath(sceneName);
+		var sceneFilePath = destinationPath ?? Path.Combine(ProjectManager.Instance.CurrentProject.ScenesFolder, sceneName + ".vscene");
+		if (!ProjectManager.Instance.IsPathInCurrentProject(sceneFilePath)) return false;
+		Directory.CreateDirectory(Path.GetDirectoryName(sceneFilePath));
 		if (sceneFilePath == null)
 			return false;
 

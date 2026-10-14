@@ -49,6 +49,7 @@ public class GameBuildWindow
 	private int _selectedSceneIndex = 0;
 	private readonly HashSet<int> _selectedBuildScenes = new();
 	private int _sceneSelectionAnchor = -1;
+	private float _sceneListRows = 6;
 
 	// Progress tracking
 	private CompilationProgressWindow _progressWindow;
@@ -60,7 +61,7 @@ public class GameBuildWindow
 
 	public GameBuildWindow()
 	{
-		_progressWindow = new CompilationProgressWindow(isScriptProgress: false, onCancel: OnCancelRequested);
+		_progressWindow = new CompilationProgressWindow(onCancel: OnCancelRequested, isGameProgress: true);
 
 		GameBuilder.OnBuildStarted += OnBuildStarted;
 		GameBuilder.OnBuildStepStarted += OnBuildStepStarted;
@@ -150,7 +151,8 @@ public class GameBuildWindow
 		var settings = projectManager.CurrentProject.Settings;
 		if (settings != null && !string.IsNullOrEmpty(settings.InitialScene))
 		{
-			var idx = _availableScenes.IndexOf(SceneCatalog.NormalizeKey(settings.InitialScene));
+			var path = SceneManager.Instance.GetScenePath(settings.InitialScene);
+			var idx = path == null ? -1 : _availableScenes.IndexOf(Voltage.Project.ProjectAssetFiles.Key(projectManager.CurrentProject.ProjectPath, path));
 			if (idx >= 0)
 				_selectedSceneIndex = idx;
 		}
@@ -353,7 +355,7 @@ public class GameBuildWindow
 			// Action buttons
 			ImGui.Separator();
 
-			var buttonWidth = 120f;
+			var buttonWidth = Math.Max(120f, ImGui.CalcTextSize("Build and Run").X + ImGui.GetStyle().FramePadding.X * 2);
 			var spacing = 10f;
 			var totalButtonWidth = buttonWidth * 3 + spacing * 2;
 			var windowWidth = ImGui.GetWindowSize().X;
@@ -361,7 +363,7 @@ public class GameBuildWindow
 
 			ImGui.SetCursorPosX(centerStart);
 
-			bool hasScene = _availableScenes.Count > 0 && SceneCatalog.Included(_availableScenes[_selectedSceneIndex], project.Settings.BuildScenes, _debugBuild.Value);
+			bool hasScene = _availableScenes.Count > 0 && SceneBuildSelection.Included(project.ProjectPath, project.ScenesFolder, _availableScenes[_selectedSceneIndex], project.Settings.BuildScenes, _debugBuild.Value);
 			bool canBuild = selectedPlatform.IsAvailable && !_isBuilding && hasScene;
 			if (!hasScene && _availableScenes.Count > 0)
 				ImGui.TextColored(new Num.Vector4(1, 0.5f, 0.3f, 1), "Include the startup scene in this build configuration to build.");
@@ -419,6 +421,12 @@ public class GameBuildWindow
 	{
 		var rules = project.Settings.BuildScenes ??= new();
 		var rule = rules.Find(r => r?.Scene == scene);
+		if (rule == null)
+		{
+			var legacy = Path.ChangeExtension(Path.GetRelativePath(project.ScenesFolder, SceneCatalog.Resolve(project.ProjectPath, scene)), null).Replace('\\', '/');
+			rule = rules.Find(r => r?.Scene == legacy);
+			if (rule != null) rule.Scene = scene;
+		}
 		if (rule == null) { rule = new ProjectSettings.SceneBuildRule { Scene = scene }; rules.Add(rule); }
 		if (debug.HasValue) rule.Debug = debug.Value;
 		if (release.HasValue) rule.Release = release.Value;
@@ -430,30 +438,14 @@ public class GameBuildWindow
 		VoltageEditorUtils.MediumVerticalSpace();
 		ImGui.TextColored(new Num.Vector4(0.8f, 0.9f, 1, 1), "Scenes in Build");
 		if (_focusScenes) { ImGui.SetScrollHereY(0); _focusScenes = false; }
-		ImGui.TextWrapped("Ctrl-click to toggle rows; Shift-click to select a range. Debug and Release checkboxes control which scenes ship.");
-		if (Gui.Button("Select All"))
+		ImGui.TextWrapped("Ctrl/Cmd-click toggles rows; Shift-click selects a range. Checkboxes apply to selected rows.");
+		ImGui.TextWrapped("Ctrl/Cmd+A: all | Escape: clear | Ctrl/Cmd+1/2/3/4: include/exclude/Debug only/Release only");
+		float rowHeight = ImGui.GetFrameHeight() + ImGui.GetStyle().CellPadding.Y * 2;
+		float minimumHeight = rowHeight * 7 + ImGui.GetStyle().WindowPadding.Y * 2;
+		float sceneListHeight = minimumHeight + (_sceneListRows - 6) * rowHeight;
+		if (ImGui.BeginTable("BuildScenes", 3, ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersInnerV | ImGuiTableFlags.ScrollY, new Num.Vector2(0, sceneListHeight)))
 		{
-			_selectedBuildScenes.UnionWith(Enumerable.Range(0, _availableScenes.Count));
-			_sceneSelectionAnchor = _availableScenes.Count > 0 ? 0 : -1;
-		}
-		ImGui.SameLine();
-		if (Gui.Button("Clear Selection")) { _selectedBuildScenes.Clear(); _sceneSelectionAnchor = -1; }
-		ImGui.SameLine();
-		ImGui.Text($"{_selectedBuildScenes.Count} selected");
-		ImGui.BeginDisabled(_selectedBuildScenes.Count == 0 || _isBuilding);
-		void Bulk(string label, bool debug, bool release)
-		{
-			if (!Gui.Button(label)) return;
-			foreach (var row in _selectedBuildScenes) SetSceneAvailability(project, _availableScenes[row], debug, release);
-			SaveBuildSettings(project);
-		}
-		Bulk("Include selected", true, true);
-		ImGui.SameLine(); Bulk("Exclude selected", false, false);
-		Bulk("Debug only", true, false);
-		ImGui.SameLine(); Bulk("Release only", false, true);
-		ImGui.EndDisabled();
-		if (ImGui.BeginTable("BuildScenes", 3, ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersInnerV | ImGuiTableFlags.ScrollY, new Num.Vector2(0, 200)))
-		{
+			HandleSceneSelectionShortcuts(project);
 			ImGui.TableSetupColumn("Scene", ImGuiTableColumnFlags.WidthStretch);
 			ImGui.TableSetupColumn("Debug", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFontSize() * 4);
 			ImGui.TableSetupColumn("Release", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFontSize() * 4);
@@ -464,21 +456,54 @@ public class GameBuildWindow
 				var scene = _availableScenes[i];
 				ImGui.TableNextRow();
 				ImGui.TableNextColumn();
-				if (Gui.Selectable(scene, _selectedBuildScenes.Contains(i), ImGuiSelectableFlags.NoAutoClosePopups))
+				if (Gui.Selectable(scene, _selectedBuildScenes.Contains(i), ImGuiSelectableFlags.NoAutoClosePopups, new Num.Vector2(ImGui.GetContentRegionAvail().X, 0)))
 					SelectBuildSceneRow(i, ImGui.GetIO().KeyCtrl || ImGui.GetIO().KeySuper, ImGui.GetIO().KeyShift);
+				if (ImGui.IsItemHovered()) ImGuiSafe.SetTooltipSafe(scene);
 				ImGui.TableNextColumn();
-				bool debug = SceneCatalog.Included(scene, project.Settings.BuildScenes, true);
+				bool debug = SceneBuildSelection.Included(project.ProjectPath, project.ScenesFolder, scene, project.Settings.BuildScenes, true);
 				ImGui.BeginDisabled(_isBuilding);
-				if (Gui.Checkbox("##Debug:" + scene, ref debug)) { SetSceneAvailability(project, scene, debug, null); SaveBuildSettings(project); }
+				if (Gui.Checkbox("##Debug:" + scene, ref debug)) ApplySceneAvailability(project, i, debug, null);
 				ImGui.TableNextColumn();
-				bool release = SceneCatalog.Included(scene, project.Settings.BuildScenes, false);
-				if (Gui.Checkbox("##Release:" + scene, ref release)) { SetSceneAvailability(project, scene, null, release); SaveBuildSettings(project); }
+				bool release = SceneBuildSelection.Included(project.ProjectPath, project.ScenesFolder, scene, project.Settings.BuildScenes, false);
+				if (Gui.Checkbox("##Release:" + scene, ref release)) ApplySceneAvailability(project, i, null, release);
 				ImGui.EndDisabled();
 			}
 			ImGui.EndTable();
 		}
-		int included = _availableScenes.Count(scene => SceneCatalog.Included(scene, project.Settings.BuildScenes, _debugBuild.Value));
-		ImGui.Text($"{included} of {_availableScenes.Count} scenes included in {(_debugBuild.Value ? "Debug" : "Release")}");
+		var grip = ImGui.GetCursorScreenPos();
+		var gripSize = new Num.Vector2(Math.Max(1, ImGui.GetContentRegionAvail().X), Math.Max(8, ImGui.GetFontSize() * 0.6f));
+		Gui.InvisibleButton("##Resize build scenes", gripSize);
+		if (ImGui.IsItemHovered() || ImGui.IsItemActive()) ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeNS);
+		if (ImGui.IsItemActive()) _sceneListRows = Math.Max(6, _sceneListRows + ImGui.GetIO().MouseDelta.Y / rowHeight);
+		if (ImGui.IsItemHovered()) ImGui.SetTooltip("Drag to resize the scene list vertically.");
+		ImGui.GetWindowDrawList().AddLine(grip + new Num.Vector2(gripSize.X * 0.4f, gripSize.Y * 0.5f),
+			grip + new Num.Vector2(gripSize.X * 0.6f, gripSize.Y * 0.5f), ImGui.GetColorU32(ImGuiCol.Separator), 2);
+		int included = _availableScenes.Count(scene => SceneBuildSelection.Included(project.ProjectPath, project.ScenesFolder, scene, project.Settings.BuildScenes, _debugBuild.Value));
+		ImGui.Text($"{_selectedBuildScenes.Count} selected | {included} of {_availableScenes.Count} included in {(_debugBuild.Value ? "Debug" : "Release")}");
+	}
+
+	private void ApplySceneAvailability(IGameProject project, int row, bool? debug, bool? release)
+	{
+		if (!_selectedBuildScenes.Contains(row)) SelectBuildSceneRow(row, false, false);
+		foreach (var selected in _selectedBuildScenes) SetSceneAvailability(project, _availableScenes[selected], debug, release);
+		SaveBuildSettings(project);
+	}
+
+	private void HandleSceneSelectionShortcuts(IGameProject project)
+	{
+		if (!ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows) || ImGui.GetIO().WantTextInput) return;
+		bool command = ImGui.GetIO().KeyCtrl || ImGui.GetIO().KeySuper;
+		if (command && ImGui.IsKeyPressed(ImGuiKey.A, false))
+		{
+			_selectedBuildScenes.UnionWith(Enumerable.Range(0, _availableScenes.Count));
+			_sceneSelectionAnchor = _availableScenes.Count > 0 ? 0 : -1;
+		}
+		if (ImGui.IsKeyPressed(ImGuiKey.Escape, false)) { _selectedBuildScenes.Clear(); _sceneSelectionAnchor = -1; }
+		if (!command || _isBuilding || _selectedBuildScenes.Count == 0) return;
+		if (ImGui.IsKeyPressed(ImGuiKey._1, false)) ApplySceneAvailability(project, _selectedBuildScenes.First(), true, true);
+		else if (ImGui.IsKeyPressed(ImGuiKey._2, false)) ApplySceneAvailability(project, _selectedBuildScenes.First(), false, false);
+		else if (ImGui.IsKeyPressed(ImGuiKey._3, false)) ApplySceneAvailability(project, _selectedBuildScenes.First(), true, false);
+		else if (ImGui.IsKeyPressed(ImGuiKey._4, false)) ApplySceneAvailability(project, _selectedBuildScenes.First(), false, true);
 	}
 
 	private void DrawInitialSceneSelector()
@@ -843,7 +868,8 @@ public class GameBuildWindow
 	{
 		if (_currentProgress != null && !_currentProgress.IsComplete)
 		{
-			_currentProgress.CurrentItem = stepName;
+			_currentProgress.CurrentItem = stepName.StartsWith("Building runtime engine libraries") ? "Preparing the game engine" :
+				stepName.StartsWith("Publishing game executable") ? "Creating the game executable" : stepName.TrimEnd('.');
 		}
 	}
 
@@ -868,6 +894,7 @@ public class GameBuildWindow
 			_currentProgress.IsComplete = true;
 			_currentProgress.CurrentItem = "";
 			_currentProgress.CompletionMessage = message;
+			if (!success && _currentProgress.FailureCount == 0) _currentProgress.FailureCount = 1;
 		}
 	}
 

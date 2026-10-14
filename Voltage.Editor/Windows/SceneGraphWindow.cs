@@ -53,7 +53,6 @@ public class SceneGraphWindow
 
 	// SerializedPrefab caching
 	private List<string> _cachedPrefabNames = new();
-	private bool _prefabCacheInitialized = false;
 
 	// SerializedPrefab deletion
 	private bool _showDeletePrefabConfirmation = false;
@@ -103,31 +102,14 @@ public class SceneGraphWindow
 	/// </summary>
 	public void RefreshPrefabCache()
 	{
-		if(_prefabCacheInitialized)
-			return;
+        _cachedPrefabNames.Clear();
+        var project = ProjectManager.Instance.CurrentProject;
+        if (project == null) return;
+        foreach (var item in Assets.AssetDatabase.Instance.Items.DistinctBy(i => i.AbsolutePath, Voltage.Project.ProjectAssetFiles.PathComparer))
+            if (item.Extension is ".vprefab" or ".prefab")
+                _cachedPrefabNames.Add(Voltage.Project.ProjectAssetFiles.Key(project.ProjectPath, item.AbsolutePath));
+        _cachedPrefabNames.Sort(StringComparer.OrdinalIgnoreCase);
 
-		_cachedPrefabNames.Clear();
-		
-		var prefabsDirectory = ProjectManager.Instance.CurrentProject.PrefabsFolder;
-		if (Directory.Exists(prefabsDirectory))
-		{
-			// Search through all EntityType subdirectories
-			var entityTypeDirectories = Directory.GetDirectories(prefabsDirectory);
-			
-			foreach (var entityTypeDir in entityTypeDirectories)
-			{
-				// Native engine format is .vprefab; also scan .prefab for legacy files.
-				var prefabFiles = Directory.GetFiles(entityTypeDir, "*.vprefab")
-					.Concat(Directory.GetFiles(entityTypeDir, "*.prefab")).ToArray();
-				foreach (var file in prefabFiles)
-				{
-					var fileName = Path.GetFileNameWithoutExtension(file);
-					_cachedPrefabNames.Add(fileName);
-				}
-			}
-		}
-		
-		_prefabCacheInitialized = true;
 	}
 
 	/// <summary>
@@ -394,34 +376,14 @@ public class SceneGraphWindow
 	{
 		try
 		{
-			var prefabsDirectory = ProjectManager.Instance.CurrentProject.PrefabsFolder;
-			bool fileDeleted = false;
-
-			if (Directory.Exists(prefabsDirectory))
-			{
-				var entityTypeDirectories = Directory.GetDirectories(prefabsDirectory);
-				
-				foreach (var entityTypeDir in entityTypeDirectories)
-				{
-					// Try .vprefab first (native format), then .prefab (legacy).
-					var prefabFilePath = Path.Combine(entityTypeDir, $"{prefabName}.vprefab");
-					if (!File.Exists(prefabFilePath))
-						prefabFilePath = Path.Combine(entityTypeDir, $"{prefabName}.prefab");
-
-					if (File.Exists(prefabFilePath))
-					{
-						File.Delete(prefabFilePath);
-						fileDeleted = true;
-						break;
-					}
-				}
-			}
+			var path = Scene.ResolvePrefabFile(prefabName);
+			bool fileDeleted = path != null;
+			if (fileDeleted) File.Delete(path);
 
 			if (fileDeleted)
 			{
 				_cachedPrefabNames.Remove(prefabName);
 				
-				_prefabCacheInitialized = false;
 				
 				ImGui.CloseCurrentPopup();
 			}
@@ -489,22 +451,8 @@ public class SceneGraphWindow
 		if (db == null)
 			return Guid.Empty;
 
-		var prefabsDir = ProjectManager.Instance.CurrentProject?.PrefabsFolder;
-		if (string.IsNullOrEmpty(prefabsDir) || !System.IO.Directory.Exists(prefabsDir))
-			return Guid.Empty;
-
-		var direct = System.IO.Path.Combine(prefabsDir, $"{prefabName}.vprefab");
-		if (System.IO.File.Exists(direct))
-			return db.GetReference(direct).Guid;
-
-		foreach (var sub in System.IO.Directory.GetDirectories(prefabsDir))
-		{
-			var candidate = System.IO.Path.Combine(sub, $"{prefabName}.vprefab");
-			if (System.IO.File.Exists(candidate))
-				return db.GetReference(candidate).Guid;
-		}
-
-		return Guid.Empty;
+		var path = Scene.ResolvePrefabFile(prefabName);
+		return path == null ? Guid.Empty : db.GetReference(path).Guid;
 	}
 
 	/// <summary>

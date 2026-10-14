@@ -10,6 +10,7 @@ using Voltage.Editor.DebugUtils;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.ProjectFile;
+using Voltage.Editor.SceneFile;
 using Voltage.Editor.Utils;
 using Voltage.Utils;
 using Num = System.Numerics;
@@ -505,18 +506,45 @@ public class AssetBrowserWindow : IDisposable
 
     private void DrawTree()
     {
-        foreach (var root in _db.RootNodes)
+        var projectRoot = ProjectManager.Instance.CurrentProject?.ProjectPath;
+        if (projectRoot == null) return;
+        Gui.Selectable("Project root", false);
+        AcceptMoveDrop(projectRoot);
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Drop here to move beside Content and Data.");
+        foreach (var root in _db.RootNodes.OrderBy(n => n.Label, StringComparer.OrdinalIgnoreCase))
         {
             // Skip a root nested inside another root (e.g. Data/Scenes shows under Data) — drawing it
             // as a separate top-level root would duplicate the view.
-            if (IsNestedUnderAnotherRoot(root))
+            if (IsNestedUnderAnotherRoot(root) || (!string.IsNullOrWhiteSpace(_searchFilter) && !FolderHasMatchingItems(root)))
                 continue;
 
             ImGui.PushID(root.RelativePath);
             DrawFolderNode(root);
             ImGui.PopID();
-            VoltageEditorUtils.SmallVerticalSpace();
+            Gui.InvisibleButton("##ProjectRootGap:" + root.RelativePath, new Num.Vector2(Math.Max(1, ImGui.GetContentRegionAvail().X), 10 * DisplayScale));
+            AcceptMoveDrop(projectRoot);
         }
+    }
+
+    private void AcceptMoveDrop(string targetDirectory)
+    {
+        if (!ImGui.BeginDragDropTarget()) return;
+        unsafe
+        {
+            var payload = ImGui.AcceptDragDropPayload(DragDropPayloadId);
+            if (payload.NativePtr != null && !string.IsNullOrEmpty(DraggedSourcePath))
+            {
+                if (Directory.Exists(DraggedSourcePath)) MoveFolder(DraggedSourcePath, targetDirectory);
+                else
+                {
+                    var moving = DraggedSourcePaths.Count > 0 ? new List<string>(DraggedSourcePaths) : new List<string> { DraggedSourcePath };
+                    foreach (var path in moving) MoveAsset(path, targetDirectory);
+                }
+                DraggedSourcePaths.Clear();
+                DraggedSourcePath = null;
+            }
+        }
+        ImGui.EndDragDropTarget();
     }
 
     // True when root's directory lives inside another root's directory (already reachable by expanding that one).
@@ -524,7 +552,7 @@ public class AssetBrowserWindow : IDisposable
     {
         foreach (var other in _db.RootNodes)
         {
-            if (ReferenceEquals(other, root))
+            if (ReferenceEquals(other, root) || (other.RelativePath.Length == 0 && other.ChildFolders.Count == 0))
                 continue;
             if (IsPathUnder(root.AbsolutePath, other.AbsolutePath))
                 return true;
@@ -596,33 +624,7 @@ public class AssetBrowserWindow : IDisposable
 
         // Accept an in-browser MOVE: dropping an asset/folder here relocates it (carrying its .meta
         // sidecar / whole subtree), preserving GUIDs so references don't break.
-        if (ImGui.BeginDragDropTarget())
-        {
-            unsafe
-            {
-                var payload = ImGui.AcceptDragDropPayload(DragDropPayloadId);
-                if (payload.NativePtr != null && !string.IsNullOrEmpty(DraggedSourcePath))
-                {
-                    if (Directory.Exists(DraggedSourcePath))
-                    {
-                        MoveFolder(DraggedSourcePath, node.AbsolutePath);
-                    }
-                    else
-                    {
-                        var moving = DraggedSourcePaths.Count > 0
-                            ? new List<string>(DraggedSourcePaths)
-                            : new List<string> { DraggedSourcePath };
-
-                        foreach (var path in moving)
-                            MoveAsset(path, node.AbsolutePath);
-                    }
-
-                    DraggedSourcePaths.Clear();
-                    DraggedSourcePath = null;
-                }
-            }
-            ImGui.EndDragDropTarget();
-        }
+        AcceptMoveDrop(node.AbsolutePath);
 
         // Toggle persistence whenever the user opens or closes the node.
         if (nodeOpen && isCollapsed)
@@ -788,6 +790,8 @@ public class AssetBrowserWindow : IDisposable
                 Core.GetGlobalManager<ImGuiManager>()?.TilesetEditorWindow.Open(item.AbsolutePath);
             else if (item.Descriptor.Kind == AssetKind.Data)
                 Core.GetGlobalManager<ImGuiManager>()?.DataAssetWindow.Open(item.AbsolutePath);
+            else if (item.Descriptor.Kind == AssetKind.Timeline)
+                Core.GetGlobalManager<ImGuiManager>()?.OpenTimelineAsset(item.AbsolutePath);
         }
         else if (clicked)
         {
@@ -1493,7 +1497,7 @@ public class AssetBrowserWindow : IDisposable
         {
             project.ProjectPath,
             project.ContentsFolder, project.DataFolder, project.ScriptsFolder,
-            project.EffectsFolder, project.ScenesFolder, project.PrefabsFolder,
+            project.EffectsFolder,
         };
 
         foreach (var p in protectedPaths)
@@ -1824,6 +1828,7 @@ public class AssetBrowserWindow : IDisposable
     // reference keeps resolving. Refuses moves into itself/a descendant; skips no-op same-parent moves.
     private void MoveFolder(string sourceDir, string targetParentDir)
     {
+        if (!Core.IsEditMode) return;
         if (string.IsNullOrEmpty(sourceDir) || string.IsNullOrEmpty(targetParentDir))
             return;
         if (!Directory.Exists(sourceDir) || !Directory.Exists(targetParentDir))
@@ -1852,6 +1857,7 @@ public class AssetBrowserWindow : IDisposable
         try
         {
             Directory.Move(sourceDir, destPath);
+            ProjectManager.Instance.RepointFolderPaths(sourceDir, destPath);
             RepointShortcutsAfterMove(sourceDir, destPath);
             EditorDebug.Log($"AssetBrowser: moved folder '{name}' -> '{targetParentDir}'.", "AssetBrowser");
             _refreshRequested = true;
@@ -1996,6 +2002,8 @@ public class AssetBrowserWindow : IDisposable
                 DropHandlers.OpenPrefabIsolated(reference);
             else if (descriptor.Kind == AssetKind.Data)
                 Core.GetGlobalManager<ImGuiManager>()?.DataAssetWindow.Open(abs);
+            else if (descriptor.Kind == AssetKind.Timeline)
+                Core.GetGlobalManager<ImGuiManager>()?.OpenTimelineAsset(abs);
         }
 
         // Drag SOURCE: droppable file shortcuts carry an AssetReference for scene/inspector drops.

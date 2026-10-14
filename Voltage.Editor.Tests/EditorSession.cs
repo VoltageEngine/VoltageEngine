@@ -107,6 +107,21 @@ public sealed class EditorSession
 		Call("scene.create", new { name = "TestScene" });
 	}
 
+	public static void Restart(Action whileStopped = null)
+	{
+		Call("editor.exit", new { force = true });
+		if (!_editor.WaitForExit(10_000)) throw new TimeoutException("owned editor did not exit");
+		Connection.Dispose();
+		whileStopped?.Invoke();
+		_editor = Process.Start(_editor.StartInfo);
+		_editor.OutputDataReceived += (_, e) => { if (e.Data != null) _processLog.WriteLine(e.Data); };
+		_editor.ErrorDataReceived += (_, e) => { if (e.Data != null) _processLog.WriteLine(e.Data); };
+		_editor.BeginOutputReadLine();
+		_editor.BeginErrorReadLine();
+		Connection = WaitForGateway(TimeSpan.FromSeconds(180));
+		WaitForProject(TimeSpan.FromSeconds(180));
+	}
+
 	[OneTimeTearDown]
 	public void Stop()
 	{

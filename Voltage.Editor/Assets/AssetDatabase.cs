@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using Voltage.Project;
 using System.Text;
 using System.Timers;
 using Voltage.Editor.DebugUtils;
@@ -126,7 +128,7 @@ namespace Voltage.Editor.Assets
         // Never assets, and the folders that dominate a repository's file count.
         private static readonly HashSet<string> TransientDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
         {
-            "bin", "obj", "node_modules", "temp", "tmp", "__pycache__",
+            "bin", "obj", "Build", "EngineLibs", "PluginLibs", "node_modules", "temp", "tmp", "__pycache__",
             "$RECYCLE.BIN", "System Volume Information",
         };
 
@@ -284,8 +286,6 @@ namespace Voltage.Editor.Assets
                 (project.DataFolder,     "Data"),
                 (project.ScriptsFolder,  "Scripts"),
                 (project.EffectsFolder,  "Effects"),
-                (project.ScenesFolder,   "Scenes"),
-                (project.PrefabsFolder,  "Prefabs"),
             };
 
             foreach (var (folderPath, label) in folders)
@@ -299,8 +299,16 @@ namespace Voltage.Editor.Assets
 
                 ScanFolderFlat(folderPath, label);
 
-                InstallWatcher(folderPath);
+
             }
+
+            IndexNativeFiles(project.ProjectPath);
+            foreach (var directory in new[] { project.ScenesFolder, project.PrefabsFolder })
+                if (Directory.Exists(directory) && !_rootNodes.Any(n =>
+                    ProjectAssetFiles.PathComparer.Equals(n.AbsolutePath, directory) ||
+                    Path.GetRelativePath(n.AbsolutePath, directory).Split(Path.DirectorySeparatorChar)[0] != ".."))
+                    _rootNodes.Add(new AssetFolderNode(Path.GetFileName(directory), directory, ToProjectRelativePath(directory)));
+            InstallWatcher(project.ProjectPath);
 
             _isIndexed = true;
             EditorDebug.Log($"AssetDatabase: indexed {_items.Count} asset(s).", "AssetDatabase");
@@ -308,6 +316,55 @@ namespace Voltage.Editor.Assets
             // Bake the GUID→path map so published builds can resolve assets by GUID at runtime
             // (the runtime has no AssetDatabase). Written to Data/ so it ships with the game.
             WriteManifest();
+        }
+
+        private void IndexNativeFiles(string projectRoot)
+        {
+            var indexed = new HashSet<string>(_items.Select(i => i.AbsolutePath), ProjectAssetFiles.PathComparer);
+            foreach (var file in ProjectAssetFiles.Find(projectRoot, ".vscene", ".vprefab", ".prefab"))
+            {
+                if (!indexed.Add(file)) continue;
+                GetOrCreateGuid(file);
+                var relative = Path.GetRelativePath(projectRoot, file).Replace('\\', '/');
+                var parts = relative.Split('/');
+                var folder = _rootNodes.Find(n => ProjectAssetFiles.PathComparer.Equals(n.AbsolutePath,
+                    parts.Length == 1 ? projectRoot : Path.Combine(projectRoot, parts[0])));
+                if (folder == null)
+                {
+                    folder = new AssetFolderNode(parts.Length == 1 ? "Project" : parts[0],
+                        parts.Length == 1 ? projectRoot : Path.Combine(projectRoot, parts[0]), parts.Length == 1 ? "" : parts[0]);
+                    _rootNodes.Add(folder);
+                }
+                var label = folder.Label;
+                for (int i = 1; i < parts.Length - 1; i++)
+                {
+                    var child = folder.ChildFolders.Find(n => n.Label == parts[i]);
+                    if (child == null)
+                    {
+                        child = new AssetFolderNode(parts[i], Path.Combine(folder.AbsolutePath, parts[i]), folder.RelativePath + "/" + parts[i]);
+                        folder.ChildFolders.Add(child);
+                        folder.ChildFolders.Sort((a, b) => string.Compare(a.Label, b.Label, StringComparison.OrdinalIgnoreCase));
+                    }
+                    folder = child;
+                }
+                var item = new AssetItem(file, label);
+                folder.Files.Add(item);
+                folder.Files.Sort((a, b) => string.Compare(a.FileName, b.FileName, StringComparison.OrdinalIgnoreCase));
+                _items.Add(item);
+                if (!_byFolder.TryGetValue(label, out var bucket)) _byFolder[label] = bucket = new List<AssetItem>();
+                bucket.Add(item);
+            }
+        }
+
+        private static bool IsTrackedPath(string path)
+        {
+            var extension = Path.GetExtension(path);
+            if (extension.Equals(".vscene", StringComparison.OrdinalIgnoreCase) ||
+                extension.Equals(".vprefab", StringComparison.OrdinalIgnoreCase) || extension.Equals(".prefab", StringComparison.OrdinalIgnoreCase)) return true;
+            var p = ProjectManager.Instance?.CurrentProject;
+            if (p == null) return false;
+            return new[] { p.ContentsFolder, p.DataFolder, p.ScriptsFolder, p.EffectsFolder }
+                .Any(root => !Path.GetRelativePath(root, path).StartsWith("..", StringComparison.Ordinal));
         }
 
         /// <summary>
@@ -552,7 +609,7 @@ namespace Voltage.Editor.Assets
                 var childLabel = Path.GetFileName(subDir);
 
                 // Pruned here so build output and .git are never walked.
-                if (IsTransientDirectoryName(childLabel))
+                if (IsTransientDirectoryName(childLabel) || ProjectAssetFiles.IsIgnoredDirectory(subDir))
                     continue;
 
                 // Build a stable relative path key: forward-slash separated.
@@ -570,39 +627,22 @@ namespace Voltage.Editor.Assets
         /// </summary>
         private void ScanFolderFlat(string rootPath, string label)
         {
-            IEnumerable<string> files;
-            try
+            var root = _rootNodes.Find(n => ProjectAssetFiles.PathComparer.Equals(n.AbsolutePath, rootPath));
+            if (root == null) return;
+            var pending = new Stack<AssetFolderNode>();
+            pending.Push(root);
+            while (pending.Count > 0)
             {
-                files = Directory.EnumerateFiles(rootPath, "*.*", SearchOption.AllDirectories);
-            }
-            catch (Exception ex)
-            {
-                EditorDebug.Log($"AssetDatabase: failed to scan '{rootPath}': {ex.Message}", "AssetDatabase");
-                return;
-            }
-
-            foreach (var filePath in files)
-            {
-                var ext = Path.GetExtension(filePath);
-                if (SkippedExtensions.Contains(ext) || IsTransientFile(filePath)
-                    || IsUnderTransientDirectory(rootPath, filePath))
-                    continue;
-
-                Utils.ProjectLoadProgress.Report(filePath);
-
-                // GUIDs are already created by BuildFolderNode — GetOrCreateGuid is idempotent.
-                GetOrCreateGuid(filePath);
-
-                var item = new AssetItem(filePath, label);
-                _items.Add(item);
-
-                if (!_byFolder.TryGetValue(label, out var bucket))
+                var node = pending.Pop();
+                foreach (var item in node.Files)
                 {
-                    bucket = new List<AssetItem>();
-                    _byFolder[label] = bucket;
+                    Utils.ProjectLoadProgress.Report(item.AbsolutePath);
+                    var indexed = new AssetItem(item.AbsolutePath, label);
+                    _items.Add(indexed);
+                    if (!_byFolder.TryGetValue(label, out var bucket)) _byFolder[label] = bucket = new List<AssetItem>();
+                    bucket.Add(indexed);
                 }
-
-                bucket.Add(item);
+                foreach (var child in node.ChildFolders) pending.Push(child);
             }
         }
 
@@ -701,7 +741,7 @@ namespace Voltage.Editor.Assets
                 var watcher = new FileSystemWatcher(folderPath)
                 {
                     // Watch all files in subdirectories.
-                    NotifyFilter       = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.CreationTime,
+                    NotifyFilter       = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite | NotifyFilters.CreationTime,
                     IncludeSubdirectories = true,
                     EnableRaisingEvents   = true,
                 };
@@ -730,7 +770,7 @@ namespace Voltage.Editor.Assets
         private void OnFswEvent(object sender, FileSystemEventArgs e)
         {
             var ext = Path.GetExtension(e.FullPath);
-            if (SkippedExtensions.Contains(ext) || IsTransientFile(e.FullPath))
+            if (SkippedExtensions.Contains(ext) || IsTransientFile(e.FullPath) || (!Directory.Exists(e.FullPath) && !IsTrackedPath(e.FullPath)))
                 return;
 
             // Churn inside obj/, .git/ and the like must not wake the debounce.
@@ -754,6 +794,8 @@ namespace Voltage.Editor.Assets
                 return;
             if (IsTransientFile(e.FullPath) && IsTransientFile(e.OldFullPath))
                 return;
+
+            if (!Directory.Exists(e.FullPath) && !IsTrackedPath(e.FullPath) && !IsTrackedPath(e.OldFullPath)) return;
 
             // Both sides, so a file moved OUT of a skipped folder into the project is still imported.
             var watchRoot = (sender as FileSystemWatcher)?.Path;
@@ -807,7 +849,7 @@ namespace Voltage.Editor.Assets
                     {
                         if (!SkippedExtensions.Contains(Path.GetExtension(ev.FullPath)))
                         {
-                            GetOrCreateGuid(ev.FullPath);
+                            if (File.Exists(ev.FullPath)) GetOrCreateGuid(ev.FullPath);
                             needsBrowserRefresh = true;
                         }
                     }
@@ -845,7 +887,7 @@ namespace Voltage.Editor.Assets
             }
 
             // Ensure the new path is indexed (the .meta will have moved with the file).
-            GetOrCreateGuid(newAbsPath);
+            if (File.Exists(newAbsPath)) GetOrCreateGuid(newAbsPath);
         }
 
         /// <summary>

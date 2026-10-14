@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace Voltage.Project;
 
-/// <summary>Scene keys and folders relative to the project's Scenes directory.</summary>
+/// <summary>Scene keys and folders relative to the discovery root.</summary>
 public sealed class SceneCatalog
 {
 	public string Name { get; private set; } = "";
@@ -16,7 +16,7 @@ public sealed class SceneCatalog
 	public static SceneCatalog Read(string directory)
 	{
 		var keys = Directory.Exists(directory)
-			? Directory.GetFiles(directory, "*.vscene", SearchOption.AllDirectories)
+			? ProjectAssetFiles.Find(directory, ".vscene")
 				.Select(file => Path.GetRelativePath(directory, file))
 			: Enumerable.Empty<string>();
 		return FromKeys(keys);
@@ -58,7 +58,7 @@ public sealed class SceneCatalog
 		key = key.Replace('\\', '/');
 		if (key.EndsWith(".vscene", StringComparison.OrdinalIgnoreCase)) key = key[..^7];
 		if (key.Contains(':') || key.Split('/').Any(p => p.Length == 0 || p == "." || p == ".."))
-			throw new ArgumentException("Scene keys must be relative paths inside the Scenes folder.", nameof(key));
+			throw new ArgumentException("Scene keys must be relative paths inside the project.", nameof(key));
 		return key;
 	}
 

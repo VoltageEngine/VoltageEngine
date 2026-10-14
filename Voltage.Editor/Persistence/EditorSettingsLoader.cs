@@ -85,6 +85,8 @@ namespace Voltage.Editor.Persistence
 		/// <summary>
 		/// Load a setting value (e.g. _groupLogs = ImGuiSettingsSaver.LoadSetting(_groupLogs, "GroupLogs"))
 		/// </summary>
+		public static bool ContainsSetting(string key) => _settings.ContainsKey(key);
+
 		public static bool LoadSetting(string key, bool defaultValue)
 		{
 			if (_settings != null && _settings.TryGetValue(key, out var val))

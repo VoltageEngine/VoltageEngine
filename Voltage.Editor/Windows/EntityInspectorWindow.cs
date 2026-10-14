@@ -1182,8 +1182,8 @@ public class EntityInspectorWindow
 	/// <returns>True if prefab exists, false otherwise</returns>
 	private bool CheckPrefabExists(string prefabName)
 	{
-		var prefabFilePath = $"{Path.Combine(ProjectManager.Instance.CurrentProject.PrefabsFolder, prefabName)}.prefab";
-		return File.Exists(prefabFilePath);
+		try { return Scene.ResolvePrefabFile(prefabName) != null; }
+		catch (InvalidOperationException) { return true; }
 	}
 
 	/// <summary>
@@ -1235,32 +1235,10 @@ public class EntityInspectorWindow
 
 		var cleanedName = inputName.Trim();
 		
-		// Check if prefab with this name already exists in the EntityType directory
-		var prefabsDirectory = ProjectManager.Instance.CurrentProject.PrefabsFolder;
-
-		if (!Directory.Exists(prefabsDirectory))
-		{
-			return cleanedName;
-		}
-
-		var prefabFilePath = Path.Combine(prefabsDirectory, $"{cleanedName}.prefab");
-		
-		if (!File.Exists(prefabFilePath))
-		{
-			return cleanedName;
-		}
-
-		// Name conflict detected - try to find a unique variant
-		int suffix = 1;
-		string uniqueName;
-		
-		do
-		{
-			uniqueName = $"{cleanedName}_{suffix}";
-			prefabFilePath = Path.Combine(prefabsDirectory, $"{uniqueName}.prefab");
-			suffix++;
-		}
-		while (File.Exists(prefabFilePath));
+        if (!CheckPrefabExists(cleanedName)) return cleanedName;
+        int suffix = 1;
+        string uniqueName;
+        do { uniqueName = $"{cleanedName}_{suffix++}"; } while (CheckPrefabExists(uniqueName));
 
 		return uniqueName;
 	}

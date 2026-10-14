@@ -50,7 +50,7 @@ public class LongAnimationEvent : AnimationEvent
 /// <summary>
 /// SpriteAnimator handles the display and animation of a sprite
 /// </summary>
-public class SpriteAnimator : SpriteRenderer, IUpdatable
+public partial class SpriteAnimator : SpriteRenderer, IUpdatable
 {
 	/// <summary>
 	/// Serializable data for SpriteAnimator component.

@@ -144,6 +144,7 @@ public class GatewayDispatcher : GlobalManager
 			_server.Start();
 			Debug.OnLogEntry += ForwardLog;
 			OnStarted();
+			Voltage.Input.BeforeVirtualInputUpdate += Input.Apply;
 			Debug.Info($"[Gateway] Listening on 127.0.0.1:{_server.Port} (token in {_server.InfoFilePath}){(Options.Safe ? " in safe mode" : "")}");
 		}
 		catch (Exception ex)
@@ -164,6 +165,7 @@ public class GatewayDispatcher : GlobalManager
 			return;
 
 		Debug.OnLogEntry -= ForwardLog;
+		Voltage.Input.BeforeVirtualInputUpdate -= Input.Apply;
 		OnStopping();
 		_server.Dispose();
 		_server = null;
@@ -188,7 +190,6 @@ public class GatewayDispatcher : GlobalManager
 		if (Input.Captured && _server.ClientCount == 0)
 			Input.Release();
 
-		Input.Apply();
 		Recorder.Sample();
 		ExpireWaiters();
 		for (var i = _batches.Count - 1; i >= 0; i--)

@@ -37,7 +37,7 @@ namespace Voltage.Editor.FilePickers
 
 			var start = ResolveStart(startPath);
 
-			if (NativeFileDialogs.IsAvailable)
+			if (!EditorRunMode.Headless && NativeFileDialogs.IsAvailable)
 			{
 				// Native dialog blocks here and returns immediately (empty on cancel).
 				if (NativeFileDialogs.TryPickFolder(title, start, out var picked) && !string.IsNullOrEmpty(picked))
@@ -67,10 +67,10 @@ namespace Voltage.Editor.FilePickers
 
 			var center = ImGui.GetMainViewport().GetCenter();
 			ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
-			ImGui.SetNextWindowSize(new Num.Vector2(600, 500), ImGuiCond.Appearing);
+			ImGui.SetNextWindowSize(new Num.Vector2(600, 0), ImGuiCond.Appearing);
 
 			var open = true;
-			if (Gui.BeginPopupModal(_popupId, ref open, ImGuiWindowFlags.NoResize))
+			if (Gui.BeginPopupModal(_popupId, ref open, ImGuiWindowFlags.NoResize | ImGuiWindowFlags.AlwaysAutoResize))
 			{
 				ImGui.TextColored(new Num.Vector4(0.2f, 0.8f, 1f, 1f), title);
 				ImGui.Separator();

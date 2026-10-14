@@ -17,6 +17,7 @@
 		<RootNamespace>Voltage</RootNamespace>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<BaseIntermediateOutputPath>obj\Voltage</BaseIntermediateOutputPath>
+		<DefaultItemExcludes>$(DefaultItemExcludes);obj\**</DefaultItemExcludes>
 		<GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
 		<Configurations>Debug;Release;Editor-Debug;Editor-Release</Configurations>
 	</PropertyGroup>

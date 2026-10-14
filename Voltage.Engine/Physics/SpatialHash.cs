@@ -324,12 +324,12 @@ namespace Voltage.Spatial
 			// determine the value of t at which the ray crosses the first vertical voxel boundary. same for y/horizontal.
 			// The minimum of these two values will indicate how much we can travel along the ray and still remain in the current voxel
 			// may be infinite for near vertical/horizontal rays
-			var tMaxX = ray.Direction.X != 0 ? (nextBoundaryX - ray.Start.X) / ray.Direction.X : float.MaxValue;
-			var tMaxY = ray.Direction.Y != 0 ? (nextBoundaryY - ray.Start.Y) / ray.Direction.Y : float.MaxValue;
+			var tMaxX = stepX != 0 ? (nextBoundaryX - ray.Start.X) / ray.Direction.X : float.PositiveInfinity;
+			var tMaxY = stepY != 0 ? (nextBoundaryY - ray.Start.Y) / ray.Direction.Y : float.PositiveInfinity;
 
 			// how far do we have to walk before crossing a cell from a cell boundary. may be infinite for near vertical/horizontal rays
-			var tDeltaX = ray.Direction.X != 0 ? _cellSize / (ray.Direction.X * stepX) : float.MaxValue;
-			var tDeltaY = ray.Direction.Y != 0 ? _cellSize / (ray.Direction.Y * stepY) : float.MaxValue;
+			var tDeltaX = stepX != 0 ? _cellSize / (ray.Direction.X * stepX) : float.PositiveInfinity;
+			var tDeltaY = stepY != 0 ? _cellSize / (ray.Direction.Y * stepY) : float.PositiveInfinity;
 
 			// start walking and returning the intersecting cells.
 			var cell = CellAtPosition(currentCell.X, currentCell.Y);

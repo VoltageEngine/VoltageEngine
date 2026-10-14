@@ -632,7 +632,8 @@ namespace Voltage.Editor.Scripting
 		/// </summary>
 		private static string FindSolutionDir()
 		{
-			var dir = AppContext.BaseDirectory;
+			var sourceExe = Voltage.Gateway.GatewayOptions.FromArgs(Program.CommandLineArgs, false).SourceExecutable;
+			var dir = string.IsNullOrEmpty(sourceExe) ? AppContext.BaseDirectory : Path.GetDirectoryName(sourceExe);
 			var di = new DirectoryInfo(dir);
 			while (di != null)
 			{

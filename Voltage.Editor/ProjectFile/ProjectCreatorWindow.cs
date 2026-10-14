@@ -364,8 +364,8 @@ namespace Voltage.Editor.ProjectFile
 				ImGuiSafe.BulletTextSafe($"{ProjectCreator.EffectsFolder}/ - For shader effects");
 				ImGuiSafe.BulletTextSafe($"{ProjectCreator.ContentsFolder}/ - For game assets");
 				ImGuiSafe.BulletTextSafe($"{ProjectCreator.DataFolder}/ - For game data and serialization");
-				ImGuiSafe.BulletTextSafe($"{ProjectCreator.DataFolder}/{ProjectCreator.ScenesFolder}/ - For scene files");
-				ImGuiSafe.BulletTextSafe($"{ProjectCreator.DataFolder}/{ProjectCreator.PrefabsFolder}/ - For entity prefabs");
+				ImGuiSafe.BulletTextSafe($"{ProjectCreator.ScenesFolder}/ - For scene files");
+				ImGuiSafe.BulletTextSafe($"{ProjectCreator.PrefabsFolder}/ - For entity prefabs");
 				
 				ImGui.Unindent();
 			}

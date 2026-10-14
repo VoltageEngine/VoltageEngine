@@ -137,6 +137,8 @@ namespace Voltage.Editor.Windows
 				ImGui.SetTooltip("Scaffold a new plugin folder (plugin.json + starter code) and optionally add it to this project.");
 
 			ImGui.SameLine();
+			if (ImGui.GetContentRegionAvail().X < ImGui.CalcTextSize("Reload Plugins").X + ImGui.GetStyle().FramePadding.X * 2f)
+				ImGui.NewLine();
 			var needsRestart = plugins.Any(p => p.StaleAssemblyWarning != null);
 			if (needsRestart)
 				ImGui.PushStyleColor(ImGuiCol.Text, ColorWarn);
@@ -541,10 +543,11 @@ private void DrawAddPluginSection()
 			switch (_addSourceType)
 			{
 				case 0: // Local folder
-					ImGui.SetNextItemWidth(-100);
+					var browseWidth = Math.Max(85f, ImGui.CalcTextSize("Browse").X + ImGui.GetStyle().FramePadding.X * 2f);
+					ImGui.SetNextItemWidth(-(browseWidth + ImGui.GetStyle().ItemSpacing.X));
 					Gui.InputText("##addpath", ref _addPath, 1024);
 					ImGui.SameLine();
-					if (Gui.Button("Browse", new Num.Vector2(85, 0)))
+					if (Gui.Button("Browse", new Num.Vector2(browseWidth, 0)))
 						_pluginFolderBrowser.Open("Select plugin folder", _addPath, this);
 					if (!string.IsNullOrWhiteSpace(_addPath))
 					{
@@ -714,10 +717,11 @@ private void DrawAddPluginSection()
 
 			ImGui.Spacing();
 			ImGui.TextUnformatted("Location");
-			ImGui.SetNextItemWidth(-90);
+			var browseWidth = Math.Max(80f, ImGui.CalcTextSize("Browse").X + ImGui.GetStyle().FramePadding.X * 2f);
+			ImGui.SetNextItemWidth(-(browseWidth + ImGui.GetStyle().ItemSpacing.X));
 			Gui.InputText("##location", ref _newLocation, 1024);
 			ImGui.SameLine();
-			if (Gui.Button("Browse", new Num.Vector2(80, 0)))
+			if (Gui.Button("Browse", new Num.Vector2(browseWidth, 0)))
 				_createLocationBrowser.Open("Select where to create the plugin", _newLocation, this);
 			if (ImGui.IsItemHovered())
 				ImGui.SetTooltip("The new plugin folder is created inside this location.");

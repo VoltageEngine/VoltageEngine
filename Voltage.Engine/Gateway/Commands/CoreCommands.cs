@@ -18,7 +18,7 @@ public static class CoreCommands
 
 	public static void Register(GatewayCommandTable table)
 	{
-		table.Add("ping", "Round-trip check.", (_, _) => new { pong = true, time = DateTime.UtcNow }).ReadOnly();
+		table.Add("ping", "Round-trip check.", (_, _) => new Dictionary<string, object> { ["pong"] = true, ["time"] = DateTime.UtcNow }).ReadOnly();
 
 		table.Add("commands", "List every gateway command with its help text, declared parameters and flags.", (_, ctx) =>
 			ctx.Commands.All.Select(c => c.Describe()).ToList()).ReadOnly();

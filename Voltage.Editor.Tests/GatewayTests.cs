@@ -16,7 +16,12 @@ public class BasicsTests
 	[Test]
 	public void Ping_answers()
 	{
-		Assert.That(Call("ping").GetProperty("pong").GetBoolean(), Is.True);
+		var before = DateTime.UtcNow;
+		var reply = Call("ping");
+		Assert.That(reply.GetProperty("pong").GetBoolean(), Is.True);
+		var time = reply.GetProperty("time").GetDateTime();
+		Assert.That(time.Kind, Is.EqualTo(DateTimeKind.Utc));
+		Assert.That(time, Is.InRange(before, DateTime.UtcNow));
 	}
 
 	[Test]

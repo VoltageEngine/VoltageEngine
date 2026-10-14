@@ -16,6 +16,8 @@ The Editor Tools bar contains a four-button cluster that controls the game loop:
 
 Additional shortcuts:
 
+During Play, the gameplay camera controls the view; the editor does not pull it toward an old editing position. Pausing with the editor's Pause button or F2 begins at the current gameplay camera position, then allows editor camera navigation while paused. Resume returns camera control to gameplay. See [Main Windows](windows.md) for viewport and overlay controls.
+
 | Action | Keyboard |
 |---|---|
 | Reload scene (recompile scripts + reload) | `F6` |

@@ -336,6 +336,25 @@ namespace Voltage.Editor.Styling
             return Path.Combine(_layoutsDirectory, $"{layoutName}.ini");
         }
 
+        public void SaveWorkingLayout()
+        {
+            if (ImGui.GetCurrentContext() == IntPtr.Zero || HasPendingReload) return;
+            try
+            {
+                string content = ImGui.SaveIniSettingsToMemory();
+                if (File.Exists(_defaultLayoutPath) && File.ReadAllText(_defaultLayoutPath) == content) return;
+                string temporaryPath = _defaultLayoutPath + ".tmp";
+                File.WriteAllText(temporaryPath, content);
+                if (File.Exists(_defaultLayoutPath))
+                    File.Copy(_defaultLayoutPath, _defaultLayoutPath + ".bak", true);
+                File.Move(temporaryPath, _defaultLayoutPath, true);
+            }
+            catch (Exception ex)
+            {
+                Debug.Error($"Failed to save editor layout: {ex.Message}");
+            }
+        }
+
         public void AutoSaveCurrentLayout()
         {
             if (!_currentLayoutName.Equals("Default", StringComparison.OrdinalIgnoreCase))

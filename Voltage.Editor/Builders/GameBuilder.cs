@@ -80,7 +80,7 @@ public static class GameBuilder
 
 		try
 		{
-			var scenes = SceneBuildSelection.Plan(project.ScenesFolder, project.Settings, debugBuild);
+			var scenes = SceneBuildSelection.Plan(project.ProjectPath, project.Settings, debugBuild, project.ScenesFolder);
 			if (EffectsCompiler.NeedsProjectCompilation(project))
 				await ShaderSetupDialog.EnsureReadyAsync(MonoGameVersionResolver.GetVersion(), cancellationToken);
 
@@ -735,6 +735,10 @@ public static class GameBuilder
 			{
 				var settingsDest = Path.Combine(buildDir, "ProjectSettings.json");
 				File.Copy(settingsSrc, settingsDest, true);
+				var settings = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(settingsDest));
+				var initial = Voltage.Project.ProjectAssetFiles.Resolve(project.ProjectPath, project.Settings.InitialScene, ".vscene", project.ScenesFolder);
+				settings["InitialScene"] = Voltage.Project.ProjectAssetFiles.Key(project.ProjectPath, initial);
+				File.WriteAllText(settingsDest, settings.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
 				EditorDebug.Log("Copied ProjectSettings.json to build output.", "GameBuilder");
 			}
 			else

@@ -238,64 +238,30 @@ public partial class ImGuiManager
 		}
 	}
 
-	private void DrawSceneFolders(Voltage.Project.SceneCatalog folder)
-	{
-		foreach (var child in folder.Folders)
-		{
-			if (!Gui.BeginMenu(child.Name)) continue;
-			DrawSceneFolders(child);
-			Gui.EndMenu();
-		}
-		foreach (var scene in folder.Scenes)
-			if (Gui.MenuItem(Path.GetFileName(scene))) RequestSceneChange(scene);
-	}
+    private readonly Voltage.Editor.FilePickers.AssetFileBrowser _sceneFileBrowser =
+        new("load-scene-popup", new[] { ".vscene" }, "Voltage scenes (*.vscene)");
+
+    private void DrawSceneFilePicker()
+    {
+        _sceneFileBrowser.Draw("Load Scene");
+        if (!_sceneFileBrowser.TryTakeResult(out var path) || string.IsNullOrEmpty(path)) return;
+        if (!_projectManager.IsPathInCurrentProject(path))
+        {
+            Debug.Warn("Choose a scene inside the current project.");
+            return;
+        }
+        if (Path.GetExtension(path).Equals(".vscene", StringComparison.OrdinalIgnoreCase)) RequestSceneChange(path);
+    }
 
 	private void DrawProjectMenu()
 	{
 		if (Gui.BeginMenu("Project"))
 		{
-			if (Gui.BeginMenu("New Scene"))
-			{
-				if (!_projectManager.HasActiveProject)
-				{
-					ImGui.TextDisabled("No active project");
-				}
-				else if (Gui.MenuItem("Create New Scene..."))
-				{
-					_sceneCreator.OpenCreateScenePopup();
-				}
-				
-				Gui.EndMenu();
-			}
-
-			if (Gui.BeginMenu("Load Scene..."))
-			{
-				if (_projectManager.HasActiveProject)
-				{
-					var sceneManager = SceneManager.Instance;
-					var scenes = sceneManager.GetSceneCatalog();
-					
-					if (scenes.Scenes.Count > 0 || scenes.Folders.Count > 0)
-					{
-						ImGui.TextColored(new Vector4(0.7f, 1.0f, 0.7f, 1.0f), "Project Scenes:");
-						ImGui.Separator();
-						
-						DrawSceneFolders(scenes);
-
-					}
-					else
-					{
-						ImGui.TextDisabled("No scenes found");
-					}
-
-				}
-				else
-				{
-					ImGui.TextDisabled("No active project");
-				}
-
-				Gui.EndMenu();
-			}
+            ImGui.BeginDisabled(!_projectManager.HasActiveProject || !Core.IsEditMode);
+            if (Gui.MenuItem("New Scene")) _sceneCreator.OpenCreateScenePopup();
+            if (Gui.MenuItem("Load Scene"))
+                _sceneFileBrowser.Open("Load Scene", _projectManager.CurrentProject.ProjectPath, this);
+            ImGui.EndDisabled();
 
 			ImGui.Separator();
 

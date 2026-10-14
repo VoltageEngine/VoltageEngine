@@ -336,7 +336,7 @@ namespace Voltage.Editor.Tools.Tilemap
 		// Field width is what's left after the label and buttons, so a long path shrinks the field
 		// instead of pushing the buttons out of the window.
 		private const float LabelWidth = 160f;
-		private const float ButtonWidth = 90f;
+		private static float ButtonWidth => Math.Max(90f, ImGui.CalcTextSize("Browse...").X + ImGui.GetStyle().FramePadding.X * 2);
 
 		private static float FieldWidth(int buttonCount)
 		{

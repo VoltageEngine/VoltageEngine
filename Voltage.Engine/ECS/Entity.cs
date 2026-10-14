@@ -415,6 +415,8 @@ public sealed class Entity : IComparable<Entity>
 		return this;
 	}
 
+	internal void SetTimelinePreviewEnabled(bool enabled) => _enabled = enabled;
+
 	/// <summary>
 	/// sets the update order of this Entity. updateOrder is also used to sort tag lists on scene.entities
 	/// </summary>

@@ -35,13 +35,13 @@ namespace Voltage.Editor.ProjectFile
 
 			Directory.CreateDirectory(projectPath);
 			var dataPath = Path.Combine(projectPath, DataFolder);
-			var scenesPath = Path.Combine(dataPath, ScenesFolder);
+			var scenesPath = Path.Combine(projectPath, ScenesFolder);
 			Directory.CreateDirectory(Path.Combine(projectPath, ScriptsFolder));
 			Directory.CreateDirectory(Path.Combine(projectPath, EffectsFolder));
 			Directory.CreateDirectory(Path.Combine(projectPath, ContentsFolder));
 			Directory.CreateDirectory(dataPath);
 			Directory.CreateDirectory(scenesPath);
-			Directory.CreateDirectory(Path.Combine(dataPath, PrefabsFolder));
+			Directory.CreateDirectory(Path.Combine(projectPath, PrefabsFolder));
 
 			if (!ProjectStructureGenerator.CreateProjectStructure(name, projectPath, version ?? new Version(1, 0, 0)))
 				throw new InvalidOperationException("Failed to create the project structure; see the log.");
@@ -54,8 +54,8 @@ namespace Voltage.Editor.ProjectFile
 				EffectsFolder = EffectsFolder,
 				ContentsFolder = ContentsFolder,
 				DataFolder = DataFolder,
-				ScenesFolder = DataFolder + "/" + ScenesFolder,
-				PrefabsFolder = DataFolder + "/" + PrefabsFolder,
+				ScenesFolder = ScenesFolder,
+				PrefabsFolder = PrefabsFolder,
 				CreatedDate = DateTime.Now,
 				EngineVersion = VoltageVersion.Engine,
 			};
