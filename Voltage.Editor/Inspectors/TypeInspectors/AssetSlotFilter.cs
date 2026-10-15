@@ -102,6 +102,9 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 			if (id == null)
 				return false;
 
+			if (id == _dataAssetType.GetCustomAttribute<AssetTypeIdAttribute>()?.Id)
+				return true;
+
 			return DataAssetRegistry.TryGet(id, out var entry) && _dataAssetType.IsAssignableFrom(entry.Type);
 		}
 
@@ -124,6 +127,9 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 					 ?? DataAssetIO.PeekAssetTypeId(absolutePath);
 			if (id == null)
 				return false;
+
+			if (id == _dataAssetType.GetCustomAttribute<AssetTypeIdAttribute>()?.Id)
+				return true;
 
 			return DataAssetRegistry.TryGet(id, out var entry) && _dataAssetType.IsAssignableFrom(entry.Type);
 		}
