@@ -175,7 +175,6 @@ public class GameBuildWindow
 		bool open = true;
 		if (Gui.BeginPopupModal("Build Game##Options", ref open))
 		{
-			if (_resetBuildScroll) { ImGui.SetScrollY(0); _resetBuildScroll = false; }
 			var projectManager = ProjectManager.Instance;
 			if (!projectManager.HasActiveProject)
 			{
@@ -188,6 +187,14 @@ public class GameBuildWindow
 
 			var project = projectManager.CurrentProject;
 			var selectedPlatform = BuildPlatform.All[_selectedPlatformIndex.Value];
+			var buttonWidth = Math.Max(120f, EditorLayout.ButtonWidth("Build and Run"));
+			var spacing = ImGui.GetStyle().ItemSpacing.X;
+			var totalButtonWidth = buttonWidth * 3 + spacing * 2;
+			var buttonRows = totalButtonWidth <= ImGui.GetContentRegionAvail().X ? 1 : buttonWidth * 2 + spacing <= ImGui.GetContentRegionAvail().X ? 2 : 3;
+			var footerHeight = buttonRows * (Math.Max(30, ImGui.GetFrameHeight()) + ImGui.GetStyle().ItemSpacing.Y) + ImGui.GetStyle().ItemSpacing.Y * 2;
+			ImGui.BeginChild("BuildOptionsContent", new Num.Vector2(0, -footerHeight), ImGuiChildFlags.None);
+			if (_resetBuildScroll) { ImGui.SetScrollY(0); _resetBuildScroll = false; }
+			ImGui.PushTextWrapPos(0);
 
 			ImGui.TextColored(new Num.Vector4(0.2f, 0.8f, 1.0f, 1.0f), "Build Game");
 			ImGui.Separator();
@@ -206,7 +213,7 @@ public class GameBuildWindow
 			var buildDir = GameBuilder.GetBuildOutputDirectory(project, selectedPlatform, _debugBuild.Value);
 			ImGui.Text("Output:");
 			ImGui.SameLine();
-			ImGuiSafe.TextDisabledSafe(buildDir);
+			ImGuiSafe.TextWrappedSafe(buildDir);
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
@@ -352,21 +359,20 @@ public class GameBuildWindow
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
-			// Action buttons
-			ImGui.Separator();
-
-			var buttonWidth = Math.Max(120f, ImGui.CalcTextSize("Build and Run").X + ImGui.GetStyle().FramePadding.X * 2);
-			var spacing = 10f;
-			var totalButtonWidth = buttonWidth * 3 + spacing * 2;
-			var windowWidth = ImGui.GetWindowSize().X;
-			var centerStart = (windowWidth - totalButtonWidth) * 0.5f;
-
-			ImGui.SetCursorPosX(centerStart);
-
 			bool hasScene = _availableScenes.Count > 0 && SceneBuildSelection.Included(project.ProjectPath, project.ScenesFolder, _availableScenes[_selectedSceneIndex], project.Settings.BuildScenes, _debugBuild.Value);
 			bool canBuild = selectedPlatform.IsAvailable && !_isBuilding && hasScene;
 			if (!hasScene && _availableScenes.Count > 0)
-				ImGui.TextColored(new Num.Vector4(1, 0.5f, 0.3f, 1), "Include the startup scene in this build configuration to build.");
+				ImGuiSafe.TextWrappedColoredSafe(new Num.Vector4(1, 0.5f, 0.3f, 1), "Include the startup scene in this build configuration to build.");
+			ImGui.PopTextWrapPos();
+			ImGui.EndChild();
+
+			// Action buttons
+			ImGui.Separator();
+
+			var centerStart = ImGui.GetCursorPosX() + Math.Max(0, (ImGui.GetContentRegionAvail().X - totalButtonWidth) * 0.5f);
+
+			ImGui.SetCursorPosX(centerStart);
+
 			if (!canBuild)
 				ImGui.BeginDisabled();
 

@@ -123,7 +123,7 @@ public class EntityInspectorWindow
 		if (_imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities.Count > 1 && !_imGuiManager.IsInspectorTabLocked)
 		{
 			ImGui.PushFont(_imGuiManager.HeadingFont);
-			ImGui.Text("Multiple Entities Selected");
+			ImGuiSafe.TextWrappedSafe("Multiple Entities Selected");
 			ImGui.PopFont();
 
 			ImGui.PushFont(ImGui.GetIO().FontDefault); // Use default font (smallest)
@@ -154,12 +154,11 @@ public class EntityInspectorWindow
 		{
 			var entityName = Entity.Name;
 			ImGui.PushFont(_imGuiManager.HeadingFont);
-			ImGuiSafe.TextSafe(entityName);
+			ImGuiSafe.TextWrappedSafe(entityName);
 			ImGui.PopFont();
 
-			float spacing = 12f * _imGuiManager.FontSizeMultiplier;
 			float iconSize = 20f * _imGuiManager.FontSizeMultiplier;
-			ImGui.SameLine(0, spacing);
+			EditorLayout.SameLine(iconSize + ImGui.GetStyle().FramePadding.X * 2);
 
 			// Lock Mode Button
 			Num.Vector4 lockedButtonColor;

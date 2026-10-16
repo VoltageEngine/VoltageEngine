@@ -56,14 +56,8 @@ namespace Voltage.Editor.Utils
 		/// <returns></returns>
 		public static bool LabelButton(string label, string buttonText)
 		{
-			ImGui.AlignTextToFramePadding();
-
-			var wasClicked = Gui.Button(buttonText);
-			ImGui.SameLine(0,
-				ImGui.GetWindowWidth() * 0.65f - ImGui.GetItemRectSize().X + ImGui.GetStyle().ItemInnerSpacing.X);
-			ImGuiSafe.TextSafe(label);
-
-			return wasClicked;
+			ImGuiSafe.TextWrappedSafe(label);
+			return Gui.Button(buttonText, new Num.Vector2(-1, 0));
 		}
 
 		/// <summary>
@@ -93,7 +87,7 @@ namespace Voltage.Editor.Utils
 		public static bool CenteredButton(string label, float percentWidth, float xIndent = 0)
 		{
 			var buttonWidth = ImGui.GetContentRegionAvail().X * percentWidth;
-			ImGui.SetCursorPosX(xIndent + (ImGui.GetContentRegionAvail().X - buttonWidth) / 2f);
+			ImGui.SetCursorPosX(ImGui.GetCursorPosX() + xIndent + (ImGui.GetContentRegionAvail().X - buttonWidth) / 2f);
 			return Gui.Button(label, new System.Numerics.Vector2(buttonWidth, GetDefaultWidgetHeight()));
 		}
 
@@ -141,9 +135,9 @@ namespace Voltage.Editor.Utils
 
 			if (!string.IsNullOrEmpty(label))
 			{
-				ImGui.SameLine();
+				EditorLayout.SameLine(ImGui.CalcTextSize(label).X);
 				ImGui.AlignTextToFramePadding();
-				ImGuiSafe.TextSafe(label);
+				ImGuiSafe.TextWrappedSafe(label);
 			}
 
 			return clicked;

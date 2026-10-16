@@ -428,8 +428,8 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                     if (ImGui.BeginChild("file-picker", new Num.Vector2(480, 0), ImGuiChildFlags.Borders))
                     {
                         FilePicker.DrawFilePickerContent(picker);
-                        ImGui.EndChild();
                     }
+                    ImGui.EndChild();
 
                     ImGui.SameLine();
 
@@ -499,11 +499,10 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                             ImGui.TextColored(new Num.Vector4(0.7f, 0.7f, 0.7f, 1), "Select a TMX file to see available image layers");
                         }
 
-                        ImGui.EndChild();
                     }
-
                     ImGui.EndChild();
                 }
+                ImGui.EndChild();
 
                 ImGui.Separator();
 

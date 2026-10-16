@@ -905,15 +905,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	{
 		if (Gui.BeginMainMenuBar())
 		{
-			DrawFileMenu();
-			DrawProjectMenu();
-			DrawViewMenu();
-			DrawProfilerMenu();
-			DrawScriptingMenu();
-			DrawEffectsMenu();
-			DrawPluginsMenu();
-			DrawBuildMenu();
-			DrawHelpMenu();
+			DrawResponsiveMenus();
 
 			Gui.EndMainMenuBar();
 		}

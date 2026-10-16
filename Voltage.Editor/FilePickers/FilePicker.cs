@@ -80,11 +80,12 @@ namespace Voltage.Editor.FilePickers
 
 		public bool Draw()
 		{
-			ImGuiSafe.TextSafe("Current Folder: " + Path.GetFileName(RootFolder) + CurrentFolder.Replace(RootFolder, ""));
+			ImGuiSafe.TextWrappedSafe("Current Folder: " + Path.GetFileName(RootFolder) + CurrentFolder.Replace(RootFolder, ""));
 			bool result = false;
 
 			if (_lastDrawnFolder != CurrentFolder) { ImGui.SetNextWindowScroll(Num.Vector2.Zero); _lastDrawnFolder = CurrentFolder; }
-			if (ImGui.BeginChild(1, new Num.Vector2(500, 400), ImGuiChildFlags.FrameStyle))
+			var listHeight = Math.Min(400 * EditorLayout.Scale, Math.Max(ImGui.GetFrameHeight(), ImGui.GetContentRegionAvail().Y - ImGui.GetFrameHeightWithSpacing() * 2));
+			if (ImGui.BeginChild(1, new Num.Vector2(0, listHeight), ImGuiChildFlags.FrameStyle))
 			{
 				var di = new DirectoryInfo(CurrentFolder);
 				if (di.Exists)

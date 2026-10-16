@@ -99,7 +99,7 @@ namespace Voltage.Editor.Windows
 			if (!IsOpen) { DisposePreview(); return; }
 			if (!Core.IsEditMode) DisposePreview();
 			SyncToSelectedDirector();
-			ImGui.SetNextWindowSize(new Num.Vector2(820, 560), ImGuiCond.FirstUseEver);
+			Voltage.Editor.Utils.EditorLayout.WindowSize(new Num.Vector2(1000, 700));
 			var open = IsOpen;
 			var visible = Gui.Begin("Timeline ###TimelineWindow", ref open);
 			if (!open) RequestClose();
@@ -144,7 +144,7 @@ namespace Voltage.Editor.Windows
 			}
 			ImGui.Separator();
 
-			if (ImGui.BeginTabBar("TimelineTabs"))
+			if (ImGui.BeginTabBar("TimelineTabs", ImGuiTabBarFlags.FittingPolicyScroll))
 			{
 				if (Gui.BeginTabItem("Roles"))      { DrawRoles(); ImGui.EndTabItem(); }
 				if (Gui.BeginTabItem("Events"))     { DrawEvents(); ImGui.EndTabItem(); }

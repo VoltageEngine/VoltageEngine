@@ -94,7 +94,7 @@ namespace Voltage.Editor.ProjectFile
 			
 			var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.5f);
 			ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
-			ImGui.SetNextWindowSize(new Num.Vector2(600, 700), ImGuiCond.Appearing);
+			Voltage.Editor.Utils.EditorLayout.WindowSize(new Num.Vector2(820, 740), ImGuiCond.Appearing);
 			
 			bool open = true;
 			if (Gui.BeginPopupModal("create-project-popup", ref open, ImGuiWindowFlags.NoResize))
@@ -241,7 +241,7 @@ namespace Voltage.Editor.ProjectFile
 			
 			var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.5f);
 			ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
-			ImGui.SetNextWindowSize(new Num.Vector2(600, 500), ImGuiCond.Appearing);
+			Voltage.Editor.Utils.EditorLayout.WindowSize(new Num.Vector2(760, 560), ImGuiCond.Appearing);
 			
 			bool open = true;
 			if (Gui.BeginPopupModal("folder-picker-popup", ref open, ImGuiWindowFlags.NoResize))

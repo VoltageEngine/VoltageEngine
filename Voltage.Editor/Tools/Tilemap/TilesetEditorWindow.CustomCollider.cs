@@ -162,7 +162,7 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			var center = ImGui.GetMainViewport().GetCenter();
 			ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
-			ImGui.SetNextWindowSize(new Num.Vector2(440, 560), ImGuiCond.Appearing);
+			Voltage.Editor.Utils.EditorLayout.WindowSize(new Num.Vector2(620, 640), ImGuiCond.Appearing);
 
 			var open = true;
 			if (!Gui.BeginPopupModal(ColliderPopupId, ref open, ImGuiWindowFlags.NoResize))

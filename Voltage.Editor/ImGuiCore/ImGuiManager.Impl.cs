@@ -265,6 +265,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		var camera = Core.Scene?.Camera;
 		bool showZoomButton = camera != null && Math.Abs(camera.Zoom - Camera.DefaultZoom) > 0.01f;
 		bool showSpeedButton = Math.Abs(GetDynamicCameraSpeed() - EditModeCameraSpeed) > 0.1f;
+		var overlayBottom = _gameImageScreenPos.Y;
 
 		if (showZoomButton || showSpeedButton)
 		{
@@ -289,7 +290,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 				if (showSpeedButton)
 				{
-					ImGui.SameLine(0, 8f * ImGui.GetIO().FontGlobalScale);
+					EditorLayout.SameLine(EditorLayout.ButtonWidth("Reset Camera Speed"));
 				}
 			}
 
@@ -305,6 +306,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 					ResetDynamicCameraSpeed();
 				}
 			}
+			overlayBottom = ImGui.GetItemRectMax().Y;
 		}
 
 		if (Core.IsEditMode && Math.Abs(GetDynamicCameraSpeed() - EditModeCameraSpeed) > 0.1f)
@@ -318,7 +320,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 			var speedTextPos = new Num.Vector2(
 				_gameImageScreenPos.X + imageSize.X - speedTextSize.X - margin.X,
-				_gameImageScreenPos.Y + margin.Y
+				overlayBottom + margin.Y
 			);
 
 			var drawList = ImGui.GetWindowDrawList();

@@ -96,7 +96,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (!IsOpen)
 				return;
 
-			ImGui.SetNextWindowSize(new Num.Vector2(720, 620), ImGuiCond.FirstUseEver);
+			EditorLayout.WindowSize(new Num.Vector2(900, 700), ImGuiCond.FirstUseEver);
 
 			var open = IsOpen;
 			if (!Gui.Begin("Tileset Editor ###TilesetEditorWindow", ref open))

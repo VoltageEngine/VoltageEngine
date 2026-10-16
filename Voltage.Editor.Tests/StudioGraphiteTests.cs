@@ -45,14 +45,17 @@ public class StudioGraphiteTests
 		Call("ui.focus", new { window = "Scene Graph" });
 		Call("input.wait", new { frames = 5 });
 		var item = WaitForWidget(header, "Scene Graph");
+		var closeSize = WaitForWidget("Scene Graph Sections", "Scene Graph").GetProperty("height").GetInt32();
 		Call("input.click", new
 		{
-			x = item.GetProperty("x").GetInt32() + item.GetProperty("width").GetInt32() - item.GetProperty("height").GetInt32() / 2,
-			y = item.GetProperty("y").GetInt32() + item.GetProperty("height").GetInt32() / 2
+			x = item.GetProperty("x").GetInt32() + item.GetProperty("width").GetInt32() - closeSize / 2,
+			y = item.GetProperty("y").GetInt32() + closeSize / 2
 		});
 		try
 		{
-			Thread.Sleep(100);
+			var deadline = DateTime.UtcNow.AddSeconds(3);
+			while ((!Settings().TryGetProperty(setting, out var persisted) || persisted.GetBoolean()) && DateTime.UtcNow < deadline)
+				Thread.Sleep(100);
 			Assert.That(Settings().GetProperty(setting).GetBoolean(), Is.False);
 			Assert.That(Call("ui.find", new { label = header, window = "Scene Graph", exact = true }).GetArrayLength(), Is.Zero);
 			Call("ui.click", new { label = "Scene Graph Sections", window = "Scene Graph", exact = true });

@@ -48,7 +48,7 @@ namespace Voltage.Editor.SceneFile
 			
 			var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.5f);
 			ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
-			ImGui.SetNextWindowSize(new Num.Vector2(520, 0), ImGuiCond.Appearing);
+			Voltage.Editor.Utils.EditorLayout.WindowSize(new Num.Vector2(720, 460), ImGuiCond.Appearing);
 			
 			bool open = true;
 			if (Gui.BeginPopupModal("create-scene-popup", ref open, ImGuiWindowFlags.NoResize | ImGuiWindowFlags.AlwaysAutoResize))

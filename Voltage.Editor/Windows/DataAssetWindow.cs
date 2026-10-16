@@ -215,7 +215,7 @@ namespace Voltage.Editor.Windows
 
 		private void DrawWindow()
 		{
-			ImGui.SetNextWindowSize(new Num.Vector2(460, 520), ImGuiCond.FirstUseEver);
+			EditorLayout.WindowSize(new Num.Vector2(600, 640), ImGuiCond.FirstUseEver);
 
 			var open = IsOpen;
 			var beginResult = Gui.Begin("Data Asset", ref open, ImGuiWindowFlags.MenuBar);

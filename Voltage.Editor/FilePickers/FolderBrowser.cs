@@ -67,10 +67,10 @@ namespace Voltage.Editor.FilePickers
 
 			var center = ImGui.GetMainViewport().GetCenter();
 			ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
-			ImGui.SetNextWindowSize(new Num.Vector2(600, 0), ImGuiCond.Appearing);
+			Voltage.Editor.Utils.EditorLayout.WindowSize(new Num.Vector2(820, 640), ImGuiCond.Appearing);
 
 			var open = true;
-			if (Gui.BeginPopupModal(_popupId, ref open, ImGuiWindowFlags.NoResize | ImGuiWindowFlags.AlwaysAutoResize))
+			if (Gui.BeginPopupModal(_popupId, ref open, ImGuiWindowFlags.NoResize))
 			{
 				ImGui.TextColored(new Num.Vector4(0.2f, 0.8f, 1f, 1f), title);
 				ImGui.Separator();

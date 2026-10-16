@@ -561,9 +561,6 @@ public partial class ImGuiManager
 			Gui.EndMenu();
 		}
 
-		DrawSaveLayoutPopup();
-		DrawRenameLayoutPopup();
-		DrawDeleteLayoutPopup();
 	}
 
 	/// <summary>Renames the layout picked in View > Layout, moving its .ini file to match.</summary>

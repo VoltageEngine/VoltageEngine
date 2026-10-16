@@ -73,6 +73,7 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                 _imGuiManager = Core.GetGlobalManager<ImGuiManager>();
 
             bool open = true;
+            EditorLayout.WindowSize(new Num.Vector2(960, 700));
           
             if (Gui.Begin("Animation Event Inspector###AnimationEventInspector", ref open, ImGuiWindowFlags.None))
             {
@@ -82,9 +83,9 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                     _shouldFocusWindow = false;
                 }
 
-                if (_animator == null)
+                if (_animator?.Animations == null || _animator.Animations.Count == 0)
                 {
-                    ImGui.TextColored(new Num.Vector4(1, 1, 0, 1), "Select an AnimatedSprite to Manage its events");
+                    ImGuiSafe.TextWrappedSafe("Select a sprite with animations to manage its events.");
                     Gui.End();
 
                     if (!open)

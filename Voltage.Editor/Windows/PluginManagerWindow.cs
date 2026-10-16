@@ -1,3 +1,4 @@
+using Voltage.Editor.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -108,7 +109,7 @@ namespace Voltage.Editor.Windows
 			if (!IsOpen)
 				return;
 
-			ImGui.SetNextWindowSize(new Num.Vector2(720, 460), ImGuiCond.FirstUseEver);
+			EditorLayout.WindowSize(new Num.Vector2(820, 620), ImGuiCond.FirstUseEver);
 			if (!Gui.Begin("Plugin Manager ###PluginManagerWindow", ref IsOpen))
 			{
 				Gui.End();
@@ -677,7 +678,7 @@ private void DrawAddPluginSection()
 
 			var center = ImGui.GetMainViewport().GetCenter();
 			ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
-			ImGui.SetNextWindowSize(new Num.Vector2(680, 0), ImGuiCond.Appearing);
+			Voltage.Editor.Utils.EditorLayout.WindowSize(new Num.Vector2(820, 700), ImGuiCond.Appearing);
 
 			var open = true;
 			if (!Gui.BeginPopupModal("create-plugin", ref open, ImGuiWindowFlags.None))
@@ -829,7 +830,7 @@ private void DrawAddPluginSection()
 
 			var center = ImGui.GetMainViewport().GetCenter();
 			ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
-			ImGui.SetNextWindowSize(new Num.Vector2(720, 0), ImGuiCond.Appearing);
+			Voltage.Editor.Utils.EditorLayout.WindowSize(new Num.Vector2(860, 700), ImGuiCond.Appearing);
 
 			var open = true;
 			if (!Gui.BeginPopupModal("publish-plugin", ref open, ImGuiWindowFlags.None))

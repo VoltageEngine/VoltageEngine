@@ -126,7 +126,7 @@ namespace Voltage.Editor.Tools.Tilemap
 				return;
 			}
 
-			ImGui.SetNextWindowSize(new Num.Vector2(420, 640), ImGuiCond.FirstUseEver);
+			EditorLayout.WindowSize(new Num.Vector2(500, 700), ImGuiCond.FirstUseEver);
 
 			// Focused windows only. IsFocused is last frame's answer, which is what we want: the click
 			// that focuses the window comes before any wheel it should catch.
@@ -197,7 +197,7 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			// Fixed size, and deliberately NOT AlwaysAutoResize: the fill-width input sizes to the window while the
 			// window auto-sizes to its content, so the two chase each other smaller every frame.
-			ImGui.SetNextWindowSize(new Num.Vector2(420, 190), ImGuiCond.Always);
+			EditorLayout.WindowSize(new Num.Vector2(520, 300), ImGuiCond.Appearing);
 
 			var open = true;
 			if (!Gui.BeginPopupModal("new-tilemap-layer", ref open, ImGuiWindowFlags.NoResize))

@@ -2,11 +2,12 @@ using System;
 using System.Numerics;
 using ImGuiNET;
 using Voltage.Editor.Gateway;
+using Voltage.Editor.Utils;
 
 namespace Voltage.Editor.ImGuiCore;
 
 /// <summary>ImGui widgets that also report themselves to <see cref="UiRegistry"/>; same signatures as ImGui.NET so call sites only change the class name.</summary>
-public static class Gui
+public static partial class Gui
 {
 	public static bool Begin(string name) => Window(ImGui.Begin(name), name);
 
@@ -88,15 +89,11 @@ public static class Gui
 
 	public static bool MenuItem(string label, string shortcut, ref bool selected, bool enabled) => Item(ImGui.MenuItem(label, shortcut, ref selected, enabled), "menuItem", label, enabled);
 
-	public static bool Button(string label) => Item(ImGui.Button(label), "button", label);
+	public static bool Button(string label) => Item(DrawButton(label, Vector2.Zero), "button", label);
 
 	public static bool Button(string label, Vector2 size)
 	{
-		var caption = label.Split(new[] { "##" }, System.StringSplitOptions.None)[0];
-		var minimum = ImGui.CalcTextSize(caption) + ImGui.GetStyle().FramePadding * 2;
-		if (size.X > 0) size.X = System.Math.Max(size.X, minimum.X);
-		if (size.Y > 0) size.Y = System.Math.Max(size.Y, minimum.Y);
-		return Item(ImGui.Button(label, size), "button", label);
+		return Item(DrawButton(label, size), "button", label);
 	}
 	internal static bool CaptionButton(string label, string caption) => Item(ImGui.Button(caption + "###" + label), "button", label);
 
@@ -113,7 +110,7 @@ public static class Gui
 		return pressed;
 	}
 
-	public static bool SmallButton(string label) => Item(ImGui.SmallButton(label), "button", label);
+	public static bool SmallButton(string label) => Item(ImGui.SmallButton(WrappedLabel(label, ImGui.GetStyle().FramePadding.X * 2)), "button", label);
 
 	public static bool InvisibleButton(string id, Vector2 size) => Item(ImGui.InvisibleButton(id, size), "button", id);
 
@@ -147,11 +144,11 @@ public static class Gui
 
 	public static bool Selectable(string label, ref bool selected, ImGuiSelectableFlags flags, Vector2 size) => Item(ImGui.Selectable(label, ref selected, flags, size), "selectable", label);
 
-	public static bool Checkbox(string label, ref bool value) => Item(ImGui.Checkbox(label, ref value), "checkbox", label);
+	public static bool Checkbox(string label, ref bool value) => Item(ImGui.Checkbox(WrappedLabel(label, ImGui.GetFrameHeight() + ImGui.GetStyle().ItemInnerSpacing.X), ref value), "checkbox", label);
 
-	public static bool RadioButton(string label, bool active) => Item(ImGui.RadioButton(label, active), "radio", label);
+	public static bool RadioButton(string label, bool active) => Item(ImGui.RadioButton(WrappedLabel(label, ImGui.GetFrameHeight() + ImGui.GetStyle().ItemInnerSpacing.X), active), "radio", label);
 
-	public static bool RadioButton(string label, ref int value, int button) => Item(ImGui.RadioButton(label, ref value, button), "radio", label);
+	public static bool RadioButton(string label, ref int value, int button) => Item(ImGui.RadioButton(WrappedLabel(label, ImGui.GetFrameHeight() + ImGui.GetStyle().ItemInnerSpacing.X), ref value, button), "radio", label);
 
 	public static bool TreeNode(string label) => Item(ImGui.TreeNode(label), "tree", label);
 
@@ -163,13 +160,13 @@ public static class Gui
 
 	public static bool TreeNodeEx(string id, ImGuiTreeNodeFlags flags, string text) => Item(ImGui.TreeNodeEx(id, flags, text), "tree", text);
 
-	public static bool CollapsingHeader(string label) => Item(ImGui.CollapsingHeader(label), "header", label);
+	public static bool CollapsingHeader(string label) => DrawHeader(label, ImGuiTreeNodeFlags.None);
 
-	public static bool CollapsingHeader(string label, ImGuiTreeNodeFlags flags) => Item(ImGui.CollapsingHeader(label, flags), "header", label);
+	public static bool CollapsingHeader(string label, ImGuiTreeNodeFlags flags) => DrawHeader(label, flags);
 
-	public static bool CollapsingHeader(string label, ref bool visible) => Item(ImGui.CollapsingHeader(label, ref visible), "header", label);
+	public static bool CollapsingHeader(string label, ref bool visible) => DrawHeader(label, ref visible, ImGuiTreeNodeFlags.None);
 
-	public static bool CollapsingHeader(string label, ref bool visible, ImGuiTreeNodeFlags flags) => Item(ImGui.CollapsingHeader(label, ref visible, flags), "header", label);
+	public static bool CollapsingHeader(string label, ref bool visible, ImGuiTreeNodeFlags flags) => DrawHeader(label, ref visible, flags);
 
 	public static bool BeginTabItem(string label) => Item(ImGui.BeginTabItem(label), "tab", label);
 
@@ -177,123 +174,123 @@ public static class Gui
 
 	public static bool BeginTabItem(string label, ref bool open, ImGuiTabItemFlags flags) => Item(ImGui.BeginTabItem(label, ref open, flags), "tab", label);
 
-	public static bool InputText(string label, ref string input, uint maxLength) => Item(ImGui.InputText(label, ref input, maxLength), "input", label);
+	public static bool InputText(string label, ref string input, uint maxLength) => Item(ImGui.InputText(FieldLabel(label, ImGui.CalcTextSize("000000000000").X + ImGui.GetStyle().FramePadding.X * 2), ref input, maxLength), "input", label);
 
-	public static bool InputText(string label, ref string input, uint maxLength, ImGuiInputTextFlags flags) => Item(ImGui.InputText(label, ref input, maxLength, flags), "input", label);
+	public static bool InputText(string label, ref string input, uint maxLength, ImGuiInputTextFlags flags) => Item(ImGui.InputText(FieldLabel(label, ImGui.CalcTextSize("000000000000").X + ImGui.GetStyle().FramePadding.X * 2), ref input, maxLength, flags), "input", label);
 
-	public static bool InputText(string label, ref string input, uint maxLength, ImGuiInputTextFlags flags, ImGuiInputTextCallback callback) => Item(ImGui.InputText(label, ref input, maxLength, flags, callback), "input", label);
+	public static bool InputText(string label, ref string input, uint maxLength, ImGuiInputTextFlags flags, ImGuiInputTextCallback callback) => Item(ImGui.InputText(FieldLabel(label, ImGui.CalcTextSize("000000000000").X + ImGui.GetStyle().FramePadding.X * 2), ref input, maxLength, flags, callback), "input", label);
 
-	public static bool InputText(string label, ref string input, uint maxLength, ImGuiInputTextFlags flags, ImGuiInputTextCallback callback, IntPtr userData) => Item(ImGui.InputText(label, ref input, maxLength, flags, callback, userData), "input", label);
+	public static bool InputText(string label, ref string input, uint maxLength, ImGuiInputTextFlags flags, ImGuiInputTextCallback callback, IntPtr userData) => Item(ImGui.InputText(FieldLabel(label, ImGui.CalcTextSize("000000000000").X + ImGui.GetStyle().FramePadding.X * 2), ref input, maxLength, flags, callback, userData), "input", label);
 
-	public static bool InputTextWithHint(string label, string hint, ref string input, uint maxLength) => Item(ImGui.InputTextWithHint(label, hint, ref input, maxLength), "input", label);
+	public static bool InputTextWithHint(string label, string hint, ref string input, uint maxLength) => Item(ImGui.InputTextWithHint(FieldLabel(label, ImGui.CalcTextSize("000000000000").X + ImGui.GetStyle().FramePadding.X * 2), hint, ref input, maxLength), "input", label);
 
-	public static bool InputTextWithHint(string label, string hint, ref string input, uint maxLength, ImGuiInputTextFlags flags) => Item(ImGui.InputTextWithHint(label, hint, ref input, maxLength, flags), "input", label);
+	public static bool InputTextWithHint(string label, string hint, ref string input, uint maxLength, ImGuiInputTextFlags flags) => Item(ImGui.InputTextWithHint(FieldLabel(label, ImGui.CalcTextSize("000000000000").X + ImGui.GetStyle().FramePadding.X * 2), hint, ref input, maxLength, flags), "input", label);
 
 	public static bool InputTextMultiline(string label, ref string input, uint maxLength, Vector2 size) => Item(ImGui.InputTextMultiline(label, ref input, maxLength, size), "input", label);
 
 	public static bool InputTextMultiline(string label, ref string input, uint maxLength, Vector2 size, ImGuiInputTextFlags flags) => Item(ImGui.InputTextMultiline(label, ref input, maxLength, size, flags), "input", label);
 
-	public static bool InputInt(string label, ref int value) => Item(ImGui.InputInt(label, ref value), "input", label);
+	public static bool InputInt(string label, ref int value) => Item(ImGui.InputInt(FieldLabel(label, EditorLayout.NumberWidth(true, 1)), ref value), "input", label);
 
-	public static bool InputInt(string label, ref int value, int step) => Item(ImGui.InputInt(label, ref value, step), "input", label);
+	public static bool InputInt(string label, ref int value, int step) => Item(ImGui.InputInt(FieldLabel(label, EditorLayout.NumberWidth(step != 0, 1)), ref value, step), "input", label);
 
-	public static bool InputInt(string label, ref int value, int step, int stepFast) => Item(ImGui.InputInt(label, ref value, step, stepFast), "input", label);
+	public static bool InputInt(string label, ref int value, int step, int stepFast) => Item(ImGui.InputInt(FieldLabel(label, EditorLayout.NumberWidth(step != 0, 1)), ref value, step, stepFast), "input", label);
 
-	public static bool InputInt(string label, ref int value, int step, int stepFast, ImGuiInputTextFlags flags) => Item(ImGui.InputInt(label, ref value, step, stepFast, flags), "input", label);
+	public static bool InputInt(string label, ref int value, int step, int stepFast, ImGuiInputTextFlags flags) => Item(ImGui.InputInt(FieldLabel(label, EditorLayout.NumberWidth(step != 0, 1)), ref value, step, stepFast, flags), "input", label);
 
-	public static bool InputFloat(string label, ref float value) => Item(ImGui.InputFloat(label, ref value), "input", label);
+	public static bool InputFloat(string label, ref float value) => Item(ImGui.InputFloat(FieldLabel(label, EditorLayout.NumberWidth(false, 1)), ref value), "input", label);
 
-	public static bool InputFloat(string label, ref float value, float step) => Item(ImGui.InputFloat(label, ref value, step), "input", label);
+	public static bool InputFloat(string label, ref float value, float step) => Item(ImGui.InputFloat(FieldLabel(label, EditorLayout.NumberWidth(step != 0, 1)), ref value, step), "input", label);
 
-	public static bool InputFloat(string label, ref float value, float step, float stepFast) => Item(ImGui.InputFloat(label, ref value, step, stepFast), "input", label);
+	public static bool InputFloat(string label, ref float value, float step, float stepFast) => Item(ImGui.InputFloat(FieldLabel(label, EditorLayout.NumberWidth(step != 0, 1)), ref value, step, stepFast), "input", label);
 
-	public static bool InputFloat(string label, ref float value, float step, float stepFast, string format) => Item(ImGui.InputFloat(label, ref value, step, stepFast, format), "input", label);
+	public static bool InputFloat(string label, ref float value, float step, float stepFast, string format) => Item(ImGui.InputFloat(FieldLabel(label, EditorLayout.NumberWidth(step != 0, 1)), ref value, step, stepFast, format), "input", label);
 
-	public static bool InputFloat(string label, ref float value, float step, float stepFast, string format, ImGuiInputTextFlags flags) => Item(ImGui.InputFloat(label, ref value, step, stepFast, format, flags), "input", label);
+	public static bool InputFloat(string label, ref float value, float step, float stepFast, string format, ImGuiInputTextFlags flags) => Item(ImGui.InputFloat(FieldLabel(label, EditorLayout.NumberWidth(step != 0, 1)), ref value, step, stepFast, format, flags), "input", label);
 
-	public static bool InputFloat2(string label, ref Vector2 value) => Item(ImGui.InputFloat2(label, ref value), "input", label);
+	public static bool InputFloat2(string label, ref Vector2 value) => Item(ImGui.InputFloat2(FieldLabel(label, EditorLayout.NumberWidth(false, 2)), ref value), "input", label);
 
-	public static bool InputFloat2(string label, ref Vector2 value, string format) => Item(ImGui.InputFloat2(label, ref value, format), "input", label);
+	public static bool InputFloat2(string label, ref Vector2 value, string format) => Item(ImGui.InputFloat2(FieldLabel(label, EditorLayout.NumberWidth(false, 2)), ref value, format), "input", label);
 
-	public static bool InputFloat2(string label, ref Vector2 value, string format, ImGuiInputTextFlags flags) => Item(ImGui.InputFloat2(label, ref value, format, flags), "input", label);
+	public static bool InputFloat2(string label, ref Vector2 value, string format, ImGuiInputTextFlags flags) => Item(ImGui.InputFloat2(FieldLabel(label, EditorLayout.NumberWidth(false, 2)), ref value, format, flags), "input", label);
 
-	public static bool InputFloat3(string label, ref Vector3 value) => Item(ImGui.InputFloat3(label, ref value), "input", label);
+	public static bool InputFloat3(string label, ref Vector3 value) => Item(ImGui.InputFloat3(FieldLabel(label, EditorLayout.NumberWidth(false, 3)), ref value), "input", label);
 
-	public static bool InputFloat3(string label, ref Vector3 value, string format) => Item(ImGui.InputFloat3(label, ref value, format), "input", label);
+	public static bool InputFloat3(string label, ref Vector3 value, string format) => Item(ImGui.InputFloat3(FieldLabel(label, EditorLayout.NumberWidth(false, 3)), ref value, format), "input", label);
 
-	public static bool DragFloat(string label, ref float value) => Item(ImGui.DragFloat(label, ref value), "drag", label);
+	public static bool DragFloat(string label, ref float value) => Item(ImGui.DragFloat(FieldLabel(label, EditorLayout.NumberWidth(false, 1)), ref value), "drag", label);
 
-	public static bool DragFloat(string label, ref float value, float speed) => Item(ImGui.DragFloat(label, ref value, speed), "drag", label);
+	public static bool DragFloat(string label, ref float value, float speed) => Item(ImGui.DragFloat(FieldLabel(label, EditorLayout.NumberWidth(false, 1)), ref value, speed), "drag", label);
 
-	public static bool DragFloat(string label, ref float value, float speed, float min) => Item(ImGui.DragFloat(label, ref value, speed, min), "drag", label);
+	public static bool DragFloat(string label, ref float value, float speed, float min) => Item(ImGui.DragFloat(FieldLabel(label, EditorLayout.NumberWidth(false, 1)), ref value, speed, min), "drag", label);
 
-	public static bool DragFloat(string label, ref float value, float speed, float min, float max) => Item(ImGui.DragFloat(label, ref value, speed, min, max), "drag", label);
+	public static bool DragFloat(string label, ref float value, float speed, float min, float max) => Item(ImGui.DragFloat(FieldLabel(label, EditorLayout.NumberWidth(false, 1)), ref value, speed, min, max), "drag", label);
 
-	public static bool DragFloat(string label, ref float value, float speed, float min, float max, string format) => Item(ImGui.DragFloat(label, ref value, speed, min, max, format), "drag", label);
+	public static bool DragFloat(string label, ref float value, float speed, float min, float max, string format) => Item(ImGui.DragFloat(FieldLabel(label, EditorLayout.NumberWidth(false, 1)), ref value, speed, min, max, format), "drag", label);
 
-	public static bool DragFloat(string label, ref float value, float speed, float min, float max, string format, ImGuiSliderFlags flags) => Item(ImGui.DragFloat(label, ref value, speed, min, max, format, flags), "drag", label);
+	public static bool DragFloat(string label, ref float value, float speed, float min, float max, string format, ImGuiSliderFlags flags) => Item(ImGui.DragFloat(FieldLabel(label, EditorLayout.NumberWidth(false, 1)), ref value, speed, min, max, format, flags), "drag", label);
 
-	public static bool DragFloat2(string label, ref Vector2 value) => Item(ImGui.DragFloat2(label, ref value), "drag", label);
+	public static bool DragFloat2(string label, ref Vector2 value) => Item(ImGui.DragFloat2(FieldLabel(label, EditorLayout.NumberWidth(false, 2)), ref value), "drag", label);
 
-	public static bool DragFloat2(string label, ref Vector2 value, float speed) => Item(ImGui.DragFloat2(label, ref value, speed), "drag", label);
+	public static bool DragFloat2(string label, ref Vector2 value, float speed) => Item(ImGui.DragFloat2(FieldLabel(label, EditorLayout.NumberWidth(false, 2)), ref value, speed), "drag", label);
 
-	public static bool DragFloat2(string label, ref Vector2 value, float speed, float min) => Item(ImGui.DragFloat2(label, ref value, speed, min), "drag", label);
+	public static bool DragFloat2(string label, ref Vector2 value, float speed, float min) => Item(ImGui.DragFloat2(FieldLabel(label, EditorLayout.NumberWidth(false, 2)), ref value, speed, min), "drag", label);
 
-	public static bool DragFloat2(string label, ref Vector2 value, float speed, float min, float max) => Item(ImGui.DragFloat2(label, ref value, speed, min, max), "drag", label);
+	public static bool DragFloat2(string label, ref Vector2 value, float speed, float min, float max) => Item(ImGui.DragFloat2(FieldLabel(label, EditorLayout.NumberWidth(false, 2)), ref value, speed, min, max), "drag", label);
 
-	public static bool DragFloat2(string label, ref Vector2 value, float speed, float min, float max, string format) => Item(ImGui.DragFloat2(label, ref value, speed, min, max, format), "drag", label);
+	public static bool DragFloat2(string label, ref Vector2 value, float speed, float min, float max, string format) => Item(ImGui.DragFloat2(FieldLabel(label, EditorLayout.NumberWidth(false, 2)), ref value, speed, min, max, format), "drag", label);
 
-	public static bool DragFloat3(string label, ref Vector3 value) => Item(ImGui.DragFloat3(label, ref value), "drag", label);
+	public static bool DragFloat3(string label, ref Vector3 value) => Item(ImGui.DragFloat3(FieldLabel(label, EditorLayout.NumberWidth(false, 3)), ref value), "drag", label);
 
-	public static bool DragFloat3(string label, ref Vector3 value, float speed) => Item(ImGui.DragFloat3(label, ref value, speed), "drag", label);
+	public static bool DragFloat3(string label, ref Vector3 value, float speed) => Item(ImGui.DragFloat3(FieldLabel(label, EditorLayout.NumberWidth(false, 3)), ref value, speed), "drag", label);
 
-	public static bool DragFloat3(string label, ref Vector3 value, float speed, float min, float max) => Item(ImGui.DragFloat3(label, ref value, speed, min, max), "drag", label);
+	public static bool DragFloat3(string label, ref Vector3 value, float speed, float min, float max) => Item(ImGui.DragFloat3(FieldLabel(label, EditorLayout.NumberWidth(false, 3)), ref value, speed, min, max), "drag", label);
 
-	public static bool DragFloat3(string label, ref Vector3 value, float speed, float min, float max, string format) => Item(ImGui.DragFloat3(label, ref value, speed, min, max, format), "drag", label);
+	public static bool DragFloat3(string label, ref Vector3 value, float speed, float min, float max, string format) => Item(ImGui.DragFloat3(FieldLabel(label, EditorLayout.NumberWidth(false, 3)), ref value, speed, min, max, format), "drag", label);
 
-	public static bool DragInt(string label, ref int value) => Item(ImGui.DragInt(label, ref value), "drag", label);
+	public static bool DragInt(string label, ref int value) => Item(ImGui.DragInt(FieldLabel(label, EditorLayout.NumberWidth(false, 1)), ref value), "drag", label);
 
-	public static bool DragInt(string label, ref int value, float speed) => Item(ImGui.DragInt(label, ref value, speed), "drag", label);
+	public static bool DragInt(string label, ref int value, float speed) => Item(ImGui.DragInt(FieldLabel(label, EditorLayout.NumberWidth(false, 1)), ref value, speed), "drag", label);
 
-	public static bool DragInt(string label, ref int value, float speed, int min) => Item(ImGui.DragInt(label, ref value, speed, min), "drag", label);
+	public static bool DragInt(string label, ref int value, float speed, int min) => Item(ImGui.DragInt(FieldLabel(label, EditorLayout.NumberWidth(false, 1)), ref value, speed, min), "drag", label);
 
-	public static bool DragInt(string label, ref int value, float speed, int min, int max) => Item(ImGui.DragInt(label, ref value, speed, min, max), "drag", label);
+	public static bool DragInt(string label, ref int value, float speed, int min, int max) => Item(ImGui.DragInt(FieldLabel(label, EditorLayout.NumberWidth(false, 1)), ref value, speed, min, max), "drag", label);
 
-	public static bool DragInt(string label, ref int value, float speed, int min, int max, string format) => Item(ImGui.DragInt(label, ref value, speed, min, max, format), "drag", label);
+	public static bool DragInt(string label, ref int value, float speed, int min, int max, string format) => Item(ImGui.DragInt(FieldLabel(label, EditorLayout.NumberWidth(false, 1)), ref value, speed, min, max, format), "drag", label);
 
-	public static bool SliderFloat(string label, ref float value, float min, float max) => Item(ImGui.SliderFloat(label, ref value, min, max), "slider", label);
+	public static bool SliderFloat(string label, ref float value, float min, float max) => Item(ImGui.SliderFloat(FieldLabel(label, EditorLayout.NumberWidth(false, 1)), ref value, min, max), "slider", label);
 
-	public static bool SliderFloat(string label, ref float value, float min, float max, string format) => Item(ImGui.SliderFloat(label, ref value, min, max, format), "slider", label);
+	public static bool SliderFloat(string label, ref float value, float min, float max, string format) => Item(ImGui.SliderFloat(FieldLabel(label, EditorLayout.NumberWidth(false, 1)), ref value, min, max, format), "slider", label);
 
-	public static bool SliderFloat(string label, ref float value, float min, float max, string format, ImGuiSliderFlags flags) => Item(ImGui.SliderFloat(label, ref value, min, max, format, flags), "slider", label);
+	public static bool SliderFloat(string label, ref float value, float min, float max, string format, ImGuiSliderFlags flags) => Item(ImGui.SliderFloat(FieldLabel(label, EditorLayout.NumberWidth(false, 1)), ref value, min, max, format, flags), "slider", label);
 
-	public static bool SliderFloat2(string label, ref Vector2 value, float min, float max) => Item(ImGui.SliderFloat2(label, ref value, min, max), "slider", label);
+	public static bool SliderFloat2(string label, ref Vector2 value, float min, float max) => Item(ImGui.SliderFloat2(FieldLabel(label, EditorLayout.NumberWidth(false, 2)), ref value, min, max), "slider", label);
 
-	public static bool SliderFloat2(string label, ref Vector2 value, float min, float max, string format) => Item(ImGui.SliderFloat2(label, ref value, min, max, format), "slider", label);
+	public static bool SliderFloat2(string label, ref Vector2 value, float min, float max, string format) => Item(ImGui.SliderFloat2(FieldLabel(label, EditorLayout.NumberWidth(false, 2)), ref value, min, max, format), "slider", label);
 
-	public static bool SliderInt(string label, ref int value, int min, int max) => Item(ImGui.SliderInt(label, ref value, min, max), "slider", label);
+	public static bool SliderInt(string label, ref int value, int min, int max) => Item(ImGui.SliderInt(FieldLabel(label, EditorLayout.NumberWidth(false, 1)), ref value, min, max), "slider", label);
 
-	public static bool SliderInt(string label, ref int value, int min, int max, string format) => Item(ImGui.SliderInt(label, ref value, min, max, format), "slider", label);
+	public static bool SliderInt(string label, ref int value, int min, int max, string format) => Item(ImGui.SliderInt(FieldLabel(label, EditorLayout.NumberWidth(false, 1)), ref value, min, max, format), "slider", label);
 	internal static bool CaptionSliderInt(string label, ref int value, int min, int max, string format) =>
 		Item(ImGui.SliderInt("##" + label, ref value, min, max, format), "slider", label);
 
-	public static bool Combo(string label, ref int current, string[] items, int count) => Item(ImGui.Combo(label, ref current, items, count), "combo", label);
+	public static bool Combo(string label, ref int current, string[] items, int count) => Item(ImGui.Combo(FieldLabel(label, ImGui.CalcTextSize(current >= 0 && current < items.Length ? items[current] : "").X + ImGui.GetFrameHeight() + ImGui.GetStyle().FramePadding.X * 2), ref current, items, count), "combo", label);
 
-	public static bool Combo(string label, ref int current, string[] items, int count, int popupMaxHeight) => Item(ImGui.Combo(label, ref current, items, count, popupMaxHeight), "combo", label);
+	public static bool Combo(string label, ref int current, string[] items, int count, int popupMaxHeight) => Item(ImGui.Combo(FieldLabel(label, ImGui.CalcTextSize(current >= 0 && current < items.Length ? items[current] : "").X + ImGui.GetFrameHeight() + ImGui.GetStyle().FramePadding.X * 2), ref current, items, count, popupMaxHeight), "combo", label);
 
-	public static bool Combo(string label, ref int current, string itemsSeparatedByZeros) => Item(ImGui.Combo(label, ref current, itemsSeparatedByZeros), "combo", label);
+	public static bool Combo(string label, ref int current, string itemsSeparatedByZeros) => Item(ImGui.Combo(FieldLabel(label, EditorLayout.NumberWidth(false, 1)), ref current, itemsSeparatedByZeros), "combo", label);
 
-	public static bool BeginCombo(string label, string preview) => Item(ImGui.BeginCombo(label, preview), "combo", label);
+	public static bool BeginCombo(string label, string preview) => Item(ImGui.BeginCombo(FieldLabel(label, ImGui.CalcTextSize(preview ?? "").X + ImGui.GetFrameHeight() + ImGui.GetStyle().FramePadding.X * 2), preview), "combo", label);
 
-	public static bool BeginCombo(string label, string preview, ImGuiComboFlags flags) => Item(ImGui.BeginCombo(label, preview, flags), "combo", label);
+	public static bool BeginCombo(string label, string preview, ImGuiComboFlags flags) => Item(ImGui.BeginCombo(FieldLabel(label, ImGui.CalcTextSize(preview ?? "").X + ImGui.GetFrameHeight() + ImGui.GetStyle().FramePadding.X * 2), preview, flags), "combo", label);
 
-	public static bool ColorEdit3(string label, ref Vector3 color) => Item(ImGui.ColorEdit3(label, ref color), "color", label);
+	public static bool ColorEdit3(string label, ref Vector3 color) => Item(ImGui.ColorEdit3(FieldLabel(label, EditorLayout.NumberWidth(false, 3)), ref color), "color", label);
 
-	public static bool ColorEdit3(string label, ref Vector3 color, ImGuiColorEditFlags flags) => Item(ImGui.ColorEdit3(label, ref color, flags), "color", label);
+	public static bool ColorEdit3(string label, ref Vector3 color, ImGuiColorEditFlags flags) => Item(ImGui.ColorEdit3(FieldLabel(label, EditorLayout.NumberWidth(false, 3)), ref color, flags), "color", label);
 
-	public static bool ColorEdit4(string label, ref Vector4 color) => Item(ImGui.ColorEdit4(label, ref color), "color", label);
+	public static bool ColorEdit4(string label, ref Vector4 color) => Item(ImGui.ColorEdit4(FieldLabel(label, EditorLayout.NumberWidth(false, 4)), ref color), "color", label);
 
-	public static bool ColorEdit4(string label, ref Vector4 color, ImGuiColorEditFlags flags) => Item(ImGui.ColorEdit4(label, ref color, flags), "color", label);
+	public static bool ColorEdit4(string label, ref Vector4 color, ImGuiColorEditFlags flags) => Item(ImGui.ColorEdit4(FieldLabel(label, EditorLayout.NumberWidth(false, 4)), ref color, flags), "color", label);
 
 	private static bool Item(bool result, string kind, string label, bool enabled = true)
 	{

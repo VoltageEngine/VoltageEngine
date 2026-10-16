@@ -219,6 +219,8 @@ public class AssetBrowserUiTests
             Call("ui.click", new { label = "PreviewSettings.txt", window = "Asset Browser", exact = true });
             Assert.That(PreviewOpen(), Is.False);
             Call("ui.click", new { path = "File/Settings" });
+            WaitForWidget("Overall UI scale", "Editor Settings");
+            WaitForWidget("Text size", "Editor Settings");
             Assert.That(Call("ui.find", new { label = "Overall UI scale", window = "Editor Settings", exact = true }).GetArrayLength(), Is.EqualTo(1));
             Assert.That(Call("ui.find", new { label = "Text size", window = "Editor Settings", exact = true }).GetArrayLength(), Is.EqualTo(1));
             Call("ui.click", new { label = "Preview scripts and text on selection", window = "Editor Settings", exact = true });

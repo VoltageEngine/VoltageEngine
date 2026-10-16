@@ -72,6 +72,9 @@ namespace Voltage.Editor.ProjectFile
 		private bool _versionIsValid = true;
 
 		private bool _hasUnsavedChanges = false;
+		private int _selectedTab;
+		private bool _resetSectionScroll = true;
+		private static readonly string[] Sections = { "Project Info", "Display & Audio", "Physics Layers", "Rendering Layers", "Entity Tags" };
 
 		public bool IsOpen
 		{
@@ -105,64 +108,49 @@ namespace Voltage.Editor.ProjectFile
 
 			var center = new Vector2(Screen.Width * 0.5f, Screen.Height * 0.5f);
 			ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Vector2(0.5f, 0.5f));
-			ImGui.SetNextWindowSize(new Vector2(700, 700), ImGuiCond.Appearing);
+			EditorLayout.WindowSize(new Vector2(900, 740), ImGuiCond.Appearing);
 
 			bool open = true;
 			if (Gui.BeginPopupModal("Project Settings", ref open, ImGuiWindowFlags.None))
 			{
 				var project = _projectManager.CurrentProject;
 
-				ImGuiSafe.TextColoredSafe(new Vector4(0.2f, 0.8f, 1.0f, 1.0f), $"Project: {project.ProjectName}");
-				ImGuiSafe.TextColoredSafe(new Vector4(0.7f, 0.7f, 0.7f, 1.0f), $"Version: {project.Version}");
+				ImGuiSafe.TextWrappedColoredSafe(new Vector4(0.2f, 0.8f, 1.0f, 1.0f), $"{project.ProjectName} · {project.Version}");
 				ImGui.Separator();
 
 				VoltageEditorUtils.SmallVerticalSpace();
 
-				// Begin tabs
-				if (ImGui.BeginTabBar("ProjectSettingsTabs"))
+				var compactNavigation = Sections.Sum(section => EditorLayout.ButtonWidth(section) + ImGui.GetStyle().ItemInnerSpacing.X) > ImGui.GetContentRegionAvail().X;
+				var previousSection = _selectedTab;
+				if (compactNavigation)
 				{
-					if (Gui.BeginTabItem("Project Info"))
+					ImGui.SetNextItemWidth(-1);
+					if (Gui.BeginCombo("##ProjectSettingsSection", Sections[_selectedTab]))
 					{
-						DrawProjectInfoSettings();
-						ImGui.EndTabItem();
+						for (int index = 0; index < Sections.Length; index++)
+							if (Gui.Selectable(Sections[index], index == _selectedTab)) _selectedTab = index;
+						ImGui.EndCombo();
 					}
-
-					if (Gui.BeginTabItem("Display & Audio"))
-					{
-						DrawDisplaySettings();
-						VoltageEditorUtils.MediumVerticalSpace();
-						DrawBackgroundSettings();
-						VoltageEditorUtils.MediumVerticalSpace();
-						DrawDesignResolutionSettings();
-						VoltageEditorUtils.MediumVerticalSpace();
-						DrawAudioSettings();
-						VoltageEditorUtils.MediumVerticalSpace();
-						DrawContentSettings();
-						ImGui.EndTabItem();
-					}
-					
-					if (Gui.BeginTabItem("Physics Layers"))
-					{
-						DrawPhysicsLayersSettings();
-						ImGui.EndTabItem();
-					}
-					
-					if (Gui.BeginTabItem("Rendering Layers"))
-					{
-						DrawRenderingLayersSettings();
-						ImGui.EndTabItem();
-					}
-					
-					if (Gui.BeginTabItem("Entity Tags"))
-					{
-						DrawEntityTagsSettings();
-						ImGui.EndTabItem();
-					}
-					
+				}
+				if (!compactNavigation && ImGui.BeginTabBar("ProjectSettingsTabs", ImGuiTabBarFlags.FittingPolicyScroll))
+				{
+					for (int index = 0; index < Sections.Length; index++)
+						if (Gui.BeginTabItem(Sections[index]))
+						{
+							_selectedTab = index;
+							ImGui.EndTabItem();
+						}
 					ImGui.EndTabBar();
 				}
+				var footerHeight = ImGui.GetFrameHeight() + ImGui.GetStyle().ItemSpacing.Y * 4 +
+					(_hasUnsavedChanges ? ImGui.GetTextLineHeightWithSpacing() : 0);
+				ImGui.BeginChild("ProjectSettingsContent", new Vector2(0, -footerHeight), ImGuiChildFlags.None);
+				if (_resetSectionScroll || previousSection != _selectedTab) { ImGui.SetScrollY(0); _resetSectionScroll = false; }
+				ImGui.PushTextWrapPos(0);
+				DrawSection(_selectedTab);
+				ImGui.PopTextWrapPos();
+				ImGui.EndChild();
 				
-				VoltageEditorUtils.MediumVerticalSpace();
 				DrawActionButtons();
 				
 				Gui.EndPopup();
@@ -225,6 +213,25 @@ namespace Voltage.Editor.ProjectFile
 			_versionIsValid = true;
 
 			_hasUnsavedChanges = false;
+			_resetSectionScroll = true;
+		}
+
+		private void DrawSection(int section)
+		{
+			switch (section)
+			{
+				case 0: DrawProjectInfoSettings(); break;
+				case 1:
+					DrawDisplaySettings();
+					VoltageEditorUtils.MediumVerticalSpace(); DrawBackgroundSettings();
+					VoltageEditorUtils.MediumVerticalSpace(); DrawDesignResolutionSettings();
+					VoltageEditorUtils.MediumVerticalSpace(); DrawAudioSettings();
+					VoltageEditorUtils.MediumVerticalSpace(); DrawContentSettings();
+					break;
+				case 2: DrawPhysicsLayersSettings(); break;
+				case 3: DrawRenderingLayersSettings(); break;
+				case 4: DrawEntityTagsSettings(); break;
+			}
 		}
 
 		private string _engineVersionMessage;
@@ -346,12 +353,12 @@ namespace Voltage.Editor.ProjectFile
 				ImGui.Indent();
 				
 				ImGui.Text("Screen Resolution:");
-				ImGui.SetNextItemWidth(150);
+				ImGui.SetNextItemWidth(EditorLayout.NumberWidth(true));
 				if (Gui.InputInt("Width##ScreenWidth", ref _screenWidth))
 					_hasUnsavedChanges = true;
 				
-				ImGui.SameLine();
-				ImGui.SetNextItemWidth(150);
+				EditorLayout.SameLine(EditorLayout.NumberWidth(true) + ImGui.CalcTextSize("Height").X + ImGui.GetStyle().ItemInnerSpacing.X);
+				ImGui.SetNextItemWidth(EditorLayout.NumberWidth(true));
 				if (Gui.InputInt("Height##ScreenHeight", ref _screenHeight))
 					_hasUnsavedChanges = true;
 				
@@ -422,12 +429,12 @@ namespace Voltage.Editor.ProjectFile
 				VoltageEditorUtils.SmallVerticalSpace();
 				
 				ImGui.Text("Design Resolution:");
-				ImGui.SetNextItemWidth(150);
+				ImGui.SetNextItemWidth(EditorLayout.NumberWidth(true));
 				if (Gui.InputInt("Width##DesignWidth", ref _designWidth))
 					_hasUnsavedChanges = true;
 				
-				ImGui.SameLine();
-				ImGui.SetNextItemWidth(150);
+				EditorLayout.SameLine(EditorLayout.NumberWidth(true) + ImGui.CalcTextSize("Height").X + ImGui.GetStyle().ItemInnerSpacing.X);
+				ImGui.SetNextItemWidth(EditorLayout.NumberWidth(true));
 				if (Gui.InputInt("Height##DesignHeight", ref _designHeight))
 					_hasUnsavedChanges = true;
 				
@@ -523,8 +530,8 @@ namespace Voltage.Editor.ProjectFile
 			if (ImGui.BeginTable("PhysicsLayersTable", 3, ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg))
 			{
 				ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.WidthStretch);
-				ImGui.TableSetupColumn("Value", ImGuiTableColumnFlags.WidthFixed, 100);
-				ImGui.TableSetupColumn("Actions", ImGuiTableColumnFlags.WidthFixed, 80);
+				ImGui.TableSetupColumn("Value", ImGuiTableColumnFlags.WidthFixed, EditorLayout.NumberWidth());
+				ImGui.TableSetupColumn("Actions", ImGuiTableColumnFlags.WidthFixed, EditorLayout.ButtonWidth("Remove") + ImGui.GetStyle().CellPadding.X * 2);
 				ImGui.TableHeadersRow();
 				
 				var layersToRemove = new List<string>();
@@ -593,8 +600,8 @@ namespace Voltage.Editor.ProjectFile
 			if (ImGui.BeginTable("RenderingLayersTable", 3, ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg))
 			{
 				ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.WidthStretch);
-				ImGui.TableSetupColumn("Value", ImGuiTableColumnFlags.WidthFixed, 100);
-				ImGui.TableSetupColumn("Actions", ImGuiTableColumnFlags.WidthFixed, 80);
+				ImGui.TableSetupColumn("Value", ImGuiTableColumnFlags.WidthFixed, EditorLayout.NumberWidth());
+				ImGui.TableSetupColumn("Actions", ImGuiTableColumnFlags.WidthFixed, EditorLayout.ButtonWidth("Remove") + ImGui.GetStyle().CellPadding.X * 2);
 				ImGui.TableHeadersRow();
 				
 				var layersToRemove = new List<string>();
@@ -661,8 +668,8 @@ namespace Voltage.Editor.ProjectFile
 			if (ImGui.BeginTable("EntityTagsTable", 3, ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg))
 			{
 				ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.WidthStretch);
-				ImGui.TableSetupColumn("Value", ImGuiTableColumnFlags.WidthFixed, 100);
-				ImGui.TableSetupColumn("Actions", ImGuiTableColumnFlags.WidthFixed, 80);
+				ImGui.TableSetupColumn("Value", ImGuiTableColumnFlags.WidthFixed, EditorLayout.NumberWidth());
+				ImGui.TableSetupColumn("Actions", ImGuiTableColumnFlags.WidthFixed, EditorLayout.ButtonWidth("Remove") + ImGui.GetStyle().CellPadding.X * 2);
 				ImGui.TableHeadersRow();
 				
 				var tagsToRemove = new List<string>();
@@ -726,11 +733,10 @@ namespace Voltage.Editor.ProjectFile
 				ImGui.TextColored(new Vector4(1.0f, 0.8f, 0.2f, 1.0f), "You have unsaved changes");
 			}
 			
-			var buttonWidth = 120f;
-			var spacing = 10f;
+			var buttonWidth = Math.Max(EditorLayout.ButtonWidth("Apply"), Math.Max(EditorLayout.ButtonWidth("Save"), EditorLayout.ButtonWidth("Close")));
+			var spacing = ImGui.GetStyle().ItemSpacing.X;
 			var totalButtonWidth = (buttonWidth * 3) + (spacing * 2);
-			var windowWidth = ImGui.GetWindowSize().X;
-			var centerStart = (windowWidth - totalButtonWidth) * 0.5f;
+			var centerStart = ImGui.GetCursorPosX() + Math.Max(0, (ImGui.GetContentRegionAvail().X - totalButtonWidth) * 0.5f);
 
 			ImGui.SetCursorPosX(centerStart);
 

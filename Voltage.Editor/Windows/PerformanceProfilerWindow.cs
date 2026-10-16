@@ -1,3 +1,4 @@
+using Voltage.Editor.Utils;
 using System;
 using ImGuiNET;
 using Voltage.Utils;
@@ -28,7 +29,7 @@ namespace Voltage.Editor.Windows
 			if (!IsOpen)
 				return;
 
-			ImGui.SetNextWindowSize(new Num.Vector2(380, 320), ImGuiCond.FirstUseEver);
+			EditorLayout.WindowSize(new Num.Vector2(540, 520), ImGuiCond.FirstUseEver);
 			if (!Gui.Begin("Performance Profiler ###PerformanceProfiler", ref IsOpen))
 			{
 				Gui.End();
@@ -43,9 +44,9 @@ namespace Voltage.Editor.Windows
 			var fps = dtMs > 0.0001f ? 1000f / dtMs : 0f;
 			var color = fps < 30f ? Red : fps < 55f ? Amber : Green;
 
-			ImGui.TextColored(color, $"{fps:0} FPS");
+			Voltage.Editor.Utils.ImGuiSafe.TextWrappedColoredSafe(color, $"{fps:0} FPS");
 			ImGui.SameLine();
-			ImGui.TextColored(color, $"({dtMs:0.00} ms)");
+			Voltage.Editor.Utils.ImGuiSafe.TextWrappedColoredSafe(color, $"({dtMs:0.00} ms)");
 			Tip("Frames per second and the time for the last frame, from the engine's UNSCALED delta - pausing or\n" +
 				"time-scaling the game doesn't skew it. Green >= 55 FPS, amber >= 30, red below 30.");
 
@@ -61,10 +62,10 @@ namespace Voltage.Editor.Windows
 			ImGui.Separator();
 
 			var managedMb = GC.GetTotalMemory(false) / (1024f * 1024f);
-			ImGui.Text($"Managed heap: {managedMb:0.0} MB");
+			Voltage.Editor.Utils.ImGuiSafe.TextWrappedSafe($"Managed heap: {managedMb:0.0} MB");
 			Tip("Managed (GC) heap size only - native buffers (audio, textures, MonoGame) are NOT included, so this\n" +
 				"reads lower than the OS process memory. Watch for steady growth, which signals a leak.");
-			ImGui.Text($"GC collections  gen0: {GC.CollectionCount(0)}  gen1: {GC.CollectionCount(1)}  gen2: {GC.CollectionCount(2)}");
+			Voltage.Editor.Utils.ImGuiSafe.TextWrappedSafe($"GC collections  gen0: {GC.CollectionCount(0)}  gen1: {GC.CollectionCount(1)}  gen2: {GC.CollectionCount(2)}");
 			Tip("Cumulative GC count per generation since launch - these only ever go UP; that is expected, not a\n" +
 				"leak. Gen0 (short-lived garbage) climbs fastest, gen1 slower. A leak shows as rising heap, not as\n" +
 				"rising counts. The one to watch is gen2 (full, expensive collections) climbing frequently.");
@@ -76,7 +77,7 @@ namespace Voltage.Editor.Windows
 			var gd = Core.GraphicsDevice;
 			if (gd != null)
 			{
-				ImGui.Text($"Draw calls: {gd.Metrics.DrawCount}");
+				Voltage.Editor.Utils.ImGuiSafe.TextWrappedSafe($"Draw calls: {gd.Metrics.DrawCount}");
 				Tip("GPU draw calls last frame (MonoGame's metric). Fewer is better; batching sprites into one\n" +
 					"material/texture keeps this down. A sudden spike usually means a batch broke.");
 			}
@@ -84,17 +85,17 @@ namespace Voltage.Editor.Windows
 			var scene = Core.Scene;
 			if (scene != null)
 			{
-				ImGui.Text($"Entities: {scene.Entities.Count}");
+				Voltage.Editor.Utils.ImGuiSafe.TextWrappedSafe($"Entities: {scene.Entities.Count}");
 				Tip("Entities in the active scene.");
-				ImGui.Text($"Renderers: {scene._renderers.Length}");
+				Voltage.Editor.Utils.ImGuiSafe.TextWrappedSafe($"Renderers: {scene._renderers.Length}");
 				Tip("Renderer passes on the scene (e.g. the default renderer, a deferred-lighting renderer). Each is\n" +
 					"a separate pass over the renderables it owns.");
-				ImGui.Text($"Renderables: {scene.RenderableComponents.Count}");
+				Voltage.Editor.Utils.ImGuiSafe.TextWrappedSafe($"Renderables: {scene.RenderableComponents.Count}");
 				Tip("Renderable components submitted for drawing (sprites, tilemaps, particles, etc.).");
 			}
 			else
 			{
-				ImGui.TextColored(Muted, "No active scene.");
+				Voltage.Editor.Utils.ImGuiSafe.TextWrappedColoredSafe(Muted, "No active scene.");
 			}
 
 			ImGui.Spacing();

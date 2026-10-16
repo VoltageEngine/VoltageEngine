@@ -97,12 +97,12 @@ namespace Voltage.Editor.Tools
 				return;
 			
 			var manager = Core.GetGlobalManager<ImGuiManager>();
-			ImGui.SetNextWindowSize(Num.Vector2.Min(new Num.Vector2(600, 560) * manager.FontSizeMultiplier,
-				ImGui.GetMainViewport().WorkSize - new Num.Vector2(24)), ImGuiCond.FirstUseEver);
+			EditorLayout.WindowSize(new Num.Vector2(760, 680));
 			
 			bool open = _isOpen;
 			if (Gui.Begin("Editor Settings", ref open))
 			{
+				ImGui.PushTextWrapPos(0);
 				_isOpen = open;
 				
 				ImGui.TextColored(new Num.Vector4(0.2f, 0.8f, 1.0f, 1.0f), "Editor Settings");
@@ -270,6 +270,7 @@ namespace Voltage.Editor.Tools
 
 				Hotkeys.HotkeySettingsSection.Draw();
 
+				ImGui.PopTextWrapPos();
 			}
 			Gui.End();
 			

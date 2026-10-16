@@ -50,6 +50,7 @@ public class SceneMenuTests
             {
                 ScrollPickerTo(folder + "/");
                 Call("ui.click", new { label = folder + "/", window = "load-scene-popup", exact = true });
+                Call("input.wait", new { frames = 3 });
             }
             WaitForWidget("Shared.vscene", "load-scene-popup");
             Assert.That(Call("ui.find", new { label = "ProjectSettings.json", window = "load-scene-popup", exact = true }).GetArrayLength(), Is.Zero);
@@ -208,6 +209,12 @@ public class SceneMenuTests
 			Call("screenshot", new { path = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"build-buttons-{scale}.png"),
 				x = panel.GetProperty("x").GetInt32(), y = panel.GetProperty("y").GetInt32(), width = panel.GetProperty("width").GetInt32(), height = panel.GetProperty("height").GetInt32() });
 			Click("Cancel");
+		}
+		catch (Exception error)
+		{
+			TestContext.Progress.WriteLine(error.ToString());
+			Call("screenshot", new { path = Path.Combine(TestContext.CurrentContext.WorkDirectory, "build-layout-failure.png") });
+			throw;
 		}
 		finally
 		{
