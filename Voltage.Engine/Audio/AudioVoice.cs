@@ -60,12 +60,8 @@ namespace Voltage.Audio
 		public bool IsPlaying =>
 			Handle != null && !Handle.IsDisposed && Handle.State == AudioPlayState.Playing;
 
-		/// <summary>
-		/// True while the voice still belongs to its owner — either audibly playing or held virtual (culled
-		/// for capacity/distance but waiting to revive). Owners should test this, not <see cref="IsPlaying"/>,
-		/// before dropping their reference, so a temporarily-virtual loop isn't treated as finished.
-		/// </summary>
-		public bool IsAlive => IsVirtual || IsPlaying;
+		/// <summary>True while playing, paused, or virtual, so owners retain resumable voices.</summary>
+		public bool IsAlive => IsVirtual || Handle != null && !Handle.IsDisposed && Handle.State != AudioPlayState.Stopped;
 
 		/// <summary>
 		/// Fades the voice's 0..1 envelope toward <paramref name="target"/> over <paramref name="seconds"/>
