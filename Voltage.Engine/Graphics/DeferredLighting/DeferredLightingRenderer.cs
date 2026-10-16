@@ -306,6 +306,13 @@ namespace Voltage.DeferredLighting
 
 		void RenderLight(DeferredLight light)
 		{
+            if (light is FluorescentLight fluorescent)
+            {
+                if (!fluorescent.HasValidTransform || fluorescent.Bounds.Width <= 0 || fluorescent.Bounds.Height <= 0) return;
+                _lightEffect.UpdateForLight(fluorescent);
+                _quadPolygonMesh.Render();
+                return;
+            }
             if (light is ProjectedLight projectedLight)
             {
                 projectedLight.RenderLight(Graphics.Instance.Batcher, light.Entity.Scene.Camera, NormalRT.RenderTarget);

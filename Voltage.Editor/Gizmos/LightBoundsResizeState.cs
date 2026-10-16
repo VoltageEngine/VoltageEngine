@@ -25,6 +25,7 @@ public sealed class LightBoundsResizeState
             return float.IsFinite(direction.Direction.X) && float.IsFinite(direction.Direction.Y) &&
                 float.IsFinite(direction.Direction.Z) && float.IsFinite(light.Entity.Position.X) &&
                 float.IsFinite(light.Entity.Position.Y);
+        if (light is FluorescentLight fluorescent) return fluorescent.HasValidTransform && fluorescent.Bounds.Width > 0 && fluorescent.Bounds.Height > 0;
         if (light is not (RoomLight or AreaLight or PointLight or SpriteLight or ProjectedLight or PolyLight or StencilLight)) return false;
         if (light is SpriteLight sprite && sprite.Source?.Sprite == null) return false;
         var scale = light.Entity.Scale;
@@ -42,6 +43,7 @@ public sealed class LightBoundsResizeState
         _offset = light.LocalOffset;
         if (light is RoomLight room) _vertices = room.Vertices.ToArray();
         if (light is AreaLight area) { _width = area.RectangleWidth; _height = area.RectangleHeight; }
+        if (light is FluorescentLight fluorescent) { _width = fluorescent.SourceLength; _height = fluorescent.Range; }
         if (light is PointLight point) _radius = point.Radius;
         if (light is SpriteLight sprite) _radius = sprite.Radius;
         if (light is DirLight directional) _direction = directional.Direction;
@@ -54,6 +56,7 @@ public sealed class LightBoundsResizeState
         _light.LocalOffset = _offset;
         if (_light is RoomLight room) room.Vertices = _vertices.ToList();
         if (_light is AreaLight area) area.SetWidth(_width).SetHeight(_height);
+        if (_light is FluorescentLight fluorescent) { fluorescent.SourceLength = _width; fluorescent.Range = _height; }
         if (_light is PointLight point) point.SetRadius(_radius);
         if (_light is SpriteLight sprite) sprite.Radius = (int)_radius;
         if (_light is ProjectedLight projected) projected.RoomArea = _bounds;
@@ -79,6 +82,14 @@ public sealed class LightBoundsResizeState
         bool top = handle is RectangleHandleType.Top or RectangleHandleType.TopLeft or RectangleHandleType.TopRight;
         bool bottom = handle is RectangleHandleType.Bottom or RectangleHandleType.BottomLeft or RectangleHandleType.BottomRight;
         if (!(left || right || top || bottom)) return;
+        if (_light is FluorescentLight fluorescent)
+        {
+            var local = fluorescent.ToLocal(mouse);
+            if (top || bottom) fluorescent.Range = Math.Clamp(Math.Abs(local.Y), 1, 16384);
+            if (left || right) fluorescent.SourceLength = Math.Clamp(2 * (Math.Abs(local.X) -
+                fluorescent.EffectiveRange * fluorescent.EffectiveSpread - fluorescent.EffectiveSoftness), 1, 16384);
+            return;
+        }
 
         // Radial lights keep their center; every handle changes the same radius.
         if (_light is PointLight point)

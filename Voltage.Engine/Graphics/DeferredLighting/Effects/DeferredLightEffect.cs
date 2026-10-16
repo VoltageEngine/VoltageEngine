@@ -11,6 +11,7 @@ namespace Voltage.DeferredLighting
 		EffectPass pointLightPass;
 		EffectPass spotLightPass;
 		EffectPass areaLightPass;
+		EffectPass fluorescentLightPass;
 		EffectPass directionalLightPass;
 		EffectPass finalCombinePass;
 
@@ -35,6 +36,7 @@ namespace Voltage.DeferredLighting
 		// spot
 		EffectParameter _lightDirectionParam;
 		EffectParameter _coneAngleParam;
+		EffectParameter _barStartParam, _barEndParam, _barDirectionParam, _barProfileParam, _barFalloffParam;
 
 		// directional
 		EffectParameter _specularIntensityParam;
@@ -57,6 +59,7 @@ namespace Voltage.DeferredLighting
 			pointLightPass = Techniques["DeferredPointLight"].Passes[0];
 			spotLightPass = Techniques["DeferredSpotLight"].Passes[0];
 			areaLightPass = Techniques["DeferredAreaLight"].Passes[0];
+			fluorescentLightPass = Techniques["DeferredFluorescentLight"].Passes[0];
 			directionalLightPass = Techniques["DeferredDirectionalLight"].Passes[0];
 			finalCombinePass = Techniques["FinalCombine"].Passes[0];
 
@@ -85,6 +88,11 @@ namespace Voltage.DeferredLighting
 			// spot
 			_lightDirectionParam = Parameters["_lightDirection"];
 			_coneAngleParam = Parameters["_coneAngle"];
+			_barStartParam = Parameters["_barStart"];
+			_barEndParam = Parameters["_barEnd"];
+			_barDirectionParam = Parameters["_barDirection"];
+			_barProfileParam = Parameters["_barProfile"];
+			_barFalloffParam = Parameters["_barFalloff"];
 
 			// directional
 			_specularIntensityParam = Parameters["_specularIntensity"];
@@ -125,6 +133,11 @@ namespace Voltage.DeferredLighting
 		/// <param name="light">Light.</param>
 		public void UpdateForLight(DeferredLight light)
 		{
+			if (light is FluorescentLight fluorescent)
+			{
+				UpdateForLight(fluorescent);
+				return;
+			}
 			// check SpotLight first because it is a subclass of PointLight!
 			if (light is SpotLight)
 				UpdateForLight(light as SpotLight);
@@ -177,6 +190,27 @@ namespace Voltage.DeferredLighting
 		/// updates the shader values for the light and sets the appropriate CurrentTechnique
 		/// </summary>
 		/// <param name="light">Light.</param>
+		public void UpdateForLight(FluorescentLight light)
+		{
+			var start = light.ToWorld(new Vector2(-light.EffectiveLength * 0.5f, 0));
+			var end = light.ToWorld(new Vector2(light.EffectiveLength * 0.5f, 0));
+			var scale = light.Entity.Scale;
+			SetColor(light.Color);
+			SetLightIntensity(light.EffectiveIntensity);
+			SetLightPosition(new Vector3(start, light.WorldHeight));
+			_barStartParam.SetValue(start);
+			_barEndParam.SetValue(end);
+			_barDirectionParam.SetValue(light.EmissionDirection);
+			float radius = (light.EffectiveLength * 0.5f + light.EffectiveRange * light.EffectiveSpread + light.EffectiveSoftness) * Math.Abs(scale.X);
+			_barProfileParam.SetValue(new Vector3(1 / radius, 1 / (light.EffectiveRange * Math.Abs(scale.Y)),
+				radius / (light.EffectiveSoftness * Math.Abs(scale.X))));
+			_barFalloffParam.SetValue(light.EffectiveFalloff);
+			var bounds = light.Bounds;
+			SetObjectToWorldMatrix(Matrix.CreateScale(bounds.Width, bounds.Height, 1) * Matrix.CreateTranslation(bounds.X, bounds.Y, 0));
+			CurrentTechnique = Techniques["DeferredFluorescentLight"];
+			fluorescentLightPass.Apply();
+		}
+
 		public void UpdateForLight(AreaLight light)
 		{
 			SetColor(light.Color);

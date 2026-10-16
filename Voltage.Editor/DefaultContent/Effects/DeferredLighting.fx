@@ -55,6 +55,11 @@ float3 _clearColor;
 // ##### ##### ##### ##### ##### ##### #####
 float _coneAngle;
 float2 _lightDirection;
+float2 _barStart;
+float2 _barEnd;
+float2 _barDirection;
+float3 _barProfile;
+float _barFalloff;
 
 
 // ##### ##### ##### ##### ##### ##### #####
@@ -294,6 +299,27 @@ float4 spotLightPixel( VertexPointSpotOut input ) : COLOR0
 // ##### ##### Area light        ##### ##### ##### ##### ##### ##### #####
 // ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### #####
 
+float4 fluorescentLightPixel(VertexPointSpotOut input) : COLOR0
+{
+    float2 screen = input.world.xy / input.world.w;
+    float2 uv = 0.5 * float2(screen.x, -screen.y) + 0.5;
+    float3 normal = tex2D(_normalMapSampler, uv).xyz * 2 - 1;
+    normal.y *= -1;
+    float2 position = mul(float4(screen, 0, 1), _screenToWorld).xy;
+    float2 segment = _barEnd - _barStart;
+    float lengthSquared = max(dot(segment, segment), 0.000001);
+    float fraction = saturate(dot(position - _barStart, segment) / lengthSquared);
+    float2 source = _barStart + segment * fraction;
+    float depth = dot(position - _barStart, _barDirection);
+    float along = dot(position - (_barStart + _barEnd) * 0.5, float2(_barDirection.y, -_barDirection.x));
+    float remaining = saturate(1 - length(float2(along * _barProfile.x, depth * _barProfile.y)));
+    float edge = saturate(remaining * _barProfile.z);
+    edge = edge * edge * (3 - 2 * edge);
+    float attenuation = edge * pow(remaining, _barFalloff) * step(0, depth);
+    float3 toLight = normalize(float3(source - position, _lightPosition.z));
+    return float4(_color * _lightIntensity * attenuation * max(0, dot(normal, toLight)), 1);
+}
+
 float4 areaLightPixel( VertexPointSpotOut input ) : COLOR0
 {
     float2 screenPos = input.world.xy / input.world.w;
@@ -426,5 +452,6 @@ TECHNIQUE( ClearGBuffer, clearGBufferVert, clearGBufferPixel )
 TECHNIQUE( DeferredPointLight, nonDirectionalLightVert, pointLightPixel )
 TECHNIQUE( DeferredSpotLight, nonDirectionalLightVert, spotLightPixel )
 TECHNIQUE( DeferredAreaLight, nonDirectionalLightVert, areaLightPixel )
+TECHNIQUE( DeferredFluorescentLight, nonDirectionalLightVert, fluorescentLightPixel )
 TECHNIQUE( DeferredDirectionalLight, directionalLightVert, directionalLightPixel )
 TECHNIQUE( FinalCombine, finalCombineVert, finalCombinePixel )
