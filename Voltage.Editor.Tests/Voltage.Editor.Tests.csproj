@@ -22,6 +22,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<Compile Include="..\Voltage.Engine\ECS\SceneLoadProgress.cs" Link="SceneLoadProgress.cs" />
 		<ProjectReference Include="..\Voltage.Cli\Voltage.Cli.csproj" />
 		<!-- Build ordering only: the tests launch the editor executable, they do not link it. -->
 		<ProjectReference Include="..\Voltage.Editor\Voltage.Editor.csproj" ReferenceOutputAssembly="false" SkipGetTargetFrameworkProperties="true" />

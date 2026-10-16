@@ -19,7 +19,7 @@ public class CameraPauseTests
                 content = "using Microsoft.Xna.Framework; using Voltage; public partial class CameraPauseProbe : Component, IUpdatable { public bool Freeze; public void Update() { if (!Freeze) return; Freeze = false; Core.Scene.Camera.Position = new Vector2(860, 400); Core.IsPauseMode = true; } }"
             });
             Call("scene.create", new { name = "CameraPauseRegression", template = "empty" });
-            Call("component.set", new { entity = "Camera (Main)", type = "Camera", member = "RawZoom", value = 0.61f });
+            Call("component.set", new { entity = "Camera (Main)", type = "Camera", member = "GameZoom", value = 0.61f });
             Call("entity.create", new { name = "Game pause" });
             Call("component.add", new { entity = "Game pause", type = "CameraPauseProbe" });
             Call("scene.save");
@@ -43,6 +43,32 @@ public class CameraPauseTests
         finally
         {
             Call("input.release");
+            Call("play.stop");
+            Call("scene.load", new { name = previous, force = true });
+        }
+    }
+
+    [Test]
+    public void Editor_view_zoom_is_never_saved_and_play_starts_from_game_zoom()
+    {
+        var previous = Call("scene.info").GetProperty("name").GetString();
+        Call("scene.save");
+        try
+        {
+            Call("scene.create", new { name = "GameZoomRegression", template = "empty" });
+            Call("component.set", new { entity = "Camera (Main)", type = "Camera", member = "GameZoom", value = 0.75f });
+            Call("view.set", new { zoom = 1.6f });
+            Call("scene.save");
+            Call("play.start");
+            Call("input.wait", new { frames = 5 });
+            Assert.That(Camera().GetProperty("RawZoom").GetSingle(), Is.EqualTo(0.75f).Within(0.00001f), "Play must start from the game zoom");
+            Call("play.stop");
+            Call("input.wait", new { frames = 30 });
+            Assert.That(Camera().GetProperty("GameZoom").GetSingle(), Is.EqualTo(0.75f).Within(0.00001f), "Saving must not write the view zoom");
+            Assert.That(Camera().GetProperty("RawZoom").GetSingle(), Is.EqualTo(1.6f).Within(0.00001f), "Stop must give the editor view back");
+        }
+        finally
+        {
             Call("play.stop");
             Call("scene.load", new { name = previous, force = true });
         }

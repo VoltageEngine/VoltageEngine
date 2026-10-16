@@ -36,6 +36,7 @@ public sealed partial class AsepriteFile
 	/// </returns>
 	public SpriteAtlas ToSpriteAtlas(string layerName = null, bool onlyVisibleLayers = true, int borderPadding = 0, int spacing = 0, int innerPadding = 0, Vector2? spriteOrigin = null) 
 	{
+		using var timing = SceneLoadDiagnostics.Measure("asset.aseprite.prepareLegacy");
 		var atlas = new SpriteAtlas
 		{
 			Names = new string[Frames.Count],
@@ -64,6 +65,7 @@ public sealed partial class AsepriteFile
 
 		for (var i = 0; i < Frames.Count; i++)
 		{
+			SceneLoading.Pulse();
 			var column = i % columns;
 			var row = i / columns;
 			var frame = Frames[i].FlattenFrameInto(framePixels, onlyVisibleLayers, false, layerName);
@@ -85,7 +87,7 @@ public sealed partial class AsepriteFile
 		}
 
 		var texture = new Texture2D(Core.GraphicsDevice, imageWidth, imageHeight);
-		texture.SetData<Color>(imagePixels);
+		using (SceneLoadDiagnostics.Measure("asset.gpu.upload")) texture.SetData<Color>(imagePixels);
 
 		for (var i = 0; i < Frames.Count; i++)
 		{
@@ -115,6 +117,7 @@ public sealed partial class AsepriteFile
 
 	public SpriteAtlas ToSpriteAtlasFromLayers(bool onlyVisibleLayers = true, int borderPadding = 0, int spacing = 0, int innerPadding = 0, Vector2? spriteOrigin = null, params string[] layers)
 	{
+		using var timing = SceneLoadDiagnostics.Measure("asset.aseprite.prepareLegacyLayers");
 		var atlas = new SpriteAtlas
 		{
 			Names = new string[Frames.Count],

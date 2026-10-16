@@ -141,6 +141,7 @@ public class Core : Game
 
 	private Scene _scene;
 	private Scene _nextScene;
+	private bool _sceneFrameDrawn;
 	internal SceneTransition _sceneTransition;
 	public SceneTransition SceneTransition => _sceneTransition;
 
@@ -169,6 +170,7 @@ public class Core : Game
 			{
 				_instance._scene = value;
 				_instance.OnSceneChanged();
+				SceneLoading.CompletePhase(3);
 				_instance._scene.Begin();
 			}
 			else
@@ -258,6 +260,7 @@ public class Core : Game
 
 	protected override void Initialize()
 	{
+		SceneLoading.MainThreadId = Environment.CurrentManagedThreadId;
 		base.Initialize();
 
 		GraphicsDevice = base.GraphicsDevice;
@@ -321,11 +324,28 @@ public class Core : Game
 				if (_sceneTransition == null ||
 				     _sceneTransition != null &&
 				     (!_sceneTransition._loadsNewScene || _sceneTransition._isNewSceneLoaded))
+				{
+					using var updateTiming = SceneLoadDiagnostics.Measure("scene.firstUpdate");
 					_scene.Update();
+					if (SceneLoading.IsTarget(_scene))
+					{
+						int activationPasses = 0;
+						while (_scene.Entities.EntitiesToAdd.Count > 0 || _scene.Entities.HasPendingStartupComponents)
+						{
+							if (++activationPasses > 1024) throw new InvalidOperationException("Scene activation keeps spawning entities; loading stopped.");
+							_scene.Entities.UpdateLists();
+							_scene.Entities.ActivatePendingComponents();
+							SceneLoading.Pulse();
+						}
+						SceneLoading.Updated(_scene);
+					}
+					SceneLoadDiagnostics.Updated(_scene);
+				}
 
 				if (_nextScene != null)
 				{
 					_scene.End();
+					SceneLoading.CompletePhase(3);
 
 					_scene = _nextScene;
 					_nextScene = null;
@@ -337,6 +357,7 @@ public class Core : Game
 		}
 		catch (Exception ex)
 		{
+			SceneLoading.Fail(ex.Message);
 			Debug.Error($"[Core.Update] Unhandled exception escaped the scene update loop: {ex.Message}\n{ex.StackTrace}");
 		}
 
@@ -345,6 +366,7 @@ public class Core : Game
 
 	protected override void Draw(GameTime gameTime)
 	{
+		_sceneFrameDrawn = false;
 		if (ShouldPauseForFocus)
 		{
 			// KeepRunningWhenUnfocused can flip between Update and Draw; Present still needs no target bound.
@@ -353,6 +375,7 @@ public class Core : Game
 		}
 
 		StartDebugDraw(gameTime.ElapsedGameTime);
+		SceneLoading.CanPump = false;
 
 		try
 		{
@@ -372,22 +395,26 @@ public class Core : Game
 				{
 					_scene.Render();
 					_scene.PostRender();
+					_sceneFrameDrawn = true;
 				}
 
 				_sceneTransition.Render(Graphics.Instance.Batcher);
 			}
 			else if (_scene != null)
 			{
+				using var renderTiming = SceneLoadDiagnostics.Measure("scene.firstRender");
 				_scene.Render();
 
 				if (DebugRenderEnabled)
 					Debug.Render();
 
 				_scene.PostRender();
+				_sceneFrameDrawn = true;
 			}
 		}
 		catch (Exception ex)
 		{
+			SceneLoading.Fail(ex.Message);
 			Debug.Error($"[Core.Draw] Unhandled exception escaped the scene render loop: {ex.Message}\n{ex.StackTrace}");
 
 		}
@@ -395,9 +422,25 @@ public class Core : Game
 		// Present refuses to run with a render target bound. A throw mid-render, a frame with no scene, or an
 		// update-time render that expected the scene to reset it can all leave one active.
 		UnbindRenderTarget();
+		if (SceneLoading.IsActive || SceneLoading.Error != null) SceneLoading.Draw();
+		SceneLoading.CanPump = true;
 
 		EndDebugDraw();
 		_runtimeGateway?.AfterDraw();
+	}
+
+	internal void PresentLoadingFrame()
+	{
+		_runtimeGateway?.PumpLoading();
+		_runtimeGateway?.AfterDraw();
+	}
+
+	protected override void EndDraw()
+	{
+		using (SceneLoadDiagnostics.Measure("scene.present")) base.EndDraw();
+		if (!_sceneFrameDrawn) return;
+		SceneLoading.Drawn(_scene);
+		SceneLoadDiagnostics.Drawn(_scene);
 	}
 
 	private void UnbindRenderTarget()
@@ -489,9 +532,10 @@ public class Core : Game
 	/// </summary>
 	private void OnSceneChanged()
 	{
+		using var changeTiming = SceneLoadDiagnostics.Measure("scene.changeObservers");
 		Emitter.Emit(CoreEvents.SceneChanged);
 		Time.SceneChanged();
-		GC.Collect();
+		using (SceneLoadDiagnostics.Measure("scene.gc")) GC.Collect();
 	}
 
 	/// <summary>

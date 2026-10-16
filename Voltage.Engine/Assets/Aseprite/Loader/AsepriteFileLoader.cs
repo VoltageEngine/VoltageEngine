@@ -11,6 +11,7 @@ namespace Voltage.Aseprite
 	/// </summary>
 	public static partial class AsepriteFileLoader
 	{
+		static partial void LoadingHeartbeat();
 		private const ushort ASE_HEADER_MAGIC = 0xA5E0;
 		private const int ASE_HEADER_SIZE = 128;
 		private const uint ASE_HEADER_FLAG_LAYER_OPACITY_VALID = 1;
@@ -169,6 +170,7 @@ namespace Voltage.Aseprite
 			//  Read frame-by-frame until all frames are read.
 			for (int frameNum = 0; frameNum < nFrames; frameNum++)
 			{
+				LoadingHeartbeat();
 				List<AsepriteCel> cels = new List<AsepriteCel>();
 
 				//  Reference to the last chunk that can have user data so we can apply a User Data chunk to it when one

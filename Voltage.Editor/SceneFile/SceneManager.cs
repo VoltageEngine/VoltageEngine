@@ -229,6 +229,7 @@ public class SceneManager : GlobalManager
 			Core.Scene = scene;
 			OnSceneLoaded?.Invoke(scenePath);
 			PersistentScene.SetLastScenePath(CurrentScenePath);
+			SceneLoadHistory.RecordOpenedScene(ProjectManager.Instance.CurrentProject.ProjectPath, CurrentScenePath);
 
 			return scene;
 		}

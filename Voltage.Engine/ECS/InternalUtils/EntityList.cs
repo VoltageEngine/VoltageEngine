@@ -216,6 +216,7 @@ public class EntityList : IEnumerable<Entity>
 
 	public void UpdateLists()
 	{
+		using var activationTiming = SceneLoadDiagnostics.Measure("entities.activation");
 		// handle removals
 		if (_entitiesToRemove.Count > 0)
 		{
@@ -269,15 +270,19 @@ public class EntityList : IEnumerable<Entity>
 					var sc = Scene._sceneComponents.Buffer[i];
 					if (!sc._onStartCalled && sc.Enabled)
 					{
-						sc.OnEnabled();
-						sc.OnStart();
+						using (SceneLoadDiagnostics.Measure("sceneComponent.OnEnabled", sc.GetType().Name)) sc.OnEnabled();
+						using (SceneLoadDiagnostics.Measure("sceneComponent.OnStart", sc.GetType().Name)) sc.OnStart();
 						sc._onStartCalled = true;
 					}
 				}
 			}
 
+			int activated = 0;
 			foreach (var entity in _tempEntityList)
+			{
 				entity.Components.CallOnEnableAndOnStart();
+				SceneLoading.Items(6, ++activated, _tempEntityList.Count);
+			}
 
 			if (_isSceneStarted)
 			{
@@ -301,6 +306,26 @@ public class EntityList : IEnumerable<Entity>
 			foreach (var tag in _unsortedTags)
 				_entityDict[tag].Sort();
 			_unsortedTags.Clear();
+		}
+	}
+
+	internal bool HasPendingStartupComponents
+	{
+		get
+		{
+			for (int i = 0; i < _entities.Length; i++) if (_entities.Buffer[i].Components.HasPendingStartup) return true;
+			return false;
+		}
+	}
+
+	internal void ActivatePendingComponents()
+	{
+		for (int i = 0; i < _entities.Length; i++) _entities.Buffer[i].Components.CommitPendingAdditions();
+		Serialization.ComponentReferenceResolver.ResolveAll();
+		for (int i = 0; i < _entities.Length; i++)
+		{
+			if (_entities.Buffer[i].Components.HasPendingStartup) _entities.Buffer[i].Components.CallOnEnableAndOnStart();
+			SceneLoading.Pulse();
 		}
 	}
 

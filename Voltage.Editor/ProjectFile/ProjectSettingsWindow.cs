@@ -74,7 +74,9 @@ namespace Voltage.Editor.ProjectFile
 		private bool _hasUnsavedChanges = false;
 		private int _selectedTab;
 		private bool _resetSectionScroll = true;
-		private static readonly string[] Sections = { "Project Info", "Display & Audio", "Physics Layers", "Rendering Layers", "Entity Tags" };
+		private static readonly string[] Sections = { "Project Info", "Display & Audio", "Physics Layers", "Rendering Layers", "Entity Tags", "Loading Screen" };
+		private Voltage.Project.ProjectSettings.LoadingSettings _loading = new();
+		private readonly FilePickers.AssetFileBrowser _loadingFontBrowser = new("LoadingFontPicker", new[] { ".fnt" }, "Bitmap font");
 
 		public bool IsOpen
 		{
@@ -207,6 +209,13 @@ namespace Voltage.Editor.ProjectFile
 			_entityTags = new Dictionary<string, int>(settings.Entities.EntityTags);
 
 			_contentDirectory = settings.ContentDirectory ?? "Content";
+			var loading = settings.Loading ?? new Voltage.Project.ProjectSettings.LoadingSettings();
+			_loading = new Voltage.Project.ProjectSettings.LoadingSettings
+			{
+				Enabled = loading.Enabled, Label = loading.Label, Font = loading.Font,
+				Margin = loading.Margin, Sparks = loading.Sparks, SparkSpeed = loading.SparkSpeed,
+				TextColor = loading.TextColor, SparkColor = loading.SparkColor
+			};
 
 			// Load version from the live project
 			_editableVersion = _projectManager.CurrentProject.Version.ToString();
@@ -220,6 +229,7 @@ namespace Voltage.Editor.ProjectFile
 		{
 			switch (section)
 			{
+				case 5: DrawLoadingSettings(); break;
 				case 0: DrawProjectInfoSettings(); break;
 				case 1:
 					DrawDisplaySettings();
@@ -778,6 +788,30 @@ namespace Voltage.Editor.ProjectFile
 			}
 		}
 
+		private void DrawLoadingSettings()
+		{
+			ImGui.TextWrapped("The standalone game shows a small loading label in the lower right. Progress counts completed loading phases, including activation and the first frame.");
+			_hasUnsavedChanges |= Gui.Checkbox("Show loading display", ref _loading.Enabled);
+			_hasUnsavedChanges |= Gui.InputText("Loading label", ref _loading.Label, 64);
+			_hasUnsavedChanges |= Gui.InputText("Loading font", ref _loading.Font, 1024);
+			if (Gui.Button("Select Loading Font")) _loadingFontBrowser.Open("Select Loading Font", Path.Combine(_projectManager.CurrentProject.ProjectPath, _projectManager.CurrentProject.ContentsFolder), this);
+			_loadingFontBrowser.Draw("Select Loading Font");
+			if (_loadingFontBrowser.TryTakeResult(out var font))
+			{
+				_loading.Font = Path.GetRelativePath(_projectManager.CurrentProject.ProjectPath, font).Replace('\\', '/');
+				_hasUnsavedChanges = true;
+			}
+			_hasUnsavedChanges |= Gui.SliderInt("Corner margin", ref _loading.Margin, 4, 64);
+			_hasUnsavedChanges |= Gui.SliderInt("Loading sparks", ref _loading.Sparks, 0, 8);
+			_hasUnsavedChanges |= Gui.SliderFloat("Spark speed", ref _loading.SparkSpeed, 0.1f, 4);
+			var text = _loading.TextColor.ToVector4();
+			var textColor = new Vector4(text.X, text.Y, text.Z, text.W);
+			if (ImGui.ColorEdit4("Loading text color", ref textColor)) { _loading.TextColor = ToXnaColor(textColor); _hasUnsavedChanges = true; }
+			var sparks = _loading.SparkColor.ToVector4();
+			var sparkColor = new Vector4(sparks.X, sparks.Y, sparks.Z, sparks.W);
+			if (ImGui.ColorEdit4("Loading spark color", ref sparkColor)) { _loading.SparkColor = ToXnaColor(sparkColor); _hasUnsavedChanges = true; }
+		}
+
 		private void SaveSettings()
 		{
 			try
@@ -803,6 +837,7 @@ namespace Voltage.Editor.ProjectFile
 				settings.Rendering.AmbientLightColor = ToXnaColor(_ambientLightColor);
 				settings.Entities.EntityTags = new Dictionary<string, int>(_entityTags);
 				settings.ContentDirectory = _contentDirectory;
+				settings.Loading = _loading;
 
 				var settingsPath = Path.Combine(project.ProjectPath, "ProjectSettings.json");
 				var json = Voltage.Persistence.Json.ToJson(settings, new Voltage.Persistence.JsonSettings { PrettyPrint = true });

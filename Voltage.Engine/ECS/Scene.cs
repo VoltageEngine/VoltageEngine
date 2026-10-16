@@ -307,6 +307,7 @@ public partial class Scene
 
 	public virtual void Begin()
 	{
+		using var beginTiming = SceneLoadDiagnostics.Measure("scene.begin", LevelName);
 		// Load entities from SceneData AFTER the scene is set as active
 		if (SceneData != null && SceneData.Entities != null && SceneData.Entities.Count > 0)
 		{
@@ -350,10 +351,12 @@ public partial class Scene
 		_didSceneBegin = true;
 		OnStart();
 		InvokeSceneBegin();
+		SceneLoading.CompletePhase(5);
 	}
 
 	public virtual void End()
 	{
+		using var endTiming = SceneLoadDiagnostics.Measure("scene.teardown", LevelName);
 		_didSceneBegin = false;
 
 		// we kill Renderers and PostProcessors first since they rely on Entities

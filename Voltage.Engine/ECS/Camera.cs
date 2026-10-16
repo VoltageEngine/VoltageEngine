@@ -40,7 +40,12 @@ namespace Voltage
 			get
 			{
 				_data.Enabled = Enabled;
+#if EDITOR
+				// In Edit mode RawZoom is the editor's own view zoom; the scene keeps its game zoom.
+				_data.RawZoom = GameZoom;
+#else
 				_data.RawZoom = _zoom;
+#endif
 				_data.MinimumZoom = _minimumZoom;
 				_data.MaximumZoom = _maximumZoom;
 				_data.PositionZ3D = PositionZ3D;
@@ -60,6 +65,7 @@ namespace Voltage
 					_minimumZoom = cameraData.MinimumZoom;
 					_maximumZoom = cameraData.MaximumZoom;
 					_zoom = cameraData.RawZoom;
+					GameZoom = cameraData.RawZoom;
 					PositionZ3D = cameraData.PositionZ3D;
 					NearClipPlane3D = cameraData.NearClipPlane3D;
 					FarClipPlane3D = cameraData.FarClipPlane3D;
@@ -82,6 +88,9 @@ namespace Voltage
 		#region Fields and Properties
 
 		public static float DefaultZoom = 0f;
+
+		/// <summary>Raw zoom the scene saves and Play starts from; editor builds save this instead of the view's RawZoom.</summary>
+		public float GameZoom = 1f;
 
 		#region 3D Camera Fields
 

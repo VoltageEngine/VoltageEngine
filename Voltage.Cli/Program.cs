@@ -110,6 +110,9 @@ public static class Program
 
 		switch (command)
 		{
+			case "loading":
+				Print(connection.Call(TakeFlag(args, "--history") ? "loading.history" : "loading.status", null), output);
+				return 0;
 			case "help":
 				return Help(connection, args.FirstOrDefault());
 			case "logs":
@@ -434,6 +437,7 @@ usage:
   voltage json '{""method"":""..."",""params"":{...}}'
   voltage pipe                         one JSON request per stdin line, one response per stdout line
   voltage mcp                          Model Context Protocol server over stdio (claude mcp add voltage -- voltage mcp)
+  voltage loading [--history]     current progress and recent loading diagnostics
   voltage start [project.voltage] [--exe <editor exe>] [--wait <sec>] [--headless] [--safe] [--no-prompts] [--gateway-port N]
                                        launch the editor recorded in gateway.json and wait for its gateway
   voltage start --game <game exe>      launch a built game with its gateway on and wait for it

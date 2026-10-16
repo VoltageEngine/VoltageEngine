@@ -22,7 +22,7 @@ public class SavePromptTests
             Call("ui.resize", new { width, height });
             Call("ui.click", new { path = $"View/Interface scale/{scale}%" });
             Call("entity.create", new { name = "An unsaved entity with a deliberately long description so the changes list needs to wrap across multiple lines" });
-            Call("ui.click", new { path = "Project/Load Scene" });
+            SceneMenuTests.OpenScenePickerAtRoot();
             SceneMenuTests.ScrollPickerTo("Scenes/");
             Call("ui.click", new { label = "Scenes/", window = "load-scene-popup", exact = true });
             SceneMenuTests.ScrollPickerTo("TestScene.vscene");

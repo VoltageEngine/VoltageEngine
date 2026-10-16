@@ -30,6 +30,8 @@ public class VoltageContentManager : ContentManager
 	private Dictionary<string, Effect> _loadedEffects = new();
 	private readonly Dictionary<(string Path, string Layers, bool VisibleOnly), (SpriteAtlas Atlas, float FirstFrameRate)> _asepriteAtlases = new();
 	private readonly Dictionary<string, WeakReference<AsepriteFile>> _asepriteSources = new(StringComparer.Ordinal);
+	private readonly Dictionary<string, AsepriteFile> _loadingSources = new(StringComparer.Ordinal);
+	internal void ReleaseLoadingSources() => _loadingSources.Clear();
 
 	private List<IDisposable> _disposableAssets;
 
@@ -96,6 +98,7 @@ public class VoltageContentManager : ContentManager
 	/// </summary>
 	public Texture2D LoadTexture(string name, bool premultiplyAlpha = false)
 	{
+		using var timing = SceneLoadDiagnostics.Measure("asset.texture", name);
 		// no file extension. Assumed to be an xnb so let ContentManager load it
 		if (string.IsNullOrEmpty(Path.GetExtension(name)))
 			return Load<Texture2D>(name);
@@ -133,6 +136,7 @@ public class VoltageContentManager : ContentManager
 	/// </summary>
 	public SoundEffect LoadSoundEffect(string name)
 	{
+		using var timing = SceneLoadDiagnostics.Measure("asset.audio", name);
 		var extension = Path.GetExtension(name);
 
 		// no file extension. Assumed to be an xnb so let ContentManager load it
@@ -281,11 +285,14 @@ public class VoltageContentManager : ContentManager
 	public AsepriteFile LoadAsepriteFileForRendering(string name)
 	{
 		var path = Path.GetFullPath(ResolveContentPath(name));
+		if (SceneLoading.IsActive && _loadingSources.TryGetValue(path, out var loadingSource)) return loadingSource;
 		if (_asepriteSources.TryGetValue(path, out var reference) && reference.TryGetTarget(out var cached))
 			return cached;
+		using var timing = SceneLoadDiagnostics.Measure("asset.aseprite.decode", name);
 		var file = LoadedAssets.TryGetValue(name, out var asset) && asset is AsepriteFile source ? source
 			: TryLoadCompiled<AsepriteFile>(name, out var compiled) ? compiled : AsepriteFileLoader.Load(path);
 		_asepriteSources[path] = new WeakReference<AsepriteFile>(file);
+		if (SceneLoading.IsActive) _loadingSources[path] = file;
 		return file;
 	}
 
@@ -303,6 +310,7 @@ public class VoltageContentManager : ContentManager
 			firstFrameRate = cached.FirstFrameRate;
 			return cached.Atlas;
 		}
+		using var timing = SceneLoadDiagnostics.Measure("asset.aseprite.atlas", name + " [" + string.Join(",", selected) + "]");
 		var file = LoadAsepriteFileForRendering(name);
 		var atlas = file.ToSharedSpriteAtlas(onlyVisibleLayers, selected);
 		firstFrameRate = file.Frames.Count > 0 ? 1000f / Math.Max(1, file.Frames[0].Duration) : 10f;

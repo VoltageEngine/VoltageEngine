@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
 using Microsoft.Xna.Framework;
 
 namespace Voltage.Aseprite
@@ -148,7 +149,9 @@ namespace Voltage.Aseprite
 			}
 		}
 
-		public static AsepriteFile Read(BinaryReader r)
+		public static AsepriteFile Read(BinaryReader r) => Read(r, null);
+
+		public static AsepriteFile Read(BinaryReader r, Action heartbeat)
 		{
 			if (r.ReadUInt32() != Magic)
 				throw new InvalidDataException("not a compiled Aseprite asset");
@@ -161,7 +164,7 @@ namespace Voltage.Aseprite
 			var height = r.ReadInt32();
 			var depth = (AsepriteColorDepth)r.ReadUInt16();
 
-			var palette = new AsepritePalette(r.ReadInt32()) { Colors = ReadPixels(r) };
+			var palette = new AsepritePalette(r.ReadInt32()) { Colors = ReadPixels(r, heartbeat) };
 
 			var warnings = new List<string>(r.ReadInt32());
 			for (var i = 0; i < warnings.Capacity; i++)
@@ -176,7 +179,7 @@ namespace Voltage.Aseprite
 				var tileWidth = r.ReadInt32();
 				var tileHeight = r.ReadInt32();
 				var tilesetName = r.ReadString();
-				tilesets[i] = new AsepriteTileset(id, tileCount, tileWidth, tileHeight, tilesetName, ReadPixels(r));
+				tilesets[i] = new AsepriteTileset(id, tileCount, tileWidth, tileHeight, tilesetName, ReadPixels(r, heartbeat));
 			}
 
 			var layerCount = r.ReadInt32();
@@ -253,7 +256,7 @@ namespace Voltage.Aseprite
 						{
 							var cw = r.ReadInt32();
 							var ch = r.ReadInt32();
-							cel = new AsepriteImageCel(cw, ch, ReadPixels(r), layer, position, opacity);
+							cel = new AsepriteImageCel(cw, ch, ReadPixels(r, heartbeat), layer, position, opacity);
 							break;
 						}
 					}
@@ -263,6 +266,7 @@ namespace Voltage.Aseprite
 					cels.Add(cel);
 				}
 				frames.Add(new AsepriteFrame(frameName, duration, cels, width, height));
+				heartbeat?.Invoke();
 			}
 
 			var tagCount = r.ReadInt32();
@@ -346,11 +350,28 @@ namespace Voltage.Aseprite
 				w.Write(pixels[i].PackedValue);
 		}
 
-		private static Color[] ReadPixels(BinaryReader r)
+		private static Color[] ReadPixels(BinaryReader r, Action heartbeat)
 		{
 			var pixels = new Color[r.ReadInt32()];
-			for (var i = 0; i < pixels.Length; i++)
-				pixels[i] = new Color(r.ReadUInt32());
+			if (BitConverter.IsLittleEndian)
+			{
+				var bytes = MemoryMarshal.AsBytes(pixels.AsSpan());
+				while (!bytes.IsEmpty)
+				{
+					int read = r.Read(bytes.Slice(0, Math.Min(bytes.Length, 64 * 1024)));
+					if (read == 0) throw new EndOfStreamException("Incomplete compiled Aseprite pixels");
+					bytes = bytes.Slice(read);
+					heartbeat?.Invoke();
+				}
+			}
+			else
+			{
+				for (var i = 0; i < pixels.Length; i++)
+				{
+					pixels[i] = new Color(r.ReadUInt32());
+					if ((i & 16383) == 0) heartbeat?.Invoke();
+				}
+			}
 			return pixels;
 		}
 

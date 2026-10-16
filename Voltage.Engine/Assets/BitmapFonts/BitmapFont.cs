@@ -103,6 +103,7 @@ namespace Voltage.BitmapFonts
 		/// houses the Textures for each Page, with the same index as the Page.
 		/// </summary>
 		public Texture2D[] Textures;
+		private Systems.VoltageContentManager _pageContent;
 
 		/// <summary>
 		/// red channel.
@@ -472,8 +473,13 @@ namespace Voltage.BitmapFonts
 			if (Textures == null)
 				return;
 
-			foreach (var tex in Textures)
-				tex?.Dispose();
+			if (_pageContent != null)
+			{
+				_pageContent.Dispose();
+				_pageContent = null;
+			}
+			else
+				foreach (var tex in Textures) tex?.Dispose();
 			Textures = null;
 		}
 

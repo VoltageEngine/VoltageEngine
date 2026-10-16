@@ -24,11 +24,22 @@ public static class CoreCommands
 			ctx.Commands.All.Select(c => c.Describe()).ToList()).ReadOnly();
 
 		table.Add("status", "Host, scene, play state and frame timing.", (_, ctx) => Status(ctx)).ReadOnly();
+		table.Add("loading.status", "Current and most recent scene-loading timings.", (_, _) => SceneLoadDiagnostics.Status()).ReadOnly();
+		table.Add("loading.history", "Last eight scene loads, ordered events and slow operations (inclusive timings).", (_, _) => SceneLoadDiagnostics.GetHistory()).ReadOnly();
+		table.Add("loading.load", "Request a scene load through the runtime pipeline; requires enabled loading diagnostics.", (args, ctx) =>
+		{
+			if (ctx.Dispatcher.Options.Host != "game") throw new GatewayException("loading.load is for standalone games; use scene.load in the editor");
+			if (!SceneLoadDiagnostics.Enabled) throw new GatewayException("enable VOLTAGE_LOADING_TRACE=1 for runtime loading controls");
+			if (SceneLoading.IsActive) throw new GatewayException("another scene is loading");
+			Core.IsPauseMode = false;
+			Scene.LoadLevel(args.Require("scene"));
+			return SceneLoadDiagnostics.Status();
+		}, P.Str("scene", "Project-relative scene key", required: true)).Destructive();
 
 		table.Add("app.exit", "Quit the host process; in the editor this is the same as editor.exit without force.", (_, _) =>
 		{
 			Core.Exit();
-			return new { exiting = true };
+			return new System.Text.Json.Nodes.JsonObject { ["exiting"] = true };
 		}).Destructive().Unsafe();
 
 		table.Add("console.exec", "Run a debug-console line.", (args, _) =>
@@ -136,7 +147,7 @@ public static class CoreCommands
 						scaled.SetData(data);
 						using (var stream = File.Create(path))
 							scaled.SaveAsPng(stream, w, h);
-						tcs.TrySetResult(new { path, width = w, height = h, scale, renderWidth = texture.Width, renderHeight = texture.Height });
+						tcs.TrySetResult(new System.Text.Json.Nodes.JsonObject { ["path"] = path, ["width"] = w, ["height"] = h, ["scale"] = scale, ["renderWidth"] = texture.Width, ["renderHeight"] = texture.Height });
 					}
 				}
 				catch (Exception ex)

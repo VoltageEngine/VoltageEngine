@@ -532,6 +532,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		// Add the prefab instance once a freshly-opened isolated prefab scene has actually become active.
 		ProcessPendingPrefabInstantiation();
+		EditorGameZoom.Update();
 
 		for (var i = _drawCommands.Count - 1; i >= 0; i--)
 			_drawCommands[i]();
@@ -644,6 +645,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private void OnEditModeSwitched(bool isEditMode)
 	{
 		DisposeTimelinePreview();
+		EditorGameZoom.OnEditModeSwitched(isEditMode);
 		if(EditorSettingsWindow.DisableDebugInPlayMode)
 			Core.DebugRenderEnabled = isEditMode && DebugRenderFilter.EnabledCategories != DebugRenderCategory.None;
 
@@ -969,11 +971,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		flow.Next(BackgroundSwatchWidth);
 		DrawBackgroundColorControl(compact: true);
 		var zoom = $"Zoom: {(int)(Core.Scene.Camera.RawZoom * 100)}%";
-		flow.Next(ImGui.CalcTextSize(zoom).X);
-		ImGui.AlignTextToFramePadding();
-		ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled]);
-		ImGui.TextUnformatted(zoom);
-		ImGui.PopStyleColor();
+		flow.Next(ImGui.CalcTextSize(zoom).X + ImGui.GetStyle().FramePadding.X * 2);
+		DrawZoomControl(zoom);
 		if (!ShowSeparateGameWindow) { ImGui.NewLine(); DrawPlaybackControls(); }
 		Gui.End();
 	}

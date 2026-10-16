@@ -305,11 +305,34 @@ namespace Voltage.Serialization
 					case "Entities": data.Entities = r.ReadObject(ReadEntitySettings); break;
 					case "ContentDirectory": data.ContentDirectory = r.ReadString(); break;
 					case "AssetBuild": data.AssetBuild = r.ReadObject(ReadAssetBuildSettings); break;
+					case "Loading": data.Loading = r.ReadObject(ReadLoadingSettings); break;
 					case "BuildScenes": data.BuildScenes = r.ReadList(ReadSceneBuildRule); break;
 					default: r.SkipValue(); break;
 				}
 			}
 			return data;
+		}
+
+		private static ProjectSettings.LoadingSettings ReadLoadingSettings(JsonTokenReader r)
+		{
+			var s = new ProjectSettings.LoadingSettings();
+			if (!r.BeginObject()) return s;
+			while (r.ReadNextKey(out var key))
+			{
+				switch (key)
+				{
+					case "Enabled": s.Enabled = r.ReadBool(); break;
+					case "Label": s.Label = r.ReadString(); break;
+					case "Font": s.Font = r.ReadString(); break;
+					case "Margin": s.Margin = r.ReadInt(); break;
+					case "Sparks": s.Sparks = r.ReadInt(); break;
+					case "SparkSpeed": s.SparkSpeed = r.ReadFloat(); break;
+					case "TextColor": s.TextColor = ReadColor(r); break;
+					case "SparkColor": s.SparkColor = ReadColor(r); break;
+					default: r.SkipValue(); break;
+				}
+			}
+			return s;
 		}
 
 		private static ProjectSettings.SceneBuildRule ReadSceneBuildRule(JsonTokenReader r)

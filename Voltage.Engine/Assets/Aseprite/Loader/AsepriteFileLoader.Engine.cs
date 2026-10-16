@@ -5,6 +5,7 @@ namespace Voltage.Aseprite
 {
 	public static partial class AsepriteFileLoader
 	{
+		static partial void LoadingHeartbeat() => SceneLoading.Pulse();
 		/// <summary>
 		/// Attempts to load an Aseprite (.ase/.aseprite) file and creates an instance with the contents of the file.
 		/// </summary>

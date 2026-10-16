@@ -11,6 +11,7 @@ public sealed partial class AsepriteFile
 {
     internal SpriteAtlas ToSharedSpriteAtlas(bool onlyVisibleLayers, string[] layers)
     {
+        using var timing = SceneLoadDiagnostics.Measure("asset.aseprite.prepare", $"{CanvasWidth}x{CanvasHeight}, {Frames.Count} frames");
         if (Frames.Count == 0) throw new InvalidOperationException("An Aseprite atlas needs at least one frame.");
         var unique = new List<int>();
         var buckets = new Dictionary<ulong, List<int>>();
@@ -20,6 +21,7 @@ public sealed partial class AsepriteFile
         int comparisonIndex = -1;
         for (int frame = 0; frame < Frames.Count; frame++)
         {
+            SceneLoading.Pulse();
             Frames[frame].FlattenFrameOnLayersInto(pixels, onlyVisibleLayers, false, layers.Length > 0 ? layers : null);
             ulong hash = 14695981039346656037;
             foreach (var pixel in pixels) hash = unchecked((hash ^ pixel.PackedValue) * 1099511628211);
@@ -48,13 +50,14 @@ public sealed partial class AsepriteFile
         var sheet = new Color[width * height];
         for (int index = 0; index < unique.Count; index++)
         {
+            SceneLoading.Pulse();
             Frames[unique[index]].FlattenFrameOnLayersInto(pixels, onlyVisibleLayers, false, layers.Length > 0 ? layers : null);
             for (int row = 0; row < CanvasHeight; row++)
                 Array.Copy(pixels, row * CanvasWidth, sheet,
                     (index / columns * CanvasHeight + row) * width + index % columns * CanvasWidth, CanvasWidth);
         }
         var texture = new Texture2D(Core.GraphicsDevice, width, height);
-        try { texture.SetData(sheet); }
+        try { using (SceneLoadDiagnostics.Measure("asset.gpu.upload", $"{width}x{height}")) texture.SetData(sheet); }
         catch { texture.Dispose(); throw; }
         var atlas = new SpriteAtlas
         {

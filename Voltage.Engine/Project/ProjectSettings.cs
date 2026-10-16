@@ -36,6 +36,7 @@ namespace Voltage.Project
 		public EntitySettings Entities;
 		public string ContentDirectory;
 		public AssetBuildSettings AssetBuild;
+		public LoadingSettings Loading = new();
 
 		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(List<SceneBuildRule>))]
 		public List<SceneBuildRule> BuildScenes = new();
@@ -48,6 +49,7 @@ namespace Voltage.Project
 		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(RenderingSettings))]
 		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(EntitySettings))]
 		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(AssetBuildSettings))]
+		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(LoadingSettings))]
 		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(SceneBuildRule))]
 		[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(string))]
 		public ProjectSettings()
@@ -61,6 +63,20 @@ namespace Voltage.Project
 			Entities = new EntitySettings();
 			ContentDirectory = "Content";
 			AssetBuild = new AssetBuildSettings();
+		}
+
+		/// <summary>Saved loading presentation, in design pixels; phases report completed work rather than elapsed time.</summary>
+		[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
+		public class LoadingSettings
+		{
+			public bool Enabled = true;
+			public string Label = "Loading";
+			public string Font = "";
+			public int Margin = 12;
+			public int Sparks = 3;
+			public float SparkSpeed = 1.4f;
+			public Microsoft.Xna.Framework.Color TextColor = new(237, 229, 196);
+			public Microsoft.Xna.Framework.Color SparkColor = new(255, 232, 74);
 		}
 
 		/// <summary>Per-scene build availability; scenes without a rule are included in both configurations.</summary>

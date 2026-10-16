@@ -45,7 +45,7 @@ public class SceneMenuTests
 	{
 		foreach (var key in new[] { Keys[0], Keys[2] })
 		{
-			Call("ui.click", new { path = "Project/Load Scene" });
+			OpenScenePickerAtRoot();
             foreach (var folder in key.Split('/').SkipLast(1))
             {
                 ScrollPickerTo(folder + "/");
@@ -74,6 +74,35 @@ public class SceneMenuTests
         Assert.That(Call("ui.find", new { label = "SceneFolder", window = "create-scene-popup" }).GetArrayLength(), Is.EqualTo(1));
         WaitForWidget("Cancel", "create-scene-popup");
         Call("ui.click", new { label = "Cancel", window = "create-scene-popup", exact = true });
+    }
+
+    internal static void OpenScenePickerAtRoot()
+    {
+        OpenScenePicker();
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            if (Call("ui.find", new { label = "Scenes/", window = "load-scene-popup", exact = true, visibleOnly = false }).GetArrayLength() > 0) return;
+            ScrollPickerTo("../");
+            Call("ui.click", new { label = "../", window = "load-scene-popup", exact = true });
+            Call("input.wait", new { frames = 3 });
+        }
+        Assert.Fail("File picker did not return to the test project root");
+    }
+
+    internal static void HoverLoadSceneMenu()
+    {
+        if (Call("ui.find", new { label = "Load Scene", exact = true }).GetArrayLength() == 0)
+            Call("ui.click", new { path = "Project" });
+        WaitForWidget("Load Scene", "");
+        Call("ui.hover", new { label = "Load Scene", exact = true, frames = 30 });
+        WaitForWidget("Select File", "");
+    }
+
+    internal static void OpenScenePicker()
+    {
+        HoverLoadSceneMenu();
+        Call("ui.click", new { label = "Select File", exact = true });
+        WaitForWidget("Cancel", "load-scene-popup");
     }
 
     internal static void ScrollPickerTo(string label)

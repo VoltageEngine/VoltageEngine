@@ -34,10 +34,22 @@ namespace Voltage
 
 			try
 			{
-				var jsonContent = File.ReadAllText(scenePath);
+				string jsonContent;
+				using (SceneLoadDiagnostics.Measure("scene.read", Path.GetFileName(scenePath)))
+					jsonContent = File.ReadAllText(scenePath);
+				SceneLoading.CompletePhase(0);
+				SceneLoadDiagnostics.Identity(jsonContent);
 
 				// Use the AOT-safe deserializer — no reflection needed
-				var sceneData = Serialization.AotDeserializers.DeserializeSceneData(jsonContent);
+				SceneData sceneData;
+				using (SceneLoadDiagnostics.Measure("scene.deserialize"))
+				{
+					using var document = System.Text.Json.JsonDocument.Parse(jsonContent);
+					if (document.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object)
+						throw new InvalidDataException("A scene must contain a JSON object.");
+					sceneData = Serialization.AotDeserializers.DeserializeSceneData(jsonContent);
+				}
+				SceneLoading.CompletePhase(1);
 
 				if (sceneData == null)
 				{
@@ -56,7 +68,9 @@ namespace Voltage
 				}
 
 				var scene = new Scene();
-				scene.ApplySceneData(sceneData);
+				using (SceneLoadDiagnostics.Measure("scene.settings"))
+					scene.ApplySceneData(sceneData);
+				SceneLoading.CompletePhase(2);
 
 				// Remember where we loaded from so the scene knows its level/file identity.
 				// FilePath is [JsonExclude], so it is not present in the .vscene itself.
@@ -66,6 +80,7 @@ namespace Voltage
 			}
 			catch (Exception ex)
 			{
+				SceneLoading.ReportError(ex.Message);
 				Debug.Error($"Failed to load scene from '{scenePath}': {ex.Message}." +
 							$" \n Stack trace: {ex.StackTrace}");
 				return null;
@@ -359,6 +374,8 @@ namespace Voltage
 		/// </summary>
 		private static Scene LoadLevelFromPath(string scenePath, bool applyDisplaySettings = true)
 		{
+			SceneLoadDiagnostics.Begin(Path.GetFileNameWithoutExtension(scenePath), Core.Scene?.LevelName);
+			SceneLoading.Begin(Path.GetFileNameWithoutExtension(scenePath));
 #if EDITOR
 			applyDisplaySettings = false; // let the editor handle it
 #endif
@@ -367,8 +384,14 @@ namespace Voltage
 
 			var loadedScene = LoadFromFile(scenePath);
 			if (loadedScene == null)
+			{
+				SceneLoading.Fail("Failed to read scene: " + Path.GetFileName(scenePath));
 				Debug.Error($"Failed to load scene from: {scenePath}");
+				throw new IOException("Failed to load scene: " + scenePath);
+			}
 
+			SceneLoadDiagnostics.Target(loadedScene);
+			SceneLoading.Target(loadedScene);
 			Core.Scene = loadedScene;
 
 			var settings = ProjectSettings.Instance;
@@ -932,6 +955,7 @@ namespace Voltage
 				}
 			}
 
+			int completedEntities = 0;
 			foreach (var sceneEntity in SceneData.Entities)
 			{
 				if (sceneEntity.InstanceType == Entity.InstanceType.NonSerialized)
@@ -947,6 +971,7 @@ namespace Voltage
 				var entity = new Entity(sceneEntity.Name);
 				AddEntity(entity);
 				LoadEntityData(entity, sceneEntity);
+				SceneLoading.Items(4, ++completedEntities, SceneData.Entities.Count);
 
 				if (!string.IsNullOrEmpty(entity.GetData<string>("_PendingParentName")) ||
 				    entity.GetData<Guid>("_PendingParentId") != Guid.Empty)
@@ -954,6 +979,7 @@ namespace Voltage
 			}
 
 			AssignParentRelationships(entitiesNeedingParents);
+			SceneLoading.CompletePhase(4);
 		}
 
 		/// <summary>
@@ -1090,6 +1116,7 @@ namespace Voltage
 
 		private void LoadEntityData(Entity entity, SceneData.SceneEntityData entityData)
 		{
+			using var loadTiming = SceneLoadDiagnostics.Measure("entity.data", entityData.Name);
 			entity.PersistentId = entityData.Id;
 			entity.Name = entityData.Name;
 			entity.SetTag(entityData.Tag);

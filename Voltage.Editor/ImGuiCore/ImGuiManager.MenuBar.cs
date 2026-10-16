@@ -250,7 +250,11 @@ public partial class ImGuiManager
             Debug.Warn("Choose a scene inside the current project.");
             return;
         }
-        if (Path.GetExtension(path).Equals(".vscene", StringComparison.OrdinalIgnoreCase)) RequestSceneChange(path);
+        if (Path.GetExtension(path).Equals(".vscene", StringComparison.OrdinalIgnoreCase))
+        {
+            SceneLoadHistory.RememberSelectedFile(_projectManager.CurrentProject.ProjectPath, path);
+            RequestSceneChange(path);
+        }
     }
 
 	private void DrawProjectMenu()
@@ -259,8 +263,22 @@ public partial class ImGuiManager
 		{
             ImGui.BeginDisabled(!_projectManager.HasActiveProject || !Core.IsEditMode);
             if (Gui.MenuItem("New Scene")) _sceneCreator.OpenCreateScenePopup();
-            if (Gui.MenuItem("Load Scene"))
-                _sceneFileBrowser.Open("Load Scene", _projectManager.CurrentProject.ProjectPath, this);
+            if (Gui.BeginMenu("Load Scene"))
+            {
+                var projectPath = _projectManager.CurrentProject.ProjectPath;
+                if (Gui.MenuItem("Select File"))
+                    _sceneFileBrowser.Open("Load Scene", SceneLoadHistory.GetBrowseFolder(projectPath), this);
+                if (Gui.BeginMenu("Recents"))
+                {
+                    var recentScenes = SceneLoadHistory.GetRecentScenes(projectPath);
+                    if (recentScenes.Count == 0) Gui.MenuItem("No recent scenes", false);
+                    foreach (var scenePath in recentScenes)
+                        if (Gui.MenuItem(CrossPlatformPath.GetRelativePathForStorage(projectPath, scenePath)))
+                            RequestSceneChange(scenePath);
+                    Gui.EndMenu();
+                }
+                Gui.EndMenu();
+            }
             ImGui.EndDisabled();
 
 			ImGui.Separator();
@@ -1068,6 +1086,74 @@ public partial class ImGuiManager
 		ImGui.TextDisabled("Kept in this editor's settings, for every scene you open.");
 		ImGui.TextDisabled("Never written to ProjectSettings.json, a scene file or a build.");
 		ImGui.Unindent();
+
+		Gui.EndPopup();
+	}
+
+	/// <summary>Editor view zoom readout. Clicking it opens the game zoom: what Play and builds show, saved with the scene.</summary>
+	private void DrawZoomControl(string label)
+	{
+		if (Gui.Button(label + "##ZoomControl"))
+			ImGui.OpenPopup("game-zoom-popup");
+
+		if (ImGui.IsItemHovered())
+			ImGui.SetTooltip("Editor view zoom, never saved. Click to set the game zoom the player sees.");
+
+		if (!Gui.BeginPopup("game-zoom-popup"))
+			return;
+
+		ImGui.TextUnformatted("Zoom");
+		ImGui.Separator();
+
+		var camera = Core.Scene?.Camera;
+		if (camera != null)
+		{
+			ImGui.TextUnformatted("Game zoom");
+			ImGui.Indent();
+			var game = camera.GameZoom * 100f;
+			ImGui.SetNextItemWidth(160f);
+			if (Gui.DragFloat("##GameZoom", ref game, 0.5f, camera.MinimumZoom * 100f, camera.MaximumZoom * 100f, "%.1f%%"))
+				EditorGameZoom.SetGame(game / 100f);
+
+			ImGui.TextDisabled(Core.IsEditMode
+				? "Saved with this scene. Play and builds start with it."
+				: "Applied to the running game and kept after Stop. Save the scene to keep it.");
+
+			if (Core.IsEditMode)
+			{
+				if (Gui.SmallButton("Use current view"))
+					EditorGameZoom.SetGame(camera.RawZoom);
+				ImGui.SameLine();
+				if (Gui.SmallButton("Preview game zoom"))
+					camera.RawZoom = camera.GameZoom;
+			}
+
+			ImGui.Unindent();
+			VoltageEditorUtils.SmallVerticalSpace();
+
+			if (Core.IsEditMode)
+			{
+				ImGui.TextUnformatted($"Editor view: {camera.RawZoom * 100f:0.#}%");
+				ImGui.Indent();
+				ImGui.TextDisabled("Mouse wheel. Editor only, never written to the scene.");
+				ImGui.Unindent();
+				VoltageEditorUtils.SmallVerticalSpace();
+			}
+		}
+
+		if (_projectManager.HasActiveProject)
+		{
+			var design = _projectManager.CurrentProject.Settings.DesignResolution;
+			ImGui.TextUnformatted($"Game resolution: {design.Width} x {design.Height} ({design.ResolutionPolicy})");
+			ImGui.Indent();
+			ImGui.TextDisabled("Saved in Project Settings, used by every scene.");
+			if (Gui.SmallButton("Edit in Project Settings##Zoom"))
+			{
+				_projectSettingsWindow.IsOpen = true;
+				ImGui.CloseCurrentPopup();
+			}
+			ImGui.Unindent();
+		}
 
 		Gui.EndPopup();
 	}

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Microsoft.Xna.Framework;
@@ -33,6 +34,7 @@ public class GatewayDispatcher : GlobalManager
 	private readonly System.Collections.Concurrent.ConcurrentQueue<(string name, object data)> _offThreadEvents = new();
 	private readonly int _mainThreadId = Environment.CurrentManagedThreadId;
 	private GatewayServer _server;
+	private bool _loadingPump;
 
 	private sealed record PendingReply(GatewayClient Client, JsonElement Id, Task<object> Task);
 
@@ -198,6 +200,19 @@ public class GatewayDispatcher : GlobalManager
 		CompletePending();
 	}
 
+	internal void PumpLoading()
+	{
+		if (_server == null || _loadingPump) return;
+		_loadingPump = true;
+		try
+		{
+			while (_server.TryDequeue(out var client, out var line)) Handle(client, line);
+			CompletePending();
+			ExpireWaiters();
+		}
+		finally { _loadingPump = false; }
+	}
+
 	private void ExpireWaiters()
 	{
 		if (_waiters.Count == 0)
@@ -257,15 +272,11 @@ public class GatewayDispatcher : GlobalManager
 				Directory.CreateDirectory(Path.GetDirectoryName(capture.Path)!);
 				using (var stream = File.Create(capture.Path))
 					texture.SaveAsPng(stream, w, h);
-				capture.Done.TrySetResult(new
+				capture.Done.TrySetResult(new JsonObject
 				{
-					path = capture.Path,
-					width = w,
-					height = h,
-					scale = capture.Scale,
-					crop = capture.Crop.HasValue ? new { x = crop.X, y = crop.Y, width = crop.Width, height = crop.Height } : null,
-					windowWidth = width,
-					windowHeight = height
+					["path"] = capture.Path, ["width"] = w, ["height"] = h, ["scale"] = capture.Scale,
+					["crop"] = capture.Crop.HasValue ? new JsonObject { ["x"] = crop.X, ["y"] = crop.Y, ["width"] = crop.Width, ["height"] = crop.Height } : null,
+					["windowWidth"] = width, ["windowHeight"] = height
 				});
 			}
 			catch (Exception ex)
@@ -374,9 +385,15 @@ public class GatewayDispatcher : GlobalManager
 			error = $"'{command.Name}' is disabled by --gateway-safe";
 			return null;
 		}
+		if (_loadingPump && !command.IsReadOnly && method != "screenshot" && method != "app.exit")
+		{
+			error = "scene loading is in progress; retry this action when loading.status reports ready";
+			return null;
+		}
 
 		try
 		{
+			if (SceneLoadDiagnostics.Enabled && (method is "input.key" or "input.click" or "input.script")) SceneLoadDiagnostics.RecordAction(method + " " + (args.ValueKind == JsonValueKind.Undefined ? "" : args.GetRawText()));
 			return command.Handler(new GatewayArgs(args), ctx);
 		}
 		catch (GatewayException ex)
@@ -411,7 +428,15 @@ public class GatewayDispatcher : GlobalManager
 	private static void Reply(GatewayClient client, JsonElement id, bool ok, object result, string error)
 	{
 		object idValue = id.ValueKind == JsonValueKind.Undefined ? null : id;
-		client.Send(Serialize(new GatewayReply { Id = idValue, Ok = ok, Result = result, Error = error }));
+		try { client.Send(Serialize(new GatewayReply { Id = idValue, Ok = ok, Result = result, Error = error })); }
+		catch (Exception ex)
+		{
+			client.Send(new JsonObject
+			{
+				["id"] = id.ValueKind == JsonValueKind.Undefined ? null : JsonNode.Parse(id.GetRawText()),
+				["ok"] = false, ["error"] = "Gateway response serialization failed: " + ex.Message
+			}.ToJsonString());
+		}
 	}
 
 	private sealed class GatewayReply

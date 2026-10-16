@@ -316,10 +316,20 @@ namespace Voltage.BitmapFonts
 		void LoadTextures(bool premultiplyAlpha)
 		{
 			Textures = new Texture2D[Pages.Length];
-			for (var i = 0; i < Textures.Length; i++)
+			_pageContent = new Systems.VoltageContentManager();
+			try
 			{
-				using (var stream = BitmapFontLoader.OpenStream(Pages[i].Filename))
-					Textures[i] = premultiplyAlpha ? TextureUtils.TextureFromStreamPreMultiplied(stream) : Texture2D.FromStream(Core.GraphicsDevice, stream);
+				for (var i = 0; i < Textures.Length; i++)
+				{
+					bool compiled = Assets.CompiledContentIndex.TryGetAssetName(Pages[i].Filename, out _);
+					bool premultiplyPage = compiled ? !Project.ProjectSettings.Instance.AssetBuild.PremultiplyAlpha : premultiplyAlpha;
+					Textures[i] = _pageContent.LoadTexture(Pages[i].Filename, premultiplyPage);
+				}
+			}
+			catch
+			{
+				_pageContent.Dispose(); _pageContent = null; Textures = null;
+				throw;
 			}
 		}
 	}

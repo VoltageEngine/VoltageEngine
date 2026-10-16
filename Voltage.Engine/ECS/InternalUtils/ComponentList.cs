@@ -28,6 +28,7 @@ public class ComponentList : IEnumerable<Component>
 	/// The list of components that were added this frame. Used to group the components so we can process them simultaneously
 	/// </summary>
 	internal List<Component> ComponentsToAdd = new();
+	internal bool HasPendingStartup => ComponentsToAdd.Count > 0 || _tempBufferList.Count > 0;
 
 	/// <summary>
 	/// The list of components that were marked for removal this frame. Used to group the components so we can process them simultaneously
@@ -179,10 +180,11 @@ public class ComponentList : IEnumerable<Component>
 			try
 			{
 				if (component.Enabled)
-					component.OnEnabled();
+					using (SceneLoadDiagnostics.MeasureComponent("component.OnEnabled", _entity, component)) component.OnEnabled();
 			}
 			catch (Exception ex)
 			{
+				SceneLoading.ReportError($"OnEnabled: {_entity.Name}/{component.GetType().Name}: {ex.Message}");
 				Debug.Error($"Exception in OnEnabled for component '{component.GetType().Name}' on entity '{_entity.Name}': {ex.Message}\n{ex.StackTrace}");
 			}
 		}
@@ -196,10 +198,11 @@ public class ComponentList : IEnumerable<Component>
 			try
 			{
 				if (component.Enabled)
-					component.OnStart();
+					using (SceneLoadDiagnostics.MeasureComponent("component.OnStart", _entity, component)) component.OnStart();
 			}
 			catch (Exception ex)
 			{
+				SceneLoading.ReportError($"OnStart: {_entity.Name}/{component.GetType().Name}: {ex.Message}");
 				Debug.Error($"Exception in OnStart for component '{component.GetType().Name}' on entity '{_entity.Name}': {ex.Message}\n{ex.StackTrace}");
 			}
 		}

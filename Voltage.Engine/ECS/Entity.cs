@@ -834,10 +834,11 @@ public sealed class Entity : IComparable<Entity>
 		try
 		{
 			// called before it's added to live list
-			component.OnAddedToEntity();
+			using (SceneLoadDiagnostics.MeasureComponent("component.OnAddedToEntity", this, component)) component.OnAddedToEntity();
 		}
 		catch (Exception ex)
 		{
+			SceneLoading.ReportError($"OnAddedToEntity: {Name}/{component.GetType().Name}: {ex.Message}");
 			Debug.Error($"Exception in OnAddedToEntity for component '{component.GetType().Name}' on entity '{component.Entity.Name}': {ex.Message}\n{ex.StackTrace}");
 		}
 

@@ -86,7 +86,7 @@ public class StudioGraphiteTests
 			Thread.Sleep(150);
 			var panel = Call("ui.windows").EnumerateArray().Single(w => w.GetProperty("name").GetString() == "Editor Tools");
 			var controls = Call("ui.tree", new { window = "Editor Tools", visibleOnly = false }).GetProperty("windows")[0].GetProperty("items").EnumerateArray().ToList();
-			Assert.That(controls.Count(c => c.GetProperty("kind").GetString() == "button"), Is.EqualTo(10));
+			Assert.That(controls.Count(c => c.GetProperty("kind").GetString() == "button"), Is.EqualTo(11));
 			foreach (var control in controls)
 				Assert.That(control.GetProperty("x").GetInt32() + control.GetProperty("w").GetInt32(),
 					Is.LessThanOrEqualTo(panel.GetProperty("x").GetInt32() + panel.GetProperty("width").GetInt32()), control.GetProperty("label").GetString());
