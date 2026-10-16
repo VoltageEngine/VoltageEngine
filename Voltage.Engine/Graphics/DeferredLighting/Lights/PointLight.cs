@@ -81,9 +81,9 @@ namespace Voltage.DeferredLighting
 			{
 				if (_areBoundsDirty)
 				{
-					var size = Radius * Entity.Transform.Scale.X * 2;
-					_bounds.CalculateBounds(Entity.Transform.Position, _localOffset, _radius * Entity.Transform.Scale,
-						Vector2.One, 0, size, size);
+					var radius = Radius * System.Math.Abs(Entity.Transform.Scale.X);
+					var center = Entity.Position + LocalOffset;
+					_bounds = new RectangleF(center.X - radius, center.Y - radius, radius * 2, radius * 2);
 					_areBoundsDirty = false;
 				}
 

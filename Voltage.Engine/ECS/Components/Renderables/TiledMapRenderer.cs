@@ -244,13 +244,15 @@ namespace Voltage
 
 		public override void DebugRender(Batcher batcher)
 		{
-			foreach (var group in TiledMap.ObjectGroups)
-				TiledRendering.RenderObjectGroup(group, batcher, Entity.Transform.Position + _localOffset, Transform.Scale, LayerDepth);
+			if (!DebugRenderFilter.ShouldRender(this)) return;
+			if (DebugRenderFilter.IsEnabled(DebugRenderCategory.Tilemaps))
+				foreach (var group in TiledMap.ObjectGroups)
+					TiledRendering.RenderObjectGroup(group, batcher, Entity.Transform.Position + _localOffset, Transform.Scale, LayerDepth);
 
 			if (_colliders != null)
 			{
 				foreach (var collider in _colliders)
-					collider.DebugRender(batcher);
+					if (DebugRenderFilter.ShouldRender(collider)) collider.DebugRender(batcher);
 			}
 		}
 

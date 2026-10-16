@@ -20,3 +20,4 @@ These apply to every agent, assistant, or automation that edits this repository,
 - New editor buttons and menu labels carry no trailing "...".
 - Engine code (`Voltage.Engine`) must not depend on editor types (`Voltage.Editor`).
 - The Editor Gateway (`Voltage.Editor/Gateway`, `Voltage.Cli`, `docs/gateway/README.md`) is the supported way for agents to drive a running editor.
+- Launch unattended headless editors with `voltage start --headless`, which runs a private binary copy, or the test suite's isolated session. Use a separate discovery file and `VOLTAGE_EDITOR_DATA` profile. Never keep a headless process running directly from the normal editor build output: it blocks Visual Studio from rebuilding that output. Close owned test sessions through their gateway when finished.

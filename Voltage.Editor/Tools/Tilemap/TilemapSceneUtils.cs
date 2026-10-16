@@ -41,6 +41,26 @@ namespace Voltage.Editor.Tools.Tilemap
 	/// <summary>Scene-level helpers shared by the palette, the tileset editor and the asset drop handler.</summary>
 	public static class TilemapSceneUtils
 	{
+		/// <summary>Picks the frontmost visible occupied cell, rather than a sparse layer's bounding rectangle.</summary>
+		public static TilemapRenderer PickTilemap(Microsoft.Xna.Framework.Vector2 world)
+			=> PickTilemap(world, FindTilemaps());
+
+		public static TilemapRenderer PickTilemap(Microsoft.Xna.Framework.Vector2 world, IEnumerable<TilemapRenderer> maps)
+		{
+			TilemapRenderer picked = null;
+			foreach (var map in maps)
+			{
+				if (!map.Enabled || !map.Entity.Enabled || !map.IsVisible) continue;
+				var cell = map.WorldToTile(world);
+				if (!map.HasTile(cell.X, cell.Y)) continue;
+				if (picked == null || map.RenderLayer < picked.RenderLayer ||
+					(map.RenderLayer == picked.RenderLayer && map.LayerDepth < picked.LayerDepth) ||
+					(map.RenderLayer == picked.RenderLayer && map.LayerDepth == picked.LayerDepth && map.Entity.Id < picked.Entity.Id))
+					picked = map;
+			}
+			return picked;
+		}
+
 		public static List<TilemapRenderer> FindTilemaps()
 		{
 			var results = new List<TilemapRenderer>();
@@ -85,7 +105,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			var entityName = scene.GetUniqueEntityName(baseName, null);
 			var entity = new Entity(entityName, Entity.InstanceType.Serialized);
 			entity.Transform.Position = Microsoft.Xna.Framework.Vector2.Zero;
-			entity.CanBeSelected = false; // Tilemap layers are painted via the palette, not click-selected in the viewport.
+			entity.CanBeSelected = false; // Tilemaps use occupied-cell picking instead of whole-entity bounds.
 
 			scene.AddEntity(entity);
 

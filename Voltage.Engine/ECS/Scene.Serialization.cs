@@ -74,11 +74,23 @@ namespace Voltage
 
 		/// <summary>
 		/// Optional override for the directory that <see cref="LoadLevel"/> resolves level names against.
-		/// In a published game this stays null and levels resolve to <c>AppContext.BaseDirectory/Data/Scenes</c>.
+		/// This is an optional default folder; discovery also searches the project root.
 		/// The Voltage Editor sets this to the open project's Scenes folder so LoadLevel works in play mode,
 		/// where the base directory is the editor binary rather than the game project.
 		/// </summary>
 		public static string ScenesDirectory;
+
+		/// <summary>The open project root; published games use their executable directory.</summary>
+		public static string ProjectDirectory;
+		public static string ProjectRoot => string.IsNullOrEmpty(ProjectDirectory) ? AppContext.BaseDirectory : ProjectDirectory;
+
+		public static string ResolvePrefabFile(string name)
+		{
+			var root = !string.IsNullOrEmpty(ProjectDirectory) ? ProjectDirectory :
+				!string.IsNullOrEmpty(PrefabsDirectory) ? PrefabsDirectory : AppContext.BaseDirectory;
+			return ProjectAssetFiles.Resolve(root, name, ".vprefab", PrefabsDirectory)
+				?? ProjectAssetFiles.Resolve(root, name, ".prefab", PrefabsDirectory);
+		}
 
 		/// <summary>
 		/// Optional resolver for Phase 4b prefab delta loading.
@@ -164,7 +176,7 @@ namespace Voltage
 
 		/// <summary>
 		/// Optional override for the directory that <see cref="LoadPrefab"/> resolves relative paths against.
-		/// In a published game this stays null and paths resolve to <c>AppContext.BaseDirectory/Data/Prefabs</c>.
+		/// This is an optional default folder; discovery also searches the project root.
 		/// The Voltage Editor sets this to the open project's Prefabs folder so LoadPrefab works in play mode,
 		/// where the base directory is the editor binary rather than the game project.
 		/// </summary>
@@ -198,8 +210,8 @@ namespace Voltage
 		/// adds it to this scene, and returns the entity.
 		/// <para>
 		/// <b>Path resolution:</b> If <paramref name="prefabPath"/> is an absolute path it is used verbatim.
-		/// Otherwise it is resolved relative to <see cref="PrefabsDirectory"/> when set, or
-		/// <c>AppContext.BaseDirectory/Data/Prefabs</c> in a published game.
+		/// Otherwise it uses its project-relative path or an unambiguous short name;
+		/// <see cref="PrefabsDirectory"/> remains an optional legacy search preference.
 		/// </para>
 		/// <para>
 		/// <b>Failure contract:</b> Returns <c>null</c> (never throws) if the file is missing or fails to
@@ -225,14 +237,9 @@ namespace Voltage
 				return null;
 			}
 
-			// Resolve to an absolute path using the same convention as LoadLevel/ScenesDirectory.
-			var resolvedPath = Path.IsPathRooted(prefabPath)
-				? prefabPath
-				: Path.Combine(
-					string.IsNullOrEmpty(PrefabsDirectory)
-						? Path.Combine(AppContext.BaseDirectory, "Data", "Prefabs")
-						: PrefabsDirectory,
-					prefabPath);
+			string resolvedPath;
+			try { resolvedPath = ResolvePrefabFile(prefabPath); }
+			catch (Exception ex) { Debug.Error($"[Scene.LoadPrefab] {ex.Message}"); return null; }
 
 			if (!File.Exists(resolvedPath))
 			{
@@ -299,11 +306,11 @@ namespace Voltage
 		/// Loads a level (.vscene) by name, makes it the active <see cref="Core.Scene"/>, and applies the
 		/// design resolution (and optionally the display settings) configured in <see cref="ProjectSettings"/>.
 		/// <para>This is the runtime entry point for level switching, e.g. <c>Scene.LoadLevel("Level2")</c>.</para>
-		/// <para>Level names resolve against <see cref="ScenesDirectory"/> when set, otherwise
-		/// <c>AppContext.BaseDirectory/Data/Scenes</c>. To reload the active scene, prefer
+		/// <para>Level names resolve throughout the project, with <see cref="ScenesDirectory"/> as an optional legacy preference.
+		/// To reload the active scene, prefer
 		/// <see cref="ReloadCurrentLevel"/>, which reuses the exact file the scene was loaded from.</para>
 		/// </summary>
-		/// <param name="levelName">The .vscene file name without extension (e.g. "MainScene").</param>
+		/// <param name="levelName">The relative scene path without extension (e.g. "Act 1/Room").</param>
 		/// <param name="applyDisplaySettings">
 		/// When true, applies the ProjectSettings Display block (screen size, fullscreen, vsync) to the window.
 		/// Intended for the initial load at startup; leave false for in-game level switches so the window is not reset.
@@ -315,10 +322,10 @@ namespace Voltage
 			if (string.IsNullOrEmpty(levelName))
 				throw new Exception("Scene.LoadLevel was called with a null or empty level name.");
 
-			var scenesDir = string.IsNullOrEmpty(ScenesDirectory)
-				? Path.Combine(AppContext.BaseDirectory, "Data", "Scenes")
-				: ScenesDirectory;
-			var scenePath = Path.Combine(scenesDir, levelName + ".vscene");
+			var root = !string.IsNullOrEmpty(ProjectDirectory) ? ProjectDirectory :
+				!string.IsNullOrEmpty(ScenesDirectory) ? ScenesDirectory : AppContext.BaseDirectory;
+			var scenePath = ProjectAssetFiles.Resolve(root, SceneCatalog.NormalizeKey(levelName), ".vscene", ScenesDirectory)
+				?? throw new FileNotFoundException($"Scene '{levelName}' was not found in the project.");
 
 			return LoadLevelFromPath(scenePath, applyDisplaySettings);
 		}
@@ -956,7 +963,7 @@ namespace Voltage
 		/// Resolution order:
 		/// <list type="number">
 		///   <item><description><see cref="PrefabPathResolver"/> delegate — set by the editor to use AssetDatabase GUID lookup.</description></item>
-		///   <item><description>Name-based search under <see cref="PrefabsDirectory"/> (subdirectories included).</description></item>
+		///   <item><description>Project-wide path or unambiguous name lookup, with an optional legacy directory preference.</description></item>
 		/// </list>
 		/// </para>
 		/// </summary>
@@ -979,33 +986,10 @@ namespace Voltage
 				resolvedPath = byGuid;
 			}
 
-			// 2. Name-based fallback under PrefabsDirectory (same as LoadPrefab).
 			if (string.IsNullOrEmpty(resolvedPath))
 			{
-				var baseDir = string.IsNullOrEmpty(PrefabsDirectory)
-					? Path.Combine(AppContext.BaseDirectory, "Data", "Prefabs")
-					: PrefabsDirectory;
-
-				// Direct match
-				var direct = Path.Combine(baseDir, prefabName + ".vprefab");
-				if (File.Exists(direct))
-				{
-					resolvedPath = direct;
-				}
-				else
-				{
-					// Search one level of sub-directories (mirrors SerializationManager.LoadPrefabData).
-					if (Directory.Exists(baseDir))
-					{
-						foreach (var sub in Directory.GetDirectories(baseDir))
-						{
-							var candidate = Path.Combine(sub, prefabName + ".vprefab");
-							if (File.Exists(candidate)) { resolvedPath = candidate; break; }
-							candidate = Path.Combine(sub, prefabName + ".prefab");
-							if (File.Exists(candidate)) { resolvedPath = candidate; break; }
-						}
-					}
-				}
+				try { resolvedPath = ResolvePrefabFile(prefabName); }
+				catch (Exception ex) { Debug.Warn(ex.Message); return null; }
 			}
 
 			if (string.IsNullOrEmpty(resolvedPath) || !File.Exists(resolvedPath))

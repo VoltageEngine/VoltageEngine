@@ -94,7 +94,7 @@ namespace Voltage.Editor.ProjectFile
 			
 			var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.5f);
 			ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
-			ImGui.SetNextWindowSize(new Num.Vector2(600, 700), ImGuiCond.Appearing);
+			Voltage.Editor.Utils.EditorLayout.WindowSize(new Num.Vector2(820, 740), ImGuiCond.Appearing);
 			
 			bool open = true;
 			if (Gui.BeginPopupModal("create-project-popup", ref open, ImGuiWindowFlags.NoResize))
@@ -241,7 +241,7 @@ namespace Voltage.Editor.ProjectFile
 			
 			var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.5f);
 			ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
-			ImGui.SetNextWindowSize(new Num.Vector2(600, 500), ImGuiCond.Appearing);
+			Voltage.Editor.Utils.EditorLayout.WindowSize(new Num.Vector2(760, 560), ImGuiCond.Appearing);
 			
 			bool open = true;
 			if (Gui.BeginPopupModal("folder-picker-popup", ref open, ImGuiWindowFlags.NoResize))
@@ -364,8 +364,8 @@ namespace Voltage.Editor.ProjectFile
 				ImGuiSafe.BulletTextSafe($"{ProjectCreator.EffectsFolder}/ - For shader effects");
 				ImGuiSafe.BulletTextSafe($"{ProjectCreator.ContentsFolder}/ - For game assets");
 				ImGuiSafe.BulletTextSafe($"{ProjectCreator.DataFolder}/ - For game data and serialization");
-				ImGuiSafe.BulletTextSafe($"{ProjectCreator.DataFolder}/{ProjectCreator.ScenesFolder}/ - For scene files");
-				ImGuiSafe.BulletTextSafe($"{ProjectCreator.DataFolder}/{ProjectCreator.PrefabsFolder}/ - For entity prefabs");
+				ImGuiSafe.BulletTextSafe($"{ProjectCreator.ScenesFolder}/ - For scene files");
+				ImGuiSafe.BulletTextSafe($"{ProjectCreator.PrefabsFolder}/ - For entity prefabs");
 				
 				ImGui.Unindent();
 			}

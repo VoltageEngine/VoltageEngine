@@ -5,6 +5,7 @@ using System.Linq;
 using ImGuiNET;
 using Voltage.Cinematics;
 using Voltage.Sprites;
+using Voltage.Utils;
 using Voltage.Editor.Assets;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.ImGuiCore;
@@ -21,7 +22,7 @@ namespace Voltage.Editor.Windows
 	/// director's per-scene role bindings drive a live preview (scrub/play evaluate against real entities),
 	/// while the data saves to the reusable <c>.vtimeline</c> asset.
 	/// </summary>
-	public class TimelineWindow
+	public partial class TimelineWindow
 	{
 		public bool IsOpen;
 
@@ -94,40 +95,43 @@ namespace Voltage.Editor.Windows
 
 		public void Draw()
 		{
-			if (!IsOpen)
-				return;
-
 			_imgui ??= Core.GetGlobalManager<ImGuiManager>();
-
-			ImGui.SetNextWindowSize(new Num.Vector2(820, 560), ImGuiCond.FirstUseEver);
-			if (!Gui.Begin("Timeline ###TimelineWindow", ref IsOpen))
-			{
-				Gui.End();
-				return;
-			}
-
+			if (!IsOpen) { DisposePreview(); return; }
+			if (!Core.IsEditMode) DisposePreview();
 			SyncToSelectedDirector();
+			Voltage.Editor.Utils.EditorLayout.WindowSize(new Num.Vector2(1000, 700));
+			var open = IsOpen;
+			var visible = Gui.Begin("Timeline ###TimelineWindow", ref open);
+			if (!open) RequestClose();
+			if (visible) DrawContents();
+			Gui.End();
+			DrawUnsavedChangesPrompt();
+		}
 
-			if (_director == null)
+		private void DrawContents()
+		{
+			DrawAssetDropTarget();
+			if (_status != null) ImGui.TextWrapped(_status);
+			if (_asset == null && _director == null)
 			{
-				ImGui.TextColored(Muted, "Select an entity with a Timeline Director to edit its timeline.");
+				DrawSceneTimelines();
 				ImGui.Spacing();
 				ImGui.TextWrapped("Drag a .vtimeline asset into the scene (or add a Timeline Director component) to get started.");
-				Gui.End();
 				return;
 			}
 
 			if (_asset == null)
 			{
 				DrawNoAssetState();
-				Gui.End();
+				DrawSceneTimelines();
 				return;
 			}
 
-			// Keep the director previewing against our working copy.
-			_director.SetAsset(_asset);
+			// The working copy is detached from runtime playback.
 
 			DrawTransport();
+			DrawDocumentHeader();
+			if (_asset == null) return;
 
 			if (_recording)
 				HandleRecording();
@@ -140,7 +144,7 @@ namespace Voltage.Editor.Windows
 			}
 			ImGui.Separator();
 
-			if (ImGui.BeginTabBar("TimelineTabs"))
+			if (ImGui.BeginTabBar("TimelineTabs", ImGuiTabBarFlags.FittingPolicyScroll))
 			{
 				if (Gui.BeginTabItem("Roles"))      { DrawRoles(); ImGui.EndTabItem(); }
 				if (Gui.BeginTabItem("Events"))     { DrawEvents(); ImGui.EndTabItem(); }
@@ -162,7 +166,6 @@ namespace Voltage.Editor.Windows
 				_needsNormalize = false;
 			}
 
-			Gui.End();
 		}
 
 		#region Director / asset sync
@@ -170,49 +173,39 @@ namespace Voltage.Editor.Windows
 		private void SyncToSelectedDirector()
 		{
 			var selected = _imgui?.SceneGraphWindow?.EntityPane?.SelectedEntities?.FirstOrDefault();
-			var director = selected?.GetComponent<TimelineDirector>();
-
+			var director = IsCurrentSceneEntity(selected) ? selected.GetComponent<TimelineDirector>() : null;
+			if (_locked && IsCurrentSceneEntity(_director?.Entity)) return;
+			if (_standalone && _documentSelection.SequenceEqual(_imgui.SceneGraphWindow.EntityPane.SelectedEntities)) return;
+			if (_document.HasPendingSwitch) return;
 			if (ReferenceEquals(director, _director))
+			{
+				_documentSelection = _imgui.SceneGraphWindow.EntityPane.SelectedEntities.Where(IsCurrentSceneEntity).ToList();
 				return;
-
-			// Selection changed — stop any preview on the old director and load the new one's asset.
-			StopPreview();
-			_director = director;
-			_asset = _director != null ? LoadOrNull(_director) : null;
-			CancelDrag();
-			_scrub = 0f;
+			}
+			if (director == null && _director == null) return;
+			RequestDirector(director, false);
 		}
 
 		/// <summary>Rereads the working copy when an outside edit (the gateway) changed the file being shown.</summary>
 		internal void ReloadFromDisk(string path)
 		{
-			var current = _director?.Timeline.ResolvePath();
-			if (string.IsNullOrEmpty(current) || !string.Equals(Path.GetFullPath(current), Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase))
-				return;
-			try
+			if (string.IsNullOrEmpty(_document.Path) || !string.Equals(Path.GetFullPath(_document.Path), Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase)) return;
+			if (_document.IsDirty) { _status = "File changed externally; current unsaved edits were retained."; return; }
+			_document.RequestOpen(path, ProjectManager.Instance.CurrentProject?.ProjectPath, () =>
 			{
-				_asset = TimelineAssetIO.Load(path);
-				_director.SetAsset(_asset);
-				_status = $"Reloaded {Path.GetFileName(path)}.";
-			}
-			catch (Exception ex)
-			{
-				_status = $"Reload failed: {ex.Message}";
-			}
+				StopPreview(); _asset = _document.Asset; CancelDrag();
+			});
 		}
 
 		private static TimelineAsset LoadOrNull(TimelineDirector director)
 		{
-			if (director.Asset != null)
-				return director.Asset;
-
 			var path = director.Timeline.ResolvePath();
 			if (!string.IsNullOrEmpty(path) && File.Exists(path))
 			{
 				try { return TimelineAssetIO.Load(path); }
 				catch (Exception ex) { Voltage.Debug.Warn($"[Timeline] load failed: {ex.Message}"); }
 			}
-			return null;
+			return director.Asset;
 		}
 
 		private void DrawNoAssetState()
@@ -234,87 +227,93 @@ namespace Voltage.Editor.Windows
 
 		private void DrawTransport()
 		{
-			// Manually pump the director while previewing (in edit mode its Update() isn't called).
 			if (_previewPlaying)
 			{
-				_director.Update();
-				_scrub = _director.PlayheadTime;
-				if (_director.State == DirectorState.Stopped)
-					_previewPlaying = false;
+				_scrub = Math.Min(_asset.Duration, _scrub + Time.UnscaledDeltaTime);
+				EvaluatePreview();
+				if (_scrub >= _asset.Duration) _previewPlaying = false;
 			}
-
 			if (Gui.Button(_previewPlaying ? "Pause" : "Play"))
 			{
-				if (_previewPlaying) { _director.Pause(); _previewPlaying = false; }
-				else { SetRecording(false); if (_director.State != DirectorState.Paused) _director.Play(); else _director.Resume(); _previewPlaying = true; }
+				if (_director == null) _status = "Select a scene Timeline Director to preview role bindings.";
+				else if (_previewPlaying) _previewPlaying = false;
+				else { SetRecording(false); if (_scrub >= _asset.Duration) _scrub = 0f; _previewPlaying = true; EvaluatePreview(); }
 			}
-			ImGui.SameLine();
+			SameLineIfFits("Stop");
 			if (Gui.Button("Stop"))
 				StopPreview();
 
 			// Record toggle — red when armed.
-			ImGui.SameLine();
-			if (_recording)
+			SameLineIfFits(_recording ? "Recording" : "Record");
+			var wasRecording = _recording;
+			if (wasRecording)
 			{
 				ImGui.PushStyleColor(ImGuiCol.Button, new Num.Vector4(0.75f, 0.15f, 0.15f, 1f));
 				ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Num.Vector4(0.9f, 0.25f, 0.25f, 1f));
 			}
 			if (Gui.Button(_recording ? "Recording" : "Record"))
 				SetRecording(!_recording);
-			if (_recording)
+			if (wasRecording)
 				ImGui.PopStyleColor(2);
 			if (ImGui.IsItemHovered())
 				ImGui.SetTooltip("Record: move a bound entity in the scene (or zoom its camera) and a keyframe is\nwritten at the playhead. Scrub to a time first, then move the entity.");
 
-			ImGui.SameLine();
+			SameLineIfFits($"| {_scrub:0.00}s");
 			ImGui.TextColored(Muted, $"| {_scrub:0.00}s");
 
 			// Zoom controls.
-			ImGui.SameLine();
-			if (Gui.SmallButton("-"))
+			ImGui.Spacing();
+			if (Gui.Button("Zoom out"))
 				_pixelsPerSecond = Math.Max(12f, _pixelsPerSecond / 1.25f);
-			ImGui.SameLine();
-			if (Gui.SmallButton("+"))
+			SameLineIfFits("Zoom in");
+			if (Gui.Button("Zoom in"))
 				_pixelsPerSecond = Math.Min(600f, _pixelsPerSecond * 1.25f);
 			if (ImGui.IsItemHovered())
-				ImGui.SetTooltip("Zoom (or scroll the wheel over the timeline).");
+				ImGui.SetTooltip("Zoom the time axis, or hold Ctrl/Cmd and scroll over the timeline.");
 
-			ImGui.SameLine();
+			SameLineIfFits("Length", 80f + ImGui.GetStyle().ItemInnerSpacing.X);
 			ImGui.SetNextItemWidth(80);
 			var dur = _asset.Duration;
 			if (Gui.InputFloat("Length", ref dur, 0f, 0f, "%.2f"))
 				_asset.Duration = Math.Max(0.1f, dur);
 
-			ImGui.SameLine();
 			var contentEnd = _asset.ContentEndTime();
 			if (contentEnd > _asset.Duration + 0.001f)
 			{
+				SameLineIfFits($"content runs to {contentEnd:0.00}s");
 				ImGui.TextColored(Warn, $"content runs to {contentEnd:0.00}s");
 				if (ImGui.IsItemHovered())
 					ImGui.SetTooltip("Anything past Length never plays. Press Fit to extend the timeline.");
-				ImGui.SameLine();
 			}
 
+			SameLineIfFits("Fit");
 			if (Gui.Button("Fit"))
 				_asset.Duration = Math.Max(0.1f, contentEnd);
 			if (ImGui.IsItemHovered())
 				ImGui.SetTooltip("Set Length to the end of the last keyframe, clip, event or marker.");
 
-			ImGui.SameLine();
+			SameLineIfFits("Save");
 			if (Gui.Button("Save"))
 				SaveIfPathKnown();
-			ImGui.SameLine();
-			if (Gui.Button("Load..."))
+			SameLineIfFits("Load");
+			if (Gui.Button("Load"))
 				LoadTimeline();
+		}
+
+		private static void SameLineIfFits(string label, float extraWidth = 0f)
+		{
+			ImGui.SameLine();
+			if (ImGui.GetContentRegionAvail().X < ImGui.CalcTextSize(label).X + ImGui.GetStyle().FramePadding.X * 2f + extraWidth)
+				ImGui.NewLine();
 		}
 
 		/// <summary>New / Load buttons — create a fresh .vtimeline file or open an existing one for this director.</summary>
 		private void DrawFileButtons()
 		{
-			if (Gui.Button("New Timeline..."))
+			if (Gui.Button("New Timeline"))
 				NewTimeline();
 			ImGui.SameLine();
-			if (Gui.Button("Load Timeline..."))
+			if (Gui.Button("Load Timeline"))
 				LoadTimeline();
 
 			if (!NativeFileDialogs.IsAvailable)
@@ -328,56 +327,26 @@ namespace Voltage.Editor.Windows
 		{
 			var start = DefaultTimelineFolder();
 			if (!NativeFileDialogs.TrySaveFile("New Timeline", Path.Combine(start, "NewTimeline" + TimelineAssetIO.FileExtension),
-				    new[] { "*" + TimelineAssetIO.FileExtension }, "Voltage Timeline", out var path) || string.IsNullOrEmpty(path))
-				return;
-
-			if (!path.EndsWith(TimelineAssetIO.FileExtension, StringComparison.OrdinalIgnoreCase))
-				path += TimelineAssetIO.FileExtension;
-
-			try
+			    new[] { "*" + TimelineAssetIO.FileExtension }, "Voltage Timeline", out var path) || string.IsNullOrEmpty(path)) return;
+			if (!path.EndsWith(TimelineAssetIO.FileExtension, StringComparison.OrdinalIgnoreCase)) path += TimelineAssetIO.FileExtension;
+			var target = path;
+			_document.RequestTransition(() =>
 			{
-				_asset = TimelineAssetIO.CreateAndSave(path);
-				CancelDrag();
-				AssignTimelineToDirector(path);
-				_scrub = 0f;
-				_status = $"Created {Path.GetFileName(path)}.";
-			}
-			catch (Exception ex)
-			{
-				_status = $"Create failed: {ex.Message}";
-			}
+				try { var asset = TimelineAssetIO.CreateAndSave(target); OpenWorkingCopy(asset, target, _director, true); }
+				catch (Exception ex) { _status = "Create failed: " + ex.Message; }
+			});
 		}
 
 		private void LoadTimeline()
 		{
-			var start = DefaultTimelineFolder();
-			if (!NativeFileDialogs.TryOpenFile("Load Timeline", start,
-				    new[] { "*" + TimelineAssetIO.FileExtension }, "Voltage Timeline", out var path) || string.IsNullOrEmpty(path))
-				return;
-
-			try
-			{
-				var loaded = TimelineAssetIO.Load(path);
-				if (loaded == null)
-				{
-					_status = "Could not load that timeline.";
-					return;
-				}
-				_asset = loaded;
-				CancelDrag();
-				AssignTimelineToDirector(path);
-				_scrub = 0f;
-				_status = $"Loaded {Path.GetFileName(path)}.";
-			}
-			catch (Exception ex)
-			{
-				_status = $"Load failed: {ex.Message}";
-			}
+			if (NativeFileDialogs.TryOpenFile("Load Timeline", DefaultTimelineFolder(),
+			    new[] { "*" + TimelineAssetIO.FileExtension }, "Voltage Timeline", out var path) && !string.IsNullOrEmpty(path)) RequestAsset(path);
 		}
 
 		/// <summary>Points the selected director's Timeline reference at <paramref name="path"/> (GUID + path) and previews it.</summary>
 		private void AssignTimelineToDirector(string path)
 		{
+			if (_director == null) return;
 			var guid = AssetDatabase.Instance?.GetOrCreateGuid(path) ?? Guid.Empty;
 			_director.Timeline = new Voltage.Serialization.AssetReference
 			{
@@ -385,7 +354,7 @@ namespace Voltage.Editor.Windows
 				AssetPath = path,
 				AssetName = Path.GetFileNameWithoutExtension(path),
 			};
-			_director.SetAsset(_asset);
+			_director.SetAsset(TimelineAssetIO.FromJson(TimelineAssetIO.ToJson(_asset)));
 			AssetDatabase.Instance?.Refresh();   // catalog the new file so it appears in the browser
 		}
 
@@ -401,33 +370,26 @@ namespace Voltage.Editor.Windows
 			return AppContext.BaseDirectory;
 		}
 
-		private void StopPreview()
+		internal void DisposePreview()
 		{
-			if (_director != null && _director.State != DirectorState.Stopped)
-				_director.Cancel();   // abort preview and restore pre-preview entity state
+			var wasActive = _preview != null;
+			_preview?.Dispose();
+			_preview = null;
 			_previewPlaying = false;
-			_scrub = 0f;
+			SetRecording(false);
+			if (wasActive && Core.Scene?.Camera != null) _imgui?.RestoreTimelineCameraTarget();
 		}
+
+		private void StopPreview() { DisposePreview(); _scrub = 0f; }
 
 		private void SaveIfPathKnown()
 		{
-			var path = _director.Timeline.ResolvePath();
-			if (string.IsNullOrEmpty(path))
+			if (_document.TrySave())
 			{
-				_status = "No .vtimeline file path - assign the director's Timeline asset first.";
-				return;
+				if (_director != null && Core.IsEditMode) _director.SetAsset(TimelineAssetIO.FromJson(TimelineAssetIO.ToJson(_document.Asset)));
+				_status = "Saved " + Path.GetFileName(_document.Path) + ".";
 			}
-			try
-			{
-				_asset.InvalidateEventOrder();
-				TimelineAssetIO.Save(_asset, path);
-				TimelineNestedTrack.ClearCache();
-				_status = $"Saved to {Path.GetFileName(path)}.";
-			}
-			catch (Exception ex)
-			{
-				_status = $"Save failed: {ex.Message}";
-			}
+			else _status = _document.Error;
 		}
 
 		#endregion
@@ -612,7 +574,7 @@ namespace Voltage.Editor.Windows
 				{
 					_previewPlaying = false;
 					_scrub = Math.Clamp(marker.Time, 0f, Math.Max(0.1f, _asset.Duration));
-					_director.Evaluate(_scrub);
+					EvaluatePreview();
 				}
 
 				ImGui.SameLine();
@@ -637,19 +599,23 @@ namespace Voltage.Editor.Windows
 		private void DrawTimelineCanvas()
 		{
 			var duration = Math.Max(0.1f, _asset.Duration);
-			const float labelW = 150f;
-			const float rulerH = 22f;
-			const float trackH = 24f;
+			var fontH = ImGui.GetFontSize();
+			var rulerH = fontH + 10f;
+			var trackH = fontH + 12f;
 
 			var lanes = BuildLanes();
+			var labelW = Math.Clamp(lanes.Count == 0 ? 150f : lanes.Max(lane => ImGui.CalcTextSize(lane.Name).X) + 20f,
+				150f, Math.Max(150f, ImGui.GetContentRegionAvail().X * 0.45f));
 			var pps = _pixelsPerSecond;
 			var contentW = labelW + duration * pps + 60f;
-			var contentH = rulerH + Math.Max(1, lanes.Count) * trackH + 6f;
-			var boxH = Math.Min(300f, contentH + 6f);
+			var contentH = rulerH + Math.Max(6, lanes.Count) * trackH + 6f;
+			var chromeH = ImGui.GetStyle().WindowPadding.Y * 2f + ImGui.GetStyle().ScrollbarSize + 6f;
+			var boxH = rulerH + 6f * trackH + chromeH;
 
 			var io = ImGui.GetIO();
 
-			ImGui.BeginChild("##tlcanvas", new Num.Vector2(0, boxH), true, ImGuiWindowFlags.HorizontalScrollbar);
+			ImGui.SetNextWindowSizeConstraints(new Num.Vector2(0f, rulerH + 3f * trackH + chromeH), new Num.Vector2(float.MaxValue, float.MaxValue));
+			ImGui.BeginChild("##tlcanvas", new Num.Vector2(0, boxH), ImGuiChildFlags.Borders | ImGuiChildFlags.ResizeY, ImGuiWindowFlags.HorizontalScrollbar);
 
 			var dl = ImGui.GetWindowDrawList();
 			var origin = ImGui.GetCursorScreenPos();
@@ -681,13 +647,14 @@ namespace Voltage.Editor.Windows
 			// Ruler background + per-second grid (with minor lines that appear as you zoom in).
 			dl.AddRectFilled(new Num.Vector2(origin.X, origin.Y), new Num.Vector2(origin.X + contentW, origin.Y + rulerH), colRuler);
 			var minorStep = pps >= 220f ? 0.1f : pps >= 90f ? 0.5f : 1f;
+			var labelStep = Math.Max(1, (int)Math.Ceiling((ImGui.CalcTextSize(((int)Math.Ceiling(duration)) + "s").X + 12f) / pps));
 			for (var t = 0f; t <= duration + 0.0001f; t += minorStep)
 			{
 				var x = timeX + t * pps;
 				var isSecond = Math.Abs(t - MathF.Round(t)) < 0.001f;
 				dl.AddLine(new Num.Vector2(x, origin.Y + (isSecond ? 0f : rulerH)), new Num.Vector2(x, bottomY),
 					isSecond ? colGridSec : colGridMin);
-				if (isSecond)
+				if (isSecond && (int)MathF.Round(t) % labelStep == 0)
 					dl.AddText(new Num.Vector2(x + 3f, origin.Y + 4f), colText, ((int)MathF.Round(t)) + "s");
 			}
 
@@ -729,7 +696,11 @@ namespace Voltage.Editor.Windows
 						dl.AddRectFilled(new Num.Vector2(x1 - EdgeGrabPx, top), new Num.Vector2(x1, bottom), colEdge, 2f);
 
 						if (!string.IsNullOrEmpty(item.Label) && x1 - x0 > 26f)
-							dl.AddText(new Num.Vector2(x0 + EdgeGrabPx + 3f, y + 5f), colText, item.Label);
+						{
+							dl.PushClipRect(new Num.Vector2(x0 + EdgeGrabPx, top), new Num.Vector2(x1 - EdgeGrabPx, bottom), true);
+							dl.AddText(new Num.Vector2(x0 + EdgeGrabPx + 3f, cy - fontH * 0.5f), colText, item.Label);
+							dl.PopClipRect();
+						}
 
 						if (hovered && !io.MouseDown[0] && mouse.Y >= top && mouse.Y <= bottom)
 						{
@@ -756,7 +727,11 @@ namespace Voltage.Editor.Windows
 				}
 
 				dl.AddRectFilled(new Num.Vector2(origin.X, y), new Num.Vector2(timeX, y + trackH), colGutter);
-				dl.AddText(new Num.Vector2(origin.X + 6f, y + 5f), colText, lane.Name);
+				dl.PushClipRect(new Num.Vector2(origin.X, y), new Num.Vector2(timeX - 6f, y + trackH), true);
+				dl.AddText(new Num.Vector2(origin.X + 6f, cy - fontH * 0.5f), colText, lane.Name);
+				dl.PopClipRect();
+				if (hovered && mouse.X < timeX && mouse.Y >= y && mouse.Y < y + trackH)
+					ImGui.SetTooltip(lane.Name);
 			}
 
 			// Gutter corner over the ruler.
@@ -789,13 +764,18 @@ namespace Voltage.Editor.Windows
 			{
 				_previewPlaying = false;
 				_scrub = Math.Clamp((mouse.X - timeX) / pps, 0f, duration);
-				_director.Evaluate(_scrub);
+				EvaluatePreview();
 				RefreshRecordBaseline();
 			}
 
-			// Zoom with the mouse wheel over the canvas.
-			if (hovered && io.MouseWheel != 0f)
-				_pixelsPerSecond = Math.Clamp(_pixelsPerSecond * (1f + io.MouseWheel * 0.12f), 12f, 600f);
+			// Keep the time under the pointer fixed while zooming; plain scrolling navigates tracks.
+			if (ImGui.IsWindowHovered() && (io.KeyCtrl || io.KeySuper) && io.MouseWheel != 0f)
+			{
+				var anchorX = Math.Max(0f, mouse.X - timeX);
+				var zoom = Math.Clamp(pps * MathF.Pow(1.25f, io.MouseWheel), 12f, 600f);
+				ImGui.SetScrollX(Math.Max(0f, ImGui.GetScrollX() + anchorX * (zoom / pps - 1f)));
+				_pixelsPerSecond = zoom;
+			}
 
 			ImGui.EndChild();
 		}
@@ -875,7 +855,7 @@ namespace Voltage.Editor.Windows
 			item.Apply?.Invoke(time, length);
 
 			_previewPlaying = false;
-			_director?.Evaluate(_scrub);
+			EvaluatePreview();
 		}
 
 		/// <summary>Abandons an in-flight drag — its key refers to an object graph that is going away.</summary>
@@ -1168,7 +1148,7 @@ namespace Voltage.Editor.Windows
 			if (on)
 			{
 				_previewPlaying = false;
-				_director.Evaluate(_scrub);   // pose entities at the current time, then capture as the baseline
+				EvaluatePreview();   // pose entities at the current time, then capture as the baseline
 				RefreshRecordBaseline();
 				_status = "Recording - move a bound entity in the scene to keyframe it at the playhead.";
 			}
@@ -1245,6 +1225,7 @@ namespace Voltage.Editor.Windows
 
 		private Entity RoleEntity(string role)
 		{
+			if (_director == null) return null;
 			if (string.IsNullOrEmpty(role))
 				return null;
 			var binding = _director.Bindings.FirstOrDefault(b => b.Role == role);
@@ -1256,10 +1237,9 @@ namespace Voltage.Editor.Windows
 				return null;
 
 			var id = binding.Entity.GetPersistentId();
-			var e = id != Guid.Empty ? scene.FindEntityByPersistentId(id) : null;
-			if (e == null && !string.IsNullOrEmpty(binding.Entity.EntityName))
-				e = scene.FindEntity(binding.Entity.EntityName);
-			return e;
+			if (id != Guid.Empty) return scene.FindEntityByPersistentId(id);
+			var matches = scene.Entities.Where(e => e.Name == binding.Entity.EntityName).Take(2).ToArray();
+			return matches.Length == 1 ? matches[0] : null;
 		}
 
 		private void UpsertTransformKey(string role, float time, Xna.Vector2 pos, float rot, Xna.Vector2 scale)
@@ -1343,6 +1323,7 @@ namespace Voltage.Editor.Windows
 
 		private void DrawRoleBindingCombo(string role)
 		{
+			if (_director == null) { ImGui.TextColored(Muted, "Select a director to bind roles."); return; }
 			if (string.IsNullOrEmpty(role))
 				return;
 

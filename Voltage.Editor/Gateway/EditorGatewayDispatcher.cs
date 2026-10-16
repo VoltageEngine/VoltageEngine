@@ -59,6 +59,7 @@ public sealed class EditorGatewayDispatcher : GatewayDispatcher
 		UiCommands.Register(Commands);
 		PrefabCommands.Register(Commands);
 		TilemapCommands.Register(Commands);
+		TilemapContextCommands.Register(Commands);
 		TimelineCommands.Register(Commands);
 		AudioCommands.Register(Commands);
 		AssetCommands.Register(Commands);

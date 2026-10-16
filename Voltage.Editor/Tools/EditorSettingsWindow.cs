@@ -1,4 +1,5 @@
 using ImGuiNET;
+using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.Scripting;
 using Voltage.Editor.Utils;
@@ -12,6 +13,10 @@ namespace Voltage.Editor.Tools
 	public class EditorSettingsWindow
 	{
 		private bool _isOpen = false;
+		private static readonly PersistentBool _assetTextPreviews = new("EditorSettings_AssetTextPreviews", true);
+		private static readonly PersistentBool _previewHintSeen = new("EditorSettings_PreviewHintSeen", false);
+		public static bool AssetTextPreviews { get => _assetTextPreviews.Value; set => _assetTextPreviews.Value = value; }
+		internal static bool PreviewHintSeen { get => _previewHintSeen.Value; set => _previewHintSeen.Value = value; }
 
 		// Project Creation
 		private static PersistentBool _autoOpenSolutionUponCreation = new("EditorSettings_AutoOpenSolutionUponCreation", true);
@@ -91,17 +96,51 @@ namespace Voltage.Editor.Tools
 			if (!_isOpen)
 				return;
 			
-			ImGui.SetNextWindowSize(new Num.Vector2(600, 400), ImGuiCond.FirstUseEver);
+			var manager = Core.GetGlobalManager<ImGuiManager>();
+			EditorLayout.WindowSize(new Num.Vector2(760, 680));
 			
 			bool open = _isOpen;
 			if (Gui.Begin("Editor Settings", ref open))
 			{
+				ImGui.PushTextWrapPos(0);
 				_isOpen = open;
 				
 				ImGui.TextColored(new Num.Vector4(0.2f, 0.8f, 1.0f, 1.0f), "Editor Settings");
 				ImGui.Separator();
 				
 				VoltageEditorUtils.MediumVerticalSpace();
+				if (Gui.CollapsingHeader("Interface", ImGuiTreeNodeFlags.DefaultOpen))
+				{
+					var renderer = manager.Renderer;
+					int scale = renderer.InterfaceScalePercent, textScale = renderer.TextScalePercent;
+					bool separateScaleLabel = ImGui.GetContentRegionAvail().X < ImGui.CalcTextSize("Overall UI scale: 200%").X + ImGui.GetStyle().FramePadding.X * 2;
+					if (separateScaleLabel) ImGui.TextWrapped("Overall UI scale");
+					ImGui.SetNextItemWidth(-1);
+					if (Gui.CaptionSliderInt("Overall UI scale", ref scale, 75, 200, separateScaleLabel ? "%d%%" : "Overall UI scale: %d%%")) renderer.InterfaceScalePercent = scale;
+					bool separateTextLabel = ImGui.GetContentRegionAvail().X < ImGui.CalcTextSize("Text size: 160%").X + ImGui.GetStyle().FramePadding.X * 2;
+					if (separateTextLabel) ImGui.TextWrapped("Text size");
+					ImGui.SetNextItemWidth(-1);
+					if (Gui.CaptionSliderInt("Text size", ref textScale, 80, 160, separateTextLabel ? "%d%%" : "Text size: %d%%")) renderer.TextScalePercent = textScale;
+					ImGui.TextWrapped("Text size adjusts labels separately. Code and debug logs keep one consistent size.");
+					ImGui.SetNextItemWidth(-1);
+					if (Gui.BeginCombo("##Interface font", renderer.UiFontName))
+					{
+						foreach (var font in new[] { "ProggyForever", "Classic", "Inter", "JetBrainsMono" })
+							if (Gui.Selectable(font, renderer.UiFontName == font)) renderer.UiFontName = font;
+						ImGui.EndCombo();
+					}
+					bool previews = AssetTextPreviews;
+					if (Gui.Checkbox("Preview scripts and text on selection", ref previews)) AssetTextPreviews = previews;
+					ImGui.TextWrapped("Engine assets and JSON stay closed on a single click.");
+					if (Gui.Button("Reset interface settings"))
+					{
+						renderer.InterfaceScalePercent = 100;
+						renderer.TextScalePercent = 100;
+						renderer.UiFontName = "ProggyForever";
+						AssetTextPreviews = true;
+					}
+					ImGui.Separator();
+				}
 
 				// Project Creation tab
 				if (Gui.CollapsingHeader("Project Creation", ImGuiTreeNodeFlags.DefaultOpen))
@@ -231,8 +270,9 @@ namespace Voltage.Editor.Tools
 
 				Hotkeys.HotkeySettingsSection.Draw();
 
-				Gui.End();
+				ImGui.PopTextWrapPos();
 			}
+			Gui.End();
 			
 			if (!open)
 			{

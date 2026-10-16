@@ -13,23 +13,7 @@ using Voltage.Editor.Undo.Core;
 namespace Voltage.Editor.Gizmos
 {
 	/// <summary>
-	/// Handle types for rectangle manipulation
-	/// </summary>
-	public enum RectangleHandleType
-	{
-		None,
-		TopLeft,
-		TopRight,
-		BottomLeft,
-		BottomRight,
-		Top,
-		Bottom,
-		Left,
-		Right
-	}
-
-	/// <summary>
-	/// Handles gizmo rendering and interaction for BoxCollider and AreaLight components
+	/// Handles gizmo rendering and interaction for BoxCollider and finite light components
 	/// </summary>
 	public class RectangleGizmoHandler
 	{
@@ -39,10 +23,10 @@ namespace Voltage.Editor.Gizmos
 		private ImGuiManager _imGuiManager;
 		private bool _isDragging = false;
 		private BoxCollider _selectedBoxCollider;
-		private AreaLight _selectedAreaLight;
+		private RenderableComponent _selectedLight;
 		private RectangleHandleType _selectedHandleType;
 		private Dictionary<BoxCollider, RectangleF> _originalBoxBounds = new();
-		private Dictionary<AreaLight, RectangleF> _originalAreaLightBounds = new();
+		private Dictionary<RenderableComponent, LightBoundsResizeState> _originalLightStates = new();
 		private bool _shiftDown;
 		private float _handleSize = 10f;
 
@@ -52,9 +36,9 @@ namespace Voltage.Editor.Gizmos
 		}
 
 		/// <summary>
-		/// Draws rectangle gizmos for BoxColliders and AreaLights
+		/// Draws rectangle gizmos for BoxColliders and finite lights
 		/// </summary>
-		public void Draw(List<BoxCollider> boxColliders, List<AreaLight> areaLights, Vector2 worldMouse, Camera camera, bool shiftDown)
+		public void Draw(List<BoxCollider> boxColliders, List<RenderableComponent> lights, Vector2 worldMouse, Camera camera, bool shiftDown)
 		{
 			if (_imGuiManager == null)
 				throw new NullReferenceException();
@@ -67,7 +51,7 @@ namespace Voltage.Editor.Gizmos
 
 			if (!_isDragging && Input.LeftMouseButtonPressed)
 			{
-				TryStartDragging(boxColliders, areaLights, worldMouse, finalHandleSize, edgeThreshold);
+				TryStartDragging(boxColliders, lights, worldMouse, finalHandleSize, edgeThreshold);
 			}
 
 			if (_isDragging && Input.LeftMouseButtonDown)
@@ -80,13 +64,13 @@ namespace Voltage.Editor.Gizmos
 				EndDragging();
 			}
 
-			DrawHandles(boxColliders, areaLights, finalHandleSize, camera);
+			DrawHandles(boxColliders, lights, finalHandleSize, camera);
 		}
 
-		private void TryStartDragging(List<BoxCollider> boxColliders, List<AreaLight> areaLights, Vector2 worldMouse, float handleSize, float edgeThreshold)
+		private void TryStartDragging(List<BoxCollider> boxColliders, List<RenderableComponent> lights, Vector2 worldMouse, float handleSize, float edgeThreshold)
 		{
 			BoxCollider closestCollider = null;
-			AreaLight closestAreaLight = null;
+			RenderableComponent closestLight = null;
 			RectangleHandleType closestHandle = RectangleHandleType.None;
 			float closestDistance = float.MaxValue;
 
@@ -96,37 +80,50 @@ namespace Voltage.Editor.Gizmos
 				var bounds = GetBoxColliderWorldBounds(collider);
 				CheckHandlesForBounds(bounds, worldMouse, handleSize, edgeThreshold,
 					ref closestDistance, ref closestHandle,
-					() => { closestCollider = collider; closestAreaLight = null; });
+					() => { closestCollider = collider; closestLight = null; });
 			}
 
-			// AreaLights
-			foreach (var areaLight in areaLights)
+		// Lights
+			foreach (var light in lights)
 			{
-				var bounds = GetAreaLightWorldBounds(areaLight);
+			if (light is DirLight directional)
+			{
+				var tip = DirectionTip(directional);
+				var distance = Vector2.Distance(worldMouse, tip);
+				if (distance < handleSize && distance < closestDistance)
+				{
+					closestDistance = distance;
+					closestLight = light;
+					closestCollider = null;
+					closestHandle = RectangleHandleType.Right;
+				}
+				continue;
+			}
+				var bounds = GetLightWorldBounds(light);
 				CheckHandlesForBounds(bounds, worldMouse, handleSize, edgeThreshold,
 					ref closestDistance, ref closestHandle,
-					() => { closestAreaLight = areaLight; closestCollider = null; });
+					() => { closestLight = light; closestCollider = null; });
 			}
 
-			if ((closestCollider != null || closestAreaLight != null) && closestHandle != RectangleHandleType.None)
+			if ((closestCollider != null || closestLight != null) && closestHandle != RectangleHandleType.None)
 			{
 				_isDragging = true;
 				_selectedBoxCollider = closestCollider;
-				_selectedAreaLight = closestAreaLight;
+				_selectedLight = closestLight;
 				_selectedHandleType = closestHandle;
 
 				// Store original bounds for undo
 				_originalBoxBounds.Clear();
-				_originalAreaLightBounds.Clear();
+				_originalLightStates.Clear();
 
 				foreach (var collider in boxColliders)
 				{
 					_originalBoxBounds[collider] = GetBoxColliderWorldBounds(collider);
 				}
 
-				foreach (var areaLight in areaLights)
+				foreach (var light in lights)
 				{
-					_originalAreaLightBounds[areaLight] = GetAreaLightWorldBounds(areaLight);
+					_originalLightStates[light] = new LightBoundsResizeState(light);
 				}
 			}
 		}
@@ -137,9 +134,9 @@ namespace Voltage.Editor.Gizmos
 			{
 				ResizeBoxCollider(_selectedBoxCollider, worldMouse, _selectedHandleType, _shiftDown);
 			}
-			else if (_selectedAreaLight != null)
+			else if (_selectedLight != null)
 			{
-				ResizeAreaLight(_selectedAreaLight, worldMouse, _selectedHandleType, _shiftDown);
+				_originalLightStates[_selectedLight].Drag(worldMouse, _selectedHandleType, _shiftDown);
 			}
 
 			IsMouseOverGizmo = true;
@@ -183,31 +180,31 @@ namespace Voltage.Editor.Gizmos
 					$"Resized BoxCollider"
 				);
 			}
-			else if (_selectedAreaLight != null)
+			else if (_selectedLight != null)
 			{
-				var finalBounds = GetAreaLightWorldBounds(_selectedAreaLight);
+				var finalBounds = new LightBoundsResizeState(_selectedLight);
 
 				EditorChangeTracker.PushUndo(
-					new AreaLightResizeUndoAction(
-						_selectedAreaLight,
-						_originalAreaLightBounds[_selectedAreaLight],
+					new LightBoundsResizeUndoAction(
+						_selectedLight,
+						_originalLightStates[_selectedLight],
 						finalBounds,
-						$"Resized AreaLight on {_selectedAreaLight.Entity.Name}"
+						$"Resized light bounds on {_selectedLight.Entity.Name}"
 					),
-					_selectedAreaLight.Entity,
-					$"Resized AreaLight"
+					_selectedLight.Entity,
+					$"Resized light bounds"
 				);
 			}
 
 			_isDragging = false;
 			_selectedBoxCollider = null;
-			_selectedAreaLight = null;
+			_selectedLight = null;
 			_selectedHandleType = RectangleHandleType.None;
 			_originalBoxBounds.Clear();
-			_originalAreaLightBounds.Clear();
+			_originalLightStates.Clear();
 		}
 
-		private void DrawHandles(List<BoxCollider> boxColliders, List<AreaLight> areaLights, float handleSize, Camera camera)
+		private void DrawHandles(List<BoxCollider> boxColliders, List<RenderableComponent> lights, float handleSize, Camera camera)
 		{
 			// Draw handles for BoxColliders
 			foreach (var collider in boxColliders)
@@ -217,12 +214,21 @@ namespace Voltage.Editor.Gizmos
 					_isDragging && collider == _selectedBoxCollider, camera);
 			}
 
-			// Draw handles for AreaLights
-			foreach (var areaLight in areaLights)
+		// Draw handles for lights
+			foreach (var light in lights)
 			{
-				var bounds = GetAreaLightWorldBounds(areaLight);
+			if (light is DirLight directional)
+			{
+				var start = directional.Entity.Position + directional.LocalOffset;
+				var tip = DirectionTip(directional);
+				Debug.DrawLine(start, tip, Color.Yellow);
+				Debug.DrawHollowRect(new RectangleF(tip.X - handleSize / 2f, tip.Y - handleSize / 2f,
+					handleSize, handleSize), _isDragging && light == _selectedLight ? Color.White : Color.Yellow);
+				continue;
+			}
+				var bounds = GetLightWorldBounds(light);
 				DrawRectangleHandles(bounds, handleSize, Color.Yellow,
-					_isDragging && areaLight == _selectedAreaLight, camera);
+					_isDragging && light == _selectedLight, camera);
 			}
 		}
 
@@ -645,189 +651,15 @@ namespace Voltage.Editor.Gizmos
 
 		#endregion
 
-		#region AreaLight Resize Logic
+        private RectangleF GetLightWorldBounds(RenderableComponent light) => light.Bounds;
 
-		private void ResizeAreaLight(AreaLight areaLight, Vector2 worldMouse, RectangleHandleType handleType, bool mirroredScaling)
+		private static Vector2 DirectionTip(DirLight light)
 		{
-			if (mirroredScaling)
-			{
-				ResizeAreaLightMirrored(areaLight, worldMouse, handleType);
-			}
-			else
-			{
-				ResizeAreaLightVertex(areaLight, worldMouse, handleType);
-			}
+			var direction = new Vector2(light.Direction.X, light.Direction.Y);
+			if (direction.LengthSquared() < .0001f) direction = Vector2.UnitX;
+			direction.Normalize();
+			return light.Entity.Position + light.LocalOffset + direction * 48f;
 		}
-
-		private void ResizeAreaLightMirrored(AreaLight areaLight, Vector2 worldMouse, RectangleHandleType handleType)
-		{
-			var bounds = areaLight.Bounds;
-			var scale = areaLight.Entity.Transform.Scale;
-
-			var newLeft = bounds.Left;
-			var newTop = bounds.Top;
-			var newRight = bounds.Right;
-			var newBottom = bounds.Bottom;
-
-			switch (handleType)
-			{
-				case RectangleHandleType.TopLeft:
-					var topLeftDelta = worldMouse - new Vector2(bounds.Left, bounds.Top);
-					newLeft = worldMouse.X;
-					newTop = worldMouse.Y;
-					newRight = bounds.Right - topLeftDelta.X;
-					newBottom = bounds.Bottom - topLeftDelta.Y;
-					break;
-
-				case RectangleHandleType.TopRight:
-					var topRightDelta = worldMouse - new Vector2(bounds.Right, bounds.Top);
-					newRight = worldMouse.X;
-					newTop = worldMouse.Y;
-					newLeft = bounds.Left - topRightDelta.X;
-					newBottom = bounds.Bottom - topRightDelta.Y;
-					break;
-
-				case RectangleHandleType.BottomLeft:
-					var bottomLeftDelta = worldMouse - new Vector2(bounds.Left, bounds.Bottom);
-					newLeft = worldMouse.X;
-					newBottom = worldMouse.Y;
-					newRight = bounds.Right - bottomLeftDelta.X;
-					newTop = bounds.Top - bottomLeftDelta.Y;
-					break;
-
-				case RectangleHandleType.BottomRight:
-					var bottomRightDelta = worldMouse - new Vector2(bounds.Right, bounds.Bottom);
-					newRight = worldMouse.X;
-					newBottom = worldMouse.Y;
-					newLeft = bounds.Left - bottomRightDelta.X;
-					newTop = bounds.Top - bottomRightDelta.Y;
-					break;
-
-				case RectangleHandleType.Top:
-					var topDelta = worldMouse.Y - bounds.Top;
-					newTop = worldMouse.Y;
-					newBottom = bounds.Bottom - topDelta;
-					break;
-
-				case RectangleHandleType.Bottom:
-					var bottomDelta = worldMouse.Y - bounds.Bottom;
-					newBottom = worldMouse.Y;
-					newTop = bounds.Top - bottomDelta;
-					break;
-
-				case RectangleHandleType.Left:
-					var leftDelta = worldMouse.X - bounds.Left;
-					newLeft = worldMouse.X;
-					newRight = bounds.Right - leftDelta;
-					break;
-
-				case RectangleHandleType.Right:
-					var rightDelta = worldMouse.X - bounds.Right;
-					newRight = worldMouse.X;
-					newLeft = bounds.Left - rightDelta;
-					break;
-			}
-
-			const float minSize = 1f;
-			var newWidth = Math.Max(newRight - newLeft, minSize) / scale.X;
-			var newHeight = Math.Max(newBottom - newTop, minSize) / scale.Y;
-
-			areaLight.SetWidth(newWidth);
-			areaLight.SetHeight(newHeight);
-		}
-
-		private void ResizeAreaLightVertex(AreaLight areaLight, Vector2 worldMouse, RectangleHandleType handleType)
-		{
-			var entityPos = areaLight.Entity.Transform.Position;
-			var scale = areaLight.Entity.Transform.Scale;
-			var bounds = areaLight.Bounds;
-
-			var topLeft = new Vector2(bounds.Left, bounds.Top);
-			var topRight = new Vector2(bounds.Right, bounds.Top);
-			var bottomLeft = new Vector2(bounds.Left, bounds.Bottom);
-			var bottomRight = new Vector2(bounds.Right, bounds.Bottom);
-
-			Vector2 fixedCorner;
-			float newWidth, newHeight;
-
-			switch (handleType)
-			{
-				case RectangleHandleType.TopLeft:
-					fixedCorner = bottomRight;
-					newWidth = Math.Abs(fixedCorner.X - worldMouse.X) / scale.X;
-					newHeight = Math.Abs(fixedCorner.Y - worldMouse.Y) / scale.Y;
-					break;
-
-				case RectangleHandleType.TopRight:
-					fixedCorner = bottomLeft;
-					newWidth = Math.Abs(worldMouse.X - fixedCorner.X) / scale.X;
-					newHeight = Math.Abs(fixedCorner.Y - worldMouse.Y) / scale.Y;
-					break;
-
-				case RectangleHandleType.BottomRight:
-					fixedCorner = topLeft;
-					newWidth = Math.Abs(worldMouse.X - fixedCorner.X) / scale.X;
-					newHeight = Math.Abs(worldMouse.Y - fixedCorner.Y) / scale.Y;
-					break;
-
-				case RectangleHandleType.BottomLeft:
-					fixedCorner = topRight;
-					newWidth = Math.Abs(fixedCorner.X - worldMouse.X) / scale.X;
-					newHeight = Math.Abs(worldMouse.Y - fixedCorner.Y) / scale.Y;
-					break;
-
-				case RectangleHandleType.Top:
-					fixedCorner = new Vector2(entityPos.X, bounds.Bottom);
-					newWidth = areaLight.RectangleWidth;
-					newHeight = Math.Abs(fixedCorner.Y - worldMouse.Y) / scale.Y;
-					break;
-
-				case RectangleHandleType.Bottom:
-					fixedCorner = new Vector2(entityPos.X, bounds.Top);
-					newWidth = areaLight.RectangleWidth;
-					newHeight = Math.Abs(worldMouse.Y - fixedCorner.Y) / scale.Y;
-					break;
-
-				case RectangleHandleType.Left:
-					fixedCorner = new Vector2(bounds.Right, entityPos.Y);
-					newWidth = Math.Abs(fixedCorner.X - worldMouse.X) / scale.X;
-					newHeight = areaLight.RectangleHeight;
-					break;
-
-				case RectangleHandleType.Right:
-					fixedCorner = new Vector2(bounds.Left, entityPos.Y);
-					newWidth = Math.Abs(worldMouse.X - fixedCorner.X) / scale.X;
-					newHeight = areaLight.RectangleHeight;
-					break;
-
-				default:
-					return;
-			}
-
-			const float minSize = 1f;
-			newWidth = Math.Max(newWidth, minSize);
-			newHeight = Math.Max(newHeight, minSize);
-
-			areaLight.SetWidth(newWidth);
-			areaLight.SetHeight(newHeight);
-
-			var newBounds = areaLight.Bounds;
-			var currentCenter = new Vector2(newBounds.X + newBounds.Width / 2f, newBounds.Y + newBounds.Height / 2f);
-			var desiredCenter = fixedCorner + (worldMouse - fixedCorner) / 2f;
-			var offset = desiredCenter - currentCenter;
-
-			areaLight.Entity.Transform.Position += offset;
-		}
-
-		private RectangleF GetAreaLightWorldBounds(AreaLight areaLight)
-		{
-			if (areaLight?.Entity == null)
-				return RectangleF.Empty;
-
-			return areaLight.Bounds;
-		}
-
-		#endregion
 
 		/// <summary>
 		/// Resets the dragging state
@@ -836,10 +668,10 @@ namespace Voltage.Editor.Gizmos
 		{
 			_isDragging = false;
 			_selectedBoxCollider = null;
-			_selectedAreaLight = null;
+			_selectedLight = null;
 			_selectedHandleType = RectangleHandleType.None;
 			_originalBoxBounds.Clear();
-			_originalAreaLightBounds.Clear();
+			_originalLightStates.Clear();
 		}
 	}
 }

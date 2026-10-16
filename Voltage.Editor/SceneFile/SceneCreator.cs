@@ -3,6 +3,8 @@ using System.IO;
 using ImGuiNET;
 using Voltage.Data;
 using Voltage.Editor.DebugUtils;
+using Voltage.Editor.FilePickers;
+using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.Utils;
 using Voltage.Utils;
@@ -16,6 +18,8 @@ namespace Voltage.Editor.SceneFile
 	public class SceneCreator
 	{
 		private string _sceneName = "";
+		private string _sceneDirectory = "";
+		private readonly FolderBrowser _folderBrowser = new("scene-folder-popup");
 		private bool _showCreateScenePopup = false;
 		private string _sceneNameError = "";
 		private bool _createAndLoad = true;
@@ -25,6 +29,7 @@ namespace Voltage.Editor.SceneFile
 		/// </summary>
 		public void OpenCreateScenePopup()
 		{
+			_sceneDirectory = ProjectManager.Instance.CurrentProject?.ScenesFolder ?? "";
 			_showCreateScenePopup = true;
 			_sceneName = "";
 			_sceneNameError = "";
@@ -43,10 +48,10 @@ namespace Voltage.Editor.SceneFile
 			
 			var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.5f);
 			ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
-			ImGui.SetNextWindowSize(new Num.Vector2(400, 200), ImGuiCond.Appearing);
+			Voltage.Editor.Utils.EditorLayout.WindowSize(new Num.Vector2(720, 460), ImGuiCond.Appearing);
 			
 			bool open = true;
-			if (Gui.BeginPopupModal("create-scene-popup", ref open, ImGuiWindowFlags.NoResize))
+			if (Gui.BeginPopupModal("create-scene-popup", ref open, ImGuiWindowFlags.NoResize | ImGuiWindowFlags.AlwaysAutoResize))
 			{
 				ImGui.TextColored(new Num.Vector4(0.2f, 0.8f, 1.0f, 1.0f), "Create New Scene");
 				ImGui.Separator();
@@ -74,9 +79,17 @@ namespace Voltage.Editor.SceneFile
 			
 			if (ImGui.IsItemHovered())
 			{
-				ImGui.SetTooltip("Name of the new scene file (without .scene extension)");
+				ImGui.SetTooltip("Name of the new scene file (without .vscene extension)");
 			}
 			
+            ImGui.Text("Folder:");
+            ImGui.SetNextItemWidth(-90);
+            if (Gui.InputText("##SceneFolder", ref _sceneDirectory, 1024)) ValidateSceneName();
+            ImGui.SameLine();
+            if (Gui.Button("Browse")) _folderBrowser.Open("New Scene Folder", _sceneDirectory, this);
+            _folderBrowser.Draw("New Scene Folder");
+            if (_folderBrowser.TryTakeResult(out var folder)) { _sceneDirectory = folder; ValidateSceneName(); }
+
 			// Display error message if there's an error
 			if (!string.IsNullOrWhiteSpace(_sceneNameError))
 			{
@@ -110,8 +123,13 @@ namespace Voltage.Editor.SceneFile
 				return;
 			}
 			
-			var sceneManager = SceneManager.Instance;
-			if (sceneManager.SceneExists(_sceneName))
+			if (!ProjectManager.Instance.IsPathInCurrentProject(_sceneDirectory) &&
+			    !CrossPlatformPath.AreEqual(_sceneDirectory, ProjectManager.Instance.CurrentProject?.ProjectPath))
+			{
+				_sceneNameError = "Choose a folder inside the current project.";
+				return;
+			}
+			if (File.Exists(Path.Combine(_sceneDirectory, _sceneName + ".vscene")))
 			{
 				_sceneNameError = $"Error: A scene with the name '{_sceneName}' already exists.";
 			}
@@ -180,7 +198,9 @@ namespace Voltage.Editor.SceneFile
 					return;
 				}
 
-				var scenesFolder = projectManager.CurrentProject.ScenesFolder;
+				ValidateSceneName();
+				if (!string.IsNullOrEmpty(_sceneNameError)) return;
+				var scenesFolder = Path.GetFullPath(_sceneDirectory);
 				var sceneFilePath = Path.Combine(scenesFolder, $"{_sceneName}.vscene");
 
 				if (File.Exists(sceneFilePath))
@@ -219,7 +239,7 @@ namespace Voltage.Editor.SceneFile
 				// Load the scene if requested
 				if (_createAndLoad)
 				{
-					sceneManager.LoadScene(sceneFilePath);
+					Core.GetGlobalManager<ImGuiManager>()?.RequestSceneChange(sceneFilePath);
 				}
 
 				ImGui.CloseCurrentPopup();

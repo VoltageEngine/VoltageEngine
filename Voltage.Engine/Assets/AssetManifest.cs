@@ -27,6 +27,8 @@ namespace Voltage.Assets
 		private static Dictionary<string, string> _map;
 		private static string _baseDir;
 		private static bool _loadAttempted;
+		private static readonly Dictionary<Guid, string> _referencePaths = new();
+		private static uint _referenceFrame;
 
 		/// <summary>Path of the manifest relative to the game's base directory.</summary>
 		public const string DefaultRelativePath = "Data/assets.manifest";
@@ -53,6 +55,7 @@ namespace Voltage.Assets
 		/// </summary>
 		public static void LoadFrom(string manifestPath, string baseDir = null)
 		{
+			lock (_referencePaths) _referencePaths.Clear();
 			_loadAttempted = true;
 			_baseDir = baseDir ?? AppContext.BaseDirectory;
 
@@ -78,6 +81,24 @@ namespace Voltage.Assets
 			{
 				Debug.Warn($"[AssetManifest] Failed to load '{manifestPath}': {ex.Message}");
 				_map = null;
+			}
+		}
+
+		internal static bool TryGetReferencePath(Guid guid, out string absolutePath)
+		{
+			lock (_referencePaths)
+			{
+				// A scene can resolve the same asset hundreds of times; check its file once per frame.
+				if (_referenceFrame != Utils.Time.FrameCount)
+				{
+					_referencePaths.Clear();
+					_referenceFrame = Utils.Time.FrameCount;
+				}
+				if (_referencePaths.TryGetValue(guid, out absolutePath))
+					return absolutePath != null;
+				var found = TryGetAbsolutePath(guid, out absolutePath);
+				_referencePaths[guid] = found ? absolutePath : null;
+				return found;
 			}
 		}
 

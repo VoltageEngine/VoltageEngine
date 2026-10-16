@@ -98,6 +98,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private SpriteAtlasEditorWindow _spriteAtlasEditorWindow;
 	private List<Action> _drawCommands = new();
 	private ImGuiRenderer _renderer;
+	internal ImGuiRenderer Renderer => _renderer;
+	internal ImFontPtr LogFont => _renderer.LogFontPtr;
+	internal ImFontPtr HeadingFont => _renderer.HeadingFontPtr;
 
 	/// <summary>Closes the frame Update opened when Draw is skipped, as on a minimized window.</summary>
 	public void DiscardFrame() => _renderer?.DiscardFrame();
@@ -108,7 +111,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private IntPtr _renderTargetId = IntPtr.Zero;
 	private Num.Vector2? _gameViewForcedSize;
 	private WindowPosition? _gameViewForcedPos;
-	private readonly float _editorToolsBarHeight = 30f;
 
 	// Camera Params
 	public static float EditModeCameraSpeed = 400f;
@@ -156,10 +158,18 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private string _pendingPrefabName = null;
 	private Guid _pendingPrefabGuid;
 	private string _pendingPrefabPrevScenePath = null;
+	internal void RepointPrefabReturnPaths(Func<string, string> repoint)
+	{
+		_pendingPrefabPrevScenePath = repoint(_pendingPrefabPrevScenePath);
+		if (_prefabEdit != null) _prefabEdit.PreviousScenePath = repoint(_prefabEdit.PreviousScenePath);
+	}
 	private string _pendingPrefabPrevSceneName = null;
 
 	// Non-null while an isolated prefab edit scene is active (see OpenPrefabIsolated).
 	private PrefabEditSession _prefabEdit = null;
+	private Scene _prefabReturnScene;
+	private Vector2 _prefabPreviousViewPosition;
+	private float? _prefabPreviousViewZoom;
 
 	/// <summary>True while the active scene is an isolated prefab edit scene.</summary>
 	public bool IsInPrefabEditScene => _prefabEdit != null;
@@ -356,7 +366,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	public ImGuiManager(ImGuiOptions options = null)
 	{
 		Core.IsEditorMode = true;
-		Core.DebugRenderEnabled = true;
+		DebugRenderFilter.EnabledCategories = (DebugRenderCategory)_debugRenderCategories.Value & DebugRenderCategory.All;
+		Core.DebugRenderEnabled = DebugRenderFilter.EnabledCategories != DebugRenderCategory.None;
 
 		if (options == null)
 			options = new ImGuiOptions();
@@ -367,12 +378,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		_layoutFilePath = Path.Combine(EditorStorage.LayoutsDirectory, "imgui_layout.ini");
 		_layoutManager = new LayoutManager(_layoutFilePath);
-		Core.ShouldInterceptExit = () => EditorChangeTracker.IsDirty;
+		Core.ShouldInterceptExit = () => EditorChangeTracker.IsDirty || _timelineWindow.HasUnsavedChanges;
 
 		LoadSettings();
 
 		_renderer = new ImGuiRenderer(Core.Instance);
 		_renderer.RebuildFontAtlas(options);
+		FontSizeMultiplier = _renderer.AppliedDisplayScale;
 
 		Core.Emitter.AddObserver(CoreEvents.SceneChanged, OnSceneChanged);
 
@@ -393,7 +405,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		LoadLastSelectedLayout();
 
 		// Initialize theme manager (will apply last selected theme automatically)
-		_themeManager = new ThemeManager();
+		_themeManager = new ThemeManager(_renderer.AppliedDisplayScale);
 
 		SceneGraphWindow = new SceneGraphWindow();
 		_cursorSelectionManager = new GizmoSelectionManager(this);
@@ -430,26 +442,17 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	/// </summary>
 	private void LoadLastSelectedLayout()
 	{
-		string lastLayout = _lastSelectedLayout.Value;
-
-		if (!string.IsNullOrWhiteSpace(lastLayout) && !lastLayout.Equals("Default", StringComparison.OrdinalIgnoreCase))
-		{
-			string layoutPath = _layoutManager.GetLayoutPath(lastLayout);
-
-			if (File.Exists(layoutPath))
-			{
-				_layoutManager.LoadLayout(lastLayout);
-			}
-			else
-			{
-				Debug.Warn($"Last used layout '{lastLayout}' not found, loading default");
-				LoadDefaultLayout();
-			}
-		}
-		else
+		if (File.Exists(_layoutFilePath) && !_layoutManager.WasFreshInstall)
 		{
 			LoadDefaultLayout();
+			return;
 		}
+
+		string lastLayout = _lastSelectedLayout.Value;
+		if (!string.IsNullOrWhiteSpace(lastLayout) && File.Exists(_layoutManager.GetLayoutPath(lastLayout)))
+			_layoutManager.LoadLayout(lastLayout);
+		else
+			LoadDefaultLayout();
 	}
 
 	/// <summary>
@@ -463,7 +466,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			return;
 		}
 
-		ImGui.LoadIniSettingsFromDisk(_layoutFilePath);
+		var savedLayout = File.ReadAllText(_layoutFilePath);
+		var compatibleLayout = LayoutCompatibility.Upgrade(savedLayout);
+		if (compatibleLayout != savedLayout && !File.Exists(_layoutFilePath + ".pre-imgui-1.91.bak"))
+			File.Copy(_layoutFilePath, _layoutFilePath + ".pre-imgui-1.91.bak");
+		ImGui.LoadIniSettingsFromMemory(compatibleLayout);
 	}
 
 	/// <summary>
@@ -471,6 +478,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	/// </summary>
 	private void LayoutGui()
 	{
+		FontSizeMultiplier = _renderer.AppliedDisplayScale;
+		_themeManager.SetDisplayScale(FontSizeMultiplier);
 		if (_layoutManager.HasPendingReload)
 		{
 			_layoutManager.ApplyPendingReload();
@@ -494,6 +503,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		CreateDockspace();
 		DrawEditorToolsBar();
 		DrawProjectFilePicker();
+		DrawSceneFilePicker();
 		DrawSaveChangesPrompt();
 		DrawCreateSceneForSavePrompt();
 		ShowSceneGraphWindow = SceneGraphWindow.Show(ShowSceneGraphWindow);
@@ -563,7 +573,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (DisableKeyboardInputWhenGameWindowUnfocused && !IsGameWindowFocused)
 			Input.SetCurrentKeyboardState(new Microsoft.Xna.Framework.Input.KeyboardState());
 
-		UpdateCamera();
+		if (!_timelineWindow.HasActivePreview) UpdateCamera();
 		NotificationSystem.Draw();
 		GlobalKeyCommands();
 
@@ -594,12 +604,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		// Timeline window: toggled via View → Window (persistent). Two-way sync so closing it with the
 		// window's X also unticks the menu item.
-		if (ShowTimelineWindow)
-		{
-			_timelineWindow.IsOpen = true;
-			_timelineWindow.Draw();
-			ShowTimelineWindow = _timelineWindow.IsOpen;
-		}
+		_timelineWindow.SetVisible(ShowTimelineWindow);
+		_timelineWindow.Draw();
+		ShowTimelineWindow = _timelineWindow.IsOpen;
 
 		// Audio Profiler: toggled via the Profiler menu (persistent). Two-way sync so closing it with the
 		// window's X also unticks the menu item.
@@ -636,8 +643,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void OnEditModeSwitched(bool isEditMode)
 	{
+		DisposeTimelinePreview();
 		if(EditorSettingsWindow.DisableDebugInPlayMode)
-			Core.DebugRenderEnabled = isEditMode;
+			Core.DebugRenderEnabled = isEditMode && DebugRenderFilter.EnabledCategories != DebugRenderCategory.None;
 
 		// Returning to EditMode always clears PauseMode
 		if (isEditMode)
@@ -799,7 +807,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		var dockspaceId = ImGui.GetID("MainDockSpace");
 		ImGui.DockSpace(dockspaceId, new Num.Vector2(0.0f, 0.0f),
-			ImGuiDockNodeFlags.PassthruCentralNode | ImGuiDockNodeFlags.NoDockingInCentralNode);
+			ImGuiDockNodeFlags.PassthruCentralNode | ImGuiDockNodeFlags.NoDockingOverCentralNode);
 		_dockspaceFrame = ImGui.GetFrameCount();
 
 		Gui.End();
@@ -819,7 +827,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		// Pause mode (only in PlayMode)
 		if (EditorHotkeys.Pressed(EditorHotkeys.TogglePause) && !Core.IsEditMode)
-			Core.InvokeSwitchPauseMode(!Core.IsPauseMode);
+			SetEditorPause(!Core.IsPauseMode);
 
 		if (EditorHotkeys.Pressed(EditorHotkeys.SaveScene))
 			InvokeSaveSceneChanges();
@@ -897,15 +905,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	{
 		if (Gui.BeginMainMenuBar())
 		{
-			DrawFileMenu();
-			DrawProjectMenu();
-			DrawViewMenu();
-			DrawProfilerMenu();
-			DrawScriptingMenu();
-			DrawEffectsMenu();
-			DrawPluginsMenu();
-			DrawBuildMenu();
-			DrawHelpMenu();
+			DrawResponsiveMenus();
 
 			Gui.EndMainMenuBar();
 		}
@@ -926,151 +926,83 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void DrawEditorToolsBar()
 	{
-		Gui.Begin("Editor Tools", ImGuiWindowFlags.NoScrollbar);
-
-		float spacing = 12f * FontSizeMultiplier;
-		float iconSize = 24f * FontSizeMultiplier;
-
-
-		System.Numerics.Vector4 normalButtonColor;
-		if (_cursorSelectionManager.SelectionMode == CursorSelectionMode.Normal)
-			normalButtonColor = new System.Numerics.Vector4(0.2f, 0.5f, 1f, 1f);
-		else
-			normalButtonColor = ImGui.GetStyle().Colors[(int)ImGuiCol.Button];
-
-		ImGui.PushStyleColor(ImGuiCol.Button, normalButtonColor);
-		bool normalHovered =
-			Gui.ImageButton("Normal", ImguiImageLoader.NormalCursorIconID, new Num.Vector2(iconSize, iconSize));
-		if (normalHovered)
-			_cursorSelectionManager.SelectionMode = CursorSelectionMode.Normal;
+		if (!Gui.Begin("Editor Tools")) { Gui.End(); return; }
+		var flow = new ToolbarFlow();
+		var size = new Num.Vector2(ImGui.GetFrameHeight() + 4 * FontSizeMultiplier);
+		bool Icon(string label, string glyph, bool active, string tooltip)
+		{
+			flow.Next(size.X);
+			var clicked = Gui.IconButton(label, glyph, _renderer.IconFontPtr, size, active);
+			if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled)) ImGuiSafe.SetTooltipSafe(tooltip);
+			return clicked;
+		}
+		void Cursor(string label, string glyph, CursorSelectionMode mode, string hint)
+		{
+			if (Icon(label, glyph, _cursorSelectionManager.SelectionMode == mode, hint))
+			{
+				_cursorSelectionManager.SelectionMode = mode;
+				if (mode == CursorSelectionMode.TilePaint) ShowTilePaletteWindow = true;
+			}
+		}
+		Cursor("Normal", "\uf245", CursorSelectionMode.Normal, $"Default Cursor ({EditorHotkeys.Hint(EditorHotkeys.CursorNormal)})");
+		Cursor("Resize", "\uf065", CursorSelectionMode.Resize, $"Resize Entities ({EditorHotkeys.Hint(EditorHotkeys.CursorResize)})");
+		Cursor("Rotate", "\uf2f1", CursorSelectionMode.Rotate, $"Rotate Entities ({EditorHotkeys.Hint(EditorHotkeys.CursorRotate)})");
+		Cursor("Resize Bounds", "\uf5cb", CursorSelectionMode.ColliderResize, $"Resize Bounds ({EditorHotkeys.Hint(EditorHotkeys.CursorColliderResize)})");
+		Cursor("Tile Brush", "\uf1fc", CursorSelectionMode.TilePaint, $"Paint Tiles ({EditorHotkeys.Hint(EditorHotkeys.CursorTilePaint)})");
+		flow.Next(size.X * 1.5f);
+		DrawDebugRenderingButton(size);
+		if (Icon("AudioToggle", Core.IsAudioOn ? "\uf028" : "\uf6a9", !Core.IsAudioOn, Core.IsAudioOn ? "Mute audio" : "Unmute audio"))
+			Core.IsAudioOn = !Core.IsAudioOn;
+		void Toggle(string label, bool active, Action action, string tooltip)
+		{
+			var caption = label;
+			var padding = ImGui.GetStyle().FramePadding.X * 2;
+			if (ImGui.CalcTextSize(label).X + padding > ImGui.GetContentRegionAvail().X)
+				caption = label == "Snap to Grid" ? "Snap" : "Grid";
+			flow.Next(ImGui.CalcTextSize(caption).X + padding);
+			DrawToggleButton(label, active, action, caption);
+			if (ImGui.IsItemHovered()) ImGuiSafe.SetTooltipSafe(tooltip);
+		}
+		Toggle("Snap to Grid", EditorSettingsWindow.SnapToGrid, () => EditorSettingsWindow.SnapToGrid = !EditorSettingsWindow.SnapToGrid,
+			"Snap entities to the grid. Hold Ctrl while dragging to invert.");
+		Toggle("Show Grid", ShowPlacementGrid, () => ShowPlacementGrid = !ShowPlacementGrid, "Show the placement grid");
+		flow.Next(BackgroundSwatchWidth);
+		DrawBackgroundColorControl(compact: true);
+		var zoom = $"Zoom: {(int)(Core.Scene.Camera.RawZoom * 100)}%";
+		flow.Next(ImGui.CalcTextSize(zoom).X);
+		ImGui.AlignTextToFramePadding();
+		ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled]);
+		ImGui.TextUnformatted(zoom);
 		ImGui.PopStyleColor();
-
-		if (ImGui.IsItemHovered())
-		{
-			ImGui.SetTooltip($"Default Cursor ({EditorHotkeys.Hint(EditorHotkeys.CursorNormal)})");
-		}
-
-		ImGui.SameLine(0, spacing);
-
-		System.Numerics.Vector4 resizeButtonColor;
-		if (_cursorSelectionManager.SelectionMode == CursorSelectionMode.Resize)
-			resizeButtonColor = new System.Numerics.Vector4(0.2f, 0.5f, 1f, 1f);
-		else
-			resizeButtonColor = ImGui.GetStyle().Colors[(int)ImGuiCol.Button];
-
-		ImGui.PushStyleColor(ImGuiCol.Button, resizeButtonColor);
-		bool resizeHovered =
-			Gui.ImageButton("Resize", ImguiImageLoader.ResizeCursorIconID, new Num.Vector2(iconSize, iconSize));
-		if (resizeHovered)
-			_cursorSelectionManager.SelectionMode = CursorSelectionMode.Resize;
-		ImGui.PopStyleColor();
-
-		if (ImGui.IsItemHovered())
-		{
-			ImGui.SetTooltip($"Resize Entities ({EditorHotkeys.Hint(EditorHotkeys.CursorResize)})");
-		}
-
-		ImGui.SameLine(0, spacing);
-
-		System.Numerics.Vector4 rotateButtonColor;
-		if (_cursorSelectionManager.SelectionMode == CursorSelectionMode.Rotate)
-			rotateButtonColor = new System.Numerics.Vector4(0.2f, 0.5f, 1f, 1f);
-		else
-			rotateButtonColor = ImGui.GetStyle().Colors[(int)ImGuiCol.Button];
-
-		ImGui.PushStyleColor(ImGuiCol.Button, rotateButtonColor);
-		bool rotateHovered =
-			Gui.ImageButton("Rotate", ImguiImageLoader.RotateCursorIconID, new Num.Vector2(iconSize, iconSize));
-		if (rotateHovered)
-			_cursorSelectionManager.SelectionMode = CursorSelectionMode.Rotate;
-		ImGui.PopStyleColor();
-
-		if (ImGui.IsItemHovered())
-		{
-			ImGui.SetTooltip($"Rotate Entities ({EditorHotkeys.Hint(EditorHotkeys.CursorRotate)})");
-		}
-
-		ImGui.SameLine(0, spacing);
-
-		System.Numerics.Vector4 colliderResizeButtonColor;
-		if (_cursorSelectionManager.SelectionMode == CursorSelectionMode.ColliderResize)
-			colliderResizeButtonColor = new System.Numerics.Vector4(0.2f, 0.5f, 1f, 1f);
-		else
-			colliderResizeButtonColor = ImGui.GetStyle().Colors[(int)ImGuiCol.Button];
-
-		ImGui.PushStyleColor(ImGuiCol.Button, colliderResizeButtonColor);
-
-		bool colliderResizeHovered = Gui.ImageButton("Collider Resize", ImguiImageLoader.ColliderResizeCursorIconID,
-			new Num.Vector2(iconSize, iconSize));
-		if (colliderResizeHovered)
-			_cursorSelectionManager.SelectionMode = CursorSelectionMode.ColliderResize;
-
-		ImGui.PopStyleColor();
-
-		if (ImGui.IsItemHovered())
-		{
-			ImGui.SetTooltip($"Resize Colliders ({EditorHotkeys.Hint(EditorHotkeys.CursorColliderResize)})");
-		}
-
-		ImGui.SameLine(0, spacing);
-
-		System.Numerics.Vector4 tilePaintButtonColor;
-		if (_cursorSelectionManager.SelectionMode == CursorSelectionMode.TilePaint)
-			tilePaintButtonColor = new System.Numerics.Vector4(0.2f, 0.5f, 1f, 1f);
-		else
-			tilePaintButtonColor = ImGui.GetStyle().Colors[(int)ImGuiCol.Button];
-
-		ImGui.PushStyleColor(ImGuiCol.Button, tilePaintButtonColor);
-		bool tilePaintHovered = Gui.ImageButton("Tile Brush", ImguiImageLoader.TileBrushCursorIconID,
-			new Num.Vector2(iconSize, iconSize));
-		if (tilePaintHovered)
-		{
-			_cursorSelectionManager.SelectionMode = CursorSelectionMode.TilePaint;
-			ShowTilePaletteWindow = true;
-		}
-
-		ImGui.PopStyleColor();
-
-		if (ImGui.IsItemHovered())
-		{
-			ImGui.SetTooltip($"Paint Tiles ({EditorHotkeys.Hint(EditorHotkeys.CursorTilePaint)})");
-		}
-
-		// Zoom indicator
-		ImGui.SameLine(0, spacing * 2f);
-		float currentZoom = Core.Scene.Camera.Zoom;
-		int zoomPercentage = (int)(currentZoom * 100f);
-		string zoomText = $"Zoom: {zoomPercentage}%";
-
-		// NOTE: do NOT use ImGui.TextColored here. TextColored forwards the string to the
-		// native printf-style igTextColored(col, fmt, ...), so the literal '%' in the zoom
-		// text is parsed as a format specifier and ImGui reads a non-existent vararg —
-		// over-reading adjacent memory and rendering garbage (log fragments, etc.), which
-		// also balloons the text width and pushes the mode/audio buttons off-screen.
-		// TextUnformatted renders the raw string verbatim; push the tint color manually.
-		ImGui.PushStyleColor(ImGuiCol.Text, new System.Numerics.Vector4(0.7f, 0.7f, 0.7f, 1.0f));
-		ImGui.TextUnformatted(zoomText);
-		ImGui.PopStyleColor();
-
-		if (ImGui.IsItemHovered())
-		{
-			ImGui.SetTooltip("Camera zoom level (Mouse Wheel to adjust)");
-		}
-
-		// Keep the mode cluster, grid toggles and audio toggle on the same row as the cursor tools.
-		ImGui.SameLine(0, spacing);
-		DrawEditorModeControls();
-
-		ImGui.SameLine();
-		var gizmosPosition = DrawGridControlsRightAligned();
-
-		ImGui.SameLine();
-		DrawAudioToggleRightAligned();
-
-		ImGui.SetCursorPos(gizmosPosition);
-		DrawDebugRenderingToggle();
-
+		if (!ShowSeparateGameWindow) { ImGui.NewLine(); DrawPlaybackControls(); }
 		Gui.End();
+	}
+
+	private void DrawPlaybackControls()
+	{
+		var width = ImGui.GetContentRegionAvail().X;
+		var gap = Math.Min(ImGui.GetStyle().ItemSpacing.X, width / 12);
+		var side = Math.Max(1, Math.Min(ImGui.GetFrameHeight() + 4 * FontSizeMultiplier, (width - 2 * gap) / 3));
+		ImGui.SetCursorPosX(ImGui.GetCursorPosX() + MathF.Floor((width - side * 3 - gap * 2) / 2));
+		bool Button(string label, string glyph, bool active, string tooltip)
+		{
+			var clicked = Gui.IconButton(label, glyph, _renderer.IconFontPtr, new Num.Vector2(side), active);
+			if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled)) ImGuiSafe.SetTooltipSafe(tooltip);
+			return clicked;
+		}
+		if (Button("EditorPlay", Core.IsEditMode ? "\uf04b" : "\uf04d", !Core.IsEditMode,
+			$"{(Core.IsEditMode ? "Play" : "Stop")} ({EditorHotkeys.Hint(EditorHotkeys.TogglePlay)})"))
+		{
+			if (!Core.IsEditMode) Core.IsPauseMode = false;
+			Core.InvokeSwitchEditMode(!Core.IsEditMode);
+		}
+		ImGui.SameLine(0, gap);
+		ImGui.BeginDisabled(Core.IsEditMode);
+		if (Button("EditorPause", "\uf04c", Core.IsPauseMode, $"Pause ({EditorHotkeys.Hint(EditorHotkeys.TogglePause)})"))
+			SetEditorPause(!Core.IsPauseMode);
+		ImGui.EndDisabled();
+		ImGui.SameLine(0, gap);
+		if (Button("EditorReset", "\uf2ea", false, $"Reload Scene ({EditorHotkeys.Hint(EditorHotkeys.ResetScene)})")) Core.InvokeResetScene();
 	}
 
 	/// <summary>
@@ -1110,6 +1042,14 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void UpdateCamera()
 	{
+		if (!Core.IsPauseMode)
+			_editorOwnsCameraPause = false;
+		if (!Core.IsEditMode && !(Core.IsPauseMode && _editorOwnsCameraPause))
+		{
+			_cameraTargetPosition = Core.Scene.Camera.Position;
+			_isCameraDragging = false;
+			return;
+		}
 		if (Core.IsEditMode || Core.IsPauseMode)
 		{
 			if (IsGameWindowFocused)
@@ -1202,10 +1142,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 						Core.Scene.Camera.Zoom -= EditorCameraZoomSpeed * Time.DeltaTime;
 				}
 			}
-		}
-		else if (!Core.IsEditMode && !Core.IsPauseMode)
-		{
-			Core.Scene.Camera.Zoom = Camera.DefaultZoom;
 		}
 	}
 
@@ -1388,6 +1324,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void OnAppExitSaveChanges(bool pending)
 	{
+		if (pending && !_timelineWindow.PrepareExit(() => OnAppExitSaveChanges(true))) return;
 		if (pending)
 		{
 			// Only show the prompt if there are unsaved changes
@@ -1480,43 +1417,73 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void DrawSavePromptModal(string popupId, Action onDiscardChanges)
 	{
-		var center = new System.Numerics.Vector2(Screen.Width * 0.5f, Screen.Height * 0.4f);
-		ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new System.Numerics.Vector2(0.5f, 0.5f));
-		ImGui.SetNextWindowSize(new System.Numerics.Vector2(450, 0), ImGuiCond.Appearing);
+		string actionContext = "continuing";
+		if (popupId.Contains("Exit"))
+			actionContext = "exiting";
+		else if (popupId.Contains("SceneChange"))
+			actionContext = "changing scenes";
+		else if (popupId.Contains("ResetScene"))
+			actionContext = "resetting the scene";
+		else if (popupId.Contains("ProjectClose"))
+			actionContext = "closing the project";
+		else if (popupId.Contains("Relaunch"))
+			actionContext = "restarting the editor";
+
+		var style = ImGui.GetStyle();
+		var viewport = ImGui.GetMainViewport();
+		var maximum = System.Numerics.Vector2.Max(new(1), viewport.WorkSize - style.WindowPadding * 2);
+		float buttonWidth = Math.Max(120 * FontSizeMultiplier, ImGui.CalcTextSize("Don't Save").X + style.FramePadding.X * 2);
+		float buttonsWidth = buttonWidth * 3 + style.ItemSpacing.X * 2;
+		bool stackButtons = buttonsWidth + style.WindowPadding.X * 2 > maximum.X;
+		float minimumWidth = Math.Min(maximum.X, Math.Max(450 * FontSizeMultiplier, buttonsWidth + style.WindowPadding.X * 2));
+		if (stackButtons)
+		{
+			buttonWidth = Math.Min(buttonWidth, minimumWidth - style.WindowPadding.X * 2);
+			buttonsWidth = buttonWidth;
+		}
+		float textWidth = Math.Max(1, minimumWidth - style.WindowPadding.X * 2 - style.ScrollbarSize);
+		var pendingChanges = EditorChangeTracker.ChangedObjects;
+		string warning = $"The following changes will be lost if you don't save before {actionContext}:";
+		string question = $"Do you want to save your changes before {actionContext}?";
+		float textHeight = ImGui.CalcTextSize("You have unsaved changes!", false, textWidth).Y + ImGui.CalcTextSize(question, false, textWidth).Y;
+		float listHeight = 0;
+		if (pendingChanges.Count > 0)
+		{
+			textHeight += ImGui.CalcTextSize(warning, false, textWidth).Y;
+			float rowWidth = Math.Max(1, textWidth - style.WindowPadding.X * 2 - ImGui.GetFontSize() - style.ItemSpacing.X);
+			foreach (var (_, description) in pendingChanges)
+				listHeight += ImGui.CalcTextSize(description, false, rowWidth).Y + style.ItemSpacing.Y;
+			listHeight = Math.Min(300 * FontSizeMultiplier, listHeight + style.WindowPadding.Y * 2);
+		}
+		float minimumList = Math.Min(listHeight, ImGui.GetTextLineHeightWithSpacing() * 3 + style.WindowPadding.Y * 2);
+		float chrome = ImGui.GetFrameHeight() * (stackButtons ? 4 : 2) + style.WindowPadding.Y * 2 + style.ItemSpacing.Y * (stackButtons ? 12 : 10) + 10;
+		ImGui.SetNextWindowSizeConstraints(new(minimumWidth, Math.Min(maximum.Y, textHeight + chrome + minimumList)), maximum);
+		ImGui.SetNextWindowPos(viewport.WorkPos + viewport.WorkSize * 0.5f, ImGuiCond.Appearing, new(0.5f, 0.5f));
+		ImGui.SetNextWindowSize(new(minimumWidth, Math.Min(maximum.Y, textHeight + chrome + listHeight)), ImGuiCond.Appearing);
 
 		bool open = true;
-		if (Gui.BeginPopupModal(popupId, ref open, ImGuiWindowFlags.AlwaysAutoResize))
+		if (Gui.BeginPopupModal(popupId, ref open, ImGuiWindowFlags.None))
 		{
-			// Determine the action context from popup ID
-			string actionContext = "continuing";
-			if (popupId.Contains("Exit"))
-				actionContext = "exiting";
-			else if (popupId.Contains("SceneChange"))
-				actionContext = "changing scenes";
-			else if (popupId.Contains("ResetScene"))
-				actionContext = "resetting the scene";
-			else if (popupId.Contains("ProjectClose"))
-				actionContext = "closing the project";
-			else if (popupId.Contains("Relaunch"))
-				actionContext = "restarting the editor";
-
-			ImGui.Text("You have unsaved changes!");
+			float buttonsHeight = ImGui.GetFrameHeight() * (stackButtons ? 3 : 1) + style.ItemSpacing.Y * (stackButtons ? 4 : 2) + 10;
+			ImGui.BeginChild("##save_prompt_body", new System.Numerics.Vector2(0, Math.Max(1, ImGui.GetContentRegionAvail().Y - buttonsHeight)));
+			ImGuiSafe.TextWrappedSafe("You have unsaved changes!");
 			ImGui.Spacing();
 
 			// Display pending changes
-			var pendingChanges = EditorChangeTracker.ChangedObjects;
 			if (pendingChanges.Count > 0)
 			{
-				ImGuiSafe.TextWrappedSafe($"The following changes will be lost if you don't save before {actionContext}:");
+				ImGuiSafe.TextWrappedSafe(warning);
 				ImGui.Spacing();
 
-				float maxHeight = Math.Min(300f, pendingChanges.Count * 25f);
-
-				ImGui.BeginChild("##changes_list", new System.Numerics.Vector2(420, maxHeight), true);
+				float footer = ImGui.CalcTextSize(question, false, ImGui.GetContentRegionAvail().X).Y + style.ItemSpacing.Y * 3;
+				float available = Math.Max(minimumList, ImGui.GetContentRegionAvail().Y - footer);
+				ImGui.BeginChild("##changes_list", new System.Numerics.Vector2(0, Math.Min(listHeight, available)), ImGuiChildFlags.Borders);
 
 				foreach (var (obj, description) in pendingChanges)
 				{
-					ImGuiSafe.BulletTextSafe(description);
+					ImGui.Bullet();
+					ImGui.SameLine();
+					ImGuiSafe.TextWrappedSafe(description);
 
 					if (ImGui.IsItemHovered() && obj != null)
 					{
@@ -1528,15 +1495,13 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				ImGui.Spacing();
 			}
 
-			ImGuiSafe.TextWrappedSafe($"Do you want to save your changes before {actionContext}?");
+			ImGuiSafe.TextWrappedSafe(question);
+			ImGui.EndChild();
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
-			var buttonWidth = 120f;
-			var spacing = 10f;
-			var totalButtonWidth = (buttonWidth * 3) + (spacing * 2);
 			var windowWidth = ImGui.GetWindowSize().X;
-			var centerStart = (windowWidth - totalButtonWidth) * 0.5f;
+			var centerStart = Math.Max(style.WindowPadding.X, (windowWidth - buttonsWidth) * 0.5f);
 
 			ImGui.SetCursorPosX(centerStart);
 
@@ -1550,7 +1515,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				ImGui.CloseCurrentPopup();
 			}
 
-			ImGui.SameLine();
+			if (stackButtons) ImGui.SetCursorPosX(centerStart);
+			else ImGui.SameLine();
 
 			if (Gui.Button("Don't Save", new System.Numerics.Vector2(buttonWidth, 0)))
 			{
@@ -1561,7 +1527,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				ImGui.CloseCurrentPopup();
 			}
 
-			ImGui.SameLine();
+			if (stackButtons) ImGui.SetCursorPosX(centerStart);
+			else ImGui.SameLine();
 
 			if (Gui.Button("Cancel", new System.Numerics.Vector2(buttonWidth, 0)))
 			{
@@ -1789,6 +1756,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	public void RequestResetScene()
 	{
+		if (!PrepareTimelineSceneSwitch(RequestResetScene)) return;
 		if (EditorChangeTracker.IsDirty)
 		{
 			_pendingResetScene = true;
@@ -1802,6 +1770,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void RequestProjectClose()
 	{
+		if (!PrepareTimelineSceneSwitch(RequestProjectClose)) return;
 		if (EditorChangeTracker.IsDirty)
 		{
 			_pendingProjectClose = true;
@@ -1900,6 +1869,12 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	#endregion
 
+	internal void DisposeTimelinePreview() => _timelineWindow?.DisposePreview();
+	internal bool PrepareTimelineSceneSwitch(Action continuation) => _timelineWindow?.PrepareSceneSwitch(continuation) ?? true;
+	internal void OpenTimelineAsset(string path) { ShowTimelineWindow = true; _timelineWindow.SetVisible(true); _timelineWindow.RequestAsset(path); }
+	internal object TimelineEditorState() => _timelineWindow.EditorState();
+	internal void RestoreTimelineCameraTarget() { _cameraTargetPosition = Core.Scene.Camera.Position; _isCameraDragging = false; }
+
 	public void OpenAnimationEventInspector(SpriteAnimator animator)
 	{
 		if (_animationEventInspector == null || !ShowAnimationEventInspector)
@@ -1991,10 +1966,18 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	/// </summary>
 	internal void OpenPrefabIsolated(Voltage.Data.PrefabData prefabData, string prefabName, Guid prefabGuid)
 	{
+		if (!PrepareTimelineSceneSwitch(() => OpenPrefabIsolated(prefabData, prefabName, prefabGuid)))
+			return;
+		if (_prefabEdit == null && Core.Scene?.Camera != null)
+		{
+			_prefabPreviousViewPosition = Core.Scene.Camera.Position;
+			_prefabPreviousViewZoom = Core.Scene.Camera.RawZoom;
+		}
 		// Remember the scene to return to (the current real, file-backed scene). Captured now, before
 		// the swap, so "Go Back" can reload it.
 		OpenPrefabIsolated(prefabData, prefabName, prefabGuid,
-			SceneManager.Instance.CurrentScenePath, SceneManager.Instance.CurrentSceneName,
+			_prefabEdit?.PreviousScenePath ?? SceneManager.Instance.CurrentScenePath,
+			_prefabEdit?.PreviousSceneName ?? SceneManager.Instance.CurrentSceneName,
 			promptOnUnsaved: true);
 	}
 
@@ -2039,6 +2022,17 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	/// </summary>
 	private void ProcessPendingPrefabInstantiation()
 	{
+		if (_prefabReturnScene != null && Core.Scene == _prefabReturnScene)
+		{
+			if (_prefabPreviousViewZoom.HasValue)
+			{
+				Core.Scene.Camera.RawZoom = _prefabPreviousViewZoom.Value;
+				Core.Scene.Camera.Position = _prefabPreviousViewPosition;
+				_cameraTargetPosition = _prefabPreviousViewPosition;
+			}
+			_prefabReturnScene = null;
+			_prefabPreviousViewZoom = null;
+		}
 		if (_pendingPrefabScene == null)
 			return;
 
@@ -2066,10 +2060,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			PreviousSceneName = _pendingPrefabPrevSceneName,
 		};
 
-		// CreateEntityFromPrefabData already selects the instance and routes it to the inspector.
-		// Focus the editor camera on the prefab instance, matching the Scene Graph's click-to-focus.
 		if (instance != null)
-			_cursorSelectionManager.SetCameraTargetPosition(instance.Transform.Position);
+			_cameraTargetPosition = Utils.EntityFocusBounds.FramePrefab(Core.Scene.Camera, new[] { instance });
 
 		_pendingPrefabScene = null;
 		_pendingPrefabData = default;
@@ -2133,6 +2125,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	{
 		if (_prefabEdit == null)
 			return;
+		if (!PrepareTimelineSceneSwitch(ExitPrefabEditScene))
+			return;
 
 		var prevPath = _prefabEdit.PreviousScenePath;
 		_prefabEdit = null;
@@ -2142,7 +2136,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		if (!string.IsNullOrEmpty(prevPath) && File.Exists(prevPath))
 		{
-			SceneManager.Instance.LoadScene(prevPath);
+			_prefabReturnScene = SceneManager.Instance.LoadScene(prevPath);
 		}
 		else
 		{
@@ -2161,6 +2155,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	{
 		if (scene == null)
 			return;
+		if (!PrepareTimelineSceneSwitch(() => ActivateScene(scene))) return;
 
 		if (ProjectManager.Instance.HasActiveProject)
 		{

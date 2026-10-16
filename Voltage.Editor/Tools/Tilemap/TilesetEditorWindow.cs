@@ -96,7 +96,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (!IsOpen)
 				return;
 
-			ImGui.SetNextWindowSize(new Num.Vector2(720, 620), ImGuiCond.FirstUseEver);
+			EditorLayout.WindowSize(new Num.Vector2(900, 700), ImGuiCond.FirstUseEver);
 
 			var open = IsOpen;
 			if (!Gui.Begin("Tileset Editor ###TilesetEditorWindow", ref open))
@@ -336,7 +336,7 @@ namespace Voltage.Editor.Tools.Tilemap
 		// Field width is what's left after the label and buttons, so a long path shrinks the field
 		// instead of pushing the buttons out of the window.
 		private const float LabelWidth = 160f;
-		private const float ButtonWidth = 90f;
+		private static float ButtonWidth => Math.Max(90f, ImGui.CalcTextSize("Browse...").X + ImGui.GetStyle().FramePadding.X * 2);
 
 		private static float FieldWidth(int buttonCount)
 		{
@@ -590,7 +590,7 @@ namespace Voltage.Editor.Tools.Tilemap
 				: Math.Max(availY, MinAtlasHeight);
 
 			ImGui.PushStyleColor(ImGuiCol.ChildBg, TileAtlasBackground.Color);
-			ImGui.BeginChild("tileset_preview", new Num.Vector2(0, atlasHeight), true,
+			ImGui.BeginChild("tileset_preview", new Num.Vector2(0, atlasHeight), ImGuiChildFlags.Borders,
 				ImGuiWindowFlags.HorizontalScrollbar);
 
 			var origin = ImGui.GetCursorScreenPos();
@@ -607,7 +607,7 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (hasSelection)
 			{
 				// Fixed height with its own scrollbar so a long frame list never clips.
-				ImGui.BeginChild("tileset_tilepanel", new Num.Vector2(0, SelectedPanelHeight), true);
+				ImGui.BeginChild("tileset_tilepanel", new Num.Vector2(0, SelectedPanelHeight), ImGuiChildFlags.Borders);
 				DrawSelectedTilePanel();
 				ImGui.EndChild();
 			}

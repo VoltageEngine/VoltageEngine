@@ -1,63 +1,73 @@
 # Voltage Engine
 
-Voltage is a standalone 2D game engine and editor for C# developers. It ships as a single executable that opens a Godot/Unity-style editor, a dockable ImGui interface sitting in front of a live MonoGame render window, and publishes finished games as self-contained, NativeAOT-compiled binaries with no runtime dependency.
+**A C# engine and live editor for 2D pixel art games on Windows, macOS and Linux.**
 
-<img width="3831" height="2066" alt="Voltage Editor" src="https://github.com/user-attachments/assets/3cff3193-5f86-44ae-8bb9-545ba088f21c" />
+Build a scene, paint its tiles, adjust the lighting and press Play in the same window. Voltage combines a dockable editor with a MonoGame DesktopGL runtime, keeping game code in your own C# project. Scripts reload on save; finished games can ship as self-contained NativeAOT binaries.
 
-## Documentation
+![Voltage Editor showing Jolt, with the scene hierarchy, inspector and asset browser around the game view](docs/images/voltage-editor.png)
 
-The manual lives at **https://voltageengine.github.io/VoltageEngine/** and is written in the [`docs/`](docs/) folder of this repository, so every page is readable on GitHub as well.
+*The editor running Jolt. Scene, asset and script workflows share a live game view.*
 
-| Start here | Then |
-|---|---|
-| [Introduction](docs/intro.md) | [Editor guide](docs/editor/projects.md) |
-| [Installation](docs/getting-started/installation.md) | [Scripting guide](docs/scripting/components.md) |
-| [Your first game](docs/getting-started/first-game.md) | [Serialization and NativeAOT](docs/engine/serialization-and-aot.md) |
-| [Editor Gateway, CLI and MCP](docs/gateway/README.md) | [Plugins](docs/plugins/README.md), [Asset file formats](docs/assets/README.md) |
+[Read the manual](https://voltageengine.github.io/VoltageEngine/) · [Build the editor](docs/getting-started/installation.md) · [Make your first game](docs/getting-started/first-game.md)
 
-## Quick start
+## Built around pixel art
+
+| Work | Tools |
+| --- | --- |
+| Lay out a level | Tile painting, layered tilesets, generated collision, Tiled import and a searchable scene hierarchy. |
+| Keep art editable | Aseprite layers, tags and frame timing; source-image sync in the Tile Palette and Tileset Editor. |
+| Light the scene | Animated normal maps, point and spot lights, room fills and light projected through transparent board artwork. |
+| Author behavior | C# components, saved data assets, prefabs, animation events and timelines. |
+| Iterate in context | Play, pause, inspect, undo and hot reload without leaving the editor. |
+
+![Jolt running in Voltage, showing the pixel art, characters and room lighting without editor debug overlays](docs/images/jolt-game.png)
+
+*Jolt in the game view, with debug overlays hidden. Artwork and lighting shown here belong to the game project.*
+
+The lighting works with the artwork: normal maps can follow animated sprite frames, [room lights](docs/graphics/room-light.md) keep interiors readable, and [projected lights](docs/graphics/projected-light.md) use transparent pixels as openings. The latter is a 2D surface-light projection with configurable depth and softness, not a full 3D or volumetric renderer.
+
+## One project, desktop platforms
+
+The editor and runtime use SDL2 and OpenGL through MonoGame DesktopGL. Windows, Linux and both Intel and Apple Silicon macOS have desktop build targets. The editor's Build window handles game publishing, asset compilation and NativeAOT/trimming settings; publishing needs the target platform's native toolchain.
+
+Game scripts reference the runtime, independently of the editor. Source-generated serialization preserves component and data-asset bindings without relying on runtime reflection. See [installation requirements](docs/getting-started/installation.md) and [serialization and NativeAOT](docs/engine/serialization-and-aot.md).
+
+## Get started
+
+Install the .NET 8 SDK, then build the editor:
 
 ```bash
 git clone https://github.com/VoltageEngine/VoltageEngine.git
 cd VoltageEngine
 dotnet build Voltage.Editor/Voltage.Editor.csproj -c Editor-Debug
-Voltage.Editor/bin/Editor-Debug/win-x64/Voltage.Editor.exe
 ```
 
-Requires the .NET 8 SDK. `File > New Project` creates a game project with its own `.csproj`; save a `.cs` file under `Scripts/` and the editor recompiles and reloads the scene.
+On Windows, launch `Voltage.Editor/bin/Editor-Debug/win-x64/Voltage.Editor.exe`. The output folder matches your platform; [installation](docs/getting-started/installation.md) covers Linux and macOS. Choose **File → New Project**, create a scene and add a `partial Component` under `Scripts/`. Saving the script recompiles it in the editor.
 
-## Features
+## Automation and AI collaboration
 
-- **Editor**: scene graph, inspector, asset browser with `.meta` GUIDs, prefabs with component-level overrides, tile painting, timeline, data assets, undo history, dockable layouts.
-- **Scripting**: `Component` and `SceneComponent` classes with a Unity-like lifecycle, hot reload on save, source-generated serialization with no runtime reflection.
-- **Runtime**: MonoGame DesktopGL rendering, deferred lighting, physics, a bussed audio mixer with spatial sound and zones, Aseprite and Tiled import.
-- **Room lighting**: [polygon room fill](docs/graphics/room-light.md) with soft boundaries, bounce tint, scattering-style falloff and lamp-driven flicker.
-- **Publishing**: `dotnet publish` with NativeAOT and trimming from inside the editor, per platform.
-- **Automation**: a loopback [gateway](docs/gateway/README.md) and the `voltage` CLI let scripts and AI agents drive the editor, with an MCP server built in.
-- **Live Aseprite**: a bundled [Lua bridge](docs/editor/aseprite.md) exposes 123 art tools through the editor's MCP, with previews, undo and project import.
-- **Plugins**: versioned packages from bundled, path, git or zip sources, locked per project.
+Voltage exposes the running editor through a local [Editor Gateway, CLI and MCP server](docs/gateway/README.md). An AI agent can inspect scenes, author entities and component settings, work with saved assets and run checks through the same supported editor operations. Undoable edits remain visible in the editor for you to review and adjust.
 
-## Repository layout
+The [live Aseprite bridge](docs/editor/aseprite.md) brings sprite work into that workflow too: agents can create and edit sprites, layers, pixels, palettes, tags and frames, preview the results and import them into the project. It supports agent-assisted sprite creation and iteration; image-generation services remain external tools. [The tool catalogue](docs/engine/aseprite-tool-catalogue.md) describes the available art operations.
+
+## Documentation and source
+
+| Guide | Reference |
+| --- | --- |
+| [Editor projects](docs/editor/projects.md) | [Editor windows](docs/editor/windows.md) |
+| [Scenes and prefabs](docs/editor/scenes-and-prefabs.md) | [Asset formats](docs/assets/README.md) |
+| [Scripting](docs/scripting/components.md) | [Rules and gotchas](docs/scripting/rules-and-gotchas.md) |
+| [Audio](docs/scripting/audio.md) | [Plugins](docs/plugins/README.md) |
 
 | Project | Role |
-|---|---|
-| `Voltage.Engine` | Runtime: `Core`, scenes, entities, components, content, rendering, physics, audio. |
-| `Voltage.Editor` | The ImGui editor, project and asset management, hot reload, game builder, gateway. |
-| `Voltage.Cli` | `voltage`, the gateway client and MCP server. |
-| `Voltage.SourceGenerators` | Roslyn generator for AOT-safe component serialization. |
-| `Voltage.Persistence` | The JSON layer scenes and prefabs are written with. |
-| `docs/` | The manual; `Voltage.github.io/` builds it into the documentation site. |
+| --- | --- |
+| `Voltage.Engine` | Scenes, entities, components, rendering, physics, content and audio. |
+| `Voltage.Editor` | Editor UI, asset management, hot reload, game publishing and gateway. |
+| `Voltage.Cli` | Gateway client and MCP server. |
+| `Voltage.SourceGenerators` | Component and data-asset serialization for NativeAOT. |
+| `Voltage.Persistence` | Scene, prefab and asset JSON persistence. |
+| `docs/` | Markdown manual; `Voltage.github.io/` builds the documentation site. |
 
-## Working on the docs
+To preview documentation, run `npm install` and `npm run start` in `Voltage.github.io/`. `npm run build` checks the site and its links.
 
-```bash
-cd Voltage.github.io
-npm install
-npm run start
-```
-
-Pages are Markdown files under `docs/`; the site reads them in place. `npm run build` checks for broken links.
-
-## Contributing and licence
-
-See [CONTRIBUTING.md](CONTRIBUTING.md). The engine is released under the [MIT licence](LICENSE); the bundled UI assets carry their own [licence](UI_LICENSE).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidance. The engine uses the [MIT licence](LICENSE); bundled UI assets have their own [licence](UI_LICENSE).

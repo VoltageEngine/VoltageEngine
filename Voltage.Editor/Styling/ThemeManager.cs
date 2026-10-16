@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using ImGuiNET;
 using Voltage.Editor.DebugUtils;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.Utils;
@@ -17,9 +18,12 @@ namespace Voltage.Editor.Styling
 		private readonly PersistentString _lastSelectedTheme;
 		private readonly Dictionary<string, MethodInfo> _availableThemes;
 		private string _currentThemeName;
+		private ImGuiStyle _logicalStyle;
+		private float _displayScale;
 
-		public ThemeManager()
+		public ThemeManager(float displayScale = 1)
 		{
+			_displayScale = displayScale;
 			_lastSelectedTheme = new PersistentString("ImGui_LastSelectedTheme", "");
 			_availableThemes = new Dictionary<string, MethodInfo>(StringComparer.OrdinalIgnoreCase);
 			
@@ -30,7 +34,7 @@ namespace Voltage.Editor.Styling
 			if (string.IsNullOrWhiteSpace(lastTheme))
 			{
 				// First time - use default
-				ApplyTheme("DarkTheme1");
+				ApplyTheme("StudioGraphite");
 			}
 			else
 			{
@@ -71,7 +75,7 @@ namespace Voltage.Editor.Styling
 		/// </summary>
 		/// <param name="themeName">Name of the theme to apply</param>
 		/// <returns>True if the theme was applied successfully</returns>
-		public bool ApplyTheme(string themeName)
+		public unsafe bool ApplyTheme(string themeName)
 		{
 			if (string.IsNullOrWhiteSpace(themeName))
 			{
@@ -83,7 +87,10 @@ namespace Voltage.Editor.Styling
 			{
 				try
 				{
+					if (_currentThemeName != null) *ImGui.GetStyle().NativePtr = _logicalStyle;
 					themeMethod.Invoke(null, null);
+					_logicalStyle = *ImGui.GetStyle().NativePtr;
+					ImGui.GetStyle().ScaleAllSizes(_displayScale);
 					_currentThemeName = themeName;
 					_lastSelectedTheme.Value = themeName;
 					return true;
@@ -109,12 +116,20 @@ namespace Voltage.Editor.Styling
 			return _availableThemes.ContainsKey(themeName);
 		}
 
+		public unsafe void SetDisplayScale(float scale)
+		{
+			if (Math.Abs(scale - _displayScale) < 0.01f) return;
+			_displayScale = scale;
+			*ImGui.GetStyle().NativePtr = _logicalStyle;
+			ImGui.GetStyle().ScaleAllSizes(scale);
+		}
+
 		/// <summary>
 		/// Resets to the default theme.
 		/// </summary>
 		public void ResetToDefault()
 		{
-			ApplyTheme("DarkTheme1");
+			ApplyTheme("StudioGraphite");
 		}
 	}
 }

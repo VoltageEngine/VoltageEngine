@@ -29,6 +29,7 @@ namespace Voltage.Editor.Windows
 			if (_imguiManager == null)
 				_imguiManager = Core.GetGlobalManager<ImGuiManager>();
 
+			EditorLayout.WindowSize(new Num.Vector2(560, 600));
 			Gui.Begin("Core Settings###CoreWindow", ref isOpen, ImGuiWindowFlags.None);
 
 			DrawSettings();

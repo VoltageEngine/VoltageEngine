@@ -25,14 +25,17 @@ public partial class SpriteLight : DeferredLight
         get
         {
             var b = Source?.Bounds ?? new RectangleF();
-            float pad = Radius * Math.Max(Source?.Entity.Scale.X ?? 1, Source?.Entity.Scale.Y ?? 1);
-            return new RectangleF(b.X - pad, b.Y - pad, b.Width + pad * 2, b.Height + pad * 2);
+            var scale = Source?.Entity.Scale ?? Vector2.One;
+            float cosine = Math.Abs(MathF.Cos(Source?.RenderRotation ?? 0)), sine = Math.Abs(MathF.Sin(Source?.RenderRotation ?? 0));
+            float radius = Math.Clamp(Radius, 1, 128);
+            var pad = radius * new Vector2(cosine * Math.Abs(scale.X) + sine * Math.Abs(scale.Y),
+                sine * Math.Abs(scale.X) + cosine * Math.Abs(scale.Y));
+            return new RectangleF(b.X - pad.X, b.Y - pad.Y, b.Width + pad.X * 2, b.Height + pad.Y * 2);
         }
     }
     public void SetFrameMask(Sprite frame, Sprite mask)
     {
         _masks[frame] = mask;
-        GetField(mask);
     }
     private Sprite GetField(Sprite mask)
     {

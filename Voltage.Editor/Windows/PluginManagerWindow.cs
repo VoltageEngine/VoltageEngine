@@ -1,3 +1,4 @@
+using Voltage.Editor.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -108,7 +109,7 @@ namespace Voltage.Editor.Windows
 			if (!IsOpen)
 				return;
 
-			ImGui.SetNextWindowSize(new Num.Vector2(720, 460), ImGuiCond.FirstUseEver);
+			EditorLayout.WindowSize(new Num.Vector2(820, 620), ImGuiCond.FirstUseEver);
 			if (!Gui.Begin("Plugin Manager ###PluginManagerWindow", ref IsOpen))
 			{
 				Gui.End();
@@ -137,6 +138,8 @@ namespace Voltage.Editor.Windows
 				ImGui.SetTooltip("Scaffold a new plugin folder (plugin.json + starter code) and optionally add it to this project.");
 
 			ImGui.SameLine();
+			if (ImGui.GetContentRegionAvail().X < ImGui.CalcTextSize("Reload Plugins").X + ImGui.GetStyle().FramePadding.X * 2f)
+				ImGui.NewLine();
 			var needsRestart = plugins.Any(p => p.StaleAssemblyWarning != null);
 			if (needsRestart)
 				ImGui.PushStyleColor(ImGuiCol.Text, ColorWarn);
@@ -541,10 +544,11 @@ private void DrawAddPluginSection()
 			switch (_addSourceType)
 			{
 				case 0: // Local folder
-					ImGui.SetNextItemWidth(-100);
+					var browseWidth = Math.Max(85f, ImGui.CalcTextSize("Browse").X + ImGui.GetStyle().FramePadding.X * 2f);
+					ImGui.SetNextItemWidth(-(browseWidth + ImGui.GetStyle().ItemSpacing.X));
 					Gui.InputText("##addpath", ref _addPath, 1024);
 					ImGui.SameLine();
-					if (Gui.Button("Browse", new Num.Vector2(85, 0)))
+					if (Gui.Button("Browse", new Num.Vector2(browseWidth, 0)))
 						_pluginFolderBrowser.Open("Select plugin folder", _addPath, this);
 					if (!string.IsNullOrWhiteSpace(_addPath))
 					{
@@ -674,7 +678,7 @@ private void DrawAddPluginSection()
 
 			var center = ImGui.GetMainViewport().GetCenter();
 			ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
-			ImGui.SetNextWindowSize(new Num.Vector2(680, 0), ImGuiCond.Appearing);
+			Voltage.Editor.Utils.EditorLayout.WindowSize(new Num.Vector2(820, 700), ImGuiCond.Appearing);
 
 			var open = true;
 			if (!Gui.BeginPopupModal("create-plugin", ref open, ImGuiWindowFlags.None))
@@ -714,10 +718,11 @@ private void DrawAddPluginSection()
 
 			ImGui.Spacing();
 			ImGui.TextUnformatted("Location");
-			ImGui.SetNextItemWidth(-90);
+			var browseWidth = Math.Max(80f, ImGui.CalcTextSize("Browse").X + ImGui.GetStyle().FramePadding.X * 2f);
+			ImGui.SetNextItemWidth(-(browseWidth + ImGui.GetStyle().ItemSpacing.X));
 			Gui.InputText("##location", ref _newLocation, 1024);
 			ImGui.SameLine();
-			if (Gui.Button("Browse", new Num.Vector2(80, 0)))
+			if (Gui.Button("Browse", new Num.Vector2(browseWidth, 0)))
 				_createLocationBrowser.Open("Select where to create the plugin", _newLocation, this);
 			if (ImGui.IsItemHovered())
 				ImGui.SetTooltip("The new plugin folder is created inside this location.");
@@ -825,7 +830,7 @@ private void DrawAddPluginSection()
 
 			var center = ImGui.GetMainViewport().GetCenter();
 			ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
-			ImGui.SetNextWindowSize(new Num.Vector2(720, 0), ImGuiCond.Appearing);
+			Voltage.Editor.Utils.EditorLayout.WindowSize(new Num.Vector2(860, 700), ImGuiCond.Appearing);
 
 			var open = true;
 			if (!Gui.BeginPopupModal("publish-plugin", ref open, ImGuiWindowFlags.None))

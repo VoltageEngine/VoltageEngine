@@ -37,7 +37,11 @@ public class PrefabSpawningTests
                     new() { Id = grandchildId, ParentId = childId, InstanceType = Entity.InstanceType.Serialized, Name = "Spark", Position = new Vector2(3, 2) }
                 }
             };
-            var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".vprefab");
+            var projectRoot = Path.Combine(Path.GetTempPath(), "VoltageRuntimeAssets-" + Guid.NewGuid());
+            var path = Path.Combine(projectRoot, "Actors", "Nested", "Actor.vprefab");
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            var previousRoot = Scene.ProjectDirectory;
+            Scene.ProjectDirectory = projectRoot;
             try
             {
                 File.WriteAllText(path, Json.ToJson(prefab));
@@ -46,7 +50,7 @@ public class PrefabSpawningTests
                 for (int i = 0; i < 3; i++)
                 {
                     var position = new Vector2(100 + i * 200, 80);
-                    var actor = scene.LoadPrefab(path, position);
+                    var actor = scene.LoadPrefab("Actors/Nested/Actor.vprefab", position);
                     Assert.That(actor, Is.Not.Null);
                     Assert.That(actor.OriginalPrefabName, Is.EqualTo(Path.GetFileNameWithoutExtension(path)));
                     Assert.That(actor.Transform.ChildCount, Is.EqualTo(1));
@@ -65,7 +69,7 @@ public class PrefabSpawningTests
                     }
                 }
             }
-            finally { File.Delete(path); scene.Content.Dispose(); }
+            finally { Scene.ProjectDirectory = previousRoot; Directory.Delete(projectRoot, true); scene.Content.Dispose(); }
             Exit();
         }
     }

@@ -31,21 +31,6 @@ namespace Voltage.Editor.Windows
 			{ Debug.LogType.Success, new Num.Vector4(0.2f, 1f, 0.3f, 1f) } // Bright Green
 		};
 
-		// Helper to get font scale by log type
-		private float GetFontScale(Debug.LogType type)
-		{
-			return type switch
-			{
-				Debug.LogType.Error => 1.3f,
-				Debug.LogType.Warn => 1.2f,
-				Debug.LogType.Info => 1.1f,
-				Debug.LogType.Success => 1.1f,
-				Debug.LogType.Log => 1.0f,
-				Debug.LogType.Trace => 1.0f,
-				_ => 1.0f
-			};
-		}
-
 		public void Draw()
 		{
 			if (_imguiManager == null)
@@ -61,8 +46,9 @@ namespace Voltage.Editor.Windows
 
 			Gui.Begin("Debug Log ###DebugWindow", ImGuiWindowFlags.HorizontalScrollbar);
 
-			// Controls row
-			ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Num.Vector2(4, 4));
+			var flow = new ToolbarFlow();
+			float CheckWidth(string label) => ImGui.CalcTextSize(label).X + ImGui.GetFrameHeight() + ImGui.GetStyle().ItemInnerSpacing.X;
+			flow.Next(CheckWidth("Collapse Text"));
 
 			bool collapseText = _isCollapseTextOn.Value;
 			if (Gui.Checkbox("Collapse Text", ref collapseText))
@@ -70,7 +56,7 @@ namespace Voltage.Editor.Windows
 				_isCollapseTextOn.Value = collapseText;
 			}
 
-			ImGui.SameLine();
+			flow.Next(CheckWidth("Group Logs"));
 
 			bool groupLogsValue = _isGroupLogsOn.Value;
 			if (Gui.Checkbox("Group Logs", ref groupLogsValue))
@@ -78,27 +64,29 @@ namespace Voltage.Editor.Windows
 				_isGroupLogsOn.Value = groupLogsValue;
 			}
 
-			ImGui.SameLine();
+			flow.Next(ImGui.CalcTextSize("Clear").X + ImGui.GetStyle().FramePadding.X * 2);
 			if (Gui.Button("Clear"))
 			{
 				Debug.ClearLogEntries();
 			}
 
-			ImGui.PushItemWidth(200);
+			// Keep the numeric input on its own row and within the panel at every font size.
+			ImGui.AlignTextToFramePadding();
+			ImGui.TextUnformatted("Max Messages");
+			ImGui.SetNextItemWidth(Math.Min(200 * _imguiManager.FontSizeMultiplier, ImGui.GetContentRegionAvail().X));
 			var maxMessagesInput = _maxMessages.Value;
-			if (Gui.InputInt("Max Messages", ref maxMessagesInput))
+			if (Gui.InputInt("##Max Messages", ref maxMessagesInput))
 			{
 				_maxMessages.Value = Math.Clamp(maxMessagesInput, 1, 100000);
 			}
 
-			ImGui.PopItemWidth();
-			ImGui.PopStyleVar();
 
 			ImGui.Separator();
 
 			var logEntries = Debug.GetLogEntries();
 
-			ImGui.BeginChild("DebugLogScroll", new Num.Vector2(0, -ImGui.GetFrameHeightWithSpacing()), true,
+			ImGui.PushFont(_imguiManager.LogFont);
+			ImGui.BeginChild("DebugLogScroll", new Num.Vector2(0, -ImGui.GetFrameHeightWithSpacing()), ImGuiChildFlags.Borders,
 				ImGuiWindowFlags.HorizontalScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
 
 			var wheel = ImGui.GetIO().MouseWheel;
@@ -163,6 +151,7 @@ namespace Voltage.Editor.Windows
 			}
 
 			ImGui.EndChild();
+			ImGui.PopFont();
 			Gui.End();
 		}
 
@@ -174,23 +163,6 @@ namespace Voltage.Editor.Windows
 			if (count > 1)
 			{
 				text += count > 99 ? "  (x100+)" : $"  (x{count})";
-			}
-
-			// Get appropriate font index based on log type
-			int fontIndex = type switch
-			{
-				Debug.LogType.Error => 3,
-				Debug.LogType.Warn => 2,
-				Debug.LogType.Info => 1,
-				Debug.LogType.Success => 1,
-				_ => 0
-			};
-
-			// Push the appropriate font (if available)
-			var io = ImGui.GetIO();
-			if (io.Fonts.Fonts.Size > fontIndex)
-			{
-				ImGui.PushFont(io.Fonts.Fonts[fontIndex]);
 			}
 
 			var cursorScreenPos = ImGui.GetCursorScreenPos();
@@ -208,12 +180,6 @@ namespace Voltage.Editor.Windows
 				DrawMessageIcon(type, color);
 				ImGui.SameLine();
 				ImGuiSafe.TextColoredSafe(color, text);
-			}
-
-			// Pop font if we pushed one
-			if (io.Fonts.Fonts.Size > fontIndex)
-			{
-				ImGui.PopFont();
 			}
 
 			var itemRectMin = cursorScreenPos;
@@ -245,7 +211,6 @@ namespace Voltage.Editor.Windows
 				Gui.EndPopup();
 			}
 
-			ImGui.SetWindowFontScale(1.0f);
 			ImGui.Spacing();
 		}
 

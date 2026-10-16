@@ -55,7 +55,7 @@ namespace Voltage
 				for (var j = 0; j < renderables.Length; j++)
 				{
 					var renderable = renderables.Buffer[j];
-					if (renderable.Enabled && renderable.IsVisibleFromCamera(cam))
+					if (renderable.Enabled && DebugRenderFilter.ShouldRender(renderable) && renderable.IsVisibleFromCamera(cam))
 						renderable.DebugRender(Graphics.Instance.Batcher);
 				}
 			}

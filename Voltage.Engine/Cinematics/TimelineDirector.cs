@@ -505,7 +505,15 @@ namespace Voltage.Cinematics
 		{
 			if (entity == null || string.IsNullOrEmpty(componentId))
 				return null;
-			return ComponentIdRegistry.TryGetType(componentId, out var type) ? entity.GetComponent(type) : null;
+			if (ComponentIdRegistry.TryGetType(componentId, out var type) && entity.GetComponent(type) is { } current)
+				return current;
+			foreach (var component in entity.Components)
+				if (ComponentIdRegistry.GetIdForType(component.GetType()) == componentId)
+					return component;
+			foreach (var component in entity.ComponentsToAdd)
+				if (ComponentIdRegistry.GetIdForType(component.GetType()) == componentId)
+					return component;
+			return null;
 		}
 
 		private void ResolveBindings()

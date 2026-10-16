@@ -77,7 +77,7 @@ public sealed class AssetBuildSettingsWindow
 		if (!_open)
 			return;
 
-		ImGui.SetNextWindowSize(new Num.Vector2(620, 0), ImGuiCond.Appearing);
+		EditorLayout.WindowSize(new Num.Vector2(760, 680), ImGuiCond.Appearing);
 		if (Gui.Begin("Asset Build Settings", ref _open, ImGuiWindowFlags.NoCollapse))
 		{
 			Gui.Checkbox("Compile assets on build", ref _enabled);

@@ -1,3 +1,4 @@
+using Voltage.Editor.Utils;
 using ImGuiNET;
 using Voltage.Audio;
 using Num = System.Numerics;
@@ -23,7 +24,7 @@ namespace Voltage.Editor.Windows
 			if (!IsOpen)
 				return;
 
-			ImGui.SetNextWindowSize(new Num.Vector2(360, 220), ImGuiCond.FirstUseEver);
+			EditorLayout.WindowSize(new Num.Vector2(540, 440), ImGuiCond.FirstUseEver);
 			if (!Gui.Begin("Audio Profiler ###AudioProfiler", ref IsOpen))
 			{
 				Gui.End();
@@ -32,7 +33,7 @@ namespace Voltage.Editor.Windows
 
 			if (Core.Audio == null)
 			{
-				ImGui.TextColored(Red, "Audio manager not initialized.");
+				Voltage.Editor.Utils.ImGuiSafe.TextWrappedColoredSafe(Red, "Audio manager not initialized.");
 				Gui.End();
 				return;
 			}
@@ -42,15 +43,13 @@ namespace Voltage.Editor.Windows
 
 			if (!Core.Audio.TryGetSoftwareAudioStats(out var stats))
 			{
-				ImGui.TextColored(Muted, "DSP profiling (mix load, voices, underruns) is only available on the");
-				ImGui.TextColored(Muted, "software mixing backend. Set AudioManager.PreferSoftwareBackend");
-				ImGui.TextColored(Muted, "(see Voltage.Editor/Program.cs) to enable it.");
+				Voltage.Editor.Utils.ImGuiSafe.TextWrappedColoredSafe(Muted, "DSP profiling (mix load, voices, underruns) is only available on the software mixing backend.");
 				Gui.End();
 				return;
 			}
 
 			var latencyMs = stats.SampleRate > 0 ? stats.BufferFrames * 1000.0 / stats.SampleRate : 0.0;
-			ImGui.TextColored(Muted,
+			Voltage.Editor.Utils.ImGuiSafe.TextWrappedColoredSafe(Muted,
 				$"SDL audio: {stats.SampleRate}Hz {stats.Channels}ch, {stats.BufferFrames}-frame buffer (~{latencyMs:0.0} ms)");
 			Tip("The output device format negotiated with SDL: sample rate, channel count and the size of one\n" +
 				"mix callback buffer. The buffer size sets the output latency (buffer / sample rate) - smaller is\n" +
@@ -67,12 +66,12 @@ namespace Voltage.Editor.Windows
 
 			ImGui.Spacing();
 
-			ImGui.Text($"mix {stats.MixAvgMs:0.00} ms / {stats.BudgetMs:0.0} ms  (peak {stats.MixPeakMs:0.00} ms)");
+			Voltage.Editor.Utils.ImGuiSafe.TextWrappedSafe($"mix {stats.MixAvgMs:0.00} ms / {stats.BudgetMs:0.0} ms  (peak {stats.MixPeakMs:0.00} ms)");
 			Tip("Average time spent mixing one buffer, against the time available for it (the budget), plus the\n" +
 				"recent peak. Budget = buffer frames / sample rate.");
-			ImGui.Text($"Active voices: {stats.ActiveVoices}");
+			Voltage.Editor.Utils.ImGuiSafe.TextWrappedSafe($"Active voices: {stats.ActiveVoices}");
 			Tip("Sounds currently being mixed (playing, non-disposed). Each adds to the per-buffer mix cost.");
-			ImGui.TextColored(stats.Underruns > 0 ? Red : MutedGreen, $"Underruns: {stats.Underruns}");
+			Voltage.Editor.Utils.ImGuiSafe.TextWrappedColoredSafe(stats.Underruns > 0 ? Red : MutedGreen, $"Underruns: {stats.Underruns}");
 			Tip("Cumulative times the mix didn't finish before its buffer was due, each an audible glitch. It only\n" +
 				"ever counts up; a steady 0 is healthy.");
 
@@ -96,15 +95,15 @@ namespace Voltage.Editor.Windows
 				ImGui.SameLine();
 
 				if (sw.IsDeviceOpen)
-					ImGui.TextColored(Green, "working");
+					Voltage.Editor.Utils.ImGuiSafe.TextWrappedColoredSafe(Green, "working");
 				else if (!sw.DeviceOpenAttempted)
 				{
-					ImGui.TextColored(Muted, "opens on first sound");
+					Voltage.Editor.Utils.ImGuiSafe.TextWrappedColoredSafe(Muted, "opens on first sound");
 					Tip("The SDL output device opens lazily the first time a sound plays; this is normal before then.");
 				}
 				else
 				{
-					ImGui.TextColored(Red, "device failed (silent)");
+					Voltage.Editor.Utils.ImGuiSafe.TextWrappedColoredSafe(Red, "device failed (silent)");
 					Tip("SDL could not open an output device, so no audio is produced. Check the OS default audio device.");
 				}
 
@@ -115,13 +114,13 @@ namespace Voltage.Editor.Windows
 			{
 				ImGui.TextUnformatted($"Backend: {FriendlyName(backend)}");
 				ImGui.SameLine();
-				ImGui.TextColored(Green, "working");
+				Voltage.Editor.Utils.ImGuiSafe.TextWrappedColoredSafe(Green, "working");
 				Tip("MonoGame's built-in audio (OpenAL on desktop). No DSP or mix profiling - switch to the software\n" +
 					"backend for that.");
 				return;
 			}
 
-			ImGui.TextColored(Red, "Backend: none (no audio).");
+			Voltage.Editor.Utils.ImGuiSafe.TextWrappedColoredSafe(Red, "Backend: none (no audio).");
 		}
 
 		private static string FriendlyName(IAudioBackend backend) => backend switch

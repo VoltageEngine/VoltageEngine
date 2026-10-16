@@ -4,7 +4,7 @@ Voltage uses MonoGame DesktopGL on Windows, macOS and Linux. Every shader must b
 
 ## First launch and game exports
 
-The 34 built-in effects are compiled at MonoGame 3.8.5.1 and embedded in `Voltage.dll`. A fresh checkout, relocated Editor, or exported game needs no MGFXC or Wine installation to load them. Existing loose DirectX or old-format built-in files are ignored in favor of the bundled OpenGL versions.
+The built-in effects are compiled at MonoGame 3.8.5.1 and embedded in `Voltage.dll`. A fresh checkout, relocated Editor, or exported game needs no MGFXC or Wine installation to load them. Existing loose DirectX or old-format built-in files are ignored in favor of the bundled OpenGL versions.
 
 Engine builds verify source and bytecode hashes against `Voltage.Engine/Graphics/Effects/Compiled/manifest.props`, accepting both LF and CRLF source checkouts. Changing a shader or the MonoGame package requires regenerating the bundle:
 

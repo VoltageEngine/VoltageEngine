@@ -86,7 +86,7 @@ namespace Voltage.Editor.Hotkeys
 				new HotkeyBinding(ImGuiKey._2), new HotkeyBinding(ImGuiKey.E));
 			Register(CursorRotate, CategoryViewport, "Rotate Cursor", "Rotate gizmo.",
 				new HotkeyBinding(ImGuiKey._3), new HotkeyBinding(ImGuiKey.R));
-			Register(CursorColliderResize, CategoryViewport, "Collider Cursor", "Collider resize gizmo.",
+			Register(CursorColliderResize, CategoryViewport, "Resize Bounds", "Resize collider and light bounds.",
 				new HotkeyBinding(ImGuiKey._4), new HotkeyBinding(ImGuiKey.T));
 			Register(CursorTilePaint, CategoryViewport, "Tile Paint Cursor", "Tile painting cursor.",
 				new HotkeyBinding(ImGuiKey._5), new HotkeyBinding(ImGuiKey.B));

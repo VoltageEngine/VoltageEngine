@@ -20,6 +20,7 @@ using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Undo.EntityActions;
 using Voltage.Editor.Assets;
 using Voltage.Serialization;
+using Voltage.Editor.Persistence;
 using PrefabData = Voltage.Data.PrefabData;
 
 namespace Voltage.Editor.Windows;
@@ -35,6 +36,10 @@ public class SceneGraphWindow
 	private RenderersPane _renderersPane = new();
 	private EntityPane _entityPane = new();
 	private SceneComponentsPane _sceneComponentsPane = new();
+	private readonly PersistentBool _showSceneComponents = new("SceneGraph_ShowSceneComponents", true);
+	private readonly PersistentBool _showPostProcessors = new("SceneGraph_ShowPostProcessors", true);
+	private readonly PersistentBool _showRenderers = new("SceneGraph_ShowRenderers", true);
+	private readonly PersistentBool _showEntities = new("SceneGraph_ShowEntities", true);
 	private ImGuiManager _imGuiManager;
 	public float SceneGraphWidth => _sceneGraphWidth;
 	public float SceneGraphPosY { get; set; }
@@ -44,17 +49,10 @@ public class SceneGraphWindow
 	private readonly float _minSceneGraphWidth = 1f;
 	private readonly float _maxSceneGraphWidth = Screen.MonitorWidth;
 
-	// Key Hold duration params
-	private float _upKeyHoldTime = 0f;
-	private float _downKeyHoldTime = 0f;
-	private double _lastRepeatTime = 0f;
-	private const float RepeatDelay = 0.3f;
-	private const float RepeatRate = 0.08f;
 	public HashSet<Entity> ExpandedEntities = new();
 
 	// SerializedPrefab caching
 	private List<string> _cachedPrefabNames = new();
-	private bool _prefabCacheInitialized = false;
 
 	// SerializedPrefab deletion
 	private bool _showDeletePrefabConfirmation = false;
@@ -104,31 +102,14 @@ public class SceneGraphWindow
 	/// </summary>
 	public void RefreshPrefabCache()
 	{
-		if(_prefabCacheInitialized)
-			return;
+        _cachedPrefabNames.Clear();
+        var project = ProjectManager.Instance.CurrentProject;
+        if (project == null) return;
+        foreach (var item in Assets.AssetDatabase.Instance.Items.DistinctBy(i => i.AbsolutePath, Voltage.Project.ProjectAssetFiles.PathComparer))
+            if (item.Extension is ".vprefab" or ".prefab")
+                _cachedPrefabNames.Add(Voltage.Project.ProjectAssetFiles.Key(project.ProjectPath, item.AbsolutePath));
+        _cachedPrefabNames.Sort(StringComparer.OrdinalIgnoreCase);
 
-		_cachedPrefabNames.Clear();
-		
-		var prefabsDirectory = ProjectManager.Instance.CurrentProject.PrefabsFolder;
-		if (Directory.Exists(prefabsDirectory))
-		{
-			// Search through all EntityType subdirectories
-			var entityTypeDirectories = Directory.GetDirectories(prefabsDirectory);
-			
-			foreach (var entityTypeDir in entityTypeDirectories)
-			{
-				// Native engine format is .vprefab; also scan .prefab for legacy files.
-				var prefabFiles = Directory.GetFiles(entityTypeDir, "*.vprefab")
-					.Concat(Directory.GetFiles(entityTypeDir, "*.prefab")).ToArray();
-				foreach (var file in prefabFiles)
-				{
-					var fileName = Path.GetFileNameWithoutExtension(file);
-					_cachedPrefabNames.Add(fileName);
-				}
-			}
-		}
-		
-		_prefabCacheInitialized = true;
 	}
 
 	/// <summary>
@@ -141,6 +122,40 @@ public class SceneGraphWindow
 		{
 			_cachedPrefabNames.Add(prefabName);
 		}
+	}
+
+	private static bool DrawSectionHeader(string label, PersistentBool setting, ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags.None)
+	{
+		var visible = setting.Value;
+		if (!visible)
+			return false;
+		var expanded = Gui.CollapsingHeader(label, ref visible, flags);
+		if (!visible)
+			setting.Value = false;
+		return expanded && visible;
+	}
+
+	private void DrawSectionMenu()
+	{
+		if (Gui.ArrowButton("Scene Graph Sections", ImGuiDir.Down))
+			ImGui.OpenPopup("scene-graph-sections");
+		if (ImGui.IsItemHovered())
+			ImGui.SetTooltip("Show or hide Scene Graph sections");
+		if (!Gui.BeginPopup("scene-graph-sections"))
+			return;
+		ImGui.TextDisabled("Visible sections");
+		DrawSectionOption("Scene Components", _showSceneComponents);
+		DrawSectionOption("Post Processors", _showPostProcessors);
+		DrawSectionOption("Renderers", _showRenderers);
+		DrawSectionOption("Entities", _showEntities);
+		Gui.EndPopup();
+	}
+
+	private static void DrawSectionOption(string label, PersistentBool setting)
+	{
+		var visible = setting.Value;
+		if (Gui.MenuItem(label, "", ref visible))
+			setting.Value = visible;
 	}
 
 	public bool Show(bool isOpen)
@@ -166,7 +181,11 @@ public class SceneGraphWindow
 				_sceneGraphWidth = Math.Clamp(currentWidth, _minSceneGraphWidth, _maxSceneGraphWidth);
 
 			// Above the scrolling child, so it stays pinned no matter how far the panes below are scrolled.
+			DrawSectionMenu();
+			ImGui.SameLine();
+			ImGui.BeginDisabled(!_showEntities.Value);
 			_entityPane.DrawSearchBar();
+			ImGui.EndDisabled();
 			ImGui.Separator();
 
 			// Wrap all content in a child so BeginDragDropTarget() after EndChild() binds
@@ -174,7 +193,7 @@ public class SceneGraphWindow
 			// Child is borderless/transparent so it is invisible to the user.
 			var childSize = ImGui.GetContentRegionAvail();
 			// border: false — child is invisible; the window provides the border.
-			ImGui.BeginChild("##SceneGraphContent", childSize, false, ImGuiWindowFlags.None);
+			ImGui.BeginChild("##SceneGraphContent", childSize, ImGuiChildFlags.None, ImGuiWindowFlags.None);
 
 			// Prefab edit scene: a "Go Back" control at the very top returns to the previous game scene.
 			if (_imGuiManager != null && _imGuiManager.IsInPrefabEditScene)
@@ -191,16 +210,16 @@ public class SceneGraphWindow
 			}
 
 			VoltageEditorUtils.MediumVerticalSpace();
-			if (Gui.CollapsingHeader("Scene Components"))
+			if (DrawSectionHeader("Scene Components", _showSceneComponents))
 				_sceneComponentsPane.Draw();
 
-			if (Gui.CollapsingHeader("Post Processors"))
+			if (DrawSectionHeader("Post Processors", _showPostProcessors))
 				_postProcessorsPane.Draw();
 
-			if (Gui.CollapsingHeader("Renderers"))
+			if (DrawSectionHeader("Renderers", _showRenderers))
 				_renderersPane.Draw();
 
-			if (Gui.CollapsingHeader("Entities (double-click label to inspect)", ImGuiTreeNodeFlags.DefaultOpen))
+			if (DrawSectionHeader("Entities (double-click label to inspect)", _showEntities, ImGuiTreeNodeFlags.DefaultOpen))
 				_entityPane.Draw();
 
 			VoltageEditorUtils.MediumVerticalSpace();
@@ -252,6 +271,7 @@ public class SceneGraphWindow
 				}
 			}
 
+			HandleEntitySelectionNavigation();
 			ImGui.EndChild(); // ##SceneGraphContent
 
 			// BeginDragDropTarget() immediately after EndChild() binds to the child item,
@@ -288,7 +308,6 @@ public class SceneGraphWindow
 		// Draw delete confirmation popup outside of the main window
 		DrawDeletePrefabConfirmationPopup();
 
-		HandleEntitySelectionNavigation();
 
 		if (ImGui.IsMouseClicked(ImGuiMouseButton.Left)
 		    && !ImGui.IsAnyItemHovered()
@@ -357,34 +376,14 @@ public class SceneGraphWindow
 	{
 		try
 		{
-			var prefabsDirectory = ProjectManager.Instance.CurrentProject.PrefabsFolder;
-			bool fileDeleted = false;
-
-			if (Directory.Exists(prefabsDirectory))
-			{
-				var entityTypeDirectories = Directory.GetDirectories(prefabsDirectory);
-				
-				foreach (var entityTypeDir in entityTypeDirectories)
-				{
-					// Try .vprefab first (native format), then .prefab (legacy).
-					var prefabFilePath = Path.Combine(entityTypeDir, $"{prefabName}.vprefab");
-					if (!File.Exists(prefabFilePath))
-						prefabFilePath = Path.Combine(entityTypeDir, $"{prefabName}.prefab");
-
-					if (File.Exists(prefabFilePath))
-					{
-						File.Delete(prefabFilePath);
-						fileDeleted = true;
-						break;
-					}
-				}
-			}
+			var path = Scene.ResolvePrefabFile(prefabName);
+			bool fileDeleted = path != null;
+			if (fileDeleted) File.Delete(path);
 
 			if (fileDeleted)
 			{
 				_cachedPrefabNames.Remove(prefabName);
 				
-				_prefabCacheInitialized = false;
 				
 				ImGui.CloseCurrentPopup();
 			}
@@ -452,22 +451,8 @@ public class SceneGraphWindow
 		if (db == null)
 			return Guid.Empty;
 
-		var prefabsDir = ProjectManager.Instance.CurrentProject?.PrefabsFolder;
-		if (string.IsNullOrEmpty(prefabsDir) || !System.IO.Directory.Exists(prefabsDir))
-			return Guid.Empty;
-
-		var direct = System.IO.Path.Combine(prefabsDir, $"{prefabName}.vprefab");
-		if (System.IO.File.Exists(direct))
-			return db.GetReference(direct).Guid;
-
-		foreach (var sub in System.IO.Directory.GetDirectories(prefabsDir))
-		{
-			var candidate = System.IO.Path.Combine(sub, $"{prefabName}.vprefab");
-			if (System.IO.File.Exists(candidate))
-				return db.GetReference(candidate).Guid;
-		}
-
-		return Guid.Empty;
+		var path = Scene.ResolvePrefabFile(prefabName);
+		return path == null ? Guid.Empty : db.GetReference(path).Guid;
 	}
 
 	/// <summary>
@@ -527,88 +512,22 @@ public class SceneGraphWindow
 	#region Entity Selection Navigation
 	private void HandleEntitySelectionNavigation()
 	{
-		var selectedEntity = _imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities.FirstOrDefault();
-
-		if (!Core.IsEditMode || selectedEntity == null || !ImGui.IsWindowFocused(ImGuiFocusedFlags.AnyWindow))
-			return; 
-
-		var hierarchyList = BuildHierarchyList();
-		var currentEntity = _imGuiManager?.MainEntityInspectorWindow?.Entity;
-		if (currentEntity == null || hierarchyList.Count == 0)
-			return;
-
-		bool upPressed = EditorHotkeys.Pressed(EditorHotkeys.SelectPrevEntity);
-		bool downPressed = EditorHotkeys.Pressed(EditorHotkeys.SelectNextEntity);
-		bool upHeld = ImGui.IsKeyDown(ImGuiKey.UpArrow);
-		bool downHeld = ImGui.IsKeyDown(ImGuiKey.DownArrow);
-
-		double now = ImGui.GetTime();
-
-		if (upPressed)
-		{
-			_upKeyHoldTime = (float)now;
-			var next = NavigateUp(currentEntity, hierarchyList);
-			if (next != null)
-			{
-				_imGuiManager.OpenMainEntityInspector(next);
-				EntityPane.SetSelectedEntity(next, false);
-				ExpandParentsAndChildren(next);
-				_imGuiManager.CursorSelectionManager.SetCameraTargetPosition(next.Transform.Position);
-			}
-			_lastRepeatTime = now;
-		}
-		else if (upHeld)
-		{
-			if (now - _upKeyHoldTime > RepeatDelay && now - _lastRepeatTime > RepeatRate)
-			{
-				var next = NavigateUp(currentEntity, hierarchyList);
-				if (next != null)
-				{
-					_imGuiManager.OpenMainEntityInspector(next);
-					EntityPane.SetSelectedEntity(next, false);
-					ExpandParentsAndChildren(next);
-					_imGuiManager.CursorSelectionManager.SetCameraTargetPosition(next.Transform.Position);
-				}
-				_lastRepeatTime = now;
-			}
-		}
-		else if (!upHeld)
-		{
-			_upKeyHoldTime = 0f;
-		}
-
-		if (downPressed)
-		{
-			_downKeyHoldTime = (float)now;
-			var next = NavigateDown(currentEntity, hierarchyList);
-			if (next != null)
-			{
-				_imGuiManager.OpenMainEntityInspector(next);
-				EntityPane.SetSelectedEntity(next, false);
-				ExpandParentsAndChildren(next);
-				_imGuiManager.CursorSelectionManager.SetCameraTargetPosition(next.Transform.Position); 
-			}
-			_lastRepeatTime = now;
-		}
-		else if (downHeld)
-		{
-			if (now - _downKeyHoldTime > RepeatDelay && now - _lastRepeatTime > RepeatRate)
-			{
-				var next = NavigateDown(currentEntity, hierarchyList);
-				if (next != null)
-				{
-					_imGuiManager.OpenMainEntityInspector(next);
-					EntityPane.SetSelectedEntity(next, false);
-					ExpandParentsAndChildren(next);
-					_imGuiManager.CursorSelectionManager.SetCameraTargetPosition(next.Transform.Position);
-				}
-				_lastRepeatTime = now;
-			}
-		}
-		else if (!downHeld)
-		{
-			_downKeyHoldTime = 0f;
-		}
+		if (!Core.IsEditMode || !ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows) ||
+		    ImGui.GetIO().WantTextInput || ImGui.IsAnyItemActive()) return;
+		var current = EntityPane.SelectedEntities.LastOrDefault();
+		if (current == null) return;
+		int direction = EditorHotkeys.Pressed(EditorHotkeys.SelectPrevEntity, true) ? -1 :
+		    EditorHotkeys.Pressed(EditorHotkeys.SelectNextEntity, true) ? 1 : 0;
+		if (direction == 0) return;
+		var hierarchy = BuildHierarchyList();
+		int index = hierarchy.IndexOf(current);
+		int nextIndex = index + direction;
+		if (index < 0 || nextIndex < 0 || nextIndex >= hierarchy.Count) return;
+		var next = hierarchy[nextIndex];
+		EntityPane.SelectForNavigation(next);
+		_imGuiManager.OpenMainEntityInspector(next);
+		ExpandParentsAndChildren(next);
+		_imGuiManager.CursorSelectionManager.SetCameraTargetPosition(next.Position);
 	}
 
 	public List<Entity> BuildHierarchyList()
@@ -633,38 +552,6 @@ public class SceneGraphWindow
 		{
 			AddEntityAndChildren(entity.Transform.GetChild(i).Entity, result);
 		}
-	}
-
-	private Entity GetLastDescendant(Entity entity)
-	{
-		while (entity.Transform.ChildCount > 0)
-			entity = entity.Transform.GetChild(entity.Transform.ChildCount - 1).Entity;
-		return entity;
-	}
-
-	private Entity NavigateUp(Entity current, List<Entity> hierarchyList)
-	{
-		int idx = hierarchyList.IndexOf(current);
-		if (idx <= 0)
-			return null;
-
-		Entity prev = hierarchyList[idx - 1];
-
-		if (current.Transform.Parent != null && prev == current.Transform.Parent.Entity)
-			return prev;
-
-		if (prev.Transform.ChildCount > 0)
-			return GetLastDescendant(prev);
-
-		return prev;
-	}
-
-	private Entity NavigateDown(Entity current, List<Entity> hierarchyList)
-	{
-		int idx = hierarchyList.IndexOf(current);
-		if (idx < 0 || idx >= hierarchyList.Count - 1)
-			return null;
-		return hierarchyList[idx + 1];
 	}
 
 	private void ExpandParentsAndChildren(Entity entity)

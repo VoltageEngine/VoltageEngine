@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
@@ -13,6 +14,36 @@ namespace Voltage.Editor.ImGuiCore
 	public class ImGuiRenderer
 	{
 		public ImFontPtr DefaultFontPtr { get; private set; }
+		public ImFontPtr LogFontPtr { get; private set; }
+		public ImFontPtr IconFontPtr { get; private set; }
+		public ImFontPtr HeadingFontPtr { get; private set; }
+		public float AppliedDisplayScale { get; private set; } = 1;
+		private readonly Persistence.PersistentInt _interfaceScale = new("Editor_InterfaceScale", 100);
+		private readonly Persistence.PersistentInt _textScale = new("Editor_TextScale", 100);
+		private readonly Persistence.PersistentString _uiFont = new("Editor_UIFont", "ProggyForever");
+		private readonly Persistence.PersistentString _codeFont = new("Editor_CodeFont", "Classic");
+		private ImGuiOptions _fontOptions;
+		private bool _fontsDirty;
+		public int InterfaceScalePercent
+		{
+			get => Math.Clamp(_interfaceScale.Value, 75, 200);
+			set { _interfaceScale.Value = Math.Clamp(value, 75, 200); _fontsDirty = true; }
+		}
+		public string UiFontName
+		{
+			get => _uiFont.Value;
+			set { _uiFont.Value = value; _fontsDirty = true; }
+		}
+		public int TextScalePercent
+		{
+			get => Math.Clamp(_textScale.Value, 80, 160);
+			set { _textScale.Value = Math.Clamp(value, 80, 160); _fontsDirty = true; }
+		}
+		public string CodeFontName
+		{
+			get => _codeFont.Value;
+			set { _codeFont.Value = value; _fontsDirty = true; }
+		}
 
 		// Graphics
 		BasicEffect _effect;
@@ -85,112 +116,31 @@ namespace Voltage.Editor.ImGuiCore
 		/// </summary>
 		public unsafe void RebuildFontAtlas(ImGuiOptions options)
 		{
-			// Get font texture from ImGui
+			_fontOptions = options;
+			AppliedDisplayScale = Styling.EditorDisplayScale.GetScale() * InterfaceScalePercent / 100f;
+			var fonts = Styling.EditorFonts.Build(options, AppliedDisplayScale, UiFontName, CodeFontName, TextScalePercent / 100f);
+			DefaultFontPtr = fonts.Ui;
+			LogFontPtr = fonts.Code;
+			IconFontPtr = fonts.Icons;
+			HeadingFontPtr = fonts.Heading;
 			var io = ImGui.GetIO();
-
-			// Get DPI scale from the primary monitor
-			float dpiScale = GetPrimaryMonitorDpiScale();
-			
-			// Set proper font rendering settings BEFORE building atlas
-			io.FontGlobalScale = 1.0f / dpiScale; // Adjust for DPI scaling
-
-			if (options._includeDefaultFont)
-			{
-				unsafe
-				{
-					var config = ImGuiNative.ImFontConfig_ImFontConfig();
-					var configPtr = new ImFontConfigPtr(config);
-					configPtr.OversampleH = 3;
-					configPtr.OversampleV = 1;
-					configPtr.PixelSnapH = true;
-					
-					DefaultFontPtr = io.Fonts.AddFontDefault(config);
-				}
-			}
-
-			foreach (var font in options._fonts)
-			{
-				unsafe
-				{
-					var config = ImGuiNative.ImFontConfig_ImFontConfig();
-					var configPtr = new ImFontConfigPtr(config);
-					configPtr.OversampleH = 3;
-					configPtr.OversampleV = 1;
-					configPtr.PixelSnapH = true;
-					
-					// Scale font size by DPI
-					float scaledSize = font.Item2 * dpiScale;
-					
-					io.Fonts.AddFontFromFileTTF(font.Item1, scaledSize, config);
-				}
-			}
-
-			// Build with proper flags for crisp rendering
-			io.Fonts.Flags = ImFontAtlasFlags.NoPowerOfTwoHeight;
-			io.Fonts.Build();
-
-			io.Fonts.GetTexDataAsRGBA32(out byte* pixelData, out int width, out int height, out int bytesPerPixel);
-
-			// Copy the data to a managed array
+			io.Fonts.GetTexDataAsRGBA32(out byte* data, out int width, out int height, out int bytesPerPixel);
 			var pixels = new byte[width * height * bytesPerPixel];
-			Marshal.Copy(new IntPtr(pixelData), pixels, 0, pixels.Length);
-
-			// Create texture with proper settings to avoid blur
-			var tex2d = new Texture2D(Core.GraphicsDevice, width, height, false, SurfaceFormat.Color);
-			tex2d.SetData(pixels);
-
-			// Should a texture already have been built previously, unbind it first so it can be deallocated
+			Marshal.Copy(new IntPtr(data), pixels, 0, pixels.Length);
+			var texture = new Texture2D(Core.GraphicsDevice, width, height, false, SurfaceFormat.Color);
+			texture.SetData(pixels);
 			if (_fontTextureId.HasValue)
+			{
+				if (_loadedTextures.TryGetValue(_fontTextureId.Value, out var oldTexture)) oldTexture.Dispose();
 				UnbindTexture(_fontTextureId.Value);
-
-			// Bind the new texture to an ImGui-friendly id
-			_fontTextureId = BindTexture(tex2d);
-
-			// Let ImGui know where to find the texture
+			}
+			_fontTextureId = BindTexture(texture);
 			io.Fonts.SetTexID(_fontTextureId.Value);
-			io.Fonts.ClearTexData(); // Clears CPU side texture data
+			io.Fonts.ClearTexData();
+			_fontsDirty = false;
 		}
 
-		/// <summary>
-		/// Gets the DPI scale factor for the primary monitor
-		/// </summary>
-		private float GetPrimaryMonitorDpiScale()
-		{
-			try
-			{
-#if OS_WINDOWS
-				// P/Invoke to get DPI
-				IntPtr hdc = GetDC(IntPtr.Zero);
-				int dpiX = GetDeviceCaps(hdc, LOGPIXELSX);
-				ReleaseDC(IntPtr.Zero, hdc);
-				return dpiX / 96.0f; // 96 DPI is 100% scaling
-#else
-				return 1.0f; // Default for non-Windows platforms
-#endif
-			}
-			catch
-			{
-				return 1.0f; // Fallback
-			}
-		}
-
-#if OS_WINDOWS
-		// Windows API constants and imports for DPI detection
-		private const int LOGPIXELSX = 88;
-		
-		[DllImport("user32.dll")]
-		private static extern IntPtr GetDC(IntPtr hWnd);
-		
-		[DllImport("user32.dll")]
-		private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
-		
-		[DllImport("gdi32.dll")]
-		private static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
-#endif
-
-		/// <summary>
-		/// Creates a pointer to a texture, which can be passed through ImGui calls such as <see cref="ImGui.Image" />. That pointer is then used by ImGui to let us know what texture to draw
-		/// </summary>
+		/// <summary>Registers a game texture without changing its sampling or ownership.</summary>
 		public IntPtr BindTexture(Texture2D texture)
 		{
 			var id = new IntPtr(_textureId++);
@@ -231,7 +181,12 @@ namespace Voltage.Editor.ImGuiCore
 					return;
 			}
 
-			io.DeltaTime = deltaTime;
+			DiscardFrame();
+			var scale = Styling.EditorDisplayScale.GetScale() * InterfaceScalePercent / 100f;
+			if (_fontsDirty || Math.Abs(scale - AppliedDisplayScale) > 0.01f)
+				RebuildFontAtlas(_fontOptions);
+			// Paused/initial MonoGame frames may report zero; ImGui 1.91 requires a positive time step.
+			io.DeltaTime = Math.Max(deltaTime, 0.000001f);
 			_input.UpdateInput();
 			ImGui.NewFrame();
 			FrameOpen = true;
@@ -351,7 +306,7 @@ namespace Voltage.Editor.ImGuiCore
 				Core.GraphicsDevice.PresentationParameters.BackBufferHeight);
 
 			UpdateBuffers(drawData);
-			RenderCommandLists(drawData);
+			RenderCommandLists(drawData, lastSamplerState);
 
 			// Restore modified state
 			Core.GraphicsDevice.Viewport = lastViewport;
@@ -393,7 +348,7 @@ namespace Voltage.Editor.ImGuiCore
 
 			for (var n = 0; n < drawData.CmdListsCount; n++)
 			{
-				var cmdList = drawData.CmdListsRange[n];
+				var cmdList = drawData.CmdLists[n];
 
 				fixed (void* vtxDstPtr = &_vertexData[vtxOffset * _vertexDeclarationSize])
 				fixed (void* idxDstPtr = &_indexData[idxOffset * sizeof(ushort)])
@@ -413,7 +368,7 @@ namespace Voltage.Editor.ImGuiCore
 			_indexBuffer.SetData(_indexData, 0, drawData.TotalIdxCount * sizeof(ushort));
 		}
 
-		unsafe void RenderCommandLists(ImDrawDataPtr drawData)
+		unsafe void RenderCommandLists(ImDrawDataPtr drawData, SamplerState imageSampler)
 		{
 			Core.GraphicsDevice.SetVertexBuffer(_vertexBuffer);
 			Core.GraphicsDevice.Indices = _indexBuffer;
@@ -424,7 +379,7 @@ namespace Voltage.Editor.ImGuiCore
 
 			for (int n = 0; n < drawData.CmdListsCount; n++)
 			{
-				var cmdList = drawData.CmdListsRange[n];
+				var cmdList = drawData.CmdLists[n];
 				for (int cmdi = 0; cmdi < cmdList.CmdBuffer.Size; cmdi++)
 				{
 					var drawCmd = cmdList.CmdBuffer[cmdi];
@@ -446,6 +401,9 @@ namespace Voltage.Editor.ImGuiCore
 						(int)(drawCmd.ClipRect.W - drawCmd.ClipRect.Y)
 					);
 
+					// Glyphs are baked at native pixel size. Pixel fonts retain hard edges; UI images keep their own sampler.
+					Core.GraphicsDevice.SamplerStates[0] = drawCmd.TextureId == _fontTextureId
+						? (UiFontName == "Classic" ? SamplerState.PointClamp : SamplerState.LinearClamp) : imageSampler;
 					var effect = UpdateEffect(_loadedTextures[drawCmd.TextureId]);
 					foreach (var pass in effect.CurrentTechnique.Passes)
 					{

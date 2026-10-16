@@ -27,9 +27,10 @@ internal static class ViewCommands
 		{
 			var camera = RequireCamera();
 			var entity = ResolveEntity(args.Require("entity"));
-			MoveTo(ctx, entity.Transform.Position);
 			if (args.Has("zoom"))
 				camera.RawZoom = args.Float("zoom");
+			var center = Voltage.Editor.Utils.EntityFocusBounds.Center(new[] { entity });
+			MoveTo(ctx, Voltage.Editor.Utils.EntityFocusBounds.CameraPosition(camera, center));
 			return State();
 		}, P.Str("entity", "Entity id, GUID or name", required: true), ZoomParam);
 	}

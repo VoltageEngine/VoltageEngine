@@ -14,10 +14,11 @@ namespace Voltage.Shadows
 		{
 			get
 			{
+				if (_polygon == null) return base.Bounds;
 				if (_areBoundsDirty)
 				{
 					_bounds = RectangleF.RectEncompassingPoints(_polygon.Points);
-					_bounds.Location += Entity.Transform.Position;
+					_bounds.Location += Entity.Transform.Position + _localOffset;
 					_areBoundsDirty = false;
 				}
 
@@ -81,6 +82,7 @@ namespace Voltage.Shadows
 		/// </summary>
 		void RecalculatePolyPoints()
 		{
+			_areBoundsDirty = true;
 			// no need to recaluc if we dont have an Entity to work with
 			if (Entity == null)
 				return;
@@ -134,8 +136,12 @@ namespace Voltage.Shadows
 			if (comp == Transform.Component.Rotation)
 			{
 				// when rotation changes we need to update our verts to account for the new rotation
-				Polygon.RotatePolygonVerts(Entity.Rotation - _spotAngle * 0.5f * Mathf.Deg2Rad,
-					_polygon.OriginalPoints, _polygon.Points);
+				if (_polygon != null)
+				{
+					Polygon.RotatePolygonVerts(Entity.Rotation - _spotAngle * 0.5f * Mathf.Deg2Rad,
+						_polygon.OriginalPoints, _polygon.Points);
+					_areBoundsDirty = true;
+				}
 			}
 		}
 

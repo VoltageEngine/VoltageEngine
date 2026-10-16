@@ -15,9 +15,10 @@ namespace Voltage
 			{
 				if (_areBoundsDirty)
 				{
-					var scale = MathHelper.Max(Entity.Transform.Scale.X, Entity.Transform.Scale.Y);
-					_bounds.CalculateBounds(Entity.Transform.Position, _localOffset, new Vector2(_radius * scale, _radius * scale),
-						Vector2.One, 0, _radius * scale * 2f, _radius * scale * 2f);
+					var scale = System.Math.Max(System.Math.Abs(Entity.Scale.X), System.Math.Abs(Entity.Scale.Y));
+					var radius = _radius * scale;
+					var center = Entity.Position + _localOffset;
+					_bounds = new RectangleF(center.X - radius, center.Y - radius, radius * 2f, radius * 2f);
 					_areBoundsDirty = false;
 				}
 
@@ -71,7 +72,7 @@ namespace Voltage
 				_areBoundsDirty = true;
 
 				if (_lightEffect != null)
-					_lightEffect.Radius = radius * MathHelper.Max(Entity.Transform.Scale.X, Entity.Transform.Scale.Y);
+					_lightEffect.Radius = radius * System.Math.Max(System.Math.Abs(Entity.Scale.X), System.Math.Abs(Entity.Scale.Y));
 			}
 
 			return this;
@@ -90,7 +91,7 @@ namespace Voltage
 		public override void OnStart()
 		{
 			_lightEffect = Entity.Scene.Content.LoadVoltageEffect<StencilLightEffect>();
-			_lightEffect.Radius = _radius * MathHelper.Max(Entity.Transform.Scale.X, Entity.Transform.Scale.Y);
+			_lightEffect.Radius = _radius * System.Math.Max(System.Math.Abs(Entity.Scale.X), System.Math.Abs(Entity.Scale.Y));
 
 			SetMaterial(Material.StencilRead(0));
 			Material.Effect = _lightEffect;
@@ -109,7 +110,7 @@ namespace Voltage
 
 			// if scale changes update our radius
 			if (comp == Transform.Component.Scale)
-				_lightEffect.Radius = _radius * MathHelper.Max(Entity.Transform.Scale.X, Entity.Transform.Scale.Y);
+				_lightEffect.Radius = _radius * System.Math.Max(System.Math.Abs(Entity.Scale.X), System.Math.Abs(Entity.Scale.Y));
 		}
 
 		public override void Render(Batcher batcher, Camera camera)
@@ -126,9 +127,9 @@ namespace Voltage
 
 		public override void DebugRender(Batcher batcher)
 		{
-			var scale = MathHelper.Max(Entity.Transform.Scale.X, Entity.Transform.Scale.Y);
+			var scale = System.Math.Max(System.Math.Abs(Entity.Scale.X), System.Math.Abs(Entity.Scale.Y));
 			batcher.DrawHollowRect(Bounds, Debug.Colors.RenderableBounds);
-			batcher.DrawCircle(Transform.Position, _radius * scale, Debug.Colors.RenderableBounds);
+			batcher.DrawCircle(Entity.Position + _localOffset, _radius * scale, Debug.Colors.RenderableBounds);
 		}
 
 		#endregion

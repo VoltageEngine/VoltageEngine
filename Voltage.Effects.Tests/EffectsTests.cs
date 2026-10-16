@@ -215,7 +215,7 @@ public class EffectsTests
 	[Test]
 	public void Bundled_effects_cover_every_source_without_loose_content_or_compiler()
 	{
-		Assert.That(EffectResource.BundledEffectNames.Length, Is.EqualTo(34));
+		Assert.That(EffectResource.BundledEffectNames.Length, Is.EqualTo(35));
 		var assembly = typeof(EffectResource).Assembly;
 		foreach (var name in EffectResource.BundledEffectNames)
 		{
@@ -268,7 +268,7 @@ public class EffectsTests
 	public void Native_gpu_accepts_all_bundled_effects()
 	{
 		if (!OperatingSystem.IsWindows() && Environment.GetEnvironmentVariable("VOLTAGE_TEST_GPU") != "1") Assert.Ignore("Requires a native desktop graphics session.");
-		using var game = new EffectGame(scratch); game.Run(); Assert.That(game.Loaded, Is.EqualTo(34));
+		using var game = new EffectGame(scratch); game.Run(); Assert.That(game.Loaded, Is.EqualTo(35));
 		Assert.That(game.CustomLoaded, Is.EqualTo(6));
 	}
 

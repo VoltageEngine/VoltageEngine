@@ -28,6 +28,7 @@ namespace Voltage
 		static Point _lastPolledMousePos;
 		static Point _mousePositionDelta;
 		static internal FastList<VirtualInput> _virtualInputs = new FastList<VirtualInput>();
+		internal static event System.Action BeforeVirtualInputUpdate;
 		static int _maxSupportedGamePads;
 
 		private static double _lastLeftClickTime = -1;
@@ -108,11 +109,12 @@ namespace Voltage
 
 			_doubleLeftMouseButtonPressed = false;
 			_leftEdgeTracked = false;
-			if (LeftMouseButtonPressed)
-				RegisterLeftPress();
-
 			for (var i = 0; i < _maxSupportedGamePads; i++)
 				GamePads[i].Update();
+
+			BeforeVirtualInputUpdate?.Invoke();
+			if (LeftMouseButtonPressed)
+				RegisterLeftPress();
 
 			for (var i = 0; i < _virtualInputs.Length; i++)
 				_virtualInputs.Buffer[i].Update();

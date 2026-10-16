@@ -145,10 +145,10 @@ namespace Voltage.DeferredLighting
 		{
 			SetLightPosition(new Vector3(light.Entity.Transform.Position + light.LocalOffset, light.ZPosition));
 			SetColor(light.Color);
-			SetLightRadius(light.Radius * light.Entity.Transform.Scale.X);
+			SetLightRadius(light.Radius * System.Math.Abs(light.Entity.Transform.Scale.X));
 			SetLightIntensity(light.Intensity);
 
-			var objToWorld = Matrix.CreateScale(light.Radius * light.Entity.Transform.Scale.X) *
+			var objToWorld = Matrix.CreateScale(light.Radius * System.Math.Abs(light.Entity.Transform.Scale.X)) *
 							 Matrix.CreateTranslation(light.Entity.Transform.Position.X + light.LocalOffset.X,
 								 light.Entity.Transform.Position.Y + light.LocalOffset.Y, 0);
 			SetObjectToWorldMatrix(objToWorld);
@@ -184,8 +184,7 @@ namespace Voltage.DeferredLighting
 			SetLightIntensity(light.Intensity);
 
 			var objToWorld =
-				Matrix.CreateScale(light.Bounds.Width * light.Entity.Transform.Scale.X,
-					light.Bounds.Height * light.Entity.Transform.Scale.Y, 1f) * 
+				Matrix.CreateScale(light.Bounds.Width, light.Bounds.Height, 1f) *
 				Matrix.CreateTranslation(light.Bounds.X, light.Bounds.Y, 0);
 			SetObjectToWorldMatrix(objToWorld);
 

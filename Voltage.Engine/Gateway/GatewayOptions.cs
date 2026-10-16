@@ -30,6 +30,9 @@ public sealed class GatewayOptions
 	/// <summary>Window title or assembly name, so a CLI can tell which game answered.</summary>
 	public string Name { get; init; }
 
+	/// <summary>Original editor build executable when a headless run uses a private binary copy.</summary>
+	public string SourceExecutable { get; init; }
+
 	/// <summary>Startup prompts are logged and reported as events instead of opening modals.</summary>
 	public bool NoPrompts { get; init; }
 
@@ -45,6 +48,7 @@ public sealed class GatewayOptions
 		var noPrompts = false;
 		var headless = false;
 		string info = null;
+		string sourceExecutable = null;
 
 		for (var i = 0; args != null && i < args.Length; i++)
 		{
@@ -63,9 +67,11 @@ public sealed class GatewayOptions
 				port = int.TryParse(portText, out var parsed) && parsed >= 0 && parsed <= 65535 ? parsed : DefaultPort;
 			else if (TryValue(args, ref i, "--gateway-info", out var infoText))
 				info = Path.GetFullPath(infoText);
+			else if (TryValue(args, ref i, "--gateway-source-exe", out var sourceText))
+				sourceExecutable = Path.GetFullPath(sourceText);
 		}
 
-		return new GatewayOptions { Enabled = enabled, Port = port, Safe = safe, InfoFilePath = info, Args = args ?? Array.Empty<string>(), NoPrompts = noPrompts, Headless = headless };
+		return new GatewayOptions { Enabled = enabled, Port = port, Safe = safe, InfoFilePath = info, SourceExecutable = sourceExecutable, Args = args ?? Array.Empty<string>(), NoPrompts = noPrompts, Headless = headless };
 	}
 
 	/// <summary>Options for a built game: off unless --gateway or VOLTAGE_GATEWAY=1 asks for it.</summary>
@@ -90,7 +96,7 @@ public sealed class GatewayOptions
 	}
 
 	/// <summary>True for a gateway flag whose value is the next argument, so hosts can skip it when looking for positional arguments.</summary>
-	public static bool TakesValue(string arg) => Is(arg, "--gateway-port") || Is(arg, "--gateway-info");
+	public static bool TakesValue(string arg) => Is(arg, "--gateway-port") || Is(arg, "--gateway-info") || Is(arg, "--gateway-source-exe");
 
 	private static bool Is(string arg, string name) => arg.Equals(name, StringComparison.OrdinalIgnoreCase);
 

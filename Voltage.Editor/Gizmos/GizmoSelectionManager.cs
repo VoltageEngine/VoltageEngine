@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Voltage.DeferredLighting;
+using Voltage.Shadows;
 using Voltage.Sprites;
 using Voltage.Utils;
 using Voltage.Editor.Hotkeys;
@@ -169,7 +170,7 @@ namespace Voltage.Editor.Gizmos
 					return;
 				}
 
-				if (Core.IsEditMode && Core.DebugRenderEnabled)
+				if (Core.IsEditMode && Core.DebugRenderEnabled && DebugRenderFilter.IsEnabled(DebugRenderCategory.Gizmos))
 				{
 					if (SelectionMode == CursorSelectionMode.Normal)
 					{
@@ -188,7 +189,7 @@ namespace Voltage.Editor.Gizmos
 					}
 					else if (SelectionMode == CursorSelectionMode.ColliderResize)
 					{
-						DrawColliderResizeGizmo();
+						DrawBoundsResizeGizmo();
 					}
 				}
 
@@ -392,19 +393,15 @@ namespace Voltage.Editor.Gizmos
 				return;
 			}
 
-			var gizmoCenter = _transformGizmoHandler.GetArrowGizmoCenter(selectedEntities);
+			var contentCenter = Voltage.Editor.Utils.EntityFocusBounds.Center(selectedEntities);
 
-			if (MathUtils.IsVectorNaNOrInfinite(gizmoCenter))
+			if (MathUtils.IsVectorNaNOrInfinite(contentCenter))
 			{
 				_imGuiManager.CameraTargetPosition = position;
 				return;
 			}
 
-			var renderSize = Core.Scene.SceneRenderTargetSize;
-			var zoom = Core.Scene.Camera.RawZoom;
-			var centeredTarget = gizmoCenter - new Vector2(renderSize.X * 0.5f / zoom, renderSize.Y * 0.5f / zoom);
-
-			_imGuiManager.CameraTargetPosition = centeredTarget;
+			_imGuiManager.CameraTargetPosition = Voltage.Editor.Utils.EntityFocusBounds.CameraPosition(Core.Scene.Camera, contentCenter);
 		}
 
 		private void TrySelectEntityAtMouse()
@@ -447,7 +444,7 @@ namespace Voltage.Editor.Gizmos
 				_imGuiManager.SceneGraphWindow.EntityPane.SetSelectedEntity(selected, additive, false);
 				_imGuiManager.OpenMainEntityInspector(selected);
 
-				if (!MathUtils.IsVectorNaNOrInfinite(selected.Transform.Position))
+				if (!MathUtils.IsVectorNaNOrInfinite(selected.Transform.Position) && selected.GetComponent<TilemapRenderer>() == null)
 				{
 					SetCameraTargetPosition(selected.Transform.Position);
 				}
@@ -527,6 +524,9 @@ namespace Voltage.Editor.Gizmos
 				if (!_selectableCandidates.Contains(entity))
 					_selectableCandidates.Add(entity);
 			}
+			var tilemap = Voltage.Editor.Tools.Tilemap.TilemapSceneUtils.PickTilemap(mouseWorld);
+			if (tilemap != null && !_selectableCandidates.Contains(tilemap.Entity))
+				_selectableCandidates.Add(tilemap.Entity);
 
 			// Priority 3: Entities with DeferredLight
 			var lightsAtPosition = new List<(Entity entity, float distance)>();
@@ -612,14 +612,14 @@ namespace Voltage.Editor.Gizmos
 				_imGuiManager.SceneGraphWindow.EntityPane.SetSelectedEntity(selected, additive, false);
 				_imGuiManager.OpenMainEntityInspector(selected);
 
-				if (!MathUtils.IsVectorNaNOrInfinite(selected.Transform.Position))
+				if (!MathUtils.IsVectorNaNOrInfinite(selected.Transform.Position) && selected.GetComponent<TilemapRenderer>() == null)
 				{
 					SetCameraTargetPosition(selected.Transform.Position);
 				}
 			}
 		}
 
-		private void DrawColliderResizeGizmo()
+		private void DrawBoundsResizeGizmo()
 		{
 			var entityPane = _imGuiManager.SceneGraphWindow.EntityPane;
 			IsMouseOverGizmo = false;
@@ -632,15 +632,24 @@ namespace Voltage.Editor.Gizmos
 			var worldMouse = camera.ScreenToWorldPoint(mousePos);
 
 			// Collect all colliders and lights from selected entities
-			var polygonColliders = new List<PolygonCollider>();
+			var polygonColliders = new List<Component>();
 			var boxColliders = new List<BoxCollider>();
-			var areaLights = new List<AreaLight>();
+			var lights = new List<RenderableComponent>();
 
 			foreach (var entity in entityPane.SelectedEntities)
 			{
 				polygonColliders.AddRange(entity.GetComponents<PolygonCollider>());
 				boxColliders.AddRange(entity.GetComponents<BoxCollider>());
-				areaLights.AddRange(entity.GetComponents<AreaLight>());
+				foreach (var light in entity.GetComponents<DeferredLight>())
+					if (LightBoundsResizeState.CanResize(light))
+					{
+						lights.Add(light);
+						if (light is RoomLight) polygonColliders.Add(light);
+					}
+				foreach (var light in entity.GetComponents<PolyLight>())
+					if (LightBoundsResizeState.CanResize(light)) lights.Add(light);
+				foreach (var light in entity.GetComponents<StencilLight>())
+					if (LightBoundsResizeState.CanResize(light)) lights.Add(light);
 			}
 
 			// Draw polygon colliders (unless we're dragging a rectangle)
@@ -651,10 +660,10 @@ namespace Voltage.Editor.Gizmos
 			}
 
 			// Draw box colliders and area lights (unless we're dragging a polygon)
-			if ((boxColliders.Count > 0 || areaLights.Count > 0) && !_polygonGizmoHandler.IsDragging)
+			if ((boxColliders.Count > 0 || lights.Count > 0) && !_polygonGizmoHandler.IsDragging)
 			{
-				_rectangleGizmoHandler.Draw(boxColliders, areaLights, worldMouse, camera, _shiftDown);
-				IsMouseOverGizmo = _rectangleGizmoHandler.IsMouseOverGizmo;
+				_rectangleGizmoHandler.Draw(boxColliders, lights, worldMouse, camera, _shiftDown);
+				IsMouseOverGizmo |= _rectangleGizmoHandler.IsMouseOverGizmo;
 			}
 		}
 	}

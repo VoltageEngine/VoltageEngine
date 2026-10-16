@@ -5,7 +5,7 @@ const {themes: prismThemes} = require('prism-react-renderer');
 const config = {
   title: 'Voltage Engine',
   tagline: 'A 2D game engine and editor for C# developers',
-  favicon: 'img/favicon.svg',
+  favicon: 'img/favicon.ico',
 
   url: 'https://voltageengine.github.io',
   baseUrl: '/VoltageEngine/',
@@ -59,7 +59,7 @@ const config = {
         title: 'Voltage',
         logo: {
           alt: 'Voltage Engine',
-          src: 'img/logo.svg',
+          src: 'img/logo.png',
         },
         items: [
           {

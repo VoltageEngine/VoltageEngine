@@ -1,14 +1,28 @@
 ---
 title: Introduction
 sidebar_position: 1
-description: What Voltage is, how the engine and editor fit together, and what it does not do.
+description: A live C# editor and runtime for desktop pixel art games.
 ---
 
 # Introduction
 
-Voltage is a standalone 2D game engine and editor for C# developers. It ships as a single executable that opens a Godot/Unity-style editor, a dockable ImGui interface sitting in front of a live MonoGame render window, and publishes finished games as self-contained NativeAOT binaries with no runtime dependency.
+Voltage is a C# engine and live editor for 2D pixel art games on Windows, macOS and Linux. Paint tiles, arrange scenes, tune lights and test gameplay in one dockable workspace. Your game remains a separate C# project, with scripts that reload on save and an editor Build window for self-contained desktop publishing.
 
-![Voltage Editor](https://github.com/user-attachments/assets/3cff3193-5f86-44ae-8bb9-545ba088f21c)
+![Voltage Editor in Studio Graphite with Scene Select and two separated example tile cells](images/editor-studio-graphite.png)
+
+The current editor uses Studio Graphite with dockable tool windows. This example shows [Scene Select](editor/tile-selection.md), which edits placed cells separately from the palette's source stamp.
+
+## Pixel art workflow
+
+Import Aseprite layers, tags and frame timing, paint layered tilemaps and sync source changes from the Tile Palette or Tileset Editor. Saved data assets and prefabs keep gameplay tuning editable alongside the art. Animated normal maps, room lights and transparent-mask projected lights add lighting while retaining the sprite artwork.
+
+![Jolt gameplay with pixel art characters and room lighting](images/jolt-game.png)
+
+Desktop targets include Windows, Linux and Intel/Apple Silicon macOS. The editor and runtime use MonoGame DesktopGL; NativeAOT publishing requires the platform's native toolchain. See [installation](getting-started/installation.md) for prerequisites.
+
+## Working with agents
+
+The local [Editor Gateway, CLI and MCP server](gateway/README.md) let scripts and AI agents inspect and author the same scenes and assets you see in the editor. The [Aseprite bridge](editor/aseprite.md) also exposes sprite creation, pixel edits, palettes and animation tools, with previews and undo. External image-generation tools can complement this workflow; Voltage's bridge handles editable sprite assets and project import.
 
 ## What Voltage Is
 

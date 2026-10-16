@@ -209,7 +209,7 @@ namespace Voltage.DeferredLighting
 				for (var j = 0; j < renderables.Length; j++)
 				{
 					var renderable = renderables.Buffer[j];
-					if (renderable.Enabled && renderable.IsVisibleFromCamera(cam))
+					if (renderable.Enabled && DebugRenderFilter.ShouldRender(renderable) && renderable.IsVisibleFromCamera(cam))
 						renderable.DebugRender(Graphics.Instance.Batcher);
 				}
 			}
@@ -218,7 +218,7 @@ namespace Voltage.DeferredLighting
 			for (var j = 0; j < lightRenderables.Length; j++)
 			{
 				var renderable = lightRenderables.Buffer[j];
-				if (renderable.Enabled && renderable.IsVisibleFromCamera(cam))
+				if (renderable.Enabled && DebugRenderFilter.ShouldRender(renderable) && renderable.IsVisibleFromCamera(cam))
 					renderable.DebugRender(Graphics.Instance.Batcher);
 			}
 
@@ -306,6 +306,11 @@ namespace Voltage.DeferredLighting
 
 		void RenderLight(DeferredLight light)
 		{
+            if (light is ProjectedLight projectedLight)
+            {
+                projectedLight.RenderLight(Graphics.Instance.Batcher, light.Entity.Scene.Camera, NormalRT.RenderTarget);
+                return;
+            }
             if (light is RoomLight roomLight)
             {
                 var batcher = Graphics.Instance.Batcher;

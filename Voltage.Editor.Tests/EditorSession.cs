@@ -15,6 +15,9 @@ public sealed class EditorSession
 {
 	private static Process _editor;
 	private static string _root;
+	private static TextWriter _processLog;
+	private static string _processLogPath;
+	private static EditorBinarySnapshot _binaries;
 
 	public static GatewayConnection Connection { get; private set; }
 
@@ -63,13 +66,15 @@ public sealed class EditorSession
 		DataDirectory = Path.Combine(_root, "data");
 		Directory.CreateDirectory(DataDirectory);
 		InfoPath = Path.Combine(_root, "gateway.json");
+		_binaries = EditorBinarySnapshot.Create(exe, Path.Combine(_root, "editor"));
 
-		var start = new ProcessStartInfo(exe)
+		var start = new ProcessStartInfo(_binaries.Executable)
 		{
 			UseShellExecute = false,
 			RedirectStandardOutput = true,
 			RedirectStandardError = true,
-			WorkingDirectory = Path.GetDirectoryName(exe) ?? "."
+			WorkingDirectory = Path.GetDirectoryName(_binaries.Executable) ?? ".",
+			WindowStyle = ProcessWindowStyle.Hidden
 		};
 		start.Environment["VOLTAGE_EDITOR_DATA"] = DataDirectory;
 		start.Environment["VOLTAGE_ASEPRITE_EXTENSION"] = Path.Combine(_root, "aseprite-extension");
@@ -84,10 +89,14 @@ public sealed class EditorSession
 		}
 		foreach (var arg in new[] { "--headless", "--gateway-port", "0", "--gateway-info", InfoPath })
 			start.ArgumentList.Add(arg);
+		start.ArgumentList.Add(EditorBinarySnapshot.SourceExeArgument);
+		start.ArgumentList.Add(exe);
 
+		_processLogPath = Path.Combine(TestContext.CurrentContext.WorkDirectory, "editor-process.log");
+		_processLog = TextWriter.Synchronized(File.CreateText(_processLogPath));
 		_editor = Process.Start(start) ?? throw new InvalidOperationException($"could not start {exe}");
-		_editor.OutputDataReceived += (_, _) => { };
-		_editor.ErrorDataReceived += (_, _) => { };
+		_editor.OutputDataReceived += (_, e) => { if (e.Data != null) { _processLog.WriteLine(e.Data); _processLog.Flush(); } };
+		_editor.ErrorDataReceived += (_, e) => { if (e.Data != null) { _processLog.WriteLine(e.Data); _processLog.Flush(); } };
 		_editor.BeginOutputReadLine();
 		_editor.BeginErrorReadLine();
 
@@ -96,6 +105,21 @@ public sealed class EditorSession
 		ProjectFile = created.GetProperty("voltageFile").GetString();
 		WaitForProject(TimeSpan.FromSeconds(180));
 		Call("scene.create", new { name = "TestScene" });
+	}
+
+	public static void Restart(Action whileStopped = null)
+	{
+		Call("editor.exit", new { force = true });
+		if (!_editor.WaitForExit(10_000)) throw new TimeoutException("owned editor did not exit");
+		Connection.Dispose();
+		whileStopped?.Invoke();
+		_editor = Process.Start(_editor.StartInfo);
+		_editor.OutputDataReceived += (_, e) => { if (e.Data != null) _processLog.WriteLine(e.Data); };
+		_editor.ErrorDataReceived += (_, e) => { if (e.Data != null) _processLog.WriteLine(e.Data); };
+		_editor.BeginOutputReadLine();
+		_editor.BeginErrorReadLine();
+		Connection = WaitForGateway(TimeSpan.FromSeconds(180));
+		WaitForProject(TimeSpan.FromSeconds(180));
 	}
 
 	[OneTimeTearDown]
@@ -118,8 +142,11 @@ public sealed class EditorSession
 		{
 			try { _editor.Kill(true); } catch (Exception) { }
 		}
+		if (_editor != null) _editor.WaitForExit(); // Drain asynchronous output before disposing its writer.
 
 		Connection?.Dispose();
+		_processLog?.Dispose();
+		_binaries?.Dispose();
 		if (Environment.GetEnvironmentVariable("VOLTAGE_TESTS_KEEP") != "1")
 			try { Directory.Delete(_root, true); } catch (Exception) { }
 		else
@@ -143,7 +170,10 @@ public sealed class EditorSession
 		while (DateTime.UtcNow < deadline)
 		{
 			if (_editor.HasExited)
-				throw new InvalidOperationException($"the editor exited with code {_editor.ExitCode} during startup; see {DataDirectory}");
+			{
+				_editor.WaitForExit(); // Drain redirected output before reporting the assertion.
+				throw new InvalidOperationException($"the editor exited with code {_editor.ExitCode} during startup; see {_processLogPath}");
+			}
 
 			Thread.Sleep(500);
 			GatewayInfo info;

@@ -12,6 +12,9 @@ public class Program
 	public static void Main(string[] args)
 	{
 		CommandLineArgs = args;
+		// Ask SDL for native pixels before it creates the window, avoiding Windows bitmap scaling.
+		if (OperatingSystem.IsWindows() && Environment.GetEnvironmentVariable("SDL_WINDOWS_DPI_AWARENESS") == null)
+			Environment.SetEnvironmentVariable("SDL_WINDOWS_DPI_AWARENESS", "permonitorv2");
 		EditorRunMode.Apply(Voltage.Gateway.GatewayOptions.FromArgs(args, true));
 
 		// First, so nothing writes to the pre-migration locations on the way up.

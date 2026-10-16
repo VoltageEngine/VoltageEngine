@@ -41,7 +41,11 @@ internal static class PrefabCommands
 			if (name.Length == 0 || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
 				throw new GatewayException($"invalid prefab name '{name}'");
 
-			var path = Path.Combine(project.PrefabsFolder, $"{name}.vprefab");
+			var requestedPath = args.String("path");
+			var path = string.IsNullOrWhiteSpace(requestedPath) ? Path.Combine(project.PrefabsFolder, name + ".vprefab") :
+				Path.GetFullPath(Path.Combine(project.ProjectPath, requestedPath.Replace('\\', Path.DirectorySeparatorChar)));
+			if (!ProjectManager.Instance.IsPathInCurrentProject(path) || !Path.GetExtension(path).Equals(".vprefab", StringComparison.OrdinalIgnoreCase))
+				throw new GatewayException("path must name a .vprefab file inside the project");
 			var overwrite = args.Bool("overwrite");
 			if (File.Exists(path) && !overwrite)
 				throw new GatewayException($"prefab already exists: {path}; pass overwrite=true");
@@ -53,7 +57,7 @@ internal static class PrefabCommands
 			instance.OriginalPrefabName = name;
 
 			var keepOriginal = args.Bool("keepOriginal", true);
-			return Await(SerializationManager.Instance.SavePrefabDataAsync(instance, overwrite), saved =>
+			return Await(SerializationManager.Instance.SavePrefabDataAsync(instance, overwrite, path), saved =>
 			{
 				if (!saved)
 					throw new GatewayException("prefab save failed; see log.tail");
@@ -69,7 +73,7 @@ internal static class PrefabCommands
 				}
 				return new { path, guid = AssetDatabase.Instance?.GetReference(path).Guid, instance = EntityCommands.Detail(instance) };
 			});
-		}, P.Str("entity", "Entity id, GUID or name", required: true), P.Str("name", "Prefab name; default the entity name"), P.Bool("overwrite", "Replace an existing prefab file", false), P.Bool("keepOriginal", "Keep the source entity next to the new instance", true));
+		}, P.Str("entity", "Entity id, GUID or name", required: true), P.Str("name", "Prefab name; default the entity name"), P.Str("path", "Destination .vprefab path inside the project; defaults to the prefab creation folder"), P.Bool("overwrite", "Replace an existing prefab file", false), P.Bool("keepOriginal", "Keep the source entity next to the new instance", true));
 
 		table.Add("prefab.link", "Link an existing entity to a prefab without replacing its ID, components, children or transform (undoable).", (args, _) =>
 		{
@@ -245,8 +249,7 @@ internal static class PrefabCommands
 		var project = ProjectManager.Instance.CurrentProject;
 		if (project == null)
 			return null;
-		var direct = Path.Combine(project.PrefabsFolder, $"{entity.OriginalPrefabName}.vprefab");
-		return File.Exists(direct) ? direct : null;
+		return Scene.ResolvePrefabFile(entity.OriginalPrefabName);
 	}
 
 	private static PrefabData? LoadPrefabData(Entity entity)

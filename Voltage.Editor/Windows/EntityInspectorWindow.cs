@@ -122,9 +122,9 @@ public class EntityInspectorWindow
 		// If more than one entity is selected
 		if (_imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities.Count > 1 && !_imGuiManager.IsInspectorTabLocked)
 		{
-			ImGui.SetWindowFontScale(1.5f);
-			ImGui.Text("Multiple Entities Selected");
-			ImGui.SetWindowFontScale(1.0f);
+			ImGui.PushFont(_imGuiManager.HeadingFont);
+			ImGuiSafe.TextWrappedSafe("Multiple Entities Selected");
+			ImGui.PopFont();
 
 			ImGui.PushFont(ImGui.GetIO().FontDefault); // Use default font (smallest)
 			ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(0.8f, 0.8f, 0.8f, 1.0f));
@@ -153,13 +153,12 @@ public class EntityInspectorWindow
 		else if (_imGuiManager.SceneGraphWindow.EntityPane.SelectedEntities.Count == 1 && Entity != null || _lockedEntity != null)
 		{
 			var entityName = Entity.Name;
-			ImGui.SetWindowFontScale(1.5f);
-			ImGuiSafe.TextSafe(entityName);
-			ImGui.SetWindowFontScale(1.0f);
+			ImGui.PushFont(_imGuiManager.HeadingFont);
+			ImGuiSafe.TextWrappedSafe(entityName);
+			ImGui.PopFont();
 
-			float spacing = 12f * _imGuiManager.FontSizeMultiplier;
 			float iconSize = 20f * _imGuiManager.FontSizeMultiplier;
-			ImGui.SameLine(0, spacing);
+			EditorLayout.SameLine(iconSize + ImGui.GetStyle().FramePadding.X * 2);
 
 			// Lock Mode Button
 			Num.Vector4 lockedButtonColor;
@@ -423,6 +422,8 @@ public class EntityInspectorWindow
 						);
 						Entity.DebugRenderEnabled = debugEnabled;
 					}
+					if (ImGui.IsItemHovered())
+						ImGui.SetTooltip("Disabling this hides debug rendering for this entity and all descendants. Each child's own setting is preserved.");
 				}
 				#endregion
 
@@ -707,7 +708,7 @@ public class EntityInspectorWindow
 
 			ImGui.PushStyleColor(ImGuiCol.Border, warnColor);
 			ImGui.BeginChild("missingcard",
-				new System.Numerics.Vector2(0, ImGui.GetFrameHeightWithSpacing() * 2.2f), true);
+				new System.Numerics.Vector2(0, ImGui.GetFrameHeightWithSpacing() * 2.2f), ImGuiChildFlags.Borders);
 
 			ImGui.TextColored(warnColor, $"Missing Component: {shortName}");
 			if (ImGui.IsItemHovered())
@@ -774,7 +775,7 @@ public class EntityInspectorWindow
 			ImGuiSafe.TextSafe($"Available Components ({componentTypes.Count}):");
 			ImGui.Separator();
 
-			if (ImGui.BeginChild("ComponentList", new Num.Vector2(0, 350), true))
+			if (ImGui.BeginChild("ComponentList", new Num.Vector2(0, 350), ImGuiChildFlags.Borders))
 			{
 				foreach (var componentType in componentTypes)
 				{
@@ -858,7 +859,7 @@ public class EntityInspectorWindow
 			"If FALSE, you won't be able select these \n Entities with your cursor in the game window.",
 			e => e.CanBeSelected, (e, v) => e.CanBeSelected = v);
 
-		MultiCheckbox(entities, "Debug Render Enabled", null,
+		MultiCheckbox(entities, "Debug Render Enabled", "Disabling this also hides debug rendering for descendants. Each child's own setting is preserved.",
 			e => e.DebugRenderEnabled, (e, v) => e.DebugRenderEnabled = v);
 	}
 
@@ -1180,8 +1181,8 @@ public class EntityInspectorWindow
 	/// <returns>True if prefab exists, false otherwise</returns>
 	private bool CheckPrefabExists(string prefabName)
 	{
-		var prefabFilePath = $"{Path.Combine(ProjectManager.Instance.CurrentProject.PrefabsFolder, prefabName)}.prefab";
-		return File.Exists(prefabFilePath);
+		try { return Scene.ResolvePrefabFile(prefabName) != null; }
+		catch (InvalidOperationException) { return true; }
 	}
 
 	/// <summary>
@@ -1233,32 +1234,10 @@ public class EntityInspectorWindow
 
 		var cleanedName = inputName.Trim();
 		
-		// Check if prefab with this name already exists in the EntityType directory
-		var prefabsDirectory = ProjectManager.Instance.CurrentProject.PrefabsFolder;
-
-		if (!Directory.Exists(prefabsDirectory))
-		{
-			return cleanedName;
-		}
-
-		var prefabFilePath = Path.Combine(prefabsDirectory, $"{cleanedName}.prefab");
-		
-		if (!File.Exists(prefabFilePath))
-		{
-			return cleanedName;
-		}
-
-		// Name conflict detected - try to find a unique variant
-		int suffix = 1;
-		string uniqueName;
-		
-		do
-		{
-			uniqueName = $"{cleanedName}_{suffix}";
-			prefabFilePath = Path.Combine(prefabsDirectory, $"{uniqueName}.prefab");
-			suffix++;
-		}
-		while (File.Exists(prefabFilePath));
+        if (!CheckPrefabExists(cleanedName)) return cleanedName;
+        int suffix = 1;
+        string uniqueName;
+        do { uniqueName = $"{cleanedName}_{suffix++}"; } while (CheckPrefabExists(uniqueName));
 
 		return uniqueName;
 	}
@@ -1472,7 +1451,7 @@ public class EntityInspectorWindow
 			ImGuiSafe.TextColoredSafe(new Num.Vector4(0.8f, 0.8f, 0.8f, 1.0f), $"Entities to be modified ({_prefabCopiesToModify.Count}):");
 
 			// Create a scrollable region for the entity list
-			if (ImGui.BeginChild("EntityList", new Num.Vector2(0, Math.Min(200, _prefabCopiesToModify.Count * 80 + 20)), true))
+			if (ImGui.BeginChild("EntityList", new Num.Vector2(0, Math.Min(200, _prefabCopiesToModify.Count * 80 + 20)), ImGuiChildFlags.Borders))
 			{
 				foreach (var prefabCopy in _prefabCopiesToModify)
 				{
@@ -1651,7 +1630,7 @@ public class EntityInspectorWindow
 
 		// Per-component list.
 		if (ImGui.BeginChild("##PrefabOverrideList",
-			new Num.Vector2(0, Math.Min(150, (totalOverrides + 1) * 22 + 10)), true))
+			new Num.Vector2(0, Math.Min(150, (totalOverrides + 1) * 22 + 10)), ImGuiChildFlags.Borders))
 		{
 			// Overridden / added components.
 			foreach (var name in overrides)

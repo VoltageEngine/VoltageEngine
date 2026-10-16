@@ -25,7 +25,7 @@ public partial class RoomLight : DeferredLight
     }
     private Color _secondaryColor = new(255, 207, 158);
     private Vector2 _colorBlendDirection = Vector2.UnitX;
-    public List<Vector2> Vertices = new() { new(-160, -80), new(160, -80), new(160, 80), new(-160, 80) };
+    public List<Vector2> Vertices { get; set; } = new() { new(-160, -80), new(160, -80), new(160, 80), new(-160, 80) };
     public float Intensity = 0.35f;
     public float AmbientFill = 0.3f;
     public Vector2 LightOrigin = new(0, -60);
@@ -40,6 +40,9 @@ public partial class RoomLight : DeferredLight
     public float SourceReferenceIntensity = 1;
     public float SourceInfluence = 1;
     public bool UseSourceColor;
+    [Tooltip("Strength of shadows cast by solid colliders inside this room; zero disables occlusion.")]
+    [Range(0, 1)] public float ShadowStrength;
+    public int ShadowLayerMask = Physics.AllLayers;
     private Sprite _field;
     private int _fieldHash;
     private RectangleF _localBounds;
@@ -152,6 +155,18 @@ public partial class RoomLight : DeferredLight
         hash.Add(Color); hash.Add(SecondaryColor); hash.Add(SecondaryColorStrength); hash.Add(ColorBlendDirection);
         hash.Add(AmbientFill); hash.Add(LightOrigin); hash.Add(Range);
         hash.Add(Falloff); hash.Add(Scattering); hash.Add(EdgeSoftness); hash.Add(BounceColor); hash.Add(BounceStrength);
+        hash.Add(ShadowStrength); hash.Add(ShadowLayerMask);
+        HashSet<Collider> occluders = null;
+        if (ShadowStrength > 0 && Entity?.Scene != null)
+        {
+            occluders = Physics.BoxcastBroadphase(Bounds, ShadowLayerMask);
+            hash.Add(Entity.Position); hash.Add(Entity.Scale); hash.Add(Entity.Rotation); hash.Add(LocalOffset);
+            foreach (var collider in occluders)
+                if (collider.Enabled && !collider.IsTrigger)
+                {
+                    hash.Add(collider.Bounds); hash.Add(collider.Rotation);
+                }
+        }
         int value = hash.ToHashCode();
         if (_field != null && _fieldHash == value && !_field.Texture2D.IsDisposed) return;
         TryGetLocalBounds(out _localBounds);
@@ -163,7 +178,20 @@ public partial class RoomLight : DeferredLight
             {
                 var point = new Vector2(_localBounds.X + (column + 0.5f) * _localBounds.Width / width,
                     _localBounds.Y + (row + 0.5f) * _localBounds.Height / height);
-                pixels[(row + 1) * (width + 2) + column + 1] = new Color(SampleIllumination(point));
+                var illumination = SampleIllumination(point);
+                if (occluders != null)
+                {
+                    var origin = ToWorld(LightOrigin);
+                    var destination = ToWorld(point);
+                    foreach (var collider in occluders)
+                    {
+                        if (!collider.Enabled || collider.IsTrigger || collider.Shape.ContainsPoint(origin)) continue;
+                        if (!collider.Shape.CollidesWithLine(origin, destination, out var hit) || hit.Fraction >= 0.99f) continue;
+                        illumination *= 1 - Safe(ShadowStrength, 0, 1, 0);
+                        break;
+                    }
+                }
+                pixels[(row + 1) * (width + 2) + column + 1] = new Color(illumination);
             }
         var texture = new Texture2D(Core.GraphicsDevice, width + 2, height + 2);
         texture.SetData(pixels);

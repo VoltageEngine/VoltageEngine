@@ -154,7 +154,7 @@ public class SceneComponentsPane
 			ImGuiSafe.TextSafe($"Available ({types.Count}):");
 			ImGui.Separator();
 
-			if (ImGui.BeginChild("SCList", new Num.Vector2(0, 350), true))
+			if (ImGui.BeginChild("SCList", new Num.Vector2(0, 350), ImGuiChildFlags.Borders))
 			{
 				foreach (var type in types)
 				{

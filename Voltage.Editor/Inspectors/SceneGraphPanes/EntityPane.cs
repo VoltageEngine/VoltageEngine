@@ -22,7 +22,6 @@ public class EntityPane
 	#region Fields and Properties
 
     private const int MIN_ENTITIES_FOR_CLIPPER = 100;
-    private Entity _previousEntity;
 
 	// Inner drops allowed here: dropping ON a row reparents, and opens no seam.
 	private readonly Voltage.Editor.Utils.DragReorderStrip _dragReorder = new(DragDropPayloadType);
@@ -60,6 +59,14 @@ public class EntityPane
 	// When clicking an already-selected entity with no modifier, we
 	// wait for mouse release without drag before collapsing the selection.
 	private Entity _pendingSelectEntity;
+	private Entity _scrollToEntity;
+
+	public void SelectForNavigation(Entity entity)
+	{
+		_pendingSelectEntity = _renameCandidateEntity = null;
+		SetSelectedEntity(entity, false);
+		_scrollToEntity = entity;
+	}
 
 	// Inline rename state. When _renamingEntity is set, that row shows an editable text field.
 	private Entity _renamingEntity;
@@ -131,13 +138,15 @@ public class EntityPane
 	{
 		var clearWidth = ImGui.GetFrameHeight();
 
-		var inputWidth = Math.Max(60f,
-			ImGui.GetContentRegionAvail().X - clearWidth - ImGui.GetStyle().ItemSpacing.X);
+		var available = ImGui.GetContentRegionAvail().X;
+		var inputWidth = available - clearWidth - ImGui.GetStyle().ItemSpacing.X;
+		var clearOnSameRow = inputWidth >= 60;
+		if (!clearOnSameRow) inputWidth = Math.Max(1, available);
 
 		ImGui.SetNextItemWidth(inputWidth);
 		Gui.InputTextWithHint("##EntitySearch", "Search entities...", ref _entitySearch, 128);
 
-		ImGui.SameLine();
+		if (clearOnSameRow) ImGui.SameLine();
 
 		ImGui.BeginDisabled(!IsFiltering);
 		if (Gui.Button("x##ClearEntitySearch", new System.Numerics.Vector2(clearWidth, 0)))
@@ -222,6 +231,8 @@ public class EntityPane
 			var clipper = new ImGuiListClipperPtr(clipperPtr);
 
 			clipper.Begin(_rows.Count, -1);
+			int scrollIndex = _rows.FindIndex(row => row.Entity == _scrollToEntity);
+			if (scrollIndex >= 0) clipper.IncludeItemByIndex(scrollIndex);
 
 			while (clipper.Step())
 				for (var i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
@@ -706,6 +717,11 @@ public class EntityPane
 			}
 		}
 		VoltageEditorUtils.ShowContextMenuTooltip();
+		if (_scrollToEntity == entity)
+		{
+			ImGui.SetScrollHereY(0.5f);
+			_scrollToEntity = null;
+		}
 
 		ImGui.OpenPopupOnItemClick("entityContextMenu", ImGuiPopupFlags.MouseButtonRight);
 		DrawEntityContextMenuPopup(entity);
@@ -722,6 +738,8 @@ public class EntityPane
 				// drag, so there is no focus-steal to guard against).
 				SetSelectedEntity(entity, ctrlDown, shiftDown);
 				_imGuiManager.OpenMainEntityInspector(entity);
+				if (Core.IsEditMode)
+					_imGuiManager.CursorSelectionManager.SetCameraTargetPosition(entity.Transform.Position);
 				ImGui.SetWindowFocus();
 				_pendingSelectEntity = null;
 			}
@@ -752,21 +770,11 @@ public class EntityPane
 		{
 			SetSelectedEntity(entity, false, false);
 			_imGuiManager.OpenMainEntityInspector(entity);
+			if (Core.IsEditMode)
+				_imGuiManager.CursorSelectionManager.SetCameraTargetPosition(entity.Transform.Position);
 			ImGui.SetWindowFocus();
 			_pendingSelectEntity = null;
 		}
-
-		if (ImGui.IsMouseClicked(0) && ImGui.IsItemClicked() &&
-			ImGui.GetMousePos().X - ImGui.GetItemRectMin().X > ImGui.GetTreeNodeToLabelSpacing())
-			if (Core.Scene.Entities.Count > 0 && Core.IsEditMode)
-			{
-				if (_previousEntity == null || !_previousEntity.Equals(entity))
-				{
-					_previousEntity = entity;
-				}
-
-				_imGuiManager.CursorSelectionManager.SetCameraTargetPosition(entity.Transform.Position);
-			}
 
 		// Drag source
 		if (ImGui.BeginDragDropSource(ImGuiDragDropFlags.SourceNoDisableHover | ImGuiDragDropFlags.SourceNoHoldToOpenOthers))
@@ -924,7 +932,11 @@ public class EntityPane
             // Entity Commands
             if (Gui.Selectable("Move Camera Here"))
                 if (Core.Scene.Entities.Count > 0 && Core.IsEditMode)
+                {
+                    if (!_selectedEntities.Contains(entity))
+                        SetSelectedEntity(entity, false);
                     _imGuiManager.CursorSelectionManager.SetCameraTargetPosition(entity.Transform.Position);
+                }
 
             
             string reason = null;
@@ -971,7 +983,7 @@ public class EntityPane
                 }
             }
 
-			if (Gui.Selectable("Create Child", false, ImGuiSelectableFlags.DontClosePopups))
+			if (Gui.Selectable("Create Child", false, ImGuiSelectableFlags.NoAutoClosePopups))
 			{
 				var child = new Entity("Child Entity");
 				child.Transform.SetParent(entity.Transform);
@@ -1188,6 +1200,7 @@ public class EntityPane
 		if (clone == null)
 			return null;
 
+		PlaceDuplicateBesideSource(entity, clone);
 		ComponentReferenceResolver.RemapEntitySubtree(clone, idMap);
 		ComponentReferenceResolver.ResolveEntitySubtree(clone, Core.Scene);
 
@@ -1199,6 +1212,18 @@ public class EntityPane
 
 		_imGuiManager.MainEntityInspectorWindow.DelayedSetEntity(clone);
 		return clone;
+	}
+
+	private static void PlaceDuplicateBesideSource(Entity source, Entity clone)
+	{
+		var parent = source.Transform.Parent;
+		if (parent == null)
+			return;
+
+		clone.Transform.SetParentAt(parent, parent.Children.IndexOf(source.Transform) + 1);
+		clone.LocalPosition = source.LocalPosition;
+		clone.LocalRotation = source.LocalRotation;
+		clone.LocalScale = source.LocalScale;
 	}
 
 	/// <summary>
@@ -1303,11 +1328,10 @@ public class EntityPane
 			var clonedChild = DuplicateEntityInternal(childEntity, null, idMap);
 			if (clonedChild != null)
 			{
-				var cWorldPos = childEntity.Transform.Position;
-				var cWorldRot = childEntity.Transform.Rotation;
-				var cWorldScale = childEntity.Transform.Scale;
 				clonedChild.Transform.SetParent(clone.Transform);
-				clonedChild.Transform.RecomputeLocalsFromWorld(cWorldPos, cWorldRot, cWorldScale);
+				clonedChild.LocalPosition = childEntity.LocalPosition;
+				clonedChild.LocalRotation = childEntity.LocalRotation;
+				clonedChild.LocalScale = childEntity.LocalScale;
 			}
 		}
 
@@ -1321,8 +1345,15 @@ public class EntityPane
     public List<Entity> DuplicateEntities(IEnumerable<Entity> entitiesToDuplicate)
     {
         var clones = new List<Entity>();
+        var selected = new HashSet<Entity>(entitiesToDuplicate.Where(e => e != null && e.Scene != null));
+        var roots = selected.Where(entity =>
+        {
+            for (var parent = entity.Transform.Parent; parent != null; parent = parent.Parent)
+                if (selected.Contains(parent.Entity)) return false;
+            return true;
+        }).ToList();
 
-        foreach (var entity in entitiesToDuplicate)
+        foreach (var entity in roots)
         {
 			// Same guard DuplicateEntity has: cloning a torn-down entity yields an empty husk.
 			if (entity == null || entity.Scene == null)
@@ -1333,12 +1364,20 @@ public class EntityPane
 			if (clone == null)
 				continue;
 
+			PlaceDuplicateBesideSource(entity, clone);
 			ComponentReferenceResolver.RemapEntitySubtree(clone, idMap);
 			ComponentReferenceResolver.ResolveEntitySubtree(clone, Core.Scene);
 
             clones.Add(clone);
         }
 
+        if (clones.Count > 0)
+        {
+            var description = $"Duplicated: {string.Join(", ", clones.Select(e => e.Name))}";
+            var actions = clones.Select(clone => (EditorChangeTracker.IEditorAction)
+                new EntityCreateDeleteUndoAction(Core.Scene, clone, wasCreated: true, description)).ToList();
+            EditorChangeTracker.PushUndo(new CompositeUndoAction(actions, description), clones[0], description);
+        }
         return clones;
 	}
 	#endregion

@@ -57,19 +57,26 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		                    new FileDataStore(EditorStorage.Root);
 		KeyValueDataStore.Default.Load(fileDataStore);
 
-		ShowStyleEditor = KeyValueDataStore.Default.GetBool(kShowStyleEditor, ShowStyleEditor);
-		ShowSceneGraphWindow = KeyValueDataStore.Default.GetBool(kShowSceneGraphWindow, ShowSceneGraphWindow);
-		ShowCoreWindow = KeyValueDataStore.Default.GetBool(kShowCoreWindow, ShowCoreWindow);
-		ShowMainInspectorWindow = KeyValueDataStore.Default.GetBool(kShowMainInspectorWindow, ShowMainInspectorWindow);
-		ShowSeparateGameWindow = KeyValueDataStore.Default.GetBool(kShowSeperateGameWindow, ShowSeparateGameWindow);
-		PreserveGameWindowAspectRatio =
-			KeyValueDataStore.Default.GetBool(kPreserveGameWindowAspectRatio, PreserveGameWindowAspectRatio);
+		if (!EditorSettingsLoader.ContainsSetting(kShowStyleEditor))
+			ShowStyleEditor = KeyValueDataStore.Default.GetBool(kShowStyleEditor, ShowStyleEditor);
+		if (!EditorSettingsLoader.ContainsSetting(kShowSceneGraphWindow))
+			ShowSceneGraphWindow = KeyValueDataStore.Default.GetBool(kShowSceneGraphWindow, ShowSceneGraphWindow);
+		if (!EditorSettingsLoader.ContainsSetting(kShowCoreWindow))
+			ShowCoreWindow = KeyValueDataStore.Default.GetBool(kShowCoreWindow, ShowCoreWindow);
+		if (!EditorSettingsLoader.ContainsSetting(kShowMainInspectorWindow))
+			ShowMainInspectorWindow = KeyValueDataStore.Default.GetBool(kShowMainInspectorWindow, ShowMainInspectorWindow);
+		if (!EditorSettingsLoader.ContainsSetting("ImGui_ShowSeparateGameWindow"))
+			ShowSeparateGameWindow = KeyValueDataStore.Default.GetBool(kShowSeperateGameWindow, ShowSeparateGameWindow);
+		if (!EditorSettingsLoader.ContainsSetting(kPreserveGameWindowAspectRatio))
+			PreserveGameWindowAspectRatio = KeyValueDataStore.Default.GetBool(kPreserveGameWindowAspectRatio, PreserveGameWindowAspectRatio);
 
 		Core.Emitter.AddObserver(CoreEvents.Exiting, PersistSettings);
 	}
 
 	private void PersistSettings()
 	{
+		_timelineWindow?.DisposePreview();
+		_layoutManager.SaveWorkingLayout();
 		KeyValueDataStore.Default.Set(kShowStyleEditor, ShowStyleEditor);
 		KeyValueDataStore.Default.Set(kShowSceneGraphWindow, ShowSceneGraphWindow);
 		KeyValueDataStore.Default.Set(kShowCoreWindow, ShowCoreWindow);
@@ -184,13 +191,21 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		GameWindowWidth = ImGui.GetWindowSize().X;
 		GameWindowHeight = ImGui.GetWindowSize().Y;
 
+		var stripHeight = ImGui.GetFrameHeight() + 12 * FontSizeMultiplier;
+		ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Num.Vector2(4, 4) * FontSizeMultiplier);
+		ImGui.BeginChild("Playback", new Num.Vector2(0, stripHeight), ImGuiChildFlags.AlwaysUseWindowPadding,
+			ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
+		DrawPlaybackControls();
+		ImGui.EndChild();
+		ImGui.PopStyleVar();
+
 		Num.Vector2 imageSize;
 		Num.Vector2 cursorOffset = Num.Vector2.Zero;
 
 		if (Core.Scene?.UsesSmoothPixelArt == true)
 		{
 			// Use the panel bounds so an oversized image from the previous frame cannot hold the viewport open.
-			var available = ImGui.GetWindowSize() - ImGui.GetWindowContentRegionMin();
+			var available = Num.Vector2.Max(Num.Vector2.One, ImGui.GetWindowSize() - ImGui.GetCursorPos());
 			ImGui.SetScrollX(0);
 			ImGui.SetScrollY(0);
 			Core.Scene.SetPixelArtViewportSize(new Point(Math.Max(1, (int)available.X), Math.Max(1, (int)available.Y)));
@@ -203,7 +218,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		}
 		else if (PreserveGameWindowAspectRatio)
 		{
-			var availableRegion = ImGui.GetContentRegionAvail();
+			var availableRegion = Num.Vector2.Max(Num.Vector2.One, ImGui.GetContentRegionAvail());
 			var targetAspect = (float)_lastRenderTarget.Width / _lastRenderTarget.Height;
 			var availableAspect = availableRegion.X / availableRegion.Y;
 
@@ -226,7 +241,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		}
 		else
 		{
-			imageSize = ImGui.GetContentRegionAvail();
+			imageSize = Num.Vector2.Max(Num.Vector2.One, ImGui.GetContentRegionAvail());
 		}
 
 		// Capture the screen-space position of the image BEFORE drawing it.
@@ -244,17 +259,19 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		{
 			ImGui.Dummy(imageSize);
 		}
+		IsGameWindowHovered = ImGui.IsItemHovered();
 
 		// Draw buttons and text on top using screen coordinates
 		var camera = Core.Scene?.Camera;
 		bool showZoomButton = camera != null && Math.Abs(camera.Zoom - Camera.DefaultZoom) > 0.01f;
 		bool showSpeedButton = Math.Abs(GetDynamicCameraSpeed() - EditModeCameraSpeed) > 0.1f;
+		var overlayBottom = _gameImageScreenPos.Y;
 
 		if (showZoomButton || showSpeedButton)
 		{
 			var windowPos = ImGui.GetWindowPos();
-			var contentMin = ImGui.GetWindowContentRegionMin();
-			var buttonStartPos = windowPos + contentMin + cursorOffset +
+			var contentMin = ImGui.GetCursorStartPos();
+			var buttonStartPos = _gameImageScreenPos +
 			                     new Num.Vector2(8, 8) * ImGui.GetIO().FontGlobalScale;
 
 			ImGui.SetCursorScreenPos(buttonStartPos);
@@ -273,7 +290,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 				if (showSpeedButton)
 				{
-					ImGui.SameLine(0, 8f * ImGui.GetIO().FontGlobalScale);
+					EditorLayout.SameLine(EditorLayout.ButtonWidth("Reset Camera Speed"));
 				}
 			}
 
@@ -289,6 +306,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 					ResetDynamicCameraSpeed();
 				}
 			}
+			overlayBottom = ImGui.GetItemRectMax().Y;
 		}
 
 		if (Core.IsEditMode && Math.Abs(GetDynamicCameraSpeed() - EditModeCameraSpeed) > 0.1f)
@@ -297,12 +315,12 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			var speedTextSize = ImGui.CalcTextSize(speedText);
 
 			var windowPos = ImGui.GetWindowPos();
-			var contentMin = ImGui.GetWindowContentRegionMin();
+			var contentMin = ImGui.GetCursorStartPos();
 			var margin = new Num.Vector2(8, 8) * ImGui.GetIO().FontGlobalScale;
 
 			var speedTextPos = new Num.Vector2(
-				windowPos.X + contentMin.X + cursorOffset.X + imageSize.X - speedTextSize.X - margin.X,
-				windowPos.Y + contentMin.Y + cursorOffset.Y + margin.Y
+				_gameImageScreenPos.X + imageSize.X - speedTextSize.X - margin.X,
+				overlayBottom + margin.Y
 			);
 
 			var drawList = ImGui.GetWindowDrawList();
@@ -427,6 +445,17 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		if (!_hasValidGameWindowData || _lastRenderTarget == null)
 			return;
 
+		var raw = Input.RawMousePosition.ToVector2();
+		var overPlayback = raw.X >= GameWindowPosition.X && raw.X < GameWindowPosition.X + GameWindowSize.X
+			&& raw.Y >= GameWindowPosition.Y && raw.Y < _gameImageScreenPos.Y;
+		if (overPlayback)
+		{
+			var current = Input.CurrentMouseState;
+			Input.SetCurrentMouseState(new MouseState(current.X, current.Y, current.ScrollWheelValue,
+				ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released));
+			IsGameWindowHovered = false;
+			return;
+		}
 		var offset = new Vector2(_gameImageScreenPos.X, _gameImageScreenPos.Y);
 		var normalizedPos = Input.RawMousePosition.ToVector2() - offset;
 
@@ -744,13 +773,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			if (disposing)
 			{
 				Core.Emitter.RemoveObserver(CoreEvents.SceneChanged, OnSceneChanged);
-				_layoutManager.AutoSaveCurrentLayout();
+				_layoutManager.SaveWorkingLayout();
 
-				// Always save the default .ini for next startup
-				if (!string.IsNullOrEmpty(_layoutFilePath))
-				{
-					ImGui.SaveIniSettingsToDisk(_layoutFilePath);
-				}
 			}
 
 			// Free the pinned GCHandle to avoid a memory leak.

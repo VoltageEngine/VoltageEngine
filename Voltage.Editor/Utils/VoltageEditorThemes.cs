@@ -6,6 +6,8 @@ namespace Voltage.Editor.Utils
 {
 	public static class VoltageEditorThemes
 	{
+		public static void StudioGraphite() => Styling.StudioGraphite.Apply();
+
 		public static void DefaultDarkTheme()
 		{
 			ImGui.StyleColorsDark();
@@ -92,9 +94,9 @@ namespace Voltage.Editor.Utils
 
 			colors[(int)ImGuiCol.Tab] = new Num.Vector4(0.65f, 0.42f, 0.12f, 0.86f);
 			colors[(int)ImGuiCol.TabHovered] = voltageOrangeBright;
-			colors[(int)ImGuiCol.TabActive] = new Num.Vector4(0.85f, 0.55f, 0.15f, 1.00f);
-			colors[(int)ImGuiCol.TabUnfocused] = new Num.Vector4(0.40f, 0.25f, 0.07f, 0.97f);
-			colors[(int)ImGuiCol.TabUnfocusedActive] = new Num.Vector4(0.65f, 0.42f, 0.12f, 1.00f);
+			colors[(int)ImGuiCol.TabSelected] = new Num.Vector4(0.85f, 0.55f, 0.15f, 1.00f);
+			colors[(int)ImGuiCol.TabDimmed] = new Num.Vector4(0.40f, 0.25f, 0.07f, 0.97f);
+			colors[(int)ImGuiCol.TabDimmedSelected] = new Num.Vector4(0.65f, 0.42f, 0.12f, 1.00f);
 
 			colors[(int)ImGuiCol.PlotLines] = voltageOrangeBrighter;
 			colors[(int)ImGuiCol.PlotLinesHovered] = voltageOrangeBright;
@@ -102,7 +104,7 @@ namespace Voltage.Editor.Utils
 			colors[(int)ImGuiCol.PlotHistogramHovered] = voltageOrangeBright;
 
 			colors[(int)ImGuiCol.DragDropTarget] = voltageOrangeBright;
-			colors[(int)ImGuiCol.NavHighlight] = voltageOrangeBright;
+			colors[(int)ImGuiCol.NavCursor] = voltageOrangeBright;
 			colors[(int)ImGuiCol.NavWindowingHighlight] = new Num.Vector4(1.00f, 1.00f, 1.00f, 0.70f);
 			colors[(int)ImGuiCol.NavWindowingDimBg] = new Num.Vector4(0.80f, 0.80f, 0.80f, 0.20f);
 
@@ -206,7 +208,7 @@ namespace Voltage.Editor.Utils
 			colors[(int) ImGuiCol.TextSelectedBg] = new Num.Vector4(0.87f, 0.87f, 0.87f, 0.35f);
 			colors[(int) ImGuiCol.ModalWindowDimBg] = new Num.Vector4(0.80f, 0.80f, 0.80f, 0.35f);
 			colors[(int) ImGuiCol.DragDropTarget] = new Num.Vector4(1.00f, 1.00f, 0.00f, 0.90f);
-			colors[(int) ImGuiCol.NavHighlight] = new Num.Vector4(0.60f, 0.60f, 0.60f, 1.00f);
+			colors[(int) ImGuiCol.NavCursor] = new Num.Vector4(0.60f, 0.60f, 0.60f, 1.00f);
 			colors[(int) ImGuiCol.NavWindowingHighlight] = new Num.Vector4(1.00f, 1.00f, 1.00f, 0.70f);
 		}
 
@@ -262,16 +264,16 @@ namespace Voltage.Editor.Utils
 			colors[(int) ImGuiCol.ResizeGripActive] = new Num.Vector4(0.87f, 0.87f, 0.87f, 0.74f);
 			colors[(int) ImGuiCol.Tab] = new Num.Vector4(0.01f, 0.01f, 0.01f, 0.86f);
 			colors[(int) ImGuiCol.TabHovered] = new Num.Vector4(0.29f, 0.29f, 0.29f, 1.00f);
-			colors[(int) ImGuiCol.TabActive] = new Num.Vector4(0.31f, 0.31f, 0.31f, 1.00f);
-			colors[(int) ImGuiCol.TabUnfocused] = new Num.Vector4(0.02f, 0.02f, 0.02f, 1.00f);
-			colors[(int) ImGuiCol.TabUnfocusedActive] = new Num.Vector4(0.19f, 0.19f, 0.19f, 1.00f);
+			colors[(int) ImGuiCol.TabSelected] = new Num.Vector4(0.31f, 0.31f, 0.31f, 1.00f);
+			colors[(int) ImGuiCol.TabDimmed] = new Num.Vector4(0.02f, 0.02f, 0.02f, 1.00f);
+			colors[(int) ImGuiCol.TabDimmedSelected] = new Num.Vector4(0.19f, 0.19f, 0.19f, 1.00f);
 			colors[(int) ImGuiCol.PlotLines] = new Num.Vector4(0.61f, 0.61f, 0.61f, 1.00f);
 			colors[(int) ImGuiCol.PlotLinesHovered] = new Num.Vector4(0.68f, 0.68f, 0.68f, 1.00f);
 			colors[(int) ImGuiCol.PlotHistogram] = new Num.Vector4(0.90f, 0.77f, 0.33f, 1.00f);
 			colors[(int) ImGuiCol.PlotHistogramHovered] = new Num.Vector4(0.87f, 0.55f, 0.08f, 1.00f);
 			colors[(int) ImGuiCol.TextSelectedBg] = new Num.Vector4(0.47f, 0.60f, 0.76f, 0.47f);
 			colors[(int) ImGuiCol.DragDropTarget] = new Num.Vector4(0.58f, 0.58f, 0.58f, 0.90f);
-			colors[(int) ImGuiCol.NavHighlight] = new Num.Vector4(0.60f, 0.60f, 0.60f, 1.00f);
+			colors[(int) ImGuiCol.NavCursor] = new Num.Vector4(0.60f, 0.60f, 0.60f, 1.00f);
 			colors[(int) ImGuiCol.NavWindowingHighlight] = new Num.Vector4(1.00f, 1.00f, 1.00f, 0.70f);
 			colors[(int) ImGuiCol.NavWindowingDimBg] = new Num.Vector4(0.80f, 0.80f, 0.80f, 0.20f);
 			colors[(int) ImGuiCol.ModalWindowDimBg] = new Num.Vector4(0.80f, 0.80f, 0.80f, 0.35f);
@@ -317,16 +319,16 @@ namespace Voltage.Editor.Utils
 			colors[(int) ImGuiCol.ResizeGripActive] = new Num.Vector4(1.000f, 0.391f, 0.000f, 1.000f);
 			colors[(int) ImGuiCol.Tab] = new Num.Vector4(0.098f, 0.098f, 0.098f, 1.000f);
 			colors[(int) ImGuiCol.TabHovered] = new Num.Vector4(0.352f, 0.352f, 0.352f, 1.000f);
-			colors[(int) ImGuiCol.TabActive] = new Num.Vector4(0.195f, 0.195f, 0.195f, 1.000f);
-			colors[(int) ImGuiCol.TabUnfocused] = new Num.Vector4(0.098f, 0.098f, 0.098f, 1.000f);
-			colors[(int) ImGuiCol.TabUnfocusedActive] = new Num.Vector4(0.195f, 0.195f, 0.195f, 1.000f);
+			colors[(int) ImGuiCol.TabSelected] = new Num.Vector4(0.195f, 0.195f, 0.195f, 1.000f);
+			colors[(int) ImGuiCol.TabDimmed] = new Num.Vector4(0.098f, 0.098f, 0.098f, 1.000f);
+			colors[(int) ImGuiCol.TabDimmedSelected] = new Num.Vector4(0.195f, 0.195f, 0.195f, 1.000f);
 			colors[(int) ImGuiCol.PlotLines] = new Num.Vector4(0.469f, 0.469f, 0.469f, 1.000f);
 			colors[(int) ImGuiCol.PlotLinesHovered] = new Num.Vector4(1.000f, 0.391f, 0.000f, 1.000f);
 			colors[(int) ImGuiCol.PlotHistogram] = new Num.Vector4(0.586f, 0.586f, 0.586f, 1.000f);
 			colors[(int) ImGuiCol.PlotHistogramHovered] = new Num.Vector4(1.000f, 0.391f, 0.000f, 1.000f);
 			colors[(int) ImGuiCol.TextSelectedBg] = new Num.Vector4(1.000f, 1.000f, 1.000f, 0.156f);
 			colors[(int) ImGuiCol.DragDropTarget] = new Num.Vector4(1.000f, 0.391f, 0.000f, 1.000f);
-			colors[(int) ImGuiCol.NavHighlight] = new Num.Vector4(1.000f, 0.391f, 0.000f, 1.000f);
+			colors[(int) ImGuiCol.NavCursor] = new Num.Vector4(1.000f, 0.391f, 0.000f, 1.000f);
 			colors[(int) ImGuiCol.NavWindowingHighlight] = new Num.Vector4(1.000f, 0.391f, 0.000f, 1.000f);
 			colors[(int) ImGuiCol.NavWindowingDimBg] = new Num.Vector4(0.000f, 0.000f, 0.000f, 0.586f);
 			colors[(int) ImGuiCol.ModalWindowDimBg] = new Num.Vector4(0.000f, 0.000f, 0.000f, 0.586f);
@@ -408,7 +410,7 @@ namespace Voltage.Editor.Utils
 			colors[(int) ImGuiCol.TextSelectedBg] = new Num.Vector4(0.26f, 0.59f, 0.98f, 0.35f);
 			colors[(int) ImGuiCol.ModalWindowDimBg] = new Num.Vector4(0.20f, 0.20f, 0.20f, 0.35f);
 			colors[(int) ImGuiCol.DragDropTarget] = new Num.Vector4(0.26f, 0.59f, 0.98f, 0.95f);
-			colors[(int) ImGuiCol.NavHighlight] = colors[(int) ImGuiCol.HeaderHovered];
+			colors[(int) ImGuiCol.NavCursor] = colors[(int) ImGuiCol.HeaderHovered];
 			colors[(int) ImGuiCol.NavWindowingHighlight] = new Num.Vector4(0.70f, 0.70f, 0.70f, 0.70f);
 		}
 
@@ -456,7 +458,7 @@ namespace Voltage.Editor.Utils
 			style.Colors[(int) ImGuiCol.PlotHistogramHovered] = new Num.Vector4(1.00f, 0.60f, 0.00f, 1.00f);
 			style.Colors[(int) ImGuiCol.TextSelectedBg] = new Num.Vector4(1.000f, 1.000f, 1.000f, 0.156f);
 			style.Colors[(int) ImGuiCol.DragDropTarget] = new Num.Vector4(1.000f, 0.391f, 0.000f, 1.000f);
-			style.Colors[(int) ImGuiCol.NavHighlight] = new Num.Vector4(1.000f, 0.391f, 0.000f, 1.000f);
+			style.Colors[(int) ImGuiCol.NavCursor] = new Num.Vector4(1.000f, 0.391f, 0.000f, 1.000f);
 			style.Colors[(int) ImGuiCol.NavWindowingHighlight] = new Num.Vector4(1.000f, 0.391f, 0.000f, 1.000f);
 			style.Colors[(int) ImGuiCol.NavWindowingDimBg] = new Num.Vector4(0.000f, 0.000f, 0.000f, 0.586f);
 			style.Colors[(int) ImGuiCol.ModalWindowDimBg] = new Num.Vector4(0.000f, 0.000f, 0.000f, 0.586f);

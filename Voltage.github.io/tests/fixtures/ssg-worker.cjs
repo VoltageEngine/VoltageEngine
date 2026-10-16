@@ -7,3 +7,5 @@ exports.default = task => ({
   site: workerData[1].params.site,
   workerId: process.__tinypool_state__.workerId,
 });
+
+module.exports = exports.default;

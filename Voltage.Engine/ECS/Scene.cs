@@ -99,12 +99,14 @@ public partial class Scene
 	public string Name => SceneData?.Name;
 
 	/// <summary>
-	/// The level key this scene was loaded from — the .vscene file name without extension
-	/// (e.g. "MainScene"). Returns null if the scene was not loaded from a file.
+	/// The level key relative to the project root, without extension (e.g. "Act 1/Room").
+	/// Returns null if the scene was not loaded from a file.
 	/// Pass this to <see cref="LoadLevel"/> to load/reload the same level.
 	/// </summary>
-	public string LevelName =>
-		string.IsNullOrEmpty(SceneData?.FilePath) ? null : System.IO.Path.GetFileNameWithoutExtension(SceneData.FilePath);
+	public string LevelName => string.IsNullOrEmpty(SceneData?.FilePath) ? null :
+		System.IO.Path.ChangeExtension(System.IO.Path.GetRelativePath(
+			ProjectDirectory ?? ScenesDirectory ?? System.AppContext.BaseDirectory,
+			SceneData.FilePath), null).Replace('\\', '/');
 
 	/// <summary>
 	/// default scene Camera
@@ -356,7 +358,16 @@ public partial class Scene
 
 		// we kill Renderers and PostProcessors first since they rely on Entities
 		for (var i = 0; i < _renderers.Length; i++)
+		{
 			_renderers.Buffer[i].Unload();
+			_renderers.Buffer[i].Scene = null;
+		}
+
+		for (var i = 0; i < _afterPostProcessorRenderers.Length; i++)
+		{
+			_afterPostProcessorRenderers.Buffer[i].Unload();
+			_afterPostProcessorRenderers.Buffer[i].Scene = null;
+		}
 
 		for (var i = 0; i < _postProcessors.Length; i++)
 			_postProcessors.Buffer[i].Unload();
@@ -935,6 +946,7 @@ public partial class Scene
 	/// <param name="renderer">Renderer.</param>
 	public T AddRenderer<T>(T renderer) where T : Renderer
 	{
+		renderer.Scene = this;
 		if (renderer.WantsToRenderAfterPostProcessors)
 		{
 			_afterPostProcessorRenderers.Add(renderer);
@@ -985,6 +997,7 @@ public partial class Scene
 		else
 			_renderers.Remove(renderer);
 		renderer.Unload();
+		renderer.Scene = null;
 	}
 
 	/// <summary>

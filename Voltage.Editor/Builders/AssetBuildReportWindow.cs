@@ -34,7 +34,7 @@ public sealed class AssetBuildReportWindow
 		if (!_open)
 			return;
 
-		ImGui.SetNextWindowSize(new Num.Vector2(760, 460), ImGuiCond.Appearing);
+		EditorLayout.WindowSize(new Num.Vector2(900, 640), ImGuiCond.Appearing);
 		if (Gui.Begin("Asset Build", ref _open, ImGuiWindowFlags.NoCollapse))
 		{
 			var report = AssetBuildService.LastReport;

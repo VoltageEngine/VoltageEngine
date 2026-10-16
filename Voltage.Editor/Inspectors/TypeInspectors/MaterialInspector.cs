@@ -69,7 +69,7 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 					ImGui.CloseCurrentPopup();
 				}
 
-				if (Gui.Selectable("Set Effect", false, ImGuiSelectableFlags.DontClosePopups))
+				if (Gui.Selectable("Set Effect", false, ImGuiSelectableFlags.NoAutoClosePopups))
 					ImGui.OpenPopup("effect-chooser");
 
 				Gui.EndPopup();

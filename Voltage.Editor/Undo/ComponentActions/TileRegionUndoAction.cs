@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Voltage.Editor.Undo.Core;
 
@@ -31,20 +32,22 @@ public class TileRegionUndoAction : EditorChangeTracker.IEditorAction
 	private readonly List<CellState> _before;
 	private readonly List<CellState> _after;
 	private readonly string _description;
+	private readonly Action<bool> _selectionChanged;
 
 	public string Description => _description;
 
-	public TileRegionUndoAction(TilemapRenderer map, List<CellState> before, List<CellState> after, string description)
+	public TileRegionUndoAction(TilemapRenderer map, List<CellState> before, List<CellState> after, string description, Action<bool> selectionChanged = null)
 	{
 		_map = map;
 		_before = new List<CellState>(before);
 		_after = new List<CellState>(after);
 		_description = description;
+		_selectionChanged = selectionChanged;
 	}
 
-	public void Undo() => Apply(_before);
+	public void Undo() { Apply(_before); _selectionChanged?.Invoke(false); }
 
-	public void Redo() => Apply(_after);
+	public void Redo() { Apply(_after); _selectionChanged?.Invoke(true); }
 
 	private void Apply(List<CellState> states)
 	{
@@ -58,6 +61,6 @@ public class TileRegionUndoAction : EditorChangeTracker.IEditorAction
 			_map.SetCollision(state.X, state.Y, state.Solid);
 		}
 
-		_map.RebuildColliders();
+		if (_map.AutoBuildColliders) _map.RebuildColliders();
 	}
 }

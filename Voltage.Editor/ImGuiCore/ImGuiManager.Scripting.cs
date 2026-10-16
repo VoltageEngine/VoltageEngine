@@ -113,7 +113,7 @@ public partial class ImGuiManager
 		if (!_showScriptingWindow)
 			return;
 
-		ImGui.SetNextWindowSize(new Num.Vector2(600, 400), ImGuiCond.FirstUseEver);
+		EditorLayout.WindowSize(new Num.Vector2(760, 600));
 		
 		bool open = _showScriptingWindow;
 		if (Gui.Begin("Scripting", ref open))
@@ -143,8 +143,8 @@ public partial class ImGuiManager
 
 			ImGui.TextColored(new Num.Vector4(0.2f, 0.8f, 1.0f, 1.0f), "Active Project");
 			ImGui.Separator();
-			ImGuiSafe.TextSafe($"Project: {_projectManager.CurrentProject.ProjectName}");
-			ImGuiSafe.TextSafe($"Scripts Folder: {_projectManager.CurrentProject.ScriptsFolder}");
+			ImGuiSafe.TextWrappedSafe($"Project: {_projectManager.CurrentProject.ProjectName}");
+			ImGuiSafe.TextWrappedSafe($"Scripts Folder: {_projectManager.CurrentProject.ScriptsFolder}");
 			
 			VoltageEditorUtils.MediumVerticalSpace();
 
@@ -185,7 +185,7 @@ public partial class ImGuiManager
 				ImGui.SetTooltip("Compile scripts without reloading the scene");
 			}
 			
-			ImGui.SameLine();
+			EditorLayout.SameLine(EditorLayout.ButtonWidth("Compile & Reload"));
 
 			if (Gui.Button("Compile & Reload", new Num.Vector2(150, 0)))
 			{
@@ -196,7 +196,7 @@ public partial class ImGuiManager
 				ImGui.SetTooltip("Compile scripts and reload the scene");
 			}
 			
-			ImGui.SameLine();
+			EditorLayout.SameLine(EditorLayout.ButtonWidth("Reload Scene"));
 
 			if (Gui.Button("Reload Scene", new Num.Vector2(150, 0)))
 			{
@@ -260,11 +260,13 @@ public partial class ImGuiManager
 			ImGui.TextColored(new Num.Vector4(0.2f, 0.8f, 1.0f, 1.0f), "Compilation Log");
 			ImGui.Separator();
 
-			if (ImGui.BeginChild("CompilationLog", new Num.Vector2(0, 150), true))
+			if (ImGui.BeginChild("CompilationLog", new Num.Vector2(0, 150), ImGuiChildFlags.Borders))
 			{
+				ImGui.PushFont(LogFont);
 				ImGuiSafe.TextWrappedSafe(_compilationLog);
-				ImGui.EndChild();
+				ImGui.PopFont();
 			}
+			ImGui.EndChild();
 
 			Gui.End();
 		}

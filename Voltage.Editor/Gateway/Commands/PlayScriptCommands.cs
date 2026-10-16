@@ -40,11 +40,11 @@ internal static class PlayScriptCommands
 				: PlayState();
 		});
 
-		table.Add("play.pause", "Pause or resume play mode.", (args, _) =>
+		table.Add("play.pause", "Pause or resume play mode.", (args, ctx) =>
 		{
 			if (Core.IsEditMode)
 				throw new GatewayException("not in play mode");
-			Core.InvokeSwitchPauseMode(args.Bool("paused", true));
+			ctx.ImGui().SetEditorPause(args.Bool("paused", true));
 			return PlayState();
 		}, P.Bool("paused", "Pause (true) or resume (false)", true));
 
@@ -68,6 +68,13 @@ internal static class PlayScriptCommands
 	internal static Task<object> CompileAsync(GatewayContext ctx, bool reloadScene)
 	{
 		var manager = ctx.ImGui().ScriptManager ?? throw new GatewayException("no project with a scripts folder is loaded");
+
+		if (!Core.IsEditMode)
+		{
+			manager.CompileScripts(reloadScene);
+			return Task.FromResult<object>(new { success = false, deferred = true, errors = Array.Empty<string>(),
+				note = "Compilation queued until Play stops." });
+		}
 
 		// The watcher does nothing at all for an empty scripts folder, so the completion event would never come.
 		var scriptsFolder = ProjectFile.ProjectManager.Instance.GetScriptsFolder();

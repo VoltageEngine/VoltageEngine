@@ -61,6 +61,57 @@ public class ProjectManager : GlobalManager
 
 	public IGameProject CurrentProject { get; private set; }
 
+	/// <summary>Keeps creation defaults, scene reloads and build keys valid after a folder move.</summary>
+	public void RepointFolderPaths(string source, string destination)
+	{
+		if (CurrentProject is not RuntimeGameProject project) return;
+		string Repoint(string path)
+		{
+			if (string.IsNullOrWhiteSpace(path)) return path;
+			var full = Path.GetFullPath(path.Replace('\\', Path.DirectorySeparatorChar));
+			var prefix = Path.TrimEndingDirectorySeparator(Path.GetFullPath(source));
+			var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+			return string.Equals(full, prefix, comparison) || full.StartsWith(prefix + Path.DirectorySeparatorChar, comparison)
+				? destination + full[prefix.Length..] : path;
+		}
+		var scenes = Repoint(project.ScenesFolder);
+		var prefabs = Repoint(project.PrefabsFolder);
+		if (scenes != project.ScenesFolder || prefabs != project.PrefabsFolder)
+		{
+			project.Metadata.ScenesFolder = Path.GetRelativePath(project.ProjectPath, scenes).Replace('\\', '/');
+			project.Metadata.PrefabsFolder = Path.GetRelativePath(project.ProjectPath, prefabs).Replace('\\', '/');
+			var metadata = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(LastProjectPath));
+			metadata["ScenesFolder"] = project.Metadata.ScenesFolder;
+			metadata["PrefabsFolder"] = project.Metadata.PrefabsFolder;
+			File.WriteAllText(LastProjectPath, metadata.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+		}
+		Scene.ScenesDirectory = project.ScenesFolder;
+		Scene.PrefabsDirectory = project.PrefabsFolder;
+		var manager = SceneManager.Instance;
+		if (manager.HasLoadedScene) manager.SetCurrentScenePath(Repoint(manager.CurrentScenePath), manager.CurrentSceneName);
+		if (Core.Scene?.SceneData != null) Core.Scene.SceneData.FilePath = Repoint(Core.Scene.SceneData.FilePath);
+		PersistentScene.SetLastScenePath(Repoint(PersistentScene.GetLastScenePath()));
+		Core.GetGlobalManager<ImGuiCore.ImGuiManager>()?.RepointPrefabReturnPaths(Repoint);
+		string RepointKey(string key)
+		{
+			if (string.IsNullOrWhiteSpace(key)) return key;
+			var absolute = Path.Combine(project.ProjectPath, key.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar));
+			var moved = Repoint(absolute);
+			return moved == absolute ? key : Path.GetRelativePath(project.ProjectPath, moved).Replace('\\', '/');
+		}
+		var changed = RepointKey(project.Settings.InitialScene) != project.Settings.InitialScene;
+		project.Settings.InitialScene = RepointKey(project.Settings.InitialScene);
+		foreach (var rule in project.Settings.BuildScenes ?? new())
+		{
+			if (rule == null) continue;
+			var moved = RepointKey(rule.Scene);
+			changed |= moved != rule.Scene;
+			rule.Scene = moved;
+		}
+		if (changed) File.WriteAllText(Path.Combine(project.ProjectPath, "ProjectSettings.json"),
+			Voltage.Persistence.Json.ToJson(project.Settings, new Voltage.Persistence.JsonSettings { PrettyPrint = true }));
+	}
+
 	public string LastProjectPath
 	{
 		get => _lastProjectPath.Value;
@@ -144,6 +195,9 @@ public class ProjectManager : GlobalManager
 			return false;
 		}
 
+		if (Core.GetGlobalManager<Voltage.Editor.ImGuiCore.ImGuiManager>() is { } editor &&
+			!editor.PrepareTimelineSceneSwitch(() => LoadProject(voltageFilePath))) return false;
+
 		try
 		{
 			var jsonContent = File.ReadAllText(voltageFilePath);
@@ -197,6 +251,7 @@ public class ProjectManager : GlobalManager
 
 			// Point Scene.LoadLevel(name) at the project's Scenes folder so it resolves correctly
 			// in play mode (where AppContext.BaseDirectory is the editor binary, not the game project).
+			Scene.ProjectDirectory = project.ProjectPath;
 			Scene.ScenesDirectory = project.ScenesFolder;
 
 			// Same for Scene.LoadPrefab(path) — resolve relative prefab paths against the project's
@@ -205,7 +260,6 @@ public class ProjectManager : GlobalManager
 
 			// Phase 4b: wire the GUID-based prefab path resolver so the engine's overlay-load
 			// path can find source prefabs by GUID via AssetDatabase (survives renames).
-			var prefabsRoot = project.PrefabsFolder;
 			Scene.PrefabPathResolver = (guid, name) =>
 			{
 				// 1. GUID lookup via AssetDatabase.
@@ -216,21 +270,9 @@ public class ProjectManager : GlobalManager
 						return byGuid;
 				}
 
-				// 2. Name-based fallback — scan PrefabsFolder subdirectories.
-				if (!string.IsNullOrEmpty(name) && Directory.Exists(prefabsRoot))
-				{
-					var direct = Path.Combine(prefabsRoot, name + ".vprefab");
-					if (File.Exists(direct))
-						return direct;
-
-					foreach (var sub in Directory.GetDirectories(prefabsRoot))
-					{
-						var candidate = Path.Combine(sub, name + ".vprefab");
-						if (File.Exists(candidate)) return candidate;
-						candidate = Path.Combine(sub, name + ".prefab");
-						if (File.Exists(candidate)) return candidate;
-					}
-				}
+				if (!string.IsNullOrEmpty(name))
+					return Voltage.Project.ProjectAssetFiles.Resolve(project.ProjectPath, name, ".vprefab", project.PrefabsFolder)
+						?? Voltage.Project.ProjectAssetFiles.Resolve(project.ProjectPath, name, ".prefab", project.PrefabsFolder);
 
 				return null;
 			};
@@ -306,6 +348,10 @@ public class ProjectManager : GlobalManager
 		Plugins.PluginManager.Instance.OnProjectUnloaded();
 
 		CurrentProject = null;
+		Scene.ProjectDirectory = null;
+		Scene.ScenesDirectory = null;
+		Scene.PrefabsDirectory = null;
+		Scene.PrefabPathResolver = null;
 
 		// Restore the content resolver to the editor's base directory so
 		// editor-relative assets continue to load correctly with no project active.
@@ -334,7 +380,7 @@ public class ProjectManager : GlobalManager
 
 	/// <summary>
 	/// Returns the scenes folder of the current project, or null if no project is loaded.
-	/// All scene operations should use this to resolve paths.
+	/// Discovery searches the whole project; this folder is only the creation default.
 	/// </summary>
 	public string GetScenesFolder()
 	{

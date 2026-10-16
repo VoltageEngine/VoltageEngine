@@ -82,7 +82,7 @@ public partial class SerializationManager : GlobalManager
 		// Wire each event to its real handler. (These previously subscribed the events to
 		// themselves — a copy-paste bug — so OnPrefabLoadRequested/OnLoadEntityData never fired,
 		// making prefab instantiation produce empty, nameless, component-less entities.)
-		OnPrefabCreated += SavePrefabDataAsync;
+		OnPrefabCreated += (entity, overwrite) => SavePrefabDataAsync(entity, overwrite);
 		OnPrefabLoadRequested += name => LoadPrefabData(name) ?? new PrefabData();
 		OnLoadEntityData += (entity, data) =>
 		{
@@ -305,6 +305,7 @@ public partial class SerializationManager : GlobalManager
 	/// </summary>
 	public async Task SaveSceneDataAsync(Scene scene, bool ignoreEntityTransform)
 	{
+		Core.GetGlobalManager<Voltage.Editor.ImGuiCore.ImGuiManager>()?.DisposeTimelinePreview();
 		ComponentDataSerializationBootstrap.EnsureInitialized();
 		var filePath = SceneManager.Instance.CurrentScenePath;
 
@@ -656,10 +657,7 @@ public partial class SerializationManager : GlobalManager
 			return null;
 		}
 
-		var sceneFilePath = Path.Combine(
-			ProjectManager.Instance.CurrentProject.ScenesFolder,
-			$"{sceneName}.vscene"
-		);
+		var sceneFilePath = SceneManager.Instance.GetScenePath(sceneName);
 
 		return LoadSceneData(sceneFilePath);
 	}
@@ -1074,7 +1072,7 @@ public partial class SerializationManager : GlobalManager
 	/// <summary>
 	/// Resolves the source prefab <c>.vprefab</c> file for a <see cref="Entity.InstanceType.SerializedPrefab"/>
 	/// entity and returns its deserialized <see cref="PrefabData"/>, or null when the prefab cannot be found.
-	/// <para>Resolution order: AssetDatabase GUID lookup (editor) → name-based search under PrefabsFolder.</para>
+	/// <para>Resolution order: AssetDatabase GUID lookup (editor) → project-wide path/name lookup.</para>
 	/// </summary>
 	private PrefabData? TryLoadSourcePrefabForDiff(string prefabName, Guid prefabGuid)
 	{
@@ -1087,29 +1085,10 @@ public partial class SerializationManager : GlobalManager
 		if (prefabGuid != Guid.Empty && Assets.AssetDatabase.Instance != null)
 			resolvedPath = Assets.AssetDatabase.Instance.GetPath(prefabGuid);
 
-		// 2. Name-based fallback — scan PrefabsFolder subdirectories.
 		if (string.IsNullOrEmpty(resolvedPath) || !File.Exists(resolvedPath))
 		{
-			var prefabsDir = ProjectManager.Instance.CurrentProject?.PrefabsFolder;
-			if (!string.IsNullOrEmpty(prefabsDir) && Directory.Exists(prefabsDir))
-			{
-				// Direct match at root.
-				var direct = Path.Combine(prefabsDir, prefabName + ".vprefab");
-				if (File.Exists(direct))
-				{
-					resolvedPath = direct;
-				}
-				else
-				{
-					foreach (var sub in Directory.GetDirectories(prefabsDir))
-					{
-						var candidate = Path.Combine(sub, prefabName + ".vprefab");
-						if (File.Exists(candidate)) { resolvedPath = candidate; break; }
-						candidate = Path.Combine(sub, prefabName + ".prefab");
-						if (File.Exists(candidate)) { resolvedPath = candidate; break; }
-					}
-				}
-			}
+			try { resolvedPath = Scene.ResolvePrefabFile(prefabName); }
+			catch (Exception ex) { Debug.Warn(ex.Message); return null; }
 		}
 
 		if (string.IsNullOrEmpty(resolvedPath) || !File.Exists(resolvedPath))
@@ -1238,8 +1217,9 @@ public partial class SerializationManager : GlobalManager
 	/// <summary>
 	/// Saves a prefab entity to a JSON file.
 	/// </summary>
-	public async Task<bool> SavePrefabDataAsync(Entity prefabEntity, bool overrideExistingPrefab = false)
+	public async Task<bool> SavePrefabDataAsync(Entity prefabEntity, bool overrideExistingPrefab = false, string destinationPath = null)
 	{
+		Core.GetGlobalManager<Voltage.Editor.ImGuiCore.ImGuiManager>()?.DisposeTimelinePreview();
 		if (prefabEntity == null)
 		{
 			Debug.Error("Entity is null");
@@ -1261,13 +1241,16 @@ public partial class SerializationManager : GlobalManager
 				? prefabEntity.OriginalPrefabName
 				: prefabEntity.Name;
 
-			var sourceFilePath = CrossPlatformPath.Combine(prefabsDirectory, $"{prefabFileName}.vprefab");
-			if (overrideExistingPrefab)
+			var sourceFilePath = destinationPath ?? CrossPlatformPath.Combine(prefabsDirectory, $"{prefabFileName}.vprefab");
+			if (overrideExistingPrefab && destinationPath == null)
 			{
 				var existingPath = Scene.PrefabPathResolver?.Invoke(prefabEntity.OriginalPrefabGuid, prefabFileName);
 				if (!string.IsNullOrEmpty(existingPath) && File.Exists(existingPath))
 					sourceFilePath = existingPath;
 			}
+
+			if (!ProjectManager.Instance.IsPathInCurrentProject(sourceFilePath)) return false;
+			Directory.CreateDirectory(Path.GetDirectoryName(sourceFilePath));
 
 			if (File.Exists(sourceFilePath) && !overrideExistingPrefab)
 			{
@@ -1356,8 +1339,7 @@ public partial class SerializationManager : GlobalManager
 	/// <summary>
 	/// Loads a prefab from an absolute file path.
 	/// Used by the asset-drop path where the absolute path is already known, avoiding
-	/// the name-based directory scan in <see cref="LoadPrefabData"/> that fails when
-	/// the prefab is not in a one-level subdirectory of PrefabsFolder.
+	/// the project-wide name lookup in <see cref="LoadPrefabData"/>.
 	/// </summary>
 	public PrefabData? LoadPrefabDataFromPath(string absolutePath)
 	{
@@ -1389,45 +1371,9 @@ public partial class SerializationManager : GlobalManager
 	/// </summary>
 	public PrefabData? LoadPrefabData(string prefabName)
 	{
-		try
-		{
-			var prefabsDirectory = ProjectManager.Instance.CurrentProject.PrefabsFolder;
-			Directory.CreateDirectory(prefabsDirectory);
-
-			var entityTypeDirectories = Directory.GetDirectories(prefabsDirectory);
-
-			foreach (var entityTypeDir in entityTypeDirectories)
-			{
-				var prefabFilePath = Path.Combine(entityTypeDir, $"{prefabName}.vprefab");
-
-				if (File.Exists(prefabFilePath))
-				{
-					var jsonContent = File.ReadAllText(prefabFilePath);
-
-					if (string.IsNullOrWhiteSpace(jsonContent))
-					{
-						throw new Exception($"SerializedPrefab file is empty: {prefabFilePath}");
-					}
-
-					var prefabData = AotDeserializers.DeserializePrefabData(jsonContent);
-
-					if (prefabData.Name == null)
-					{
-						throw new Exception($"Invalid prefab data format for: {prefabName} - missing Name");
-					}
-
-					return prefabData;
-				}
-			}
-
-			throw new Exception($"SerializedPrefab file not found: {prefabName}");
-		}
-		catch (Exception ex)
-		{
-			throw new Exception($"Failed to load prefab {prefabName}: {ex.Message}");
-		}
+		var path = Scene.ResolvePrefabFile(prefabName) ?? throw new FileNotFoundException($"Prefab not found: {prefabName}");
+		return LoadPrefabDataFromPath(path);
 	}
-
 	/// <summary>
 	/// Loads prefab entity data onto an entity.
 	/// </summary>

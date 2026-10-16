@@ -1,5 +1,4 @@
 using System;
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -7,6 +6,7 @@ using ImGuiNET;
 using Microsoft.Xna.Framework;
 using Voltage;
 using Voltage.Editor.Utils;
+using Voltage.Editor.Undo.Core;
 using Voltage.Editor.Windows;
 using Voltage.Serialization;
 using Voltage.Utils;
@@ -79,6 +79,8 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 					// List: Add / Clear
 					if (Gui.Button("Add Element"))
 					{
+                        var original = _list;
+                        _list = CopyList(_list);
 						if (_elementKind == ElementKind.AssetRef)
 							_list.Add(default(Voltage.Serialization.AssetReference));
 						else if (_elementKind == ElementKind.PrefabRef)
@@ -90,7 +92,7 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 						else
 							_list.Add(Activator.CreateInstance(_elementType));
 
-						NoteValueWritten();
+                        CommitList(original);
 					}
 
 					ImGui.SameLine(ImGui.GetWindowWidth() - ImGui.GetItemRectSize().X -
@@ -101,8 +103,10 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 
 					if (VoltageEditorUtils.SimpleDialog("Clear Data", "Are you sure you want to clear the data?"))
 					{
-						_list.Clear();
-						NoteValueWritten();
+                        var original = _list;
+                        _list = CopyList(_list);
+                        _list.Clear();
+                        CommitList(original);
 						Debug.Log($"list count: {_list.Count}");
 					}
 				}
@@ -124,8 +128,10 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 
 				if (removeAt >= 0 && !_isArray)
 				{
-					_list.RemoveAt(removeAt);
-					NoteValueWritten();
+                    var original = _list;
+                    _list = CopyList(_list);
+                    _list.RemoveAt(removeAt);
+                    CommitList(original);
 				}
 
 				ImGui.PopItemWidth();
@@ -159,46 +165,75 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 				DrawWidget((Vector2) Convert.ChangeType(_list[i], _elementType), i);
 		}
 
-		void DrawWidget(int value, int index)
-		{
-			if (Gui.DragInt($"{index}", ref value))
-			{
-				_list[index] = value;
-				NoteValueWritten();
-				SpecialCasesHandling();
-			}
-		}
+        IList CopyList(IList source)
+        {
+            if (_isArray) return (IList)((Array)source).Clone();
+            var copy = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(_elementType));
+            foreach (var value in source) copy.Add(value);
+            return copy;
+        }
 
-		void DrawWidget(float value, int index)
-		{
-			if (Gui.DragFloat($"{index}", ref value))
-			{
-				_list[index] = value;
-				NoteValueWritten();
-				SpecialCasesHandling();
-			}
-		}
+        void CommitList(IList original)
+        {
+            if (!UndoSuppressed)
+                EditorChangeTracker.PushUndo(new PathUndoAction(GetRootTarget(), new List<string>(_pathFromRoot),
+                    CopyList(original), CopyList(_list), GetFullPathDescription()), GetRootTarget(), GetFullPathDescription());
+            SetValue(_list);
+            SpecialCasesHandling();
+        }
 
-		void DrawWidget(string value, int index)
-		{
-			if (Gui.InputText($"{index}", ref value, 200))
-			{
-				_list[index] = value;
-				NoteValueWritten();
-				SpecialCasesHandling();
-			}
-		}
+        void EditPrimitive(int index, object value, bool changed)
+        {
+            var key = index.ToString();
+            var session = GetEditSession(key);
+            if ((ImGui.IsItemActive() || changed) && !session.IsEditing)
+            {
+                session.IsEditing = true;
+                session.EditStartValue = CopyList(_list);
+            }
+            if (changed)
+            {
+                // Copy on write keeps previous undo snapshots independent of later edits.
+                _list = CopyList(_list);
+                _list[index] = value;
+                SetValue(_list);
+                SpecialCasesHandling();
+            }
+            if (session.IsEditing && !ImGui.IsItemActive())
+            {
+                var before = (IList)session.EditStartValue;
+                bool differs = before.Count != _list.Count;
+                for (int i = 0; !differs && i < before.Count; i++) differs = !Equals(before[i], _list[i]);
+                if (differs) CommitList(before);
+                session.IsEditing = false;
+            }
+            SetEditSession(key, session);
+        }
 
-		void DrawWidget(Vector2 value, int index)
-		{
-			var vec = value.ToNumerics();
-			if (Gui.DragFloat2($"{index}", ref vec))
-			{
-				_list[index] = vec.ToXNA();
-				NoteValueWritten();
-				SpecialCasesHandling();
-			}
-		}
+        void DrawWidget(int value, int index)
+        {
+            bool changed = Gui.DragInt($"{index}", ref value);
+            EditPrimitive(index, value, changed);
+        }
+
+        void DrawWidget(float value, int index)
+        {
+            bool changed = Gui.DragFloat($"{index}", ref value);
+            EditPrimitive(index, value, changed);
+        }
+
+        void DrawWidget(string value, int index)
+        {
+            bool changed = Gui.InputText($"{index}", ref value, 200);
+            EditPrimitive(index, value, changed);
+        }
+
+        void DrawWidget(Vector2 value, int index)
+        {
+            var vec = value.ToNumerics();
+            bool changed = Gui.DragFloat2($"{index}", ref vec);
+            EditPrimitive(index, vec.ToXNA(), changed);
+        }
 
 		// Reference element drawing (Entity / Transform / Component)
 
@@ -785,8 +820,9 @@ namespace Voltage.Editor.Inspectors.TypeInspectors
 		{
 			var newArray = Array.CreateInstance(_elementType, newSize);
 			Array.Copy((Array) _list, newArray, Math.Min(_list.Count, newSize));
-			SetValue(newArray);
-			_list = newArray;
+            var original = _list;
+            _list = newArray;
+            CommitList(original);
 		}
 
 		void RefreshList()

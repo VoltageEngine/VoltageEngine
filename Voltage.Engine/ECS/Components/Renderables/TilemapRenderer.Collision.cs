@@ -341,13 +341,14 @@ namespace Voltage
 		/// </summary>
 		public override void DebugRender(Batcher batcher)
 		{
-			base.DebugRender(batcher);
+			if (!DebugRenderFilter.ShouldRender(this)) return;
+			if (DebugRenderFilter.IsEnabled(DebugRenderCategory.Tilemaps)) base.DebugRender(batcher);
 
-			if (_colliders == null)
+			if (_colliders == null || !DebugRenderFilter.IsEnabled(DebugRenderCategory.Colliders))
 				return;
 
 			foreach (var collider in _colliders)
-				collider?.DebugRender(batcher);
+				if (DebugRenderFilter.ShouldRender(collider)) collider.DebugRender(batcher);
 		}
 
 		public void RemoveColliders()

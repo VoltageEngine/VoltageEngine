@@ -18,6 +18,7 @@ public static class AsepriteWindow
 	public static void Draw()
 	{
 		if (!IsOpen) return;
+		Voltage.Editor.Utils.EditorLayout.WindowSize(new System.Numerics.Vector2(760, 560));
 		if (_request?.IsCompleted == true)
 		{
 			try { _sprites = (JsonElement)_request.GetAwaiter().GetResult(); _message = "Documents refreshed."; }

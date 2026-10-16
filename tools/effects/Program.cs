@@ -43,7 +43,7 @@ var manifest = Path.Combine(outputs, "manifest.props");
 if (verify)
 {
 	if (!XNode.DeepEquals(XElement.Load(manifest), project)) throw new InvalidDataException("Bundled effects are stale; rebuild with tools/effects/Voltage.Effects.Build.csproj.");
-	Console.WriteLine("All 34 bundled DesktopGL effects match their source and compiler manifest.");
+	Console.WriteLine($"All {Directory.GetFiles(sources, "*.fx", SearchOption.AllDirectories).Length} bundled DesktopGL effects match their source and compiler manifest.");
 }
 else
 {

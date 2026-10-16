@@ -380,7 +380,8 @@ public class ComponentList : IEnumerable<Component>
 		for (var i = 0; i < _components.Length; i++)
 		{
 			// If the component is enabled or if it is a Collider that should be debug rendered even when disabled, render it
-			if (_components.Buffer[i].Enabled || (_components.Buffer[i] is Collider collider && collider.IsVisibleEvenDisabled))
+			if (DebugRenderFilter.ShouldRender(_components.Buffer[i]) &&
+			    (_components.Buffer[i].Enabled || (_components.Buffer[i] is Collider collider && collider.IsVisibleEvenDisabled)))
 				_components.Buffer[i].DebugRender(batcher);
 		}
 	}

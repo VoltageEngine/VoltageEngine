@@ -24,6 +24,7 @@ Debug rendering outlines the polygon. Invalid/degenerate shapes emit nothing.
 | SourceReferenceIntensity | Driver intensity corresponding to normal brightness |
 | SourceInfluence | Blend between independent fill and driver response (0–1) |
 | UseSourceColor | Multiply the room fill by the driver's color |
+| ShadowStrength / ShadowLayerMask | Optional cached shadows from solid physics colliders inside the volume |
 
 New room lights use neutral white Color and a warm peach SecondaryColor and
 BounceColor (255, 207, 158). SecondaryColorStrength defaults to 0, preserving
@@ -38,9 +39,11 @@ and set SourceReferenceIntensity to that lamp's normal intensity: flicker and
 switch-off then affect the room without rebuilding its cached field. The virtual
 LightOrigin stays artist-controlled, independent of a swinging lamp's position.
 
-This is diffuse fill, not ray-traced global illumination or volumetric fog. It
-does not calculate occlusion from furniture, modify contained lights, or simulate
-physical multiple scattering. Overlapping room lights add together. Existing
+ShadowStrength dims the fill behind solid colliders from LightOrigin. Use a mask
+for static walls and furniture; triggers are ignored. Collider changes, including
+opening doors, rebuild the cached field. Point and spot lights retain their own
+lighting behavior. This does not simulate physical multiple scattering or
+volumetric fog. Overlapping room lights add together. Existing
 ambient regions and normal-mapped direct lights still work unchanged. A cached
 field uses up to 258 by 258 texels including its black border; filtering can soften
 the polygon boundary by roughly a texel. Shape/profile edits rebuild the field;

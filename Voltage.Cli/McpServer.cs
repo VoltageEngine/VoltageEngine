@@ -167,8 +167,32 @@ public sealed class McpServer
 				return new JsonObject { ["content"] = content };
 			}
 			var text = result.ValueKind == JsonValueKind.Undefined ? "ok" : JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
-			if (text.Length > MaxTextLength)
-				text = text.Substring(0, MaxTextLength) + $"\n… truncated ({text.Length - MaxTextLength} more characters); narrow the request with filters or paging.";
+			if (tool.Method == "tilemap.context" && text.Length > 120000)
+				text = JsonSerializer.Serialize(result);
+			var textLimit = tool.Method == "tilemap.context" ? 200000 : MaxTextLength;
+			if (text.Length > textLimit)
+				text = text.Substring(0, textLimit) + $"\n… truncated ({text.Length - textLimit} more characters); narrow the request with filters or paging.";
+
+			if (tool.Method == "tilemap.context" && result.ValueKind == JsonValueKind.Object &&
+			    result.TryGetProperty("viewportImageAvailable", out var visible) && visible.GetBoolean() &&
+			    arguments?["includeViewportImage"]?.GetValue<bool>() != false)
+			{
+				content.Add(new JsonObject { ["type"] = "text", ["text"] = text });
+				try
+				{
+					var capture = Connect().Call("screenshot", JsonSerializer.SerializeToElement(new { window = false, scale = 0.5f }));
+					if (capture.TryGetProperty("path", out var capturePath) && File.Exists(capturePath.GetString()))
+					{
+						_lastScreenshot = capturePath.GetString();
+						content.Add(new JsonObject { ["type"] = "image", ["data"] = Convert.ToBase64String(File.ReadAllBytes(_lastScreenshot)), ["mimeType"] = "image/png" });
+					}
+				}
+				catch (CliException ex)
+				{
+					content.Add(new JsonObject { ["type"] = "text", ["text"] = $"Viewport capture unavailable: {ex.Message}" });
+				}
+				return new JsonObject { ["content"] = content };
+			}
 
 			if (tool.Method == "screenshot" && result.ValueKind == JsonValueKind.Object && result.TryGetProperty("path", out var pathElement))
 			{

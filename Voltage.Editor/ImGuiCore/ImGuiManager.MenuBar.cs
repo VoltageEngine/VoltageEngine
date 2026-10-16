@@ -141,7 +141,7 @@ public partial class ImGuiManager
 	}
 
 	private PersistentString _lastSelectedLayout = new("ImGui_LastSelectedLayout", "Default");
-	private PersistentString _lastSelectedTheme = new("ImGui_LastSelectedTheme", "DarkTheme1");
+	private PersistentString _lastSelectedTheme = new("ImGui_LastSelectedTheme", "StudioGraphite");
 	#endregion
 
 	// Layouts queued for delete/rename by View > Layout, pending their confirmation popup.
@@ -238,58 +238,30 @@ public partial class ImGuiManager
 		}
 	}
 
+    private readonly Voltage.Editor.FilePickers.AssetFileBrowser _sceneFileBrowser =
+        new("load-scene-popup", new[] { ".vscene" }, "Voltage scenes (*.vscene)");
+
+    private void DrawSceneFilePicker()
+    {
+        _sceneFileBrowser.Draw("Load Scene");
+        if (!_sceneFileBrowser.TryTakeResult(out var path) || string.IsNullOrEmpty(path)) return;
+        if (!_projectManager.IsPathInCurrentProject(path))
+        {
+            Debug.Warn("Choose a scene inside the current project.");
+            return;
+        }
+        if (Path.GetExtension(path).Equals(".vscene", StringComparison.OrdinalIgnoreCase)) RequestSceneChange(path);
+    }
+
 	private void DrawProjectMenu()
 	{
 		if (Gui.BeginMenu("Project"))
 		{
-			if (Gui.BeginMenu("New Scene"))
-			{
-				if (!_projectManager.HasActiveProject)
-				{
-					ImGui.TextDisabled("No active project");
-				}
-				else if (Gui.MenuItem("Create New Scene..."))
-				{
-					_sceneCreator.OpenCreateScenePopup();
-				}
-				
-				Gui.EndMenu();
-			}
-
-			if (Gui.BeginMenu("Load Scene..."))
-			{
-				if (_projectManager.HasActiveProject)
-				{
-					var sceneManager = SceneManager.Instance;
-					var sceneNames = sceneManager.GetAllSceneNames();
-					
-					if (sceneNames.Count > 0)
-					{
-						ImGui.TextColored(new Vector4(0.7f, 1.0f, 0.7f, 1.0f), "Project Scenes:");
-						ImGui.Separator();
-						
-						foreach (var sceneName in sceneNames)
-						{
-							if (Gui.MenuItem(sceneName))
-							{
-								RequestSceneChange(sceneName);
-							}
-						}
-
-					}
-					else
-					{
-						ImGui.TextDisabled("No scenes found");
-					}
-
-				}
-				else
-				{
-					ImGui.TextDisabled("No active project");
-				}
-
-				Gui.EndMenu();
-			}
+            ImGui.BeginDisabled(!_projectManager.HasActiveProject || !Core.IsEditMode);
+            if (Gui.MenuItem("New Scene")) _sceneCreator.OpenCreateScenePopup();
+            if (Gui.MenuItem("Load Scene"))
+                _sceneFileBrowser.Open("Load Scene", _projectManager.CurrentProject.ProjectPath, this);
+            ImGui.EndDisabled();
 
 			ImGui.Separator();
 
@@ -359,7 +331,7 @@ public partial class ImGuiManager
 					bool isCurrentTheme = themeName.Equals(_themeManager.CurrentThemeName, 
 						StringComparison.OrdinalIgnoreCase);
 
-					if (Gui.MenuItem(themeName, "", isCurrentTheme))
+					if (Gui.MenuItem(themeName == "StudioGraphite" ? "Studio Graphite" : themeName, "", isCurrentTheme))
 					{
 						if (_themeManager.ApplyTheme(themeName))
 						{
@@ -368,6 +340,24 @@ public partial class ImGuiManager
 					}
 				}
 
+				Gui.EndMenu();
+			}
+
+			if (Gui.BeginMenu("Interface scale"))
+			{
+				foreach (var percent in new[] { 75, 100, 125, 150, 175, 200 })
+					if (Gui.MenuItem($"{percent}%", "", _renderer.InterfaceScalePercent == percent))
+						_renderer.InterfaceScalePercent = percent;
+				Gui.EndMenu();
+			}
+			if (Gui.BeginMenu("UI font"))
+			{
+				DrawFontChoices(code: false);
+				Gui.EndMenu();
+			}
+			if (Gui.BeginMenu("Code font"))
+			{
+				DrawFontChoices(code: true);
 				Gui.EndMenu();
 			}
 
@@ -571,9 +561,6 @@ public partial class ImGuiManager
 			Gui.EndMenu();
 		}
 
-		DrawSaveLayoutPopup();
-		DrawRenameLayoutPopup();
-		DrawDeleteLayoutPopup();
 	}
 
 	/// <summary>Renames the layout picked in View > Layout, moving its .ini file to match.</summary>
@@ -992,50 +979,16 @@ public partial class ImGuiManager
 		}
 	}
 
-	/// <summary>
-	/// "Snap to Grid" toggle in the Editor Tools bar, positioned just left of the audio toggle. When snapping
-	/// is on, a "Show Grid" toggle appears next to it to draw the placement grid in the game view.
-	/// </summary>
-	private Vector2 DrawGridControlsRightAligned()
+	private void DrawFontChoices(bool code)
 	{
-		var style = ImGui.GetStyle();
-		float framePad = style.FramePadding.X * 2f;
-		float spacing = style.ItemSpacing.X;
-
-		bool snap = EditorSettingsWindow.SnapToGrid;
-
-		const string snapLabel = "Snap to Grid";
-		const string showLabel = "Show Grid";
-
-		float snapWidth = ImGui.CalcTextSize(snapLabel).X + framePad;
-		float showWidth = ImGui.CalcTextSize(showLabel).X + framePad + spacing;
-		float backgroundWidth = ImGui.CalcTextSize(BackgroundLabel).X + spacing + BackgroundSwatchWidth + spacing;
-
-		// Reserve the audio toggle's footprint on the right (mirrors DrawAudioToggleRightAligned).
-		float audioIcon = 24f * FontSizeMultiplier;
-		float audioReserved = audioIcon + style.FramePadding.X * 2f + 8f;
-		float gap = spacing;
-
-		float posX = ImGui.GetWindowWidth() - audioReserved - gap - (backgroundWidth + snapWidth + showWidth);
-		if (posX > ImGui.GetCursorPosX())
-			ImGui.SetCursorPosX(posX);
-
-		DrawBackgroundColorControl();
-		ImGui.SameLine();
-
-		var snapPosition = ImGui.GetCursorPos();
-		DrawToggleButton(snapLabel, snap, () => EditorSettingsWindow.SnapToGrid = !snap);
-		var gizmosPosition = snapPosition + new Vector2(0f, ImGui.GetItemRectSize().Y + style.ItemSpacing.Y);
-		if (ImGui.IsItemHovered())
-			ImGui.SetTooltip("Snap dragged/dropped entities to the grid.\nHold Ctrl while dragging to invert.");
-
-		ImGui.SameLine();
-		bool show = ShowPlacementGrid;
-		DrawToggleButton(showLabel, show, () => ShowPlacementGrid = !show);
-		if (ImGui.IsItemHovered())
-			ImGui.SetTooltip("Draw the placement grid in the game view.\nThe Tileset Editor's tile grid overrides it while that window is open.");
-
-		return gizmosPosition;
+		var current = code ? _renderer.CodeFontName : _renderer.UiFontName;
+		foreach (var (name, label) in new[] { ("Classic", "Classic (ProggyClean)"), ("ProggyForever", "ProggyForever"), ("JetBrainsMono", "JetBrains Mono"), ("Inter", "Inter") })
+		{
+			if (code && name == "Inter") continue;
+			if (!Gui.MenuItem(label, "", current == name)) continue;
+			if (code) _renderer.CodeFontName = name;
+			else _renderer.UiFontName = name;
+		}
 	}
 
 	private const string BackgroundLabel = "Background";
@@ -1043,14 +996,17 @@ public partial class ImGuiManager
 	internal static float BackgroundSwatchWidth => ImGui.GetFrameHeight() * 1.6f;
 
 	/// <summary>Labelled swatch of the game view clear colour. Clicking picks between the project colour and a temporary editor-only one.</summary>
-	private void DrawBackgroundColorControl()
+	private void DrawBackgroundColorControl(bool compact = false)
 	{
 		var active = ToVector4(EditorBackgroundColor.Active);
 		var temporary = EditorBackgroundColor.UseTemporary;
 
-		ImGui.AlignTextToFramePadding();
-		ImGui.TextUnformatted(BackgroundLabel);
-		ImGui.SameLine();
+		if (!compact)
+		{
+			ImGui.AlignTextToFramePadding();
+			ImGui.TextUnformatted(BackgroundLabel);
+			ImGui.SameLine();
+		}
 
 		if (VoltageEditorUtils.ColorSwatchButton("##BackgroundColor", active, temporary, BackgroundSwatchWidth))
 			ImGui.OpenPopup("background-color-popup");
@@ -1122,17 +1078,16 @@ public partial class ImGuiManager
 	private static Microsoft.Xna.Framework.Color ToXnaColor(Vector4 color) =>
 		new Microsoft.Xna.Framework.Color(color.X, color.Y, color.Z, color.W);
 
-	// Small button that tints blue when active, mirroring the Editor Tools bar toggle style.
-	private static void DrawToggleButton(string label, bool active, Action onClick)
+	private static void DrawToggleButton(string label, bool active, Action onClick, string caption = null)
 	{
 		if (active)
 		{
-			ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(0.2f, 0.5f, 1f, 1f));
-			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0.3f, 0.6f, 1f, 1f));
-			ImGui.PushStyleColor(ImGuiCol.ButtonActive, new Vector4(0.4f, 0.7f, 1f, 1f));
+			ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetStyle().Colors[(int)ImGuiCol.HeaderActive]);
+			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, ImGui.GetStyle().Colors[(int)ImGuiCol.HeaderHovered]);
+			ImGui.PushStyleColor(ImGuiCol.ButtonActive, ImGui.GetStyle().Colors[(int)ImGuiCol.HeaderActive]);
 		}
 
-		if (Gui.Button(label))
+		if (Gui.CaptionButton(label, caption ?? label))
 			onClick();
 
 		if (active)
@@ -1230,6 +1185,9 @@ public partial class ImGuiManager
 			{
 				_gameBuildWindow.OpenBuildPopup();
 			}
+
+			if (Gui.MenuItem("Scenes in Build"))
+				_gameBuildWindow.OpenBuildPopup(focusScenes: true);
 
 			bool isBuildInProgress = _gameBuildWindow.IsBuilding;
 			if (isBuildInProgress)
@@ -1370,162 +1328,4 @@ public partial class ImGuiManager
 			Gui.EndMenu();
 		}
 	}
-
-	private void DrawDebugRenderingToggle()
-	{
-		float iconSize = ImGui.GetFontSize();
-
-		bool enabled = Core.DebugRenderEnabled;
-		if (enabled)
-			ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(0.2f, 0.5f, 1f, 1f));
-		if (Gui.ImageButton("DebugRenderingToggle", enabled ? ImguiImageLoader.EyeOn : ImguiImageLoader.EyeOff,
-			new Vector2(iconSize, iconSize)))
-			Core.DebugRenderEnabled = !enabled;
-		if (enabled)
-			ImGui.PopStyleColor();
-
-		if (ImGui.IsItemHovered())
-			ImGuiSafe.SetTooltipSafe(Core.DebugRenderEnabled
-				? "Debug rendering / gizmos: ON (click to hide)"
-				: "Debug rendering / gizmos: OFF (click to show)");
-	}
-
-	/// <summary>
-	/// Audio mute toggle — right-aligned inside the Editor Tools bar.
-	/// Shows volume-up icon when <see cref="Core.IsAudioOn"/> is true, volume-mute when false.
-	/// Clicking toggles <see cref="Core.IsAudioOn"/>.
-	/// </summary>
-	private void DrawAudioToggleRightAligned()
-	{
-		float iconSize    = 24f * FontSizeMultiplier;
-		float framePad    = ImGui.GetStyle().FramePadding.X;
-		float buttonWidth = iconSize + framePad * 2f;
-		const float rightPadding = 8f;
-
-		// Position the cursor so the button sits flush against the right edge.
-		float posX = ImGui.GetWindowWidth() - buttonWidth - rightPadding;
-		if (posX > ImGui.GetCursorPosX())
-			ImGui.SetCursorPosX(posX);
-
-		var iconSizeVec = new Vector2(iconSize, iconSize);
-		bool audioOn = Core.IsAudioOn;
-
-		IntPtr icon = audioOn
-			? ImguiImageLoader.AudioOn
-			: ImguiImageLoader.AudioMute;
-
-		// Tint the button red-ish when muted so the state is immediately obvious.
-		if (!audioOn)
-		{
-			ImGui.PushStyleColor(ImGuiCol.Button,        new Vector4(0.6f, 0.1f, 0.1f, 1.0f));
-			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0.8f, 0.2f, 0.2f, 1.0f));
-			ImGui.PushStyleColor(ImGuiCol.ButtonActive,  new Vector4(0.9f, 0.3f, 0.3f, 1.0f));
-		}
-
-		if (Gui.ImageButton("AudioToggle", icon, iconSizeVec))
-			Core.IsAudioOn = !Core.IsAudioOn;
-
-		if (!audioOn)
-			ImGui.PopStyleColor(3);
-
-		if (ImGui.IsItemHovered())
-			ImGuiSafe.SetTooltipSafe(Core.IsAudioOn ? "Audio: ON (click to mute)" : "Audio: MUTED (click to unmute)");
-	}
-
-	/// <summary>
-	/// Play / Stop / Pause / Reset icon-button cluster — drawn inside the Editor Tools bar.
-	///
-	/// Centering math:
-	///   Preferred center: game-window center X = _gameImageScreenPos.X + _gameImageSize.X * 0.5f
-	///   Fall-back center: tools-bar center = ImGui.GetWindowWidth() * 0.5f
-	///   cursor X = center - (totalClusterWidth * 0.5f)
-	///
-	/// Because the audio toggle is right-aligned AFTER this call, the cluster's
-	/// SetCursorPosX is applied before the audio button takes the right side.
-	/// </summary>
-	private void DrawEditorModeControls()
-	{
-		float iconSize    = 24f * FontSizeMultiplier;
-		float buttonSpace = iconSize + ImGui.GetStyle().FramePadding.X * 2f;
-		float spacing     = 4f * FontSizeMultiplier;
-
-		float totalWidth  = buttonSpace * 3f + spacing * 2f;
-
-		// Center the cluster within the Editor Tools bar.
-		float centerX = ImGui.GetWindowWidth() * 0.5f;
-		float cursorX = centerX - totalWidth * 0.5f;
-
-		// Clamp so the cluster never goes off-screen on very small windows.
-		cursorX = Math.Max(cursorX, ImGui.GetCursorPosX());
-
-		ImGui.SetCursorPosX(cursorX);
-
-		var iconSizeVec = new Vector2(iconSize, iconSize);
-
-		if (Core.IsEditMode)
-		{
-			if (Gui.ImageButton("EditorPlay", ImguiImageLoader.EditorModePlay, iconSizeVec))
-				Core.InvokeSwitchEditMode(false);
-
-			if (ImGui.IsItemHovered())
-				ImGui.SetTooltip($"Play ({EditorHotkeys.Hint(EditorHotkeys.TogglePlay)})");
-		}
-		else
-		{
-			ImGui.PushStyleColor(ImGuiCol.Button,        new Vector4(0.6f, 0.1f, 0.1f, 0.9f));
-			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0.8f, 0.2f, 0.2f, 1.0f));
-			ImGui.PushStyleColor(ImGuiCol.ButtonActive,  new Vector4(0.9f, 0.3f, 0.3f, 1.0f));
-
-			if (Gui.ImageButton("EditorPlay", ImguiImageLoader.EditorModeStop, iconSizeVec))
-			{
-				Core.IsPauseMode = false;
-				Core.InvokeSwitchEditMode(true);
-			}
-
-			ImGui.PopStyleColor(3);
-
-			if (ImGui.IsItemHovered())
-				ImGui.SetTooltip($"Stop ({EditorHotkeys.Hint(EditorHotkeys.TogglePlay)})");
-		}
-
-		ImGui.SameLine(0, spacing);
-
-		if (Core.IsEditMode)
-			ImGui.BeginDisabled();
-
-		bool isPaused = Core.IsPauseMode;
-		if (isPaused)
-		{
-			ImGui.PushStyleColor(ImGuiCol.Button,        new Vector4(0.2f, 0.5f, 1.0f, 0.9f));
-			ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0.3f, 0.6f, 1.0f, 1.0f));
-			ImGui.PushStyleColor(ImGuiCol.ButtonActive,  new Vector4(0.4f, 0.7f, 1.0f, 1.0f));
-		}
-
-		if (Gui.ImageButton("EditorPause", ImguiImageLoader.EditorModePause, iconSizeVec))
-			Core.InvokeSwitchPauseMode(!Core.IsPauseMode);
-
-		if (isPaused)
-			ImGui.PopStyleColor(3);
-
-		if (Core.IsEditMode)
-			ImGui.EndDisabled();
-
-		if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-			ImGuiSafe.SetTooltipSafe(Core.IsEditMode
-				? "Pause (unavailable in Edit Mode)"
-				: $"{(isPaused ? "Unpause" : "Pause")} ({EditorHotkeys.Hint(EditorHotkeys.TogglePause)})");
-
-		ImGui.SameLine(0, spacing);
-
-		if (Gui.ImageButton("EditorReset", ImguiImageLoader.EditorModeReset, iconSizeVec))
-			Core.InvokeResetScene();
-
-		if (ImGui.IsItemHovered())
-			ImGui.SetTooltip($"Reset Scene ({EditorHotkeys.Hint(EditorHotkeys.ResetScene)})");
-
-		// Keep cursor on the same line so DrawAudioToggleRightAligned can
-		// use SetCursorPosX to jump to the right edge within the same row.
-		ImGui.SameLine();
-	}
 }
-

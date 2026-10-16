@@ -24,23 +24,23 @@ namespace Voltage.Cinematics
 			if (component == null)
 				return;
 
-			if (!TimelinePropertyRegistry.TryGetKind(TargetComponentId, Property, out var kind))
+			if (!TimelinePropertyRegistry.TryGetKind(TargetComponentId, Property, component.GetType(), out var kind))
 				return;   // reported by Validate at Play()
 
 			switch (kind)
 			{
 				case TimelinePropertyKind.Float when FloatKeys.Count > 0:
-					if (TimelinePropertyRegistry.TryGetFloat(TargetComponentId, Property, out _, out var setF))
+					if (TimelinePropertyRegistry.TryGetFloat(TargetComponentId, Property, component.GetType(), out _, out var setF))
 						setF(component, TimelineTransformTrack.SampleFloat(FloatKeys, time));
 					break;
 
 				case TimelinePropertyKind.Vector2 when Vector2Keys.Count > 0:
-					if (TimelinePropertyRegistry.TryGetVector2(TargetComponentId, Property, out _, out var setV))
+					if (TimelinePropertyRegistry.TryGetVector2(TargetComponentId, Property, component.GetType(), out _, out var setV))
 						setV(component, TimelineTransformTrack.SampleVector2(Vector2Keys, time));
 					break;
 
 				case TimelinePropertyKind.Color when ColorKeys.Count > 0:
-					if (TimelinePropertyRegistry.TryGetColor(TargetComponentId, Property, out _, out var setC))
+					if (TimelinePropertyRegistry.TryGetColor(TargetComponentId, Property, component.GetType(), out _, out var setC))
 						setC(component, TimelineTintTrack.SampleColor(ColorKeys, time));
 					break;
 			}
@@ -56,14 +56,15 @@ namespace Voltage.Cinematics
 				return;
 			}
 
-			if (!TimelinePropertyRegistry.TryGetKind(TargetComponentId, Property, out var kind))
+			var component = context.ResolveComponent(TargetRole, TargetComponentId);
+			if (!TimelinePropertyRegistry.TryGetKind(TargetComponentId, Property, component?.GetType(), out var kind))
 			{
 				problems.Add($"{label}: no [TimelineProperty] with that name is registered - it may have been " +
 							 "renamed or removed.");
 				return;
 			}
 
-			if (context.ResolveComponent(TargetRole, TargetComponentId) == null)
+			if (component == null)
 				problems.Add($"{label}: role '{TargetRole}' has no component with id '{TargetComponentId}'.");
 
 			var hasKeys = kind switch
@@ -90,13 +91,13 @@ namespace Voltage.Cinematics
 		public override void CaptureRestoreState(StateSnapshot snapshot, ITimelineContext context)
 		{
 			var component = context.ResolveComponent(TargetRole, TargetComponentId);
-			if (component == null || !TimelinePropertyRegistry.TryGetKind(TargetComponentId, Property, out var kind))
+			if (component == null || !TimelinePropertyRegistry.TryGetKind(TargetComponentId, Property, component.GetType(), out var kind))
 				return;
 
 			switch (kind)
 			{
 				case TimelinePropertyKind.Float
-					when TimelinePropertyRegistry.TryGetFloat(TargetComponentId, Property, out var getF, out var setF):
+					when TimelinePropertyRegistry.TryGetFloat(TargetComponentId, Property, component.GetType(), out var getF, out var setF):
 				{
 					var value = getF(component);
 					snapshot.Add(() => setF(component, value));
@@ -104,7 +105,7 @@ namespace Voltage.Cinematics
 				}
 
 				case TimelinePropertyKind.Vector2
-					when TimelinePropertyRegistry.TryGetVector2(TargetComponentId, Property, out var getV, out var setV):
+					when TimelinePropertyRegistry.TryGetVector2(TargetComponentId, Property, component.GetType(), out var getV, out var setV):
 				{
 					var value = getV(component);
 					snapshot.Add(() => setV(component, value));
@@ -112,7 +113,7 @@ namespace Voltage.Cinematics
 				}
 
 				case TimelinePropertyKind.Color
-					when TimelinePropertyRegistry.TryGetColor(TargetComponentId, Property, out var getC, out var setC):
+					when TimelinePropertyRegistry.TryGetColor(TargetComponentId, Property, component.GetType(), out var getC, out var setC):
 				{
 					var value = getC(component);
 					snapshot.Add(() => setC(component, value));

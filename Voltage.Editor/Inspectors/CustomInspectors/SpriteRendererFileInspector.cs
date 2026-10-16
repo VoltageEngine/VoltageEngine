@@ -423,17 +423,17 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                 ImGui.Text("TMX Options:");
                 ImGui.Separator();
 
-                if (ImGui.BeginChild("tmx-content", new Num.Vector2(800, 400), true))
+                if (ImGui.BeginChild("tmx-content", new Num.Vector2(800, 400), ImGuiChildFlags.Borders))
                 {
-                    if (ImGui.BeginChild("file-picker", new Num.Vector2(480, 0), true))
+                    if (ImGui.BeginChild("file-picker", new Num.Vector2(480, 0), ImGuiChildFlags.Borders))
                     {
                         FilePicker.DrawFilePickerContent(picker);
-                        ImGui.EndChild();
                     }
+                    ImGui.EndChild();
 
                     ImGui.SameLine();
 
-                    if (ImGui.BeginChild("layer-selection", new Num.Vector2(300, 0), true))
+                    if (ImGui.BeginChild("layer-selection", new Num.Vector2(300, 0), ImGuiChildFlags.Borders))
                     {
                         ImGui.Text("Image Layers:");
                         ImGui.Separator();
@@ -499,11 +499,10 @@ namespace Voltage.Editor.Inspectors.CustomInspectors
                             ImGui.TextColored(new Num.Vector4(0.7f, 0.7f, 0.7f, 1), "Select a TMX file to see available image layers");
                         }
 
-                        ImGui.EndChild();
                     }
-
                     ImGui.EndChild();
                 }
+                ImGui.EndChild();
 
                 ImGui.Separator();
 

@@ -75,9 +75,9 @@ public class SceneComponentInspectorWindow
 		else
 		{
 			// Display the component type name as a header
-			ImGui.SetWindowFontScale(1.5f);
+			ImGui.PushFont(Core.GetGlobalManager<ImGuiCore.ImGuiManager>().HeadingFont);
 			ImGuiSafe.TextSafe(Component.GetType().Name);
-			ImGui.SetWindowFontScale(1.0f);
+			ImGui.PopFont();
 
 			VoltageEditorUtils.BigVerticalSpace();
 

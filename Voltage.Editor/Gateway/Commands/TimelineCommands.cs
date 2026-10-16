@@ -23,6 +23,7 @@ internal static class TimelineCommands
 
 	public static void Register(GatewayCommandTable table)
 	{
+		table.Add("timeline.editor.state", "Open editor timeline, binding context and pending unsaved changes.", (_, ctx) => ctx.ImGui().TimelineEditorState()).ReadOnly();
 		table.Add("timeline.list", "Timeline assets of the project.", (_, _) =>
 			RequireAssets().Items
 				.Where(i => i.Extension.Equals(TimelineAssetIO.FileExtension, StringComparison.OrdinalIgnoreCase))

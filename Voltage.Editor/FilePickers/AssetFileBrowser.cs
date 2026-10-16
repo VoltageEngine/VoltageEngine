@@ -40,7 +40,7 @@ namespace Voltage.Editor.FilePickers
 
 			var start = FolderBrowser.ResolveStart(startPath);
 
-			if (NativeFileDialogs.IsAvailable)
+			if (!EditorRunMode.Headless && NativeFileDialogs.IsAvailable)
 			{
 				var patterns = new string[_extensions.Length];
 				for (var i = 0; i < _extensions.Length; i++)
@@ -79,7 +79,7 @@ namespace Voltage.Editor.FilePickers
 
 			var center = ImGui.GetMainViewport().GetCenter();
 			ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
-			ImGui.SetNextWindowSize(new Num.Vector2(640, 520), ImGuiCond.Appearing);
+			Voltage.Editor.Utils.EditorLayout.WindowSize(new Num.Vector2(900, 700), ImGuiCond.Appearing);
 
 			var open = true;
 			if (Gui.BeginPopupModal(_popupId, ref open, ImGuiWindowFlags.NoResize))

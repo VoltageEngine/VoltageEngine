@@ -13,6 +13,7 @@ using Voltage.Editor.Persistence;
 using Voltage.Editor.ProjectFile;
 using Voltage.Editor.SceneFile;
 using Voltage.Editor.Utils;
+using Voltage.Project;
 using Voltage.Utils;
 using Num = System.Numerics;
 
@@ -24,6 +25,7 @@ namespace Voltage.Editor.Builders;
 public class GameBuildWindow
 {
 	private bool _showBuildPopup = false;
+	private bool _resetBuildScroll, _focusScenes;
 	private bool _isBuilding = false;
 
 	// Persistent user preferences
@@ -45,6 +47,9 @@ public class GameBuildWindow
 	// Initial scene selection
 	private List<string> _availableScenes = new();
 	private int _selectedSceneIndex = 0;
+	private readonly HashSet<int> _selectedBuildScenes = new();
+	private int _sceneSelectionAnchor = -1;
+	private float _sceneListRows = 6;
 
 	// Progress tracking
 	private CompilationProgressWindow _progressWindow;
@@ -56,7 +61,7 @@ public class GameBuildWindow
 
 	public GameBuildWindow()
 	{
-		_progressWindow = new CompilationProgressWindow(isScriptProgress: false, onCancel: OnCancelRequested);
+		_progressWindow = new CompilationProgressWindow(onCancel: OnCancelRequested, isGameProgress: true);
 
 		GameBuilder.OnBuildStarted += OnBuildStarted;
 		GameBuilder.OnBuildStepStarted += OnBuildStepStarted;
@@ -67,9 +72,11 @@ public class GameBuildWindow
 	/// <summary>
 	/// Opens the build options popup.
 	/// </summary>
-	public void OpenBuildPopup()
+	public void OpenBuildPopup(bool focusScenes = false)
 	{
 		_showBuildPopup = true;
+		_resetBuildScroll = true;
+		_focusScenes = focusScenes;
 		RefreshAvailableScenes();
 	}
 
@@ -130,6 +137,8 @@ public class GameBuildWindow
 	{
 		_availableScenes.Clear();
 		_selectedSceneIndex = 0;
+		_selectedBuildScenes.Clear();
+		_sceneSelectionAnchor = -1;
 
 		var projectManager = ProjectManager.Instance;
 		if (!projectManager.HasActiveProject)
@@ -142,10 +151,12 @@ public class GameBuildWindow
 		var settings = projectManager.CurrentProject.Settings;
 		if (settings != null && !string.IsNullOrEmpty(settings.InitialScene))
 		{
-			var idx = _availableScenes.IndexOf(settings.InitialScene);
+			var path = SceneManager.Instance.GetScenePath(settings.InitialScene);
+			var idx = path == null ? -1 : _availableScenes.IndexOf(Voltage.Project.ProjectAssetFiles.Key(projectManager.CurrentProject.ProjectPath, path));
 			if (idx >= 0)
 				_selectedSceneIndex = idx;
 		}
+		if (_availableScenes.Count > 0) SelectBuildSceneRow(_selectedSceneIndex, false, false);
 	}
 
 	private void DrawBuildOptionsPopup()
@@ -156,12 +167,13 @@ public class GameBuildWindow
 			_showBuildPopup = false;
 		}
 
-		var center = new Num.Vector2(Screen.Width * 0.5f, Screen.Height * 0.4f);
+		var display = ImGui.GetIO().DisplaySize;
+		var center = display * 0.5f;
 		ImGui.SetNextWindowPos(center, ImGuiCond.Appearing, new Num.Vector2(0.5f, 0.5f));
-		ImGui.SetNextWindowSize(new Num.Vector2(550, 0), ImGuiCond.Appearing);
+		ImGui.SetNextWindowSize(new Num.Vector2(Math.Min(display.X - 40, Math.Max(660, ImGui.GetFontSize() * 32)), Math.Min(860, display.Y - 60)), ImGuiCond.Appearing);
 
 		bool open = true;
-		if (Gui.BeginPopupModal("Build Game##Options", ref open, ImGuiWindowFlags.AlwaysAutoResize))
+		if (Gui.BeginPopupModal("Build Game##Options", ref open))
 		{
 			var projectManager = ProjectManager.Instance;
 			if (!projectManager.HasActiveProject)
@@ -175,6 +187,14 @@ public class GameBuildWindow
 
 			var project = projectManager.CurrentProject;
 			var selectedPlatform = BuildPlatform.All[_selectedPlatformIndex.Value];
+			var buttonWidth = Math.Max(120f, EditorLayout.ButtonWidth("Build and Run"));
+			var spacing = ImGui.GetStyle().ItemSpacing.X;
+			var totalButtonWidth = buttonWidth * 3 + spacing * 2;
+			var buttonRows = totalButtonWidth <= ImGui.GetContentRegionAvail().X ? 1 : buttonWidth * 2 + spacing <= ImGui.GetContentRegionAvail().X ? 2 : 3;
+			var footerHeight = buttonRows * (Math.Max(30, ImGui.GetFrameHeight()) + ImGui.GetStyle().ItemSpacing.Y) + ImGui.GetStyle().ItemSpacing.Y * 2;
+			ImGui.BeginChild("BuildOptionsContent", new Num.Vector2(0, -footerHeight), ImGuiChildFlags.None);
+			if (_resetBuildScroll) { ImGui.SetScrollY(0); _resetBuildScroll = false; }
+			ImGui.PushTextWrapPos(0);
 
 			ImGui.TextColored(new Num.Vector4(0.2f, 0.8f, 1.0f, 1.0f), "Build Game");
 			ImGui.Separator();
@@ -193,7 +213,7 @@ public class GameBuildWindow
 			var buildDir = GameBuilder.GetBuildOutputDirectory(project, selectedPlatform, _debugBuild.Value);
 			ImGui.Text("Output:");
 			ImGui.SameLine();
-			ImGuiSafe.TextDisabledSafe(buildDir);
+			ImGuiSafe.TextWrappedSafe(buildDir);
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
@@ -204,6 +224,7 @@ public class GameBuildWindow
 			VoltageEditorUtils.SmallVerticalSpace();
 
 			DrawInitialSceneSelector();
+			DrawSceneBuildSelector(project);
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
@@ -338,19 +359,20 @@ public class GameBuildWindow
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
+			bool hasScene = _availableScenes.Count > 0 && SceneBuildSelection.Included(project.ProjectPath, project.ScenesFolder, _availableScenes[_selectedSceneIndex], project.Settings.BuildScenes, _debugBuild.Value);
+			bool canBuild = selectedPlatform.IsAvailable && !_isBuilding && hasScene;
+			if (!hasScene && _availableScenes.Count > 0)
+				ImGuiSafe.TextWrappedColoredSafe(new Num.Vector4(1, 0.5f, 0.3f, 1), "Include the startup scene in this build configuration to build.");
+			ImGui.PopTextWrapPos();
+			ImGui.EndChild();
+
 			// Action buttons
 			ImGui.Separator();
 
-			var buttonWidth = 120f;
-			var spacing = 10f;
-			var totalButtonWidth = buttonWidth * 3 + spacing * 2;
-			var windowWidth = ImGui.GetWindowSize().X;
-			var centerStart = (windowWidth - totalButtonWidth) * 0.5f;
+			var centerStart = ImGui.GetCursorPosX() + Math.Max(0, (ImGui.GetContentRegionAvail().X - totalButtonWidth) * 0.5f);
 
 			ImGui.SetCursorPosX(centerStart);
 
-			bool hasScene = _availableScenes.Count > 0;
-			bool canBuild = selectedPlatform.IsAvailable && !_isBuilding && hasScene;
 			if (!canBuild)
 				ImGui.BeginDisabled();
 
@@ -387,6 +409,109 @@ public class GameBuildWindow
 	/// <summary>
 	/// Draws the initial scene combo selector.
 	/// </summary>
+	private void SelectBuildSceneRow(int index, bool control, bool shift)
+	{
+		if (shift && _sceneSelectionAnchor >= 0)
+		{
+			if (!control) _selectedBuildScenes.Clear();
+			for (int i = Math.Min(index, _sceneSelectionAnchor); i <= Math.Max(index, _sceneSelectionAnchor); i++)
+				_selectedBuildScenes.Add(i);
+			return;
+		}
+		if (!control) _selectedBuildScenes.Clear();
+		if (!control || !_selectedBuildScenes.Remove(index)) _selectedBuildScenes.Add(index);
+		_sceneSelectionAnchor = index;
+	}
+
+	private void SetSceneAvailability(IGameProject project, string scene, bool? debug, bool? release)
+	{
+		var rules = project.Settings.BuildScenes ??= new();
+		var rule = rules.Find(r => r?.Scene == scene);
+		if (rule == null)
+		{
+			var legacy = Path.ChangeExtension(Path.GetRelativePath(project.ScenesFolder, SceneCatalog.Resolve(project.ProjectPath, scene)), null).Replace('\\', '/');
+			rule = rules.Find(r => r?.Scene == legacy);
+			if (rule != null) rule.Scene = scene;
+		}
+		if (rule == null) { rule = new ProjectSettings.SceneBuildRule { Scene = scene }; rules.Add(rule); }
+		if (debug.HasValue) rule.Debug = debug.Value;
+		if (release.HasValue) rule.Release = release.Value;
+		if (rule.Debug && rule.Release) rules.Remove(rule);
+	}
+
+	private void DrawSceneBuildSelector(IGameProject project)
+	{
+		VoltageEditorUtils.MediumVerticalSpace();
+		ImGui.TextColored(new Num.Vector4(0.8f, 0.9f, 1, 1), "Scenes in Build");
+		if (_focusScenes) { ImGui.SetScrollHereY(0); _focusScenes = false; }
+		ImGui.TextWrapped("Ctrl/Cmd-click toggles rows; Shift-click selects a range. Checkboxes apply to selected rows.");
+		ImGui.TextWrapped("Ctrl/Cmd+A: all | Escape: clear | Ctrl/Cmd+1/2/3/4: include/exclude/Debug only/Release only");
+		float rowHeight = ImGui.GetFrameHeight() + ImGui.GetStyle().CellPadding.Y * 2;
+		float minimumHeight = rowHeight * 7 + ImGui.GetStyle().WindowPadding.Y * 2;
+		float sceneListHeight = minimumHeight + (_sceneListRows - 6) * rowHeight;
+		if (ImGui.BeginTable("BuildScenes", 3, ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersInnerV | ImGuiTableFlags.ScrollY, new Num.Vector2(0, sceneListHeight)))
+		{
+			HandleSceneSelectionShortcuts(project);
+			ImGui.TableSetupColumn("Scene", ImGuiTableColumnFlags.WidthStretch);
+			ImGui.TableSetupColumn("Debug", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFontSize() * 4);
+			ImGui.TableSetupColumn("Release", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFontSize() * 4);
+			ImGui.TableSetupScrollFreeze(0, 1);
+			ImGui.TableHeadersRow();
+			for (int i = 0; i < _availableScenes.Count; i++)
+			{
+				var scene = _availableScenes[i];
+				ImGui.TableNextRow();
+				ImGui.TableNextColumn();
+				if (Gui.Selectable(scene, _selectedBuildScenes.Contains(i), ImGuiSelectableFlags.NoAutoClosePopups, new Num.Vector2(ImGui.GetContentRegionAvail().X, 0)))
+					SelectBuildSceneRow(i, ImGui.GetIO().KeyCtrl || ImGui.GetIO().KeySuper, ImGui.GetIO().KeyShift);
+				if (ImGui.IsItemHovered()) ImGuiSafe.SetTooltipSafe(scene);
+				ImGui.TableNextColumn();
+				bool debug = SceneBuildSelection.Included(project.ProjectPath, project.ScenesFolder, scene, project.Settings.BuildScenes, true);
+				ImGui.BeginDisabled(_isBuilding);
+				if (Gui.Checkbox("##Debug:" + scene, ref debug)) ApplySceneAvailability(project, i, debug, null);
+				ImGui.TableNextColumn();
+				bool release = SceneBuildSelection.Included(project.ProjectPath, project.ScenesFolder, scene, project.Settings.BuildScenes, false);
+				if (Gui.Checkbox("##Release:" + scene, ref release)) ApplySceneAvailability(project, i, null, release);
+				ImGui.EndDisabled();
+			}
+			ImGui.EndTable();
+		}
+		var grip = ImGui.GetCursorScreenPos();
+		var gripSize = new Num.Vector2(Math.Max(1, ImGui.GetContentRegionAvail().X), Math.Max(8, ImGui.GetFontSize() * 0.6f));
+		Gui.InvisibleButton("##Resize build scenes", gripSize);
+		if (ImGui.IsItemHovered() || ImGui.IsItemActive()) ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeNS);
+		if (ImGui.IsItemActive()) _sceneListRows = Math.Max(6, _sceneListRows + ImGui.GetIO().MouseDelta.Y / rowHeight);
+		if (ImGui.IsItemHovered()) ImGui.SetTooltip("Drag to resize the scene list vertically.");
+		ImGui.GetWindowDrawList().AddLine(grip + new Num.Vector2(gripSize.X * 0.4f, gripSize.Y * 0.5f),
+			grip + new Num.Vector2(gripSize.X * 0.6f, gripSize.Y * 0.5f), ImGui.GetColorU32(ImGuiCol.Separator), 2);
+		int included = _availableScenes.Count(scene => SceneBuildSelection.Included(project.ProjectPath, project.ScenesFolder, scene, project.Settings.BuildScenes, _debugBuild.Value));
+		ImGui.Text($"{_selectedBuildScenes.Count} selected | {included} of {_availableScenes.Count} included in {(_debugBuild.Value ? "Debug" : "Release")}");
+	}
+
+	private void ApplySceneAvailability(IGameProject project, int row, bool? debug, bool? release)
+	{
+		if (!_selectedBuildScenes.Contains(row)) SelectBuildSceneRow(row, false, false);
+		foreach (var selected in _selectedBuildScenes) SetSceneAvailability(project, _availableScenes[selected], debug, release);
+		SaveBuildSettings(project);
+	}
+
+	private void HandleSceneSelectionShortcuts(IGameProject project)
+	{
+		if (!ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows) || ImGui.GetIO().WantTextInput) return;
+		bool command = ImGui.GetIO().KeyCtrl || ImGui.GetIO().KeySuper;
+		if (command && ImGui.IsKeyPressed(ImGuiKey.A, false))
+		{
+			_selectedBuildScenes.UnionWith(Enumerable.Range(0, _availableScenes.Count));
+			_sceneSelectionAnchor = _availableScenes.Count > 0 ? 0 : -1;
+		}
+		if (ImGui.IsKeyPressed(ImGuiKey.Escape, false)) { _selectedBuildScenes.Clear(); _sceneSelectionAnchor = -1; }
+		if (!command || _isBuilding || _selectedBuildScenes.Count == 0) return;
+		if (ImGui.IsKeyPressed(ImGuiKey._1, false)) ApplySceneAvailability(project, _selectedBuildScenes.First(), true, true);
+		else if (ImGui.IsKeyPressed(ImGuiKey._2, false)) ApplySceneAvailability(project, _selectedBuildScenes.First(), false, false);
+		else if (ImGui.IsKeyPressed(ImGuiKey._3, false)) ApplySceneAvailability(project, _selectedBuildScenes.First(), true, false);
+		else if (ImGui.IsKeyPressed(ImGuiKey._4, false)) ApplySceneAvailability(project, _selectedBuildScenes.First(), false, true);
+	}
+
 	private void DrawInitialSceneSelector()
 	{
 		if (_availableScenes.Count == 0)
@@ -407,6 +532,7 @@ public class GameBuildWindow
 				if (Gui.Selectable(_availableScenes[i], isSelected))
 				{
 					_selectedSceneIndex = i;
+					SaveInitialSceneSetting(ProjectManager.Instance.CurrentProject);
 				}
 
 				if (isSelected)
@@ -440,16 +566,20 @@ public class GameBuildWindow
 			return;
 
 		settings.InitialScene = selectedScene;
+		SaveBuildSettings(project);
+	}
 
+	private void SaveBuildSettings(IGameProject project)
+	{
 		try
 		{
 			var settingsPath = Path.Combine(project.ProjectPath, "ProjectSettings.json");
-			var json = Voltage.Persistence.Json.ToJson(settings, new Voltage.Persistence.JsonSettings { PrettyPrint = true });
+			var json = Voltage.Persistence.Json.ToJson(project.Settings, new Voltage.Persistence.JsonSettings { PrettyPrint = true });
 			File.WriteAllText(settingsPath, json, new System.Text.UTF8Encoding(false));
 		}
 		catch (Exception ex)
 		{
-			Debug.Error($"Failed to save InitialScene setting: {ex.Message}", "GameBuildWindow");
+			Debug.Error($"Failed to save build settings: {ex.Message}", "GameBuildWindow");
 		}
 	}
 
@@ -744,7 +874,8 @@ public class GameBuildWindow
 	{
 		if (_currentProgress != null && !_currentProgress.IsComplete)
 		{
-			_currentProgress.CurrentItem = stepName;
+			_currentProgress.CurrentItem = stepName.StartsWith("Building runtime engine libraries") ? "Preparing the game engine" :
+				stepName.StartsWith("Publishing game executable") ? "Creating the game executable" : stepName.TrimEnd('.');
 		}
 	}
 
@@ -769,6 +900,7 @@ public class GameBuildWindow
 			_currentProgress.IsComplete = true;
 			_currentProgress.CurrentItem = "";
 			_currentProgress.CompletionMessage = message;
+			if (!success && _currentProgress.FailureCount == 0) _currentProgress.FailureCount = 1;
 		}
 	}
 

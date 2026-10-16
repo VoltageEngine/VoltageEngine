@@ -16,6 +16,8 @@ internal static class UiCommands
 	/// <summary>Clicks one menu level per step; the next level is looked up after the menu has had frames to open.</summary>
 	private sealed class PathWalk
 	{
+		public int SettlingFrames = 3;
+		public bool Prepared;
 		public GatewayContext Ctx;
 		public string[] Levels;
 		public int Level;
@@ -76,7 +78,7 @@ internal static class UiCommands
 				{
 					if (total++ >= limit)
 						break;
-					rows.Add(new { kind = item.Kind, label = item.Display, path = item.Path.Length == 0 ? null : item.Path, x = (int)item.X, y = (int)item.Y, w = (int)item.W, h = (int)item.H, enabled = item.Enabled ? (bool?)null : false });
+					rows.Add(new { kind = item.Kind, label = item.Display, path = item.Path.Length == 0 ? null : item.Path, x = (int)item.X, y = (int)item.Y, w = (int)item.W, h = (int)item.H, enabled = item.Enabled ? (bool?)null : false, clippedHorizontally = item.ClippedHorizontally ? (bool?)true : null });
 				}
 				groups.Add(new { window = group.Key, items = rows });
 			}
@@ -118,6 +120,14 @@ internal static class UiCommands
 		for (var i = _walks.Count - 1; i >= 0; i--)
 		{
 			var walk = _walks[i];
+			if (walk.SettlingFrames-- > 0) continue;
+			if (!walk.Prepared)
+			{
+				if (!UiRegistry.Items.Any(item => item.Visible && item.Kind == "menu" && item.Path.Length == 0 && string.Equals(item.Display, walk.Levels[0], StringComparison.OrdinalIgnoreCase)) &&
+					UiRegistry.Items.Any(item => item.Visible && item.Kind == "menu" && item.Path.Length == 0 && item.Display == "More"))
+					walk.Levels = new[] { "More" }.Concat(walk.Levels).ToArray();
+				walk.Prepared = true;
+			}
 			if (walk.Pending != null)
 			{
 				if (!walk.Pending.IsCompleted)
@@ -284,7 +294,7 @@ internal static class UiCommands
 		|| string.Equals(window.Name, wanted, StringComparison.Ordinal)
 		|| window.Display.Contains(wanted, StringComparison.OrdinalIgnoreCase);
 
-	private static (int x, int y) Center(UiItem item) => ((int)MathF.Round(item.X + item.W / 2f), (int)MathF.Round(item.Y + item.H / 2f));
+	private static (int x, int y) Center(UiItem item) => ((int)MathF.Round(item.ClickX), (int)MathF.Round(item.ClickY));
 
 	private static object Describe(UiItem item, int index) => new
 	{
@@ -298,6 +308,7 @@ internal static class UiCommands
 		y = (int)item.Y,
 		width = (int)item.W,
 		height = (int)item.H,
+		clippedHorizontally = item.ClippedHorizontally,
 		enabled = item.Enabled,
 		hovered = item.Hovered,
 		active = item.Active

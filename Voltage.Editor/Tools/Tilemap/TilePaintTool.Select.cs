@@ -11,6 +11,8 @@ namespace Voltage.Editor.Tools.Tilemap
 	{
 		/// <summary>Marquee boxes over placed tiles, in cell space. Ctrl/Shift add more without clearing.</summary>
 		private readonly List<Rectangle> _selectBoxes = new();
+		private readonly HashSet<Point> _selectedCells = new();
+		public string SelectionMessage { get; private set; }
 
 		private bool _isMarqueeing;
 		private Point _marqueeAnchor;
@@ -21,45 +23,26 @@ namespace Voltage.Editor.Tools.Tilemap
 		private Point _moveGrabCell;
 		private Point _moveOffset;
 
-		public bool HasTileSelection => _selectBoxes.Count > 0;
+		public bool HasTileSelection => _selectedCells.Count > 0;
 
-		public int SelectedCellCount
-		{
-			get
-			{
-				var total = 0;
-				foreach (var cell in SelectedCells())
-					total++;
-
-				return total;
-			}
-		}
+		public int SelectedCellCount => _selectedCells.Count;
 
 		public void ClearTileSelection()
 		{
 			_selectBoxes.Clear();
+			_selectedCells.Clear();
+			SelectionMessage = null;
+			CancelSelectionGesture();
+		}
+
+		public void CancelSelectionGesture()
+		{
 			_isMarqueeing = false;
 			_isMovingSelection = false;
 			_moveOffset = Point.Zero;
 		}
 
-		/// <summary>Every distinct cell across all boxes; overlaps are yielded once.</summary>
-		private IEnumerable<Point> SelectedCells()
-		{
-			var seen = new HashSet<long>();
-
-			foreach (var box in _selectBoxes)
-			{
-				for (var y = box.Y; y < box.Y + box.Height; y++)
-				{
-					for (var x = box.X; x < box.X + box.Width; x++)
-					{
-						if (seen.Add(CellKey(x, y)))
-							yield return new Point(x, y);
-					}
-				}
-			}
-		}
+		private IEnumerable<Point> SelectedCells() => _selectedCells;
 
 		private static long CellKey(int x, int y) => (long)x << 32 ^ (uint)y;
 
@@ -69,13 +52,7 @@ namespace Voltage.Editor.Tools.Tilemap
 
 		private bool IsCellSelected(Point cell)
 		{
-			foreach (var box in _selectBoxes)
-			{
-				if (box.Contains(cell))
-					return true;
-			}
-
-			return false;
+			return _selectedCells.Contains(cell);
 		}
 
 		/// <summary>Marquee-select placed tiles, then drag the selection to move it a whole number of cells.</summary>
@@ -100,20 +77,17 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (!Input.LeftMouseButtonPressed)
 				return;
 
-			// Pressing inside the selection grabs it; pressing outside starts a new marquee.
-			if (IsCellSelected(cell) && Target?.Entity != null)
+			var io = ImGui.GetIO();
+			_marqueeAdditive = io.KeyCtrl || io.KeySuper || io.KeyShift;
+			if (!_marqueeAdditive && Target?.Entity != null &&
+				(IsCellSelected(cell) || Target.HasTile(cell.X, cell.Y) || Target.GetCollision(cell.X, cell.Y)))
 			{
+				if (!IsCellSelected(cell)) SelectRegion(new Rectangle(cell.X, cell.Y, 1, 1));
 				_isMovingSelection = true;
 				_moveGrabCell = cell;
 				_moveOffset = Point.Zero;
 				return;
 			}
-
-			var io = ImGui.GetIO();
-			_marqueeAdditive = io.KeyCtrl || io.KeySuper || io.KeyShift;
-
-			if (!_marqueeAdditive)
-				_selectBoxes.Clear();
 
 			_isMarqueeing = true;
 			_marqueeAnchor = cell;
@@ -133,24 +107,29 @@ namespace Voltage.Editor.Tools.Tilemap
 			_isMarqueeing = false;
 
 			// Keep only boxes that actually cover a tile, so a stray click does not leave an empty selection.
-			if (RegionHasTiles(box))
-				_selectBoxes.Add(box);
+			SelectRegion(box, _marqueeAdditive);
+		}
+
+		/// <summary>Selects occupied cells only; empty holes never erase destination tiles.</summary>
+		public void SelectRegion(Rectangle box, bool additive = false)
+		{
+			if (!additive) ClearTileSelection();
+			if (!RegionHasTiles(box)) return;
+			foreach (var (x, y, _) in Target.EnumerateTiles())
+				if (box.Contains(x, y)) _selectedCells.Add(new Point(x, y));
+			foreach (var (x, y) in Target.EnumerateCollision())
+				if (box.Contains(x, y)) _selectedCells.Add(new Point(x, y));
+			_selectBoxes.Add(box);
 		}
 
 		private bool RegionHasTiles(Rectangle box)
 		{
 			if (Target?.Entity == null)
 				return false;
-
-			for (var y = box.Y; y < box.Y + box.Height; y++)
-			{
-				for (var x = box.X; x < box.X + box.Width; x++)
-				{
-					if (Target.HasTile(x, y) || Target.GetCollision(x, y))
-						return true;
-				}
-			}
-
+			foreach (var (x, y, _) in Target.EnumerateTiles())
+				if (box.Contains(x, y)) return true;
+			foreach (var (x, y) in Target.EnumerateCollision())
+				if (box.Contains(x, y)) return true;
 			return false;
 		}
 
@@ -159,9 +138,9 @@ namespace Voltage.Editor.Tools.Tilemap
 			_moveOffset = new Point(cell.X - _moveGrabCell.X, cell.Y - _moveGrabCell.Y);
 
 			// Ghost of where the block will land.
-			foreach (var box in _selectBoxes)
+			foreach (var selected in _selectedCells)
 			{
-				DrawCellOutline(box.X + _moveOffset.X, box.Y + _moveOffset.Y, box.Width, box.Height,
+				DrawCellOutline(selected.X + _moveOffset.X, selected.Y + _moveOffset.Y, 1, 1,
 					new Color(0.4f, 1f, 0.5f, 0.9f));
 			}
 
@@ -177,12 +156,23 @@ namespace Voltage.Editor.Tools.Tilemap
 		}
 
 		/// <summary>Lifts every selected cell and writes it back shifted by <paramref name="offset"/>, as one undo step.</summary>
-		private void MoveSelection(Point offset)
+		public bool MoveSelection(Point offset)
 		{
-			if (Target?.Entity == null)
-				return;
+			if (Target?.Entity == null || offset == Point.Zero || !HasTileSelection)
+				return false;
 
 			var cells = new List<Point>(SelectedCells());
+			foreach (var cell in cells)
+			{
+				var destination = new Point(cell.X + offset.X, cell.Y + offset.Y);
+				if (!IsCellSelected(destination) && (Target.HasTile(destination.X, destination.Y) || Target.GetCollision(destination.X, destination.Y)))
+				{
+					SelectionMessage = "Move blocked: destination contains tiles or collision on this layer.";
+					return false;
+				}
+			}
+			SelectionMessage = null;
+			var oldBoxes = new List<Rectangle>(_selectBoxes);
 			var before = new List<TileRegionUndoAction.CellState>();
 			var after = new List<TileRegionUndoAction.CellState>();
 			var touched = new HashSet<long>();
@@ -218,18 +208,32 @@ namespace Voltage.Editor.Tools.Tilemap
 			foreach (var key in touched)
 				after.Add(Snapshot((int)(key >> 32), (int)(uint)key));
 
-			Target.RebuildColliders();
+			if (Target.AutoBuildColliders) Target.RebuildColliders();
 
 			for (var i = 0; i < _selectBoxes.Count; i++)
 			{
 				var box = _selectBoxes[i];
 				_selectBoxes[i] = new Rectangle(box.X + offset.X, box.Y + offset.Y, box.Width, box.Height);
 			}
+			_selectedCells.Clear();
+			foreach (var cell in cells) _selectedCells.Add(new Point(cell.X + offset.X, cell.Y + offset.Y));
+			var movedCells = new List<Point>(_selectedCells);
+			var movedBoxes = new List<Rectangle>(_selectBoxes);
+			var map = Target;
 
 			EditorChangeTracker.PushUndo(
-				new TileRegionUndoAction(Target, before, after, $"Move {cells.Count} tiles"),
+				new TileRegionUndoAction(Target, before, after, $"Move {cells.Count} tiles", redo =>
+				{
+					if (!ReferenceEquals(Target, map)) return;
+					CancelSelectionGesture();
+					_selectedCells.Clear();
+					_selectedCells.UnionWith(redo ? movedCells : cells);
+					_selectBoxes.Clear();
+					_selectBoxes.AddRange(redo ? movedBoxes : oldBoxes);
+				}),
 				Target.Entity,
 				$"Move {cells.Count} tiles");
+			return true;
 		}
 
 		/// <summary>
@@ -259,6 +263,17 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			var cells = new List<Point>(SelectedCells());
 			var lifted = new List<TileRegionUndoAction.CellState>();
+			foreach (var cell in cells)
+			{
+				var destination = Map(cell.X, cell.Y);
+				if (!IsCellSelected(destination) && (Target.HasTile(destination.X, destination.Y) || Target.GetCollision(destination.X, destination.Y)))
+				{
+					SelectionMessage = "Rotate blocked: destination contains tiles or collision on this layer.";
+					return;
+				}
+			}
+			SelectionMessage = null;
+			var oldBoxes = new List<Rectangle>(_selectBoxes);
 
 			foreach (var cell in cells)
 				lifted.Add(Snapshot(cell.X, cell.Y));
@@ -312,11 +327,24 @@ namespace Voltage.Editor.Tools.Tilemap
 			foreach (var key in touched)
 				after.Add(Snapshot((int)(key >> 32), (int)(uint)key));
 
-			Target.RebuildColliders();
+			if (Target.AutoBuildColliders) Target.RebuildColliders();
 
 			var description = $"Rotate {cells.Count} tiles";
+			_selectedCells.Clear();
+			foreach (var cell in cells) _selectedCells.Add(Map(cell.X, cell.Y));
+			var rotatedCells = new List<Point>(_selectedCells);
+			var rotatedBoxes = new List<Rectangle>(_selectBoxes);
+			var map = Target;
 			EditorChangeTracker.PushUndo(
-				new TileRegionUndoAction(Target, before, after, description), Target.Entity, description);
+				new TileRegionUndoAction(Target, before, after, description, redo =>
+				{
+					if (!ReferenceEquals(Target, map)) return;
+					CancelSelectionGesture();
+					_selectedCells.Clear();
+					_selectedCells.UnionWith(redo ? rotatedCells : cells);
+					_selectBoxes.Clear();
+					_selectBoxes.AddRange(redo ? rotatedBoxes : oldBoxes);
+				}), Target.Entity, description);
 		}
 
 		/// <summary>Maps a cell inside a W x H block to its position after <paramref name="turns"/> quarter turns.</summary>
@@ -358,11 +386,21 @@ namespace Voltage.Editor.Tools.Tilemap
 			foreach (var cell in cells)
 				after.Add(Snapshot(cell.X, cell.Y));
 
-			Target.RebuildColliders();
+			if (Target.AutoBuildColliders) Target.RebuildColliders();
 
 			var description = $"Delete {cells.Count} tiles";
+			var boxes = new List<Rectangle>(_selectBoxes);
+			var map = Target;
 			EditorChangeTracker.PushUndo(
-				new TileRegionUndoAction(Target, before, after, description), Target.Entity, description);
+				new TileRegionUndoAction(Target, before, after, description, redo =>
+				{
+					if (!ReferenceEquals(Target, map)) return;
+					ClearTileSelection();
+					if (redo) return;
+					_selectedCells.UnionWith(cells);
+					_selectBoxes.AddRange(boxes);
+				}), Target.Entity, description);
+			ClearTileSelection();
 		}
 
 		/// <summary>Delete / Backspace clears the selected tiles while the Select tool owns a selection.</summary>
@@ -409,8 +447,8 @@ namespace Voltage.Editor.Tools.Tilemap
 			if (_isMovingSelection)
 				return;
 
-			foreach (var box in _selectBoxes)
-				DrawCellOutline(box.X, box.Y, box.Width, box.Height, new Color(0.3f, 0.8f, 1f, 0.9f));
+			foreach (var cell in _selectedCells)
+				DrawCellOutline(cell.X, cell.Y, 1, 1, new Color(0.3f, 0.8f, 1f, 0.9f));
 		}
 	}
 }

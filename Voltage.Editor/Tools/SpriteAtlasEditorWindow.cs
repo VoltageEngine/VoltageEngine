@@ -11,6 +11,7 @@ using Voltage.Utils.Extensions;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.FilePickers;
 using Voltage.Editor.Utils;
+using Voltage.Editor.ProjectFile;
 using Num = System.Numerics;
 
 namespace Voltage.Editor.Tools
@@ -80,49 +81,62 @@ namespace Voltage.Editor.Tools
 		public bool Show()
 		{
 			ImGui.SetNextWindowPos(new Num.Vector2(0, 25), ImGuiCond.FirstUseEver);
-			ImGui.SetNextWindowSize(new Num.Vector2(Screen.Width / 2, Screen.Height / 2), ImGuiCond.FirstUseEver);
+			EditorLayout.WindowSize(new Num.Vector2(1000, 720), ImGuiCond.FirstUseEver);
 
 			var isOpen = true;
 			if (Gui.Begin("Sprite Atlas Editor", ref isOpen, ImGuiWindowFlags.MenuBar))
 			{
 				DrawMenuBar();
 
-				if (_hasSlicedContent)
+				var leftWidth = 250 * EditorLayout.Scale;
+				var rightWidth = 300 * EditorLayout.Scale;
+				var compact = _hasSlicedContent && ImGui.GetContentRegionAvail().X < leftWidth + rightWidth + 240 * EditorLayout.Scale;
+				if (compact)
 				{
-					ImGui.BeginChild("Slice Origins", new Num.Vector2(250, 0), true);
-					DrawLeftPane();
-					ImGui.EndChild();
-
-					ImGui.SameLine();
+					if (ImGui.BeginTabBar("AtlasPanes", ImGuiTabBarFlags.FittingPolicyScroll))
+					{
+						if (Gui.BeginTabItem("Preview")) { DrawPreviewPane(0); ImGui.EndTabItem(); }
+						if (Gui.BeginTabItem("Origins")) { DrawLeftPane(); ImGui.EndTabItem(); }
+						if (Gui.BeginTabItem("Animations")) { DrawRightPane(); ImGui.EndTabItem(); }
+						ImGui.EndTabBar();
+					}
 				}
+				else
+				{
+					if (_hasSlicedContent)
+					{
+						ImGui.BeginChild("Slice Origins", new Num.Vector2(leftWidth, 0), ImGuiChildFlags.Borders);
+						DrawLeftPane();
+						ImGui.EndChild();
+						ImGui.SameLine();
+					}
+					var reserved = _hasSlicedContent ? rightWidth + ImGui.GetStyle().ItemSpacing.X : 0;
+					DrawPreviewPane(Math.Max(1, ImGui.GetContentRegionAvail().X - reserved));
+					if (_hasSlicedContent)
+					{
+						ImGui.SameLine();
+						ImGui.BeginChild("Right Pane", new Num.Vector2(rightWidth, 0), ImGuiChildFlags.Borders);
+						DrawRightPane();
+						ImGui.EndChild();
+					}
+				}
+			}
+			Gui.End();
+			return isOpen;
+		}
 
-				var frame = ImGui.GetStyle().FramePadding.X + ImGui.GetStyle().FrameBorderSize;
-				var rightPanePaddedSize = 300 + frame * 2;
-				if (!_hasSlicedContent)
-					rightPanePaddedSize = 0;
-
-				ImGui.BeginChild("item view", new Num.Vector2(ImGui.GetContentRegionAvail().X - rightPanePaddedSize, 0), false, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
+		void DrawPreviewPane(float width)
+		{
+			if (ImGui.BeginChild("item view", new Num.Vector2(width, 0), ImGuiChildFlags.None, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
+			{
 				if (_textureLoadedThisFrame)
 				{
 					FrameImage();
 					_textureLoadedThisFrame = false;
 				}
 				DrawCenterPane();
-				ImGui.EndChild();
-
-				ImGui.SameLine();
-
-				if (_hasSlicedContent)
-				{
-					ImGui.BeginChild("Right Pane", new Num.Vector2(300, 0), true);
-					DrawRightPane();
-					ImGui.EndChild();
-				}
-
-				Gui.End();
 			}
-
-			return isOpen;
+			ImGui.EndChild();
 		}
 
 		void LoadTextureAndAtlasFiles()
@@ -360,7 +374,7 @@ namespace Voltage.Editor.Tools
 			if (newAtlas)
 			{
 				var start = new DirectoryInfo(Environment.CurrentDirectory).Parent?.FullName;
-				if (NativeFileDialogs.IsAvailable)
+				if (!EditorRunMode.Headless && NativeFileDialogs.IsAvailable)
 				{
 					if (NativeFileDialogs.TryPickFolder("Select sprites folder", start, out var folder) && !string.IsNullOrEmpty(folder))
 						GenerateSpriteAtlasFromFolder(folder);
@@ -373,9 +387,9 @@ namespace Voltage.Editor.Tools
 
 			if (openFile)
 			{
-				if (NativeFileDialogs.IsAvailable)
+				if (!EditorRunMode.Headless && NativeFileDialogs.IsAvailable)
 				{
-					var start = Path.Combine(Environment.CurrentDirectory, "Content");
+					var start = ProjectManager.Instance.CurrentProject?.ContentsFolder ?? Path.Combine(Environment.CurrentDirectory, "Content");
 					if (NativeFileDialogs.TryOpenFile("Open atlas or PNG", start, new[] { "*.png", "*.atlas" }, "Atlas / PNG", out var file)
 					    && !string.IsNullOrEmpty(file))
 						SetSourceFromPickedFile(file);
@@ -409,9 +423,11 @@ namespace Voltage.Editor.Tools
 		void OpenFilePopup()
 		{
 			var isOpen = true;
+			EditorLayout.WindowSize(new Num.Vector2(900, 700), ImGuiCond.Appearing);
 			if (Gui.BeginPopupModal("open-file", ref isOpen, ImGuiWindowFlags.NoTitleBar))
 			{
-				var picker = FilePicker.GetFilePicker(this, Path.Combine(Environment.CurrentDirectory, "Content"), ".png|.atlas");
+				var start = ProjectManager.Instance.CurrentProject?.ContentsFolder ?? Path.Combine(Environment.CurrentDirectory, "Content");
+				var picker = FilePicker.GetFilePicker(this, start, ".png|.atlas");
 				picker.DontAllowTraverselBeyondRootFolder = true;
 				if (picker.Draw())
 				{
@@ -479,7 +495,7 @@ namespace Voltage.Editor.Tools
 			if (Gui.Button("Slice"))
 				ImGui.OpenPopup("atlas-slicer");
 
-			ImGui.SameLine(ImGui.GetContentRegionAvail().X - 160);
+			EditorLayout.SameLine(ImGui.GetFrameHeight());
 
 			VoltageEditorUtils.EyeToggle("showrectindexes", ref _showSourceRectIndexes,
 				_showSourceRectIndexes
@@ -648,7 +664,7 @@ namespace Voltage.Editor.Tools
 
 		Num.Vector2 CalcFitToScreen()
 		{
-			var availSize = ImGui.GetContentRegionMax();
+			var availSize = ImGui.GetContentRegionAvail();
 			var autoScale = _textureSize / availSize;
 			if (autoScale.X > autoScale.Y)
 				return new Num.Vector2(availSize.X, availSize.X / _textureAspectRatio);

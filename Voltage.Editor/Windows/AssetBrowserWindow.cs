@@ -10,6 +10,7 @@ using Voltage.Editor.DebugUtils;
 using Voltage.Editor.ImGuiCore;
 using Voltage.Editor.Persistence;
 using Voltage.Editor.ProjectFile;
+using Voltage.Editor.SceneFile;
 using Voltage.Editor.Utils;
 using Voltage.Utils;
 using Num = System.Numerics;
@@ -58,6 +59,12 @@ public class AssetBrowserWindow : IDisposable
 
     private readonly AssetDatabase _db;
     private string _searchFilter = string.Empty;
+    private readonly PersistentInt _zoom = new("AssetBrowser.Zoom", 0);
+    private float _zoomWheelRemainder;
+    private readonly AssetThumbnailCache _thumbnails = new();
+    private readonly AssetTextPreview _textPreview = new();
+    private bool _clearThumbnails;
+    private static float DisplayScale => Core.GetGlobalManager<ImGuiManager>()?.FontSizeMultiplier ?? 1;
 
     // Persistent collapsed-node state.
     // Key: project-relative node path (e.g. "Content/Sprites").
@@ -298,6 +305,8 @@ public class AssetBrowserWindow : IDisposable
 
     public void OnProjectLoaded()
     {
+        _clearThumbnails = true;
+        _textPreview.Close();
         // Reload persisted collapse + shortcut state with the new project context.
         LoadCollapsedState();
         LoadShortcuts();
@@ -306,12 +315,15 @@ public class AssetBrowserWindow : IDisposable
 
     public void OnProjectUnloaded()
     {
+        _clearThumbnails = true;
+        _textPreview.Close();
         _db.Refresh();
     }
 
     /// <inheritdoc/>
     public void Dispose()
     {
+        _thumbnails.Dispose();
         _sdlDropWatcher.Dispose();
         _db.Dispose();
         if (AssetDatabase.Instance == _db)
@@ -321,7 +333,12 @@ public class AssetBrowserWindow : IDisposable
     public void Draw()
     {
         if (!IsOpen)
+        {
+            _textPreview.Close();
             return;
+        }
+
+        if (_clearThumbnails) { _thumbnails.Dispose(); _clearThumbnails = false; }
 
         if (!_db.IsIndexed)
             _db.Refresh();
@@ -330,7 +347,7 @@ public class AssetBrowserWindow : IDisposable
         ConsumePingRequest();
 
         var open = IsOpen;
-        Gui.Begin(WindowTitle, ref open);
+        Gui.Begin(WindowTitle, ref open, ImGuiWindowFlags.NoScrollWithMouse);
         IsOpen = open;
 
         if (!IsOpen)
@@ -339,8 +356,16 @@ public class AssetBrowserWindow : IDisposable
             return;
         }
 
+        var io = ImGui.GetIO();
+        var zoomGesture = io.KeyCtrl || io.KeySuper;
+        if (zoomGesture && ImGui.IsWindowHovered(ImGuiHoveredFlags.RootAndChildWindows) && io.MouseWheel != 0)
+            _zoom.Value = ApplyWheelZoom(_zoom.Value, io.MouseWheel, ref _zoomWheelRemainder);
         DrawToolbar();
         ImGui.Separator();
+        ImGui.BeginChild("Asset files", Num.Vector2.Zero, ImGuiChildFlags.None,
+            zoomGesture ? ImGuiWindowFlags.NoScrollWithMouse : ImGuiWindowFlags.None);
+        ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Num.Vector2(ImGui.GetStyle().ItemSpacing.X,
+            2 * DisplayScale));
 
         // Reset the hovered-folder tracker each frame before drawing the tree.
         _hoveredFolderPath = null;
@@ -368,7 +393,11 @@ public class AssetBrowserWindow : IDisposable
 
         PromotePendingRename();
 
+        ImGui.PopStyleVar();
+        ImGui.EndChild();
+
         Gui.End();
+        _textPreview.Draw();
 
         // Must be outside Begin/End to be modal.
         DrawDeleteConfirmationPopup();
@@ -433,34 +462,89 @@ public class AssetBrowserWindow : IDisposable
         });
     }
 
+    internal static int ApplyWheelZoom(int current, float wheel, ref float remainder)
+    {
+        var amount = remainder + wheel * 10;
+        var change = (int)MathF.Round(amount);
+        var next = Math.Clamp(current + change, 0, 200);
+        // Preserve small trackpad deltas, without accumulating scroll beyond either end.
+        remainder = next == current + change && !(next == 0 && amount < 0) && !(next == 200 && amount > 0)
+            ? amount - change : 0;
+        return next;
+    }
+
     private void DrawToolbar()
     {
-        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X - 80f);
+        var refreshWidth = ImGui.CalcTextSize("Refresh").X + ImGui.GetStyle().FramePadding.X * 2;
+        var available = ImGui.GetContentRegionAvail().X;
+        var gap = ImGui.GetStyle().ItemSpacing.X;
+        var zoomWidth = Math.Min(Math.Max(150 * DisplayScale,
+            ImGui.CalcTextSize("Zoom Level: 200%").X + ImGui.GetStyle().FramePadding.X * 2 + 20 * DisplayScale), available);
+        var sameRow = available - refreshWidth - zoomWidth - 2 * gap >= 80 * DisplayScale;
+        ImGui.SetNextItemWidth(Math.Max(1, sameRow ? available - refreshWidth - zoomWidth - 2 * gap : available));
         Gui.InputTextWithHint("##AssetSearch", "Search...", ref _searchFilter, 128);
 
-        ImGui.SameLine();
+        if (sameRow) ImGui.SameLine();
 
         if (Gui.Button("Refresh"))
+        {
             _db.Refresh();
+            _clearThumbnails = true;
+        }
 
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Rescan all project folders and rebuild the asset index.");
+        if (sameRow || available >= refreshWidth + zoomWidth + gap) ImGui.SameLine();
+        var zoom = Math.Clamp(_zoom.Value, 0, 200);
+        var sliderWidth = Math.Max(1, Math.Min(zoomWidth, ImGui.GetContentRegionAvail().X));
+        var separateLabel = sliderWidth < ImGui.CalcTextSize("Zoom Level: 200%").X + ImGui.GetStyle().FramePadding.X * 2;
+        if (separateLabel) ImGui.TextWrapped("Zoom Level");
+        ImGui.SetNextItemWidth(sliderWidth);
+        if (Gui.CaptionSliderInt("Zoom Level", ref zoom, 0, 200, separateLabel ? "%d%%" : "Zoom Level: %d%%")) _zoom.Value = zoom;
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("0%: compact list. 200%: largest thumbnails. Ctrl/Cmd + scroll to zoom.");
     }
 
     private void DrawTree()
     {
-        foreach (var root in _db.RootNodes)
+        var projectRoot = ProjectManager.Instance.CurrentProject?.ProjectPath;
+        if (projectRoot == null) return;
+        Gui.Selectable("Project root", false);
+        AcceptMoveDrop(projectRoot);
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Drop here to move beside Content and Data.");
+        foreach (var root in _db.RootNodes.OrderBy(n => n.Label, StringComparer.OrdinalIgnoreCase))
         {
             // Skip a root nested inside another root (e.g. Data/Scenes shows under Data) — drawing it
             // as a separate top-level root would duplicate the view.
-            if (IsNestedUnderAnotherRoot(root))
+            if (IsNestedUnderAnotherRoot(root) || (!string.IsNullOrWhiteSpace(_searchFilter) && !FolderHasMatchingItems(root)))
                 continue;
 
             ImGui.PushID(root.RelativePath);
             DrawFolderNode(root);
             ImGui.PopID();
-            VoltageEditorUtils.SmallVerticalSpace();
+            Gui.InvisibleButton("##ProjectRootGap:" + root.RelativePath, new Num.Vector2(Math.Max(1, ImGui.GetContentRegionAvail().X), 10 * DisplayScale));
+            AcceptMoveDrop(projectRoot);
         }
+    }
+
+    private void AcceptMoveDrop(string targetDirectory)
+    {
+        if (!ImGui.BeginDragDropTarget()) return;
+        unsafe
+        {
+            var payload = ImGui.AcceptDragDropPayload(DragDropPayloadId);
+            if (payload.NativePtr != null && !string.IsNullOrEmpty(DraggedSourcePath))
+            {
+                if (Directory.Exists(DraggedSourcePath)) MoveFolder(DraggedSourcePath, targetDirectory);
+                else
+                {
+                    var moving = DraggedSourcePaths.Count > 0 ? new List<string>(DraggedSourcePaths) : new List<string> { DraggedSourcePath };
+                    foreach (var path in moving) MoveAsset(path, targetDirectory);
+                }
+                DraggedSourcePaths.Clear();
+                DraggedSourcePath = null;
+            }
+        }
+        ImGui.EndDragDropTarget();
     }
 
     // True when root's directory lives inside another root's directory (already reachable by expanding that one).
@@ -468,7 +552,7 @@ public class AssetBrowserWindow : IDisposable
     {
         foreach (var other in _db.RootNodes)
         {
-            if (ReferenceEquals(other, root))
+            if (ReferenceEquals(other, root) || (other.RelativePath.Length == 0 && other.ChildFolders.Count == 0))
                 continue;
             if (IsPathUnder(root.AbsolutePath, other.AbsolutePath))
                 return true;
@@ -540,33 +624,7 @@ public class AssetBrowserWindow : IDisposable
 
         // Accept an in-browser MOVE: dropping an asset/folder here relocates it (carrying its .meta
         // sidecar / whole subtree), preserving GUIDs so references don't break.
-        if (ImGui.BeginDragDropTarget())
-        {
-            unsafe
-            {
-                var payload = ImGui.AcceptDragDropPayload(DragDropPayloadId);
-                if (payload.NativePtr != null && !string.IsNullOrEmpty(DraggedSourcePath))
-                {
-                    if (Directory.Exists(DraggedSourcePath))
-                    {
-                        MoveFolder(DraggedSourcePath, node.AbsolutePath);
-                    }
-                    else
-                    {
-                        var moving = DraggedSourcePaths.Count > 0
-                            ? new List<string>(DraggedSourcePaths)
-                            : new List<string> { DraggedSourcePath };
-
-                        foreach (var path in moving)
-                            MoveAsset(path, node.AbsolutePath);
-                    }
-
-                    DraggedSourcePaths.Clear();
-                    DraggedSourcePath = null;
-                }
-            }
-            ImGui.EndDragDropTarget();
-        }
+        AcceptMoveDrop(node.AbsolutePath);
 
         // Toggle persistence whenever the user opens or closes the node.
         if (nodeOpen && isCollapsed)
@@ -590,7 +648,12 @@ public class AssetBrowserWindow : IDisposable
                 ImGui.PopID();
             }
 
-            // Then draw file leaves.
+            var filesWidth = Math.Max(1, ImGui.GetContentRegionAvail().X);
+            var gap = ImGui.GetStyle().ItemSpacing.X;
+            var targetWidth = (56 + Math.Clamp(_zoom.Value, 0, 200) * 0.6f) * DisplayScale;
+            var columns = Math.Max(1, (int)((filesWidth + gap) / (targetWidth + gap)));
+            var tileWidth = Math.Min(targetWidth, (filesWidth - gap * (columns - 1)) / columns);
+            var column = 0;
             for (int i = 0; i < node.Files.Count; i++)
             {
                 var item = node.Files[i];
@@ -600,7 +663,9 @@ public class AssetBrowserWindow : IDisposable
                     continue;
 
                 ImGui.PushID(i);
-                DrawAssetRow(item, node.AbsolutePath);
+                if (_zoom.Value > 0 && column % columns != 0) ImGui.SameLine();
+                DrawAssetRow(item, node.AbsolutePath, _zoom.Value > 0 ? tileWidth : 0);
+                column++;
                 ImGui.PopID();
             }
 
@@ -627,16 +692,8 @@ public class AssetBrowserWindow : IDisposable
         return false;
     }
 
-    private void DrawAssetRow(AssetItem item, string parentFolderPath)
+    private void DrawAssetRow(AssetItem item, string parentFolderPath, float tileWidth = 0)
     {
-        var iconId = AssetBrowserIcons.GetIconId(item.Descriptor);
-
-        if (iconId != IntPtr.Zero)
-        {
-            ImGui.Image(iconId, new Num.Vector2(IconSize, IconSize));
-            ImGui.SameLine(0, IconTextSpacing);
-        }
-
         // While this row is being renamed, show an editable field instead of the label.
         if (string.Equals(_renamingFilePath, item.AbsolutePath, StringComparison.OrdinalIgnoreCase))
         {
@@ -658,9 +715,44 @@ public class AssetBrowserWindow : IDisposable
             ImGui.PushStyleColor(ImGuiCol.HeaderActive, ping);
         }
 
-        bool clicked = Gui.Selectable(item.FileName, isSelected || isPinging,
+        var scale = DisplayScale;
+        var tile = tileWidth > 0;
+        var rowHeight = Math.Max(20 * scale, ImGui.GetTextLineHeight()) + 4 * scale;
+        var tileHeight = Math.Min(tileWidth + ImGui.GetTextLineHeight() + 12 * scale,
+            Math.Max(rowHeight, ImGui.GetWindowHeight() - ImGui.GetStyle().WindowPadding.Y * 2));
+        var size = new Num.Vector2(tile ? tileWidth : Math.Max(1, ImGui.GetContentRegionAvail().X), tile ? tileHeight : rowHeight);
+        bool clicked = Gui.CaptionSelectable(item.FileName, "", isSelected || isPinging,
             ImGuiSelectableFlags.AllowDoubleClick,
-            new Num.Vector2(ImGui.GetContentRegionAvail().X, IconSize));
+            size);
+        var itemMin = ImGui.GetItemRectMin();
+        var itemMax = ImGui.GetItemRectMax();
+        if (ImGui.IsItemVisible())
+        {
+            var draw = ImGui.GetWindowDrawList();
+            draw.PushClipRect(itemMin, itemMax, true);
+            var id = tile ? _thumbnails.Get(item.AbsolutePath) : IntPtr.Zero;
+            var hasPreview = id != IntPtr.Zero;
+            if (!hasPreview) id = AssetBrowserIcons.GetIconId(item.Descriptor);
+            var imageHeight = Math.Max(1, tileHeight - ImGui.GetTextLineHeight() - 12 * scale);
+            var iconSide = tile ? Math.Min(imageHeight, hasPreview ? tileWidth - 8 * scale : Math.Min(tileWidth - 8 * scale, 40 * scale)) : 16 * scale;
+            iconSide = Math.Max(1, iconSide);
+            var iconPosition = tile ? itemMin + new Num.Vector2((tileWidth - iconSide) / 2, 4 * scale + (imageHeight - iconSide) / 2)
+                : itemMin + new Num.Vector2(4 * scale, (rowHeight - iconSide) / 2);
+            if (tile) draw.AddRectFilled(itemMin + new Num.Vector2(2 * scale), itemMin + new Num.Vector2(tileWidth - 2 * scale, tileHeight - 2 * scale),
+                ImGui.GetColorU32(ImGuiCol.FrameBg), 3 * scale);
+            if (id != IntPtr.Zero) draw.AddImage(id, iconPosition, iconPosition + new Num.Vector2(iconSide));
+            var textPosition = tile ? itemMin + new Num.Vector2(4 * scale, tileHeight - ImGui.GetTextLineHeight() - 4 * scale)
+                : itemMin + new Num.Vector2(24 * scale, (rowHeight - ImGui.GetTextLineHeight()) / 2);
+            var caption = item.FileName;
+            var availableText = Math.Max(1, itemMax.X - textPosition.X - 4 * scale);
+            if (ImGui.CalcTextSize(caption).X > availableText)
+            {
+                while (caption.Length > 0 && ImGui.CalcTextSize(caption + "...").X > availableText) caption = caption[..^1];
+                caption += "...";
+            }
+            draw.AddText(textPosition, ImGui.GetColorU32(ImGuiCol.Text), caption);
+            draw.PopClipRect();
+        }
 
         if (isPinging)
         {
@@ -698,6 +790,8 @@ public class AssetBrowserWindow : IDisposable
                 Core.GetGlobalManager<ImGuiManager>()?.TilesetEditorWindow.Open(item.AbsolutePath);
             else if (item.Descriptor.Kind == AssetKind.Data)
                 Core.GetGlobalManager<ImGuiManager>()?.DataAssetWindow.Open(item.AbsolutePath);
+            else if (item.Descriptor.Kind == AssetKind.Timeline)
+                Core.GetGlobalManager<ImGuiManager>()?.OpenTimelineAsset(item.AbsolutePath);
         }
         else if (clicked)
         {
@@ -727,6 +821,8 @@ public class AssetBrowserWindow : IDisposable
                 _renameCandidatePath = null;
             }
         }
+        if (clicked && !ImGui.GetIO().KeyCtrl && !ImGui.GetIO().KeySuper && !ImGui.GetIO().KeyShift)
+            _textPreview.Open(item.AbsolutePath, itemMin);
 
         // Full-path + GUID tooltip on hover.
         if (ImGui.IsItemHovered())
@@ -1148,7 +1244,7 @@ public class AssetBrowserWindow : IDisposable
 
             if (!_deleteIsFolder && _filesToDelete.Count > 1)
             {
-                ImGui.BeginChild("delete-list", new Num.Vector2(360, 90), true);
+                ImGui.BeginChild("delete-list", new Num.Vector2(360, 90), ImGuiChildFlags.Borders);
                 foreach (var path in _filesToDelete)
                     ImGui.TextUnformatted(Path.GetFileName(path));
                 ImGui.EndChild();
@@ -1401,7 +1497,7 @@ public class AssetBrowserWindow : IDisposable
         {
             project.ProjectPath,
             project.ContentsFolder, project.DataFolder, project.ScriptsFolder,
-            project.EffectsFolder, project.ScenesFolder, project.PrefabsFolder,
+            project.EffectsFolder,
         };
 
         foreach (var p in protectedPaths)
@@ -1732,6 +1828,7 @@ public class AssetBrowserWindow : IDisposable
     // reference keeps resolving. Refuses moves into itself/a descendant; skips no-op same-parent moves.
     private void MoveFolder(string sourceDir, string targetParentDir)
     {
+        if (!Core.IsEditMode) return;
         if (string.IsNullOrEmpty(sourceDir) || string.IsNullOrEmpty(targetParentDir))
             return;
         if (!Directory.Exists(sourceDir) || !Directory.Exists(targetParentDir))
@@ -1760,6 +1857,7 @@ public class AssetBrowserWindow : IDisposable
         try
         {
             Directory.Move(sourceDir, destPath);
+            ProjectManager.Instance.RepointFolderPaths(sourceDir, destPath);
             RepointShortcutsAfterMove(sourceDir, destPath);
             EditorDebug.Log($"AssetBrowser: moved folder '{name}' -> '{targetParentDir}'.", "AssetBrowser");
             _refreshRequested = true;
@@ -1904,6 +2002,8 @@ public class AssetBrowserWindow : IDisposable
                 DropHandlers.OpenPrefabIsolated(reference);
             else if (descriptor.Kind == AssetKind.Data)
                 Core.GetGlobalManager<ImGuiManager>()?.DataAssetWindow.Open(abs);
+            else if (descriptor.Kind == AssetKind.Timeline)
+                Core.GetGlobalManager<ImGuiManager>()?.OpenTimelineAsset(abs);
         }
 
         // Drag SOURCE: droppable file shortcuts carry an AssetReference for scene/inspector drops.

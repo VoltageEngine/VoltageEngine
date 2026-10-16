@@ -7,13 +7,28 @@
 		<IsPackable>false</IsPackable>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Configurations>Debug;Release;Editor-Debug;Editor-Release</Configurations>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
 		<PackageReference Include="NUnit" Version="4.4.0" />
 		<PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
 		<ProjectReference Include="../Voltage.Engine/Voltage.Engine.csproj" />
+		<ProjectReference Include="../Voltage.Editor/Voltage.Editor.csproj" Condition="'$(Configuration)' == 'Editor-Debug' Or '$(Configuration)' == 'Editor-Release'" />
+	</ItemGroup>
+	<ItemGroup Condition="'$(Configuration)' != 'Editor-Debug' And '$(Configuration)' != 'Editor-Release'">
 		<Compile Include="../Voltage.Editor/Effects/EffectToolchain.cs" Link="EffectToolchain.cs" />
 		<Compile Include="../Voltage.Editor/Effects/ShaderToolchainSetup.cs" Link="ShaderToolchainSetup.cs" />
+		<Compile Include="../Voltage.Editor/Utils/EntityFocusBounds.cs" Link="EntityFocusBounds.cs" />
+		<Compile Include="../Voltage.Editor/Gizmos/LightBoundsResizeState.cs" Link="LightBoundsResizeState.cs" />
+		<Compile Include="../Voltage.Editor/Gizmos/RectangleHandleType.cs" Link="RectangleHandleType.cs" />
+		<Compile Include="../Voltage.Editor/Gizmos/PolygonBoundsEditor.cs" Link="PolygonBoundsEditor.cs" />
+		<Compile Include="../Voltage.Editor/Builders/SceneBuildSelection.cs" Link="SceneBuildSelection.cs" />
+		<Compile Remove="ImGuiFrameTests.cs" />
+		<Compile Remove="ImGuiInputTests.cs;EditorLayoutTests.cs" />
+		<Compile Remove="AssetPreviewTests.cs" />
+		<Compile Remove="TileSelectionTests.cs" />
+		<Compile Remove="TimelineDocumentTests.cs" />
+		<Compile Remove="PluginAssemblyReloadTests.cs" />
 	</ItemGroup>
 </Project>
