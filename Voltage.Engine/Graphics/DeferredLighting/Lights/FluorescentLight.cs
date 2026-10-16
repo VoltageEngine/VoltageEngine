@@ -38,18 +38,37 @@ public partial class FluorescentLight : DeferredLight, IUpdatable
     {
         float delta = Voltage.Utils.Time.UnscaledDeltaTime;
         if (Core.IsEditMode || Core.IsPauseMode || !Enabled || !float.IsFinite(delta) || delta <= 0) return;
-        _flickerTime = (_flickerTime + delta) % EffectiveFlickerInterval;
+        _flickerTime = (_flickerTime + delta) % (EffectiveFlickerInterval * 256d);
     }
 
     public float SampleFlicker(double elapsed)
     {
         float depth = Safe(FlickerDepth, 0, 0.5f, 0);
         if (depth == 0 || !double.IsFinite(elapsed) || elapsed < 0) return 1;
-        double cycle = (elapsed + Safe(FlickerPhase, 0, 120, 0)) % EffectiveFlickerInterval;
+        double time = elapsed + Safe(FlickerPhase, 0, 120, 0);
+        double cycle = time % EffectiveFlickerInterval;
         double progress = (cycle - (EffectiveFlickerInterval - EffectiveFlickerDuration)) / EffectiveFlickerDuration;
         if (progress <= 0) return 1;
-        double pulse = progress < 0.55 ? Math.Sin(Math.PI * progress / 0.55) : 0.7 * Math.Sin(Math.PI * (progress - 0.55) / 0.45);
-        return 1 - depth * (float)(pulse * pulse);
+        int burst = (int)(Math.Floor(time / EffectiveFlickerInterval) % 256);
+        double first = Dip(progress, .06 + Noise(burst, 1) * .04, .08 + Noise(burst, 2) * .04) * (.55 + Noise(burst, 3) * .25);
+        double second = Dip(progress, .35 + Noise(burst, 4) * .10, .055 + Noise(burst, 5) * .025) * (.35 + Noise(burst, 6) * .25);
+        double third = Dip(progress, .72 + Noise(burst, 7) * .05, .10 + Noise(burst, 8) * .04);
+        return 1 - depth * (float)Math.Max(first, Math.Max(second, third));
+    }
+
+    private static double Dip(double progress, double start, double duration)
+    {
+        double t = (progress - start) / duration;
+        if (t <= 0 || t >= 1) return 0;
+        double edge = t < .3 ? t / .3 : (1 - t) / .7;
+        return edge * edge * (3 - 2 * edge);
+    }
+
+    private static double Noise(int burst, uint salt)
+    {
+        uint value = unchecked((uint)burst * 747796405u + salt * 2891336453u);
+        value = unchecked((value ^ (value >> 16)) * 2246822519u);
+        return (value ^ (value >> 13)) / (double)uint.MaxValue;
     }
 
     public override void OnRemovedFromEntity()

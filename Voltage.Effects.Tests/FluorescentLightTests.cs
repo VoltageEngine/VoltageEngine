@@ -128,13 +128,28 @@ public class FluorescentLightTests
     }
 
     [Test]
-    public void Flicker_has_two_gentle_dips_in_a_one_and_a_half_second_burst()
+    public void Flicker_has_brief_uneven_dips_with_steady_gaps_and_varies_between_bursts()
     {
         var light = new FluorescentLight { FlickerDepth = .24f, FlickerDuration = 1.5f, FlickerInterval = 20 };
         Assert.That(light.SampleFlicker(18.5), Is.EqualTo(1));
-        Assert.That(light.SampleFlicker(18.9125), Is.EqualTo(.76f).Within(.000001));
-        Assert.That(light.SampleFlicker(19.325), Is.EqualTo(1).Within(.000001));
-        Assert.That(light.SampleFlicker(19.6625), Is.InRange(.88f, .89f));
+        int dips = 0, dimSamples = 0;
+        bool dim = false, differs = false;
+        float minimum = 1;
+        for (int i = 0; i < 1500; i++)
+        {
+            double time = 18.5 + i / 1000d;
+            float value = light.SampleFlicker(time);
+            bool next = value < .99999f;
+            if (next && !dim) dips++;
+            if (next) dimSamples++;
+            dim = next;
+            minimum = Math.Min(minimum, value);
+            differs |= Math.Abs(value - light.SampleFlicker(time + 20)) > .01f;
+        }
+        Assert.That(dips, Is.EqualTo(3));
+        Assert.That(dimSamples, Is.InRange(350, 550), "Most of the burst should remain steady");
+        Assert.That(minimum, Is.EqualTo(.76f).Within(.001));
+        Assert.That(differs, Is.True, "Consecutive bursts must not repeat the same pattern");
         Assert.That(light.SampleFlicker(20), Is.EqualTo(1));
         Assert.That(light.SampleFlicker(25), Is.EqualTo(1));
         for (double t = 0; t < 100; t += .013)
@@ -165,7 +180,7 @@ public class FluorescentLightTests
             Assert.That(light.Intensity, Is.EqualTo(.5f));
             Voltage.Utils.Time.UnscaledDeltaTime = 71;
             light.Update();
-            Assert.That(light.FlickerMultiplier, Is.EqualTo(1));
+            Assert.That(light.FlickerMultiplier, Is.EqualTo(light.SampleFlicker(90)).Within(.00002));
         }
     }
 
@@ -176,7 +191,7 @@ public class FluorescentLightTests
         {
             var entity = new Entity("lamp");
             var light = entity.AddComponent(new FluorescentLight { FlickerDepth = .24f });
-            Voltage.Utils.Time.UnscaledDeltaTime = 19;
+            Voltage.Utils.Time.UnscaledDeltaTime = 19.66f;
             light.Update();
             float dip = light.FlickerMultiplier;
             Assert.That(dip, Is.LessThan(1));

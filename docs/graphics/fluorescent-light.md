@@ -28,8 +28,11 @@ the bar supplies the surface-to-light direction; this is an art-directed 2D
 approximation. Shadows and volumetric beams are not simulated. RoomLight can
 continue providing independent bounded ambient fill.
 
-Flicker applies two smooth dimming dips during each burst. It never increases
-authored intensity or switches the lamp completely off. Its clock advances
+Flicker applies three brief, uneven dimming dips separated by steady output.
+Their timing, width and depth vary deterministically between bursts; the
+interval leaves a steady gap outside each burst window. It never increases
+authored intensity or switches the lamp completely off. `FlickerMultiplier`
+can also drive a visible emitter material from the same clock. Its clock advances
 only while enabled in play mode, freezes during pause and variant hiding, and
 resets when removed. No global lighting or screen flash is changed. New lights
 have flicker disabled until a nonzero depth is authored.

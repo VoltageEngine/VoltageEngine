@@ -28,17 +28,14 @@ public partial class AnimatedNormalMap : Component
     private DeferredAnimatedMaterial _material;
     private SpriteAnimator _animator;
     private Material _previousMaterial;
-    private bool _started;
-
     public override void OnStart()
     {
-        _started = true;
-        Reload();
+        if (_material == null) Reload();
     }
 
     public override void OnEnabled()
     {
-        if (_started) Reload();
+        if (_material == null) Reload();
     }
 
     public override void OnDisabled() => ReleaseMaterial();
@@ -89,6 +86,5 @@ public partial class AnimatedNormalMap : Component
     public override void OnRemovedFromEntity()
     {
         ReleaseMaterial();
-        _started = false;
     }
 }

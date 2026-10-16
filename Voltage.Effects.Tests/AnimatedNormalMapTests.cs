@@ -11,6 +11,7 @@ using Voltage.Textures;
 namespace Voltage.Effects.Tests;
 
 [TestFixture]
+[NonParallelizable]
 public class AnimatedNormalMapTests
 {
     [Test]
@@ -157,6 +158,60 @@ public class AnimatedNormalMapTests
             entity.RemoveComponent(binding);
             scene.Update();
             Assert.That(animator.Material, Is.SameAs(originalMaterial));
+            foreach (bool componentStartsDisabled in new[] { false, true })
+            {
+                var hidden = scene.SimpleCreateEntity("Initially hidden normal map", Entity.InstanceType.NonSerialized);
+                hidden.Enabled = componentStartsDisabled;
+                var actor = hidden.AddComponent(new SpriteAnimator { RenderLayer = 0 });
+                actor.AddAnimation("AssetClip", new[] { new Sprite(diffuse, new Rectangle(0, 0, 8, 8)) }, 10);
+                actor.Play("AssetClip");
+                using var baseline = new DeferredSpriteMaterial(DeferredLightingRenderer.NullNormalMapTexture);
+                actor.SetMaterial(baseline);
+                var delayed = hidden.AddComponent(new AnimatedNormalMap
+                {
+                    Enabled = !componentStartsDisabled,
+                    Clips = new() { new() { Animation = "AssetClip", Source = new AssetReference { AssetPath = source }, Layers = new() { layer } } }
+                });
+                scene.Update();
+                Assert.That(actor.Material, Is.SameAs(baseline), "Initially hidden or disabled bindings must not allocate a material");
+                if (componentStartsDisabled) delayed.Enabled = true;
+                else hidden.Enabled = true;
+                Assert.That(actor.Material, Is.TypeOf<DeferredAnimatedMaterial>(), "First activation must bind normals even when OnStart was skipped");
+                var first = (DeferredAnimatedMaterial)actor.Material;
+                delayed.OnEnabled();
+                delayed.OnStart();
+                Assert.That(actor.Material, Is.SameAs(first), "Repeated startup callbacks must preserve the existing material");
+                Assert.That(first.Effect.IsDisposed, Is.False);
+                for (int cycle = 0; cycle < 20; cycle++)
+                {
+                    var previous = (DeferredAnimatedMaterial)actor.Material;
+                    var releasedEffect = previous.Effect;
+                    if (cycle % 2 == 0) delayed.Enabled = false;
+                    else hidden.Enabled = false;
+                    Assert.That(actor.Material, Is.SameAs(baseline));
+                    Assert.That(releasedEffect.IsDisposed, Is.True, "Every released binding must dispose its owned effect");
+                    Assert.That(baseline.Effect.IsDisposed, Is.False);
+                    Assert.That(normalAtlas.Sprites[0].Texture2D.IsDisposed, Is.False, "Shared atlas textures must survive rebinding");
+                    if (cycle % 2 == 0) delayed.Enabled = true;
+                    else hidden.Enabled = true;
+                    var active = (DeferredAnimatedMaterial)actor.Material;
+                    Assert.That(active, Is.Not.SameAs(previous));
+                    active.OnPreRender(scene.Camera);
+                    Assert.That(active.Effect.Parameters["_normalMap"].GetValueTexture2D(), Is.SameAs(normalAtlas.Sprites[0].Texture2D));
+                }
+                var beforeReload = ((DeferredAnimatedMaterial)actor.Material).Effect;
+                delayed.Reload();
+                Assert.That(beforeReload.IsDisposed, Is.True);
+                var reloaded = (DeferredAnimatedMaterial)actor.Material;
+                Assert.That(reloaded.Effect.IsDisposed, Is.False);
+                var removedEffect = reloaded.Effect;
+                hidden.RemoveComponent(delayed);
+                scene.Update();
+                Assert.That(removedEffect.IsDisposed, Is.True);
+                Assert.That(actor.Material, Is.SameAs(baseline));
+                hidden.Destroy();
+                scene.Update();
+            }
             scene.End();
             ((Game)this).Exit();
         }
