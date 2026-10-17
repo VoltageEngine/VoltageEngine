@@ -123,7 +123,8 @@ public static class SceneLoading
                 }
                 device.SetRenderTarget(null);
                 device.Clear(ProjectSettings.Instance.Rendering.BackgroundClearColor);
-                Draw();
+                if (TransitionPresentation != null) TransitionPresentation.Render(Graphics.Instance.Batcher);
+                else Draw();
                 Core.Instance.PresentLoadingFrame();
                 device.Present();
                 FramesPresented++;
@@ -142,6 +143,7 @@ public static class SceneLoading
 
     internal static void Draw()
     {
+        if (TransitionPresentation != null) return;
         var settings = ProjectSettings.Instance.Loading;
         if (!settings.Enabled || Graphics.Instance == null || Core.IsEditorMode) return;
         if (_font == null || _fontPath != settings.Font)
@@ -175,6 +177,10 @@ public static class SceneLoading
         }
         _batcher.End();
     }
+
+    private static SceneTransition TransitionPresentation => Error == null &&
+        Core.Instance?.SceneTransition is { HideLoadingScreen: true, PreviousSceneRender: { IsDisposed: false } } transition
+            ? transition : null;
 
     [DllImport("SDL2", EntryPoint = "SDL_PumpEvents", CallingConvention = CallingConvention.Cdecl)]
     private static extern void PumpWindowEvents();

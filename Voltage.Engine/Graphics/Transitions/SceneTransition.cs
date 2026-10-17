@@ -31,6 +31,9 @@ public abstract class SceneTransition
 	/// </summary>
 	public bool WantsPreviousSceneRender;
 
+	/// <summary>Keep the captured transition visible instead of the loading display.</summary>
+	public bool HideLoadingScreen;
+
 	/// <summary>
 	/// if true, the next Scene will be loaded on a background thread. Note that if raw PNG files are used they cannot be loaded
 	/// on a background thread.
