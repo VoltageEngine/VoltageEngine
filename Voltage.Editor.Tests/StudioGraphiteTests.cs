@@ -39,7 +39,7 @@ public class StudioGraphiteTests
 	[TestCase("Scene Components", "Scene Components", "SceneGraph_ShowSceneComponents")]
 	[TestCase("Post Processors", "Post Processors", "SceneGraph_ShowPostProcessors")]
 	[TestCase("Renderers", "Renderers", "SceneGraph_ShowRenderers")]
-	[TestCase("Entities (double-click label to inspect)", "Entities", "SceneGraph_ShowEntities")]
+	[TestCase("Entities", "Entities", "SceneGraph_ShowEntities")]
 	public void Closing_a_section_updates_the_visibility_menu_and_the_menu_restores_it(string header, string menu, string setting)
 	{
 		Call("ui.focus", new { window = "Scene Graph" });
@@ -86,7 +86,7 @@ public class StudioGraphiteTests
 			Thread.Sleep(150);
 			var panel = Call("ui.windows").EnumerateArray().Single(w => w.GetProperty("name").GetString() == "Editor Tools");
 			var controls = Call("ui.tree", new { window = "Editor Tools", visibleOnly = false }).GetProperty("windows")[0].GetProperty("items").EnumerateArray().ToList();
-			Assert.That(controls.Count(c => c.GetProperty("kind").GetString() == "button"), Is.EqualTo(11));
+			Assert.That(controls.Count(c => c.GetProperty("kind").GetString() == "button"), Is.EqualTo(12));
 			foreach (var control in controls)
 				Assert.That(control.GetProperty("x").GetInt32() + control.GetProperty("w").GetInt32(),
 					Is.LessThanOrEqualTo(panel.GetProperty("x").GetInt32() + panel.GetProperty("width").GetInt32()), control.GetProperty("label").GetString());

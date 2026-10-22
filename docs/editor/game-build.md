@@ -5,7 +5,7 @@ sidebar_position: 13
 
 # Build Game and Scene Presets
 
-Open **Build > Build Game** to publish a standalone game. **Build > Scenes in Build** opens the same panel at its scene list. This is separate from [asset compilation](asset-build.md): Build Game publishes the game executable and packages project content.
+Open **Build > Build Game** to publish a standalone game. This is separate from [asset compilation](asset-build.md): Build Game publishes the game executable and packages project content.
 
 Choose a target platform, Debug or Release configuration, output options and **Scene to load on startup**, then press **Build** or **Build and Run**. Targets depend on installed native toolchains; unavailable platforms explain their requirements. The progress area reports build results. Cancel stops a running build; opening the panel or selecting scenes does not start one.
 

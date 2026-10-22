@@ -219,7 +219,7 @@ public class SceneGraphWindow
 			if (DrawSectionHeader("Renderers", _showRenderers))
 				_renderersPane.Draw();
 
-			if (DrawSectionHeader("Entities (double-click label to inspect)", _showEntities, ImGuiTreeNodeFlags.DefaultOpen))
+			if (DrawSectionHeader("Entities", _showEntities, ImGuiTreeNodeFlags.DefaultOpen))
 				_entityPane.Draw();
 
 			VoltageEditorUtils.MediumVerticalSpace();

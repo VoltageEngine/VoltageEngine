@@ -1272,9 +1272,6 @@ public partial class ImGuiManager
 				_gameBuildWindow.OpenBuildPopup();
 			}
 
-			if (Gui.MenuItem("Scenes in Build"))
-				_gameBuildWindow.OpenBuildPopup(focusScenes: true);
-
 			bool isBuildInProgress = _gameBuildWindow.IsBuilding;
 			if (isBuildInProgress)
 			{

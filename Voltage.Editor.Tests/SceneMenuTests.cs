@@ -300,7 +300,7 @@ public class SceneMenuTests
 
 	private static void OpenBuild()
 	{
-		Call("ui.click", new { path = "Build/Scenes in Build" });
+		Call("ui.click", new { path = "Build/Build Game" });
 		ScrollBuildTo(Keys[0]);
 		WaitForWidget(Keys[0], "Build Game");
 	}

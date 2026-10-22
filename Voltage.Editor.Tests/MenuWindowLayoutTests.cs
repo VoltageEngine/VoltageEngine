@@ -17,7 +17,7 @@ public class MenuWindowLayoutTests
         Configure(1920, 1080, 200);
         try
         {
-            Call("ui.click", new { path = "Build/Scenes in Build" });
+            Call("ui.click", new { path = "Build/Build Game" });
             WaitForWidget("Cancel", "Build Game");
             Click("Cancel", "Build Game");
             Call("ui.click", new { path = "View/UI font/Classic (ProggyClean)" });

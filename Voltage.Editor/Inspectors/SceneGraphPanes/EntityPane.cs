@@ -46,7 +46,10 @@ public class EntityPane
 	private string _entitySearch = string.Empty;
 
 	public List<Entity> SelectedEntities => _selectedEntities;
-	private ImGuiManager _imGuiManager;
+	// Resolved on first use, not in Draw(): game-view clicks select and deselect through this pane
+	// even when it has never been drawn (Scene Graph closed, on a hidden tab, or Entities collapsed).
+	private ImGuiManager _imGuiManagerInstance;
+	private ImGuiManager _imGuiManager => _imGuiManagerInstance ??= Core.GetGlobalManager<ImGuiManager>();
 	private List<Entity> _selectedEntities = new();
 	private Entity _lastRangeSelectEntity;
 
@@ -216,9 +219,6 @@ public class EntityPane
 	/// </summary>
 	public unsafe void Draw()
 	{
-		if (_imGuiManager == null)
-			_imGuiManager = Core.GetGlobalManager<ImGuiManager>();
-
 		BuildVisibleRows();
 
 		_dragReorder.BeginFrame(_selectedEntities.Count, ImGui.GetTextLineHeightWithSpacing());
@@ -835,9 +835,6 @@ public class EntityPane
     /// </summary>
     private void DrawEntityContextMenuPopup(Entity entity)
     {
-        if (_imGuiManager == null)
-            _imGuiManager = Core.GetGlobalManager<ImGuiManager>();
-
         if (Gui.BeginPopup("entityContextMenu"))
         {
             var blocksCopy = entity.Type == Entity.InstanceType.NonSerialized

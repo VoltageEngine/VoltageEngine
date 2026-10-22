@@ -125,7 +125,7 @@ public class TileSelectionUiTests
         Capture("tileset-editor.png", "Tileset Editor grid and tile metadata", editor);
         foreach (var name in new[] { "Arena", "CollisionLab", "LightingLab" })
             Call("scene.create", new { name, load = false });
-        Call("ui.click", new { path = "Build/Scenes in Build" });
+        Call("ui.click", new { path = "Build/Build Game" });
         WaitForWidget("Scenes/Arena", "Build Game");
         Call("ui.focus", new { window = "Build Game" });
         Call("input.key", new { key = "A", modifiers = new[] { "LeftControl" } });

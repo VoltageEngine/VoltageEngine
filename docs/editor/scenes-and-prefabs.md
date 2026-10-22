@@ -26,7 +26,7 @@ Reload the current scene (e.g. for a "restart" button):
 Scene.ReloadCurrentLevel();
 ```
 
-**Build → Scenes in Build** opens the build scene list. Click a row to select it, Ctrl/Cmd-click to toggle individual rows, or Shift-click to select a range. Ctrl/Cmd+A selects all rows. A Debug or Release checkbox applies its new value to every selected row. Use Ctrl/Cmd+1 through Ctrl/Cmd+4 for include both, exclude both, Debug only and Release only. See [Build Game](game-build.md) for the complete shortcuts and resizable scene list. Settings save to `ProjectSettings.json` under `BuildScenes`; scenes without an explicit rule are available in both configurations by default.
+The **Scenes in Build** list in **Build → Build Game** sets which scenes ship. Click a row to select it, Ctrl/Cmd-click to toggle individual rows, or Shift-click to select a range. Ctrl/Cmd+A selects all rows. A Debug or Release checkbox applies its new value to every selected row. Use Ctrl/Cmd+1 through Ctrl/Cmd+4 for include both, exclude both, Debug only and Release only. See [Build Game](game-build.md) for the complete shortcuts and resizable scene list. Settings save to `ProjectSettings.json` under `BuildScenes`; scenes without an explicit rule are available in both configurations by default.
 
 The selected startup scene must be included in the target configuration. Export preserves the project-relative locations of scenes and prefabs, removes excluded scenes and their manifest entries, and leaves the source project intact. The list controls packaged scene files; author scene transitions using the same relative keys. Runtime debug scene menus can use `Voltage.Project.SceneCatalog.Read(Scene.ProjectRoot)` to browse the same tree of packaged scenes.
 

@@ -973,6 +973,8 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		var zoom = $"Zoom: {(int)(Core.Scene.Camera.RawZoom * 100)}%";
 		flow.Next(ImGui.CalcTextSize(zoom).X + ImGui.GetStyle().FramePadding.X * 2);
 		DrawZoomControl(zoom);
+		flow.Next(size.X);
+		DrawPlayViewButton(size);
 		if (!ShowSeparateGameWindow) { ImGui.NewLine(); DrawPlaybackControls(); }
 		Gui.End();
 	}

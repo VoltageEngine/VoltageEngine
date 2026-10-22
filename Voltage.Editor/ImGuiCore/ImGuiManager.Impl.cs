@@ -172,14 +172,36 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			return;
 
 		string gameWindowState = Core.IsEditMode ? "Paused (Editor)" : Core.IsPauseMode ? "Paused" : "Playing";
+		var title = $"Game: {gameWindowState}";
+		var view = ActivePlayView;
 
 		ImGuiWindowFlags gameWindowFlags =
 			_gameWindowFlags | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse
 			| ImGuiWindowFlags.NoBringToFrontOnFocus; // keep in background
 
 		ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Num.Vector2(0, 0));
-		Gui.Begin($"Game: {gameWindowState}###GameWindow", gameWindowFlags);
+		Gui.Begin($"{title}###GameWindow", gameWindowFlags);
+		if (view == PlayViewMode.Custom)
+		{
+			DrawGameView();
+		}
+		else
+		{
+			var note = $"Playing in the {view.ToString().ToLowerInvariant()} game view.";
+			ImGui.SetCursorPos(Num.Vector2.Max(Num.Vector2.Zero, (ImGui.GetWindowSize() - ImGui.CalcTextSize(note)) * 0.5f));
+			ImGui.TextDisabled(note);
+		}
+		Gui.End();
 
+		if (view != PlayViewMode.Custom)
+			DrawPoppedOutGameView(view, title);
+		_shownPlayView = view;
+		ImGui.PopStyleVar();
+	}
+
+	/// <summary>Contents of whichever window shows the game: playback strip, image, overlays and input routing.</summary>
+	private void DrawGameView()
+	{
 		IsGameWindowFocused = ImGui.IsWindowFocused();
 
 		// Hit-tested by ImGui, so a panel floating over the view makes this false.
@@ -196,6 +218,14 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		ImGui.BeginChild("Playback", new Num.Vector2(0, stripHeight), ImGuiChildFlags.AlwaysUseWindowPadding,
 			ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
 		DrawPlaybackControls();
+		var side = ImGui.GetItemRectSize().X;
+		ImGui.SameLine();
+		var free = ImGui.GetContentRegionAvail().X;
+		if (free >= side * 2)
+		{
+			ImGui.SetCursorPosX(ImGui.GetCursorPosX() + free - side);
+			DrawPlayViewButton(new Num.Vector2(side));
+		}
 		ImGui.EndChild();
 		ImGui.PopStyleVar();
 
@@ -371,9 +401,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				Input.SetCurrentMouseState(mouseState);
 			}
 		}
-
-		Gui.End();
-		ImGui.PopStyleVar();
 	}
 
 	/// <summary>
