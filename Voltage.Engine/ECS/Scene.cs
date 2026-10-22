@@ -323,21 +323,25 @@ public partial class Scene
 		if (_renderers.Length == 0)
 		{
 			var rendering = Project.ProjectSettings.Instance?.Rendering;
+			// The UIElement layer draws after post-processing, so screen shaders (glitches, distortion,
+			// colour passes) never touch menus or HUD. Effects that should distort UI belong on another layer.
+			int[] ui = rendering != null && rendering.RenderingLayers.TryGetValue("UIElement", out var uiLayer) ? new[] { uiLayer } : Array.Empty<int>();
 			if (rendering?.DeferredLighting == true)
 			{
 				var world = new List<int>();
 				var overlays = new List<int>();
 				foreach (var layer in rendering.RenderingLayers)
 				{
-					if (layer.Key == "Lighting") continue;
-					if (layer.Key == "UIElement" || layer.Key == "InFrontOfAll") overlays.Add(layer.Value);
+					if (layer.Key == "Lighting" || layer.Key == "UIElement") continue;
+					if (layer.Key == "InFrontOfAll") overlays.Add(layer.Value);
 					else world.Add(layer.Value);
 				}
 				AddRenderer(new DeferredLighting.DeferredLightingRenderer(0, Project.RenderLayer.GetRenderLayer("Lighting"), SamplerState.PointClamp, world.ToArray())
 					.SetAmbientColor(rendering.AmbientLightColor).SetClearColor(EffectiveClearColor));
 				AddRenderer(new RenderLayerRenderer(1, overlays.ToArray()));
 			}
-			else AddRenderer(new DefaultRenderer());
+			else AddRenderer(new RenderLayerExcludeRenderer(0, ui));
+			if (ui.Length > 0) AddRenderer(new RenderLayerRenderer(2, ui) { WantsToRenderAfterPostProcessors = true });
 		}
 
 		Physics.Reset();
@@ -476,6 +480,16 @@ public partial class Scene
 			_renderers.Buffer[i].Render(this);
 			lastRendererHadRenderTarget = _renderers.Buffer[i].RenderTexture != null;
 		}
+	}
+
+	/// <summary>
+	/// After a render error stopped Render part way: clear the scene target so PostRender still presents a clean frame
+	/// (the UI over the clear colour) instead of drawing the UI over the previous frame.
+	/// </summary>
+	internal void ClearAfterRenderError()
+	{
+		Core.GraphicsDevice.SetRenderTarget(_sceneRenderTarget);
+		Core.GraphicsDevice.Clear(EffectiveClearColor);
 	}
 
 	/// <summary>

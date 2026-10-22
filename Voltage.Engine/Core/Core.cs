@@ -415,8 +415,9 @@ public class Core : Game
 		catch (Exception ex)
 		{
 			SceneLoading.Fail(ex.Message);
-			Debug.Error($"[Core.Draw] Unhandled exception escaped the scene render loop: {ex.Message}\n{ex.StackTrace}");
-
+			if (RenderErrorLog.Report(ex, "Core.Draw"))
+				Debug.Error($"[Core.Draw] Unhandled exception escaped the scene render loop: {ex.Message}\n{ex.StackTrace}");
+			RecoverFrame();
 		}
 
 		// Present refuses to run with a render target bound. A throw mid-render, a frame with no scene, or an
@@ -441,6 +442,33 @@ public class Core : Game
 		if (!_sceneFrameDrawn) return;
 		SceneLoading.Drawn(_scene);
 		SceneLoadDiagnostics.Drawn(_scene);
+	}
+
+	/// <summary>
+	/// A render error must not leave the screen black every frame: drop the half-built batch, put the device back in a
+	/// known state and still present the frame, so what was drawn, post-processing and the UI on top all show.
+	/// </summary>
+	private void RecoverFrame()
+	{
+		try
+		{
+			Graphics.Instance?.Batcher.Abandon();
+			GraphicsDevice.SetRenderTarget(null);
+			GraphicsDevice.BlendState = BlendState.AlphaBlend;
+			GraphicsDevice.DepthStencilState = DepthStencilState.None;
+			GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+			GraphicsDevice.SamplerStates[0] = SamplerState.PointClamp;
+			if (_scene != null && _sceneTransition == null)
+			{
+				_scene.ClearAfterRenderError();
+				_scene.PostRender();
+			}
+		}
+		catch (Exception ex)
+		{
+			RenderErrorLog.Report(ex, "Core.Draw recovery");
+			Graphics.Instance?.Batcher.Abandon();
+		}
 	}
 
 	private void UnbindRenderTarget()

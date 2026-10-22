@@ -263,6 +263,14 @@ namespace Voltage
 			_customEffect = null;
 		}
 
+		/// <summary>Drops the open batch and its queued sprites without drawing them; for recovering after a render error.</summary>
+		internal void Abandon()
+		{
+			_beginCalled = false;
+			_numSprites = 0;
+			_customEffect = null;
+		}
+
 		#endregion
 
 		#region Public draw methods
