@@ -153,6 +153,7 @@ public static class LinuxContainerBuild
 			$"-p:TrimmerRootAssembly={projectName}",
 			"-p:IncludeNativeLibrariesForSelfExtract=true"
 		};
+		if (configuration == "Debug") args.Add("-p:Optimize=true"); // same as GameBuilder: unoptimized AOT is far too slow
 
 		EditorDebug.Log($"Publishing Linux AOT build inside {ImageTag} (glibc 2.31 floor)...", "LinuxContainerBuild");
 

@@ -275,8 +275,9 @@ public static class GameBuilder
 			// Linux NativeAOT binaries are linked against the build machine's glibc. The editor often
 			// runs inside a recent distrobox (newer glibc than the SteamOS host / older distros), so a
 			// direct publish produces a binary that only starts in that build environment. Routing the
-			// "publish" through an old-glibc container fixes the floor.
-			if (useLinuxCompatContainer && LinuxContainerBuild.IsLinux(platform))
+			// "publish" through an old-glibc container fixes the floor. Windows hosts cross-link with Zig instead
+			// (PublishAotCross in the game's .csproj), which sets its own glibc floor.
+			if (useLinuxCompatContainer && LinuxContainerBuild.IsLinux(platform) && !OperatingSystem.IsWindows())
 			{
 				var outcome = LinuxContainerBuild.Publish(
 					csprojPath, project.ProjectName, project.ProjectPath, platform.RuntimeIdentifier,
@@ -307,8 +308,13 @@ public static class GameBuilder
 			                $"-r {platform.RuntimeIdentifier} " +
 			                $"-o \"{buildDir}\" " +
 			                $"--self-contained true " +
+			                // Own restore output (project.assets.json, nuget.g.*): a plain `dotnet build` of the same project
+			                // rewrites obj/project.assets.json without the RID, which fails a running publish with NETSDK1047.
+			                $"-p:MSBuildProjectExtensionsPath=\"{Path.Combine(project.ProjectPath, "obj", "publish", platform.RuntimeIdentifier)}/\" " +
 			                (aot
-				                ? $"-p:PublishAot=true -p:PublishTrimmed=true -p:TrimMode=link -p:TrimmerRootAssembly={project.ProjectName} "
+				                ? $"-p:PublishAot=true -p:PublishTrimmed=true -p:TrimMode=link -p:TrimmerRootAssembly={project.ProjectName} " +
+				                  // Unoptimized Debug AOT is ~10x slower at Aseprite prep (7.7 s vs 0.8 s checkpoint reload); DEBUG stays defined.
+				                  (configuration == "Debug" ? "-p:Optimize=true " : "")
 				                : "-p:PublishAot=false -p:PublishTrimmed=false ") +
 			                $"-p:IncludeNativeLibrariesForSelfExtract=true";
 
@@ -327,6 +333,16 @@ public static class GameBuilder
 			if (OperatingSystem.IsWindows() &&
 			    (!processInfo.Environment.TryGetValue("OS", out var hostOs) || string.IsNullOrWhiteSpace(hostOs)))
 				processInfo.Environment["OS"] = "Windows_NT";
+
+			// vcvarsall (run for the NativeAOT link) does `pushd Installer & vswhere.exe`, which fails when
+			// NoDefaultCurrentDirectoryInExePath is set (agent-launched editors inherit it); the "not recognized"
+			// error then corrupts the linker path. Putting the Installer folder on PATH works either way.
+			var vsInstaller = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Microsoft Visual Studio", "Installer");
+			if (OperatingSystem.IsWindows() && Directory.Exists(vsInstaller))
+			{
+				processInfo.Environment.TryGetValue("PATH", out var path);
+				processInfo.Environment["PATH"] = vsInstaller + Path.PathSeparator + path;
+			}
 
 			using var process = Process.Start(processInfo);
 			if (process == null)
