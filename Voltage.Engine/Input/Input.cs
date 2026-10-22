@@ -102,6 +102,11 @@ namespace Voltage
 
 			_previousMouseState = _currentMouseState;
 			_currentMouseState = Mouse.GetState();
+			// MonoGame reports global mouse buttons, so clicks in other windows would reach an unfocused game.
+			// Keep the position; synthetic input is applied afterwards and still works.
+			if (Core.Instance?.IsActive == false)
+				_currentMouseState = new MouseState(_currentMouseState.X, _currentMouseState.Y, _currentMouseState.ScrollWheelValue,
+					ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released);
 
 			_mousePositionDelta = new Point(_currentMouseState.X - _lastPolledMousePos.X,
 				_currentMouseState.Y - _lastPolledMousePos.Y);

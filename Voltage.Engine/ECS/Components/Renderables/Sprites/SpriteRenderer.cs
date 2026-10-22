@@ -443,6 +443,8 @@ namespace Voltage.Sprites
 		public virtual SpriteRenderer SetSprite(Sprite sprite)
 		{
 			_sprite = sprite;
+			// Bounds read before a sprite existed (e.g. editor picking a disabled actor) are cached empty and would cull it.
+			_areBoundsDirty = true;
 			if (_sprite != null)
 				SetOrigin(_sprite.Origin); // set origin with setting _areBoundsDirty
 			return this;
