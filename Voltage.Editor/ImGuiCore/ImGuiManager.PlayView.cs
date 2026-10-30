@@ -89,7 +89,7 @@ public partial class ImGuiManager
 		Gui.Begin($"{title}###GameWindow{view}", flags);
 		if (maximized)
 			ImGui.PopStyleVar(2);
-		DrawGameView();
+		DrawGameView(editorTools: maximized);
 		Gui.End();
 	}
 }

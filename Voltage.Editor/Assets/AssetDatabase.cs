@@ -122,8 +122,8 @@ namespace Voltage.Editor.Assets
             ".sublime-workspace", ".suo", ".ncb", ".vsidx", ".tlog", ".cache",
         };
 
-        // JetBrains atomic-save markers
-        private static readonly string[] TransientNameMarkers = { "___jb_tmp___", "___jb_old___" };
+        // JetBrains atomic-save markers, and the name.tmp.<pid>.<hex> atomic writes of Node tools
+        private static readonly string[] TransientNameMarkers = { "___jb_tmp___", "___jb_old___", ".tmp." };
 
         // Never assets, and the folders that dominate a repository's file count.
         private static readonly HashSet<string> TransientDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
@@ -408,7 +408,7 @@ namespace Voltage.Editor.Assets
                 }
             }
 
-            var guid = ReadOrCreateMeta(absolutePath);
+            var guid = ResolveDuplicateGuid(ReadOrCreateMeta(absolutePath), absolutePath);
 
             lock (_guidLock)
             {
@@ -416,6 +416,81 @@ namespace Voltage.Editor.Assets
             }
 
             return guid;
+        }
+
+        /// <summary>
+        /// Two files claiming one GUID (a copied <c>.meta</c>) would resolve references to whichever was indexed last.
+        /// The file the manifest last resolved the GUID to keeps it, else the one indexed first; the copy gets a fresh GUID.
+        /// </summary>
+        private Guid ResolveDuplicateGuid(Guid guid, string absolutePath)
+        {
+            if (guid == Guid.Empty)
+                return guid;
+
+            string owner;
+            lock (_guidLock)
+            {
+                if (!_guidToPath.TryGetValue(guid, out owner) || ProjectAssetFiles.PathComparer.Equals(owner, absolutePath))
+                    return guid;
+            }
+
+            // Stale entries left by a move are not rivals; only a live file whose own sidecar holds the GUID is.
+            if (!File.Exists(owner) || ReadMetaGuid(MetaPath(owner)) != guid)
+                return guid;
+
+            var previous = ManifestPathFor(guid);
+            var ownerIsCopy = previous != null &&
+                              ProjectAssetFiles.PathComparer.Equals(previous, ToProjectRelativePath(absolutePath));
+            var copy = ownerIsCopy ? owner : absolutePath;
+            var keeper = ownerIsCopy ? absolutePath : owner;
+            var fresh = Guid.NewGuid();
+            WriteMeta(MetaPath(copy), fresh);
+            Debug.Warn($"[AssetDatabase] '{ToProjectRelativePath(copy)}' had the same GUID as '{ToProjectRelativePath(keeper)}' " +
+                       $"(a copied .meta). References stay on '{Path.GetFileName(keeper)}'; the copy now has GUID {fresh}.");
+
+            if (!ownerIsCopy)
+                return fresh;
+
+            lock (_guidLock)
+            {
+                RegisterGuidUnsafe(fresh, owner);
+                _dataAssetTypeIds.Remove(guid);
+            }
+
+            return guid;
+        }
+
+        /// <summary>The project-relative path the last written <c>assets.manifest</c> gave <paramref name="guid"/>, or null.</summary>
+        private static string ManifestPathFor(Guid guid)
+        {
+            var dataFolder = ProjectManager.Instance?.CurrentProject?.DataFolder;
+            if (string.IsNullOrEmpty(dataFolder))
+                return null;
+
+            var manifestPath = Path.Combine(dataFolder, "assets.manifest");
+            if (!File.Exists(manifestPath))
+                return null;
+
+            try
+            {
+                using var r = new Voltage.Persistence.JsonTokenReader(File.ReadAllText(manifestPath));
+                if (!r.BeginObject())
+                    return null;
+
+                var key = guid.ToString();
+                while (r.ReadNextKey(out var entry))
+                {
+                    var path = r.ReadString();
+                    if (string.Equals(entry, key, StringComparison.OrdinalIgnoreCase))
+                        return path;
+                }
+            }
+            catch (Exception ex)
+            {
+                EditorDebug.Log($"AssetDatabase: could not read '{manifestPath}': {ex.Message}", "AssetDatabase");
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -677,6 +752,23 @@ namespace Voltage.Editor.Assets
             return newGuid;
         }
 
+        /// <summary>The GUID in an existing <c>.meta</c>, or <see cref="Guid.Empty"/> when it is missing or unreadable.</summary>
+        private static Guid ReadMetaGuid(string metaPath)
+        {
+            try
+            {
+                if (File.Exists(metaPath) &&
+                    Voltage.Persistence.Json.FromJson<AssetMetaData>(File.ReadAllText(metaPath)) is { } meta &&
+                    Guid.TryParse(meta.Guid, out var guid))
+                    return guid;
+            }
+            catch
+            {
+            }
+
+            return Guid.Empty;
+        }
+
         private static void WriteMeta(string metaPath, Guid guid)
         {
             try
@@ -829,6 +921,8 @@ namespace Voltage.Editor.Assets
 
         private void ProcessFswBatch(List<FileSystemEventArgs> batch)
         {
+            CarryMetasForMoves(batch);
+
             bool needsBrowserRefresh = false;
 
             foreach (var ev in batch)
@@ -869,11 +963,13 @@ namespace Voltage.Editor.Assets
         }
 
         /// <summary>
-        /// Handles a rename/move: the .meta travels alongside the file, so the GUID is
-        /// preserved — we just update the path in the GUID maps.
+        /// Handles a rename: the .meta travels alongside the file (moved here when the rename happened
+        /// outside the editor), so the GUID is preserved — we just update the path in the GUID maps.
         /// </summary>
         private void HandleRename(string oldAbsPath, string newAbsPath)
         {
+            CarryMeta(oldAbsPath, newAbsPath);
+
             lock (_guidLock)
             {
                 if (_pathToGuid.TryGetValue(oldAbsPath, out var guid))
@@ -888,6 +984,68 @@ namespace Voltage.Editor.Assets
 
             // Ensure the new path is indexed (the .meta will have moved with the file).
             if (File.Exists(newAbsPath)) GetOrCreateGuid(newAbsPath);
+        }
+
+        /// <summary>
+        /// A move to another folder outside the editor arrives as Deleted(old) + Created(new) and leaves the
+        /// .meta behind; pairs them by file name so the moved file keeps its GUID.
+        /// </summary>
+        private static void CarryMetasForMoves(List<FileSystemEventArgs> batch)
+        {
+            var deleted = new Dictionary<string, List<string>>(ProjectAssetFiles.PathComparer);
+            var created = new Dictionary<string, List<string>>(ProjectAssetFiles.PathComparer);
+
+            foreach (var ev in batch)
+            {
+                var bucket = ev.ChangeType switch
+                {
+                    WatcherChangeTypes.Deleted => deleted,
+                    WatcherChangeTypes.Created => created,
+                    _ => null,
+                };
+                if (bucket == null)
+                    continue;
+
+                var name = Path.GetFileName(ev.FullPath);
+                if (!bucket.TryGetValue(name, out var paths))
+                    bucket[name] = paths = new List<string>();
+                if (!paths.Contains(ev.FullPath, ProjectAssetFiles.PathComparer))
+                    paths.Add(ev.FullPath);
+            }
+
+            // Only an unambiguous pair is a move.
+            foreach (var (name, newPaths) in created)
+            {
+                if (newPaths.Count == 1 && deleted.TryGetValue(name, out var oldPaths) && oldPaths.Count == 1)
+                    CarryMeta(oldPaths[0], newPaths[0]);
+            }
+        }
+
+        /// <summary>
+        /// Moves the <c>.meta</c> a rename or move outside the editor left behind, so the file keeps its GUID after a restart.
+        /// </summary>
+        private static void CarryMeta(string oldAbsPath, string newAbsPath)
+        {
+            var oldMeta = MetaPath(oldAbsPath);
+            var newMeta = MetaPath(newAbsPath);
+
+            // Not when the old path is back (an atomic save), nothing was left behind, or the target is not an asset.
+            if (File.Exists(oldAbsPath) || !File.Exists(newAbsPath) || !File.Exists(oldMeta) || File.Exists(newMeta) ||
+                SkippedExtensions.Contains(Path.GetExtension(newAbsPath)) || IsTransientFile(newAbsPath) ||
+                IsScriptFile(newAbsPath) || !IsTrackedPath(newAbsPath) ||
+                IsUnderTransientDirectory(ProjectManager.Instance?.CurrentProject?.ProjectPath, newAbsPath))
+                return;
+
+            try
+            {
+                File.Move(oldMeta, newMeta);
+                EditorDebug.Log($"AssetDatabase: moved '{Path.GetFileName(oldMeta)}' along with its asset to '{newMeta}'", "AssetDatabase");
+            }
+            catch (Exception ex)
+            {
+                Debug.Warn($"[AssetDatabase] could not move '{oldMeta}' to '{newMeta}', so '{Path.GetFileName(newAbsPath)}' " +
+                           $"will get a new GUID: {ex.Message}");
+            }
         }
 
         /// <summary>

@@ -50,7 +50,9 @@ public class Core : Game
 	/// <summary>Overrides PauseOnFocusLost while something external, such as the editor gateway, is driving the process.</summary>
 	public static volatile bool KeepRunningWhenUnfocused;
 
-	private static bool ShouldPauseForFocus => PauseOnFocusLost && !KeepRunningWhenUnfocused && !_instance.IsActive;
+	// Editor Play keeps running unfocused, so a game shown on a second monitor keeps its audio and pad input.
+	private static bool ShouldPauseForFocus => PauseOnFocusLost && !KeepRunningWhenUnfocused && !_instance.IsActive &&
+	                                           !(IsEditorMode && !IsEditMode);
 
 	/// <summary>
 	/// enables/disables debug rendering

@@ -71,6 +71,8 @@ namespace Voltage.Audio
 		private AudioClip _clip;
 		private AudioVoice _voice;
 		private bool _clipLoadAttempted;
+		// The current shot's random pitch offset, kept so Update's live sync doesn't snap the voice back to Pitch.
+		private float _shotPitchOffset;
 
 		// Muted or non-positive Volume forces silence rather than quiet playback.
 		private float EffectiveVolume => (Muted || Volume <= 0f) ? 0f : MathHelper.Clamp(Volume, 0f, 1f);
@@ -138,7 +140,7 @@ namespace Voltage.Audio
 			// Live-sync inspector-editable params each frame. (Loop is structural — set at voice creation —
 			// so changing it needs a replay.)
 			_voice.BaseVolume = EffectiveVolume;
-			_voice.BasePitch = MathHelper.Clamp(Pitch, -1f, 1f);
+			_voice.BasePitch = MathHelper.Clamp(Pitch + _shotPitchOffset, -1f, 1f);
 			_voice.BasePan = MathHelper.Clamp(Pan, -1f, 1f);
 			_voice.Bus = Core.Audio.Bus(Bus);
 			_voice.LowPassCutoffHz = LowPassCutoffHz;
@@ -181,9 +183,8 @@ namespace Voltage.Audio
 		// Builds play settings from the current inspector values (applying per-shot pitch randomization).
 		private AudioPlaySettings BuildSettings()
 		{
-			float pitch = Pitch;
-			if (RandomPitchRange > 0f)
-				pitch = MathHelper.Clamp(Pitch + Random.Range(-RandomPitchRange, RandomPitchRange), -1f, 1f);
+			_shotPitchOffset = RandomPitchRange > 0f ? Random.Range(-RandomPitchRange, RandomPitchRange) : 0f;
+			float pitch = MathHelper.Clamp(Pitch + _shotPitchOffset, -1f, 1f);
 
 			var settings = AudioPlaySettings.Default;
 			settings.Bus = Bus;

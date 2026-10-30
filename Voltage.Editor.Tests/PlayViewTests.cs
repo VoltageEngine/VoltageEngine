@@ -24,8 +24,13 @@ public class PlayViewTests
 			Assert.That(popped.GetProperty("focused").GetBoolean(), Is.True, "Play must focus the game view");
 			Assert.That(docked.GetProperty("docked").GetBoolean(), Is.True, "the dock layout must stay put");
 			if (mode == "Maximized")
+			{
 				Assert.That(popped.GetProperty("width").GetInt32() * popped.GetProperty("height").GetInt32(),
 					Is.GreaterThan(docked.GetProperty("width").GetInt32() * docked.GetProperty("height").GetInt32()));
+				foreach (var tool in new[] { "Normal", "Tile Brush", "DebugRenderingToggle", "AudioToggle", "Snap to Grid", "Show Grid", "PlayView", "EditorPlay" })
+					Assert.That(Call("ui.find", new { label = tool, window = "GameWindowMaximized", exact = true }).GetArrayLength(), Is.GreaterThan(0),
+						tool + " missing from the Maximized view");
+			}
 
 			Call("play.stop");
 			Call("input.wait", new { frames = 5 });

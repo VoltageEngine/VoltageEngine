@@ -200,7 +200,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	}
 
 	/// <summary>Contents of whichever window shows the game: playback strip, image, overlays and input routing.</summary>
-	private void DrawGameView()
+	private void DrawGameView(bool editorTools = false)
 	{
 		IsGameWindowFocused = ImGui.IsWindowFocused();
 
@@ -215,16 +215,36 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 		var stripHeight = ImGui.GetFrameHeight() + 12 * FontSizeMultiplier;
 		ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Num.Vector2(4, 4) * FontSizeMultiplier);
-		ImGui.BeginChild("Playback", new Num.Vector2(0, stripHeight), ImGuiChildFlags.AlwaysUseWindowPadding,
+		ImGui.BeginChild("Playback", new Num.Vector2(0, editorTools ? 0 : stripHeight),
+			ImGuiChildFlags.AlwaysUseWindowPadding | (editorTools ? ImGuiChildFlags.AutoResizeY : ImGuiChildFlags.None),
 			ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
-		DrawPlaybackControls();
-		var side = ImGui.GetItemRectSize().X;
-		ImGui.SameLine();
-		var free = ImGui.GetContentRegionAvail().X;
-		if (free >= side * 2)
+		if (editorTools)
 		{
-			ImGui.SetCursorPosX(ImGui.GetCursorPosX() + free - side);
-			DrawPlayViewButton(new Num.Vector2(side));
+			var lineStart = ImGui.GetCursorPosX();
+			var width = ImGui.GetContentRegionAvail().X;
+			DrawEditorTools();
+			// Playback goes centred on the tools row, else right-aligned on it, else on a row of its own.
+			var playback = 3 * (ImGui.GetFrameHeight() + 4 * FontSizeMultiplier) + 2 * ImGui.GetStyle().ItemSpacing.X;
+			var right = lineStart + width - playback;
+			ImGui.SameLine();
+			var x = ImGui.GetCursorPosX();
+			if (x <= right)
+				ImGui.SetCursorPosX(x <= lineStart + MathF.Floor((width - playback) / 2) ? lineStart : right);
+			else
+				ImGui.NewLine();
+			DrawPlaybackControls();
+		}
+		else
+		{
+			DrawPlaybackControls();
+			var side = ImGui.GetItemRectSize().X;
+			ImGui.SameLine();
+			var free = ImGui.GetContentRegionAvail().X;
+			if (free >= side * 2)
+			{
+				ImGui.SetCursorPosX(ImGui.GetCursorPosX() + free - side);
+				DrawPlayViewButton(new Num.Vector2(side));
+			}
 		}
 		ImGui.EndChild();
 		ImGui.PopStyleVar();

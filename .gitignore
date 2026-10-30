@@ -112,3 +112,7 @@ Voltage.FarseerPhysics/editor-lib/
 
 # Local plugin checkouts rebuilt alongside the editor - per-machine, never committed.
 Voltage.Editor/dev-plugins.txt
+
+# Atomic-save temp files (name.tmp, name.tmp.<pid>.<hex>) and any .meta made for one
+*.tmp
+*.tmp.*

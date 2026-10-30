@@ -37,8 +37,12 @@ anything you add.
 
 Every file the editor indexes gets a stable GUID stored in a `.meta` sidecar next to it
 (`AssetDatabase`). References store that GUID, so **renaming or moving an asset never breaks a
-reference**. At build time the editor bakes a GUID→path map into `Data/assets.manifest`, which
-`Voltage.Assets.AssetManifest` reads at runtime so published builds resolve the same way.
+reference**. A rename or move made outside the editor while it is open (Explorer, git, a script) takes
+the sidecar along too; one made while the editor is closed needs the `.meta` moved with the file. If two
+files claim one GUID (a copied `.meta`), the file the manifest last pointed at keeps it and the copy gets
+a new one, with a warning in the console. At build time the editor bakes a GUID→path map into
+`Data/assets.manifest`, which `Voltage.Assets.AssetManifest` reads at runtime so published builds resolve
+the same way.
 
 You get all of this for free. A new format needs no identity work of its own.
 

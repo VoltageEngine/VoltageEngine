@@ -502,8 +502,10 @@ public class SceneGraphWindow
 			$"Create Entity from SerializedPrefab {entity.Name}"
 		);
 
-		_imGuiManager.SceneGraphWindow.EntityPane.SetSelectedEntity(entity, false);
-		_imGuiManager.MainEntityInspectorWindow.DelayedSetEntity(entity);
+		// Gateway placement can run before this window was ever shown, which is what fetches the manager.
+		_imGuiManager ??= Core.GetGlobalManager<ImGuiManager>();
+		_imGuiManager?.SceneGraphWindow?.EntityPane?.SetSelectedEntity(entity, false);
+		_imGuiManager?.MainEntityInspectorWindow?.DelayedSetEntity(entity);
 
 		EditorDebug.Log($"Created entity '{entity.Name}' from prefab '{prefabName}'.");
 		return entity;

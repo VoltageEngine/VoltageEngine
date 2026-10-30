@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Collections.Generic;
-using Voltage.Utils.Collections;
 
 namespace Voltage.Utils.Coroutines
 {
@@ -14,9 +13,10 @@ namespace Voltage.Utils.Coroutines
 	public class CoroutineManager : GlobalManager
 	{
 		/// <summary>
-		/// internal class used by the CoroutineManager to hide the data it requires for a Coroutine
+		/// internal class used by the CoroutineManager to hide the data it requires for a Coroutine. Never pooled: callers keep
+		/// the handle, and a recycled one would let a late Stop() on a finished coroutine cancel whichever coroutine reused it.
 		/// </summary>
-		class CoroutineImpl : ICoroutine, IPoolable
+		class CoroutineImpl : ICoroutine
 		{
 			public IEnumerator Enumerator;
 
@@ -43,19 +43,15 @@ namespace Voltage.Utils.Coroutines
 			}
 
 
-			internal void PrepareForReuse()
-			{
-				IsDone = false;
-			}
-
-
-			void IPoolable.Reset()
+			/// <summary>
+			/// marks the coroutine done for good and drops what it references
+			/// </summary>
+			internal void Finish()
 			{
 				IsDone = true;
 				WaitTimer = 0;
 				WaitForCoroutine = null;
 				Enumerator = null;
-				UseUnscaledDeltaTime = false;
 			}
 		}
 
@@ -72,7 +68,7 @@ namespace Voltage.Utils.Coroutines
 
 		/// <summary>
 		/// Stops all active coroutines. Can be safely called from inside a coroutine, though the coroutine will continue executing
-		/// until the next yield. Some coroutines might not be returned to the pool for reuse until the next Update() cycle.
+		/// until the next yield. Stopped coroutines are dropped from the manager on the next Update() cycle.
 		/// </summary>
 		public void StopAllCoroutines()
 		{
@@ -84,8 +80,7 @@ namespace Voltage.Utils.Coroutines
 
 
 		/// <summary>
-		/// Immediately clears all coroutines and returns them to the pool for reuse. Do not to call this from inside one of 
-		/// the manager's coroutines.
+		/// Immediately clears all coroutines. Do not to call this from inside one of the manager's coroutines.
 		/// </summary>
 		public void ClearAllCoroutines()
 		{
@@ -96,9 +91,9 @@ namespace Voltage.Utils.Coroutines
 			else
 			{
 				for (var i = 0; i < _unblockedCoroutines.Count; i++)
-					Pool<CoroutineImpl>.Free(_unblockedCoroutines[i]);
+					_unblockedCoroutines[i].Finish();
 				for (var i = 0; i < _shouldRunNextFrame.Count; i++)
-					Pool<CoroutineImpl>.Free(_shouldRunNextFrame[i]);
+					_shouldRunNextFrame[i].Finish();
 				
 				_unblockedCoroutines.Clear();
 				_shouldRunNextFrame.Clear();
@@ -113,12 +108,8 @@ namespace Voltage.Utils.Coroutines
 		/// <param name="enumerator">Enumerator.</param>
 		public ICoroutine StartCoroutine(IEnumerator enumerator)
 		{
-			// find or create a CoroutineImpl
-			var coroutine = Pool<CoroutineImpl>.Obtain();
-			coroutine.PrepareForReuse();
-
-			// setup the coroutine and add it
-			coroutine.Enumerator = enumerator;
+			// a new CoroutineImpl every time, so the handle returned below only ever refers to this coroutine
+			var coroutine = new CoroutineImpl { Enumerator = enumerator };
 			var shouldContinueCoroutine = TickCoroutine(coroutine);
 
 			// guard against empty coroutines
@@ -143,7 +134,7 @@ namespace Voltage.Utils.Coroutines
 				// check for stopped coroutines
 				if (coroutine.IsDone)
 				{
-					Pool<CoroutineImpl>.Free(coroutine);
+					coroutine.Finish();
 					continue;
 				}
 
@@ -182,8 +173,7 @@ namespace Voltage.Utils.Coroutines
 		}
 
 		/// <summary>
-		/// ticks a coroutine. returns true if the coroutine should continue to run next frame. This method will put finished coroutines
-		/// back in the Pool!
+		/// ticks a coroutine. returns true if the coroutine should continue to run next frame. Finished coroutines are marked done.
 		/// </summary>
 		/// <returns><c>true</c>, if coroutine was ticked, <c>false</c> otherwise.</returns>
 		/// <param name="coroutine">Coroutine.</param>
@@ -192,7 +182,7 @@ namespace Voltage.Utils.Coroutines
 			// This coroutine has finished
 			if (!coroutine.Enumerator.MoveNext() || coroutine.IsDone)
 			{
-				Pool<CoroutineImpl>.Free(coroutine);
+				coroutine.Finish();
 				return false;
 			}
 

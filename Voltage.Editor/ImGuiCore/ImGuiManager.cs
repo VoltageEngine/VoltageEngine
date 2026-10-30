@@ -929,6 +929,14 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private void DrawEditorToolsBar()
 	{
 		if (!Gui.Begin("Editor Tools")) { Gui.End(); return; }
+		DrawEditorTools();
+		if (!ShowSeparateGameWindow) { ImGui.NewLine(); DrawPlaybackControls(); }
+		Gui.End();
+	}
+
+	/// <summary>The Editor Tools row, shared by the Editor Tools panel and the Maximized game view.</summary>
+	private void DrawEditorTools()
+	{
 		var flow = new ToolbarFlow();
 		var size = new Num.Vector2(ImGui.GetFrameHeight() + 4 * FontSizeMultiplier);
 		bool Icon(string label, string glyph, bool active, string tooltip)
@@ -975,8 +983,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		DrawZoomControl(zoom);
 		flow.Next(size.X);
 		DrawPlayViewButton(size);
-		if (!ShowSeparateGameWindow) { ImGui.NewLine(); DrawPlaybackControls(); }
-		Gui.End();
 	}
 
 	private void DrawPlaybackControls()

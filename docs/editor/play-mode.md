@@ -31,7 +31,7 @@ The **Play View** button at the end of the Editor Tools bar (also on the right o
 | Mode | While playing |
 |---|---|
 | **Custom** | The game runs in the Game panel, as you laid it out. |
-| **Maximized** | The game view fills the editor window below the menu bar. Combine with `F11` for a full-screen view. |
+| **Maximized** | The game view fills the editor window below the menu bar, with the full Editor Tools row and the playback buttons along its top. Combine with `F11` for a full-screen view. |
 | **Floating** | The game view pops out into a window inside the editor that you can move and resize; its position is remembered. |
 
 Stop always returns to the docked Game panel, and the dock layout underneath is never changed. Play View needs **View > Separate Game Window** turned on. The game cannot open in a separate operating-system window: the editor is a single MonoGame window.

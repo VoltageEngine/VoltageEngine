@@ -94,18 +94,31 @@ public class VoltageContentManager : ContentManager
 	/// <summary>
 	/// loads a Texture2D either from xnb or directly from a png/jpg. Note that xnb files should not contain the .xnb file
 	/// extension or be preceded by "Content" in the path. png/jpg files should have the file extension and have an absolute
-	/// path or a path starting with "Content".
+	/// path or a path starting with "Content". .aseprite/.ase files load as their first frame, visible layers flattened.
 	/// </summary>
 	public Texture2D LoadTexture(string name, bool premultiplyAlpha = false)
 	{
 		using var timing = SceneLoadDiagnostics.Measure("asset.texture", name);
 		// no file extension. Assumed to be an xnb so let ContentManager load it
-		if (string.IsNullOrEmpty(Path.GetExtension(name)))
+		var extension = Path.GetExtension(name);
+		if (string.IsNullOrEmpty(extension))
 			return Load<Texture2D>(name);
 
 		if (LoadedAssets.TryGetValue(name, out var asset))
 			if (asset is Texture2D tex)
 				return tex;
+
+		// ponytail: shares the path key with LoadAsepriteFile, so loading one file both ways re-flattens each switch
+		if (extension.Equals(".aseprite", StringComparison.OrdinalIgnoreCase) || extension.Equals(".ase", StringComparison.OrdinalIgnoreCase))
+		{
+			var flattened = LoadAsepriteFileForRendering(name).GetTextureFromFrameNumber(1);
+			if (premultiplyAlpha)
+				TextureUtils.PremultiplyAlpha(flattened);
+			flattened.Name = name;
+			LoadedAssets[name] = flattened;
+			DisposableAssets.Add(flattened);
+			return flattened;
+		}
 
 		if (TryLoadCompiled<Texture2D>(name, out var compiled))
 		{
