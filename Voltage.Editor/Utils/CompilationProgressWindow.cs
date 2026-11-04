@@ -37,11 +37,17 @@ namespace Voltage.Editor.Utils
 
 		public bool IsVisible => _isVisible;
 
+		private static readonly System.Collections.Generic.List<CompilationProgressWindow> _instances = new();
+
+		/// <summary>True while any progress window shows unfinished work; keeps the editor drawing while unfocused.</summary>
+		public static bool AnyRunning => _instances.Exists(w => w._isVisible && w._currentProgress is { IsComplete: false });
+
 		public CompilationProgressWindow(bool isScriptProgress = false, Action onCancel = null, bool isGameProgress = false)
 		{
 			_isScriptProgress = isScriptProgress;
 			_onCancel = onCancel;
 			_isGameProgress = isGameProgress;
+			_instances.Add(this);
 		}
 
 		/// <summary>

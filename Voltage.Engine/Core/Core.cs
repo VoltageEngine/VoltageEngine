@@ -50,9 +50,13 @@ public class Core : Game
 	/// <summary>Overrides PauseOnFocusLost while something external, such as the editor gateway, is driving the process.</summary>
 	public static volatile bool KeepRunningWhenUnfocused;
 
+	/// <summary>Set by the editor: true while a build, compile or load shows progress, so that UI keeps redrawing unfocused.</summary>
+	public static Func<bool> KeepRunningWhileBusy;
+
 	// Editor Play keeps running unfocused, so a game shown on a second monitor keeps its audio and pad input.
 	private static bool ShouldPauseForFocus => PauseOnFocusLost && !KeepRunningWhenUnfocused && !_instance.IsActive &&
-	                                           !(IsEditorMode && !IsEditMode);
+	                                           !(IsEditorMode && !IsEditMode) && !SceneLoading.IsActive &&
+	                                           KeepRunningWhileBusy?.Invoke() != true;
 
 	/// <summary>
 	/// enables/disables debug rendering
@@ -207,7 +211,8 @@ public class Core : Game
 		graphicsManager.DeviceReset += OnGraphicsDeviceReset;
 		graphicsManager.PreferredDepthStencilFormat = DepthFormat.Depth24Stencil8;
 
-		OnSwitchEditMode += (editMode) => { Instance.IsMouseVisible = editMode; };
+		// Play leaves the cursor as it is (only game code hides it); Edit always gets it back.
+		OnSwitchEditMode += (editMode) => { if (editMode) Instance.IsMouseVisible = true; };
 		Screen.Initialize(graphicsManager);
 		Window.ClientSizeChanged += OnGraphicsDeviceReset;
 		Window.OrientationChanged += OnOrientationChanged;

@@ -873,6 +873,23 @@ public class AssetBrowserWindow : IDisposable
                     DuplicateFile(path);
             }
 
+            // Wraps the selection in a new folder inside the folder it shares, .meta sidecars included.
+            var sharedDir = Path.GetDirectoryName(targets[0]);
+            var canWrap = targets.All(p => File.Exists(p) &&
+                string.Equals(Path.GetDirectoryName(p), sharedDir, StringComparison.OrdinalIgnoreCase));
+            ImGui.BeginDisabled(!canWrap);
+            if (Gui.MenuItem("Create Parent Folder"))
+            {
+                var folder = CreateFolder(sharedDir);
+                if (folder != null)
+                    foreach (var path in targets)
+                        MoveAsset(path, folder);
+            }
+            ImGui.EndDisabled();
+
+            if (!canWrap && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                ImGui.SetTooltip("The selected files must all be files in the same folder, so the new folder has one place to go.");
+
             ImGui.BeginDisabled(many);
             if (Gui.MenuItem("Rename"))
                 BeginRename(item.AbsolutePath);
@@ -1518,11 +1535,12 @@ public class AssetBrowserWindow : IDisposable
             StringComparison.OrdinalIgnoreCase);
     }
 
-    // Creates a collision-safe "New Folder" under parentDir and enters inline-rename mode on it.
-    private void CreateFolder(string parentDir)
+    // Creates a collision-safe "New Folder" under parentDir and enters inline-rename mode on it. Returns its path, or
+    // null when it couldn't be created.
+    private string CreateFolder(string parentDir)
     {
         if (string.IsNullOrEmpty(parentDir) || !Directory.Exists(parentDir))
-            return;
+            return null;
 
         string newPath = Path.Combine(parentDir, "New Folder");
         int n = 1;
@@ -1538,10 +1556,12 @@ public class AssetBrowserWindow : IDisposable
             _renameBuffer = Path.GetFileName(newPath);
             _renameFocusPending = true;
             _refreshRequested = true;
+            return newPath;
         }
         catch (Exception ex)
         {
             EditorDebug.Log($"AssetBrowser: failed to create folder under '{parentDir}': {ex.Message}", "AssetBrowser");
+            return null;
         }
     }
 

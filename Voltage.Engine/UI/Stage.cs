@@ -26,6 +26,21 @@ namespace Voltage.UI
 		public Buttons GamepadActionButton = Buttons.A;
 
 		/// <summary>
+		/// How far the left stick must tilt (0-1) before it moves gamepad focus, for every stage. Games can expose it as a
+		/// setting; a small value lets a light brush or drifting stick skip through menus.
+		/// </summary>
+		public static float GamepadStickThreshold = 0.5f;
+
+		/// <summary>Holding up or down (keys, d-pad or stick) repeats the move after this many seconds, so long lists scroll.</summary>
+		public static float NavigationRepeatDelay = 0.4f;
+
+		/// <summary>Seconds between repeated moves while up or down stays held.</summary>
+		public static float NavigationRepeatInterval = 0.08f;
+
+		Direction _heldDirection = Direction.None;
+		float _heldSeconds;
+
+		/// <summary>
 		/// if true (default) keyboard arrow keys and the keyboardActionKey will emulate a gamepad
 		/// </summary>
 		public bool KeyboardEmulatesGamepad = true;
@@ -521,18 +536,19 @@ namespace Voltage.UI
 				return;
 			IGamepadFocusable nextElement = null;
 			var direction = Direction.None;
-			if (Input.GamePads[0].DpadLeftPressed || Input.GamePads[0].IsLeftStickLeftPressed() ||
+			if (Input.GamePads[0].DpadLeftPressed || Input.GamePads[0].IsLeftStickLeftPressed(GamepadStickThreshold) ||
 				(KeyboardEmulatesGamepad && Input.IsKeyPressed(KeyboardLeftKeys)))
 				direction = Direction.Left;
-			else if (Input.GamePads[0].DpadRightPressed || Input.GamePads[0].IsLeftStickRightPressed() ||
+			else if (Input.GamePads[0].DpadRightPressed || Input.GamePads[0].IsLeftStickRightPressed(GamepadStickThreshold) ||
 					 (KeyboardEmulatesGamepad && Input.IsKeyPressed(KeyboardRightKeys)))
 				direction = Direction.Right;
-			else if (Input.GamePads[0].DpadUpPressed || Input.GamePads[0].IsLeftStickUpPressed() ||
+			else if (Input.GamePads[0].DpadUpPressed || Input.GamePads[0].IsLeftStickUpPressed(GamepadStickThreshold) ||
 					 (KeyboardEmulatesGamepad && Input.IsKeyPressed(KeyboardUpKeys)))
 				direction = Direction.Up;
-			else if (Input.GamePads[0].DpadDownPressed || Input.GamePads[0].IsLeftStickDownPressed() ||
+			else if (Input.GamePads[0].DpadDownPressed || Input.GamePads[0].IsLeftStickDownPressed(GamepadStickThreshold) ||
 					 (KeyboardEmulatesGamepad && Input.IsKeyPressed(KeyboardDownKeys)))
 				direction = Direction.Down;
+			direction = RepeatHeldDirection(direction);
 
 			// make sure we have a valid direction
 			if (direction != Direction.None)
@@ -549,6 +565,34 @@ namespace Voltage.UI
 					SetGamepadFocusElement(nextElement);
 				}
 			}
+		}
+
+
+		/// <summary>
+		/// A fresh press starts the hold; up or down held past <see cref="NavigationRepeatDelay"/> moves again every
+		/// <see cref="NavigationRepeatInterval"/>. Left and right don't repeat: they change values in place.
+		/// </summary>
+		Direction RepeatHeldDirection(Direction pressed)
+		{
+			var pad = Input.GamePads[0];
+			var held = pad.DpadUpDown || pad.IsLeftStickUp(GamepadStickThreshold) ||
+					   (KeyboardEmulatesGamepad && Input.IsKeyDown(KeyboardUpKeys)) ? Direction.Up
+				: pad.DpadDownDown || pad.IsLeftStickDown(GamepadStickThreshold) ||
+				  (KeyboardEmulatesGamepad && Input.IsKeyDown(KeyboardDownKeys)) ? Direction.Down
+				: Direction.None;
+			if (pressed != Direction.None || held != _heldDirection)
+			{
+				_heldDirection = pressed == Direction.Up || pressed == Direction.Down ? pressed : held;
+				_heldSeconds = 0;
+				return pressed;
+			}
+			if (held == Direction.None)
+				return Direction.None;
+			_heldSeconds += Time.UnscaledDeltaTime;
+			if (_heldSeconds < NavigationRepeatDelay)
+				return Direction.None;
+			_heldSeconds -= System.Math.Max(0.01f, NavigationRepeatInterval);
+			return held;
 		}
 
 

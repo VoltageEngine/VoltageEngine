@@ -430,6 +430,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_projectManager.OnProjectLoaded += OnProjectLoaded;
 		_projectManager.OnProjectUnloaded += OnProjectUnloaded;
 		Utils.ProjectLoadProgress.FramePump = RenderProjectLoadFrame;
+		Core.KeepRunningWhileBusy = () => CompilationProgressWindow.AnyRunning;
 		_projectManager.LoadLastProject();
 
 		Core.WindowTitleStatusProvider = ComposeWindowTitleStatus;
@@ -981,6 +982,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		var zoom = $"Zoom: {(int)(Core.Scene.Camera.RawZoom * 100)}%";
 		flow.Next(ImGui.CalcTextSize(zoom).X + ImGui.GetStyle().FramePadding.X * 2);
 		DrawZoomControl(zoom);
+		var speed = $"Camera Speed: {(int)GetDynamicCameraSpeed()}";
+		flow.Next(ImGui.CalcTextSize(speed).X + ImGui.GetStyle().FramePadding.X * 2);
+		if (Gui.Button(speed + "##CameraSpeed"))
+			ResetDynamicCameraSpeed();
+		if (ImGui.IsItemHovered()) ImGuiSafe.SetTooltipSafe("Edit-mode camera speed. Click to reset it.");
 		flow.Next(size.X);
 		DrawPlayViewButton(size);
 	}

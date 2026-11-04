@@ -199,6 +199,37 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		ImGui.PopStyleVar();
 	}
 
+	private bool _escCursorOverride, _cursorVisibleBeforeEsc;
+
+	/// <summary>
+	/// In Play, Esc forces the OS cursor visible over the whole editor, whatever the game set, until the next left click
+	/// on the game image; then the game's own visibility (as it was before Esc) comes back.
+	/// </summary>
+	private void UpdateEscCursorOverride()
+	{
+		if (Core.IsEditMode)
+		{
+			_escCursorOverride = false;
+			return;
+		}
+
+		if (!_escCursorOverride && ImGui.IsKeyPressed(ImGuiKey.Escape, false))
+		{
+			_escCursorOverride = true;
+			_cursorVisibleBeforeEsc = Core.Instance.IsMouseVisible;
+		}
+		else if (_escCursorOverride && IsGameWindowHovered && ImGui.IsMouseClicked(ImGuiMouseButton.Left))
+		{
+			_escCursorOverride = false;
+			Core.Instance.IsMouseVisible = _cursorVisibleBeforeEsc;
+			return;
+		}
+
+		// Re-applied every frame so game code hiding the cursor can't win while the override is on.
+		if (_escCursorOverride && !Core.Instance.IsMouseVisible)
+			Core.Instance.IsMouseVisible = true;
+	}
+
 	/// <summary>Contents of whichever window shows the game: playback strip, image, overlays and input routing.</summary>
 	private void DrawGameView(bool editorTools = false)
 	{
@@ -310,12 +341,12 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			ImGui.Dummy(imageSize);
 		}
 		IsGameWindowHovered = ImGui.IsItemHovered();
+		UpdateEscCursorOverride();
 
 		// Draw buttons and text on top using screen coordinates
 		var camera = Core.Scene?.Camera;
 		bool showZoomButton = camera != null && Math.Abs(camera.Zoom - Camera.DefaultZoom) > 0.01f;
 		bool showSpeedButton = Math.Abs(GetDynamicCameraSpeed() - EditModeCameraSpeed) > 0.1f;
-		var overlayBottom = _gameImageScreenPos.Y;
 
 		if (showZoomButton || showSpeedButton)
 		{
@@ -356,37 +387,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 					ResetDynamicCameraSpeed();
 				}
 			}
-			overlayBottom = ImGui.GetItemRectMax().Y;
-		}
-
-		if (Core.IsEditMode && Math.Abs(GetDynamicCameraSpeed() - EditModeCameraSpeed) > 0.1f)
-		{
-			var speedText = $"Camera Speed: {(int)GetDynamicCameraSpeed()}";
-			var speedTextSize = ImGui.CalcTextSize(speedText);
-
-			var windowPos = ImGui.GetWindowPos();
-			var contentMin = ImGui.GetCursorStartPos();
-			var margin = new Num.Vector2(8, 8) * ImGui.GetIO().FontGlobalScale;
-
-			var speedTextPos = new Num.Vector2(
-				_gameImageScreenPos.X + imageSize.X - speedTextSize.X - margin.X,
-				overlayBottom + margin.Y
-			);
-
-			var drawList = ImGui.GetWindowDrawList();
-			var bgPadding = new Num.Vector2(8, 4) * ImGui.GetIO().FontGlobalScale;
-			var bgMin = speedTextPos - bgPadding;
-			var bgMax = speedTextPos + speedTextSize + bgPadding;
-
-			drawList.AddRectFilled(
-				bgMin,
-				bgMax,
-				ImGui.ColorConvertFloat4ToU32(new Num.Vector4(0.0f, 0.0f, 0.0f, 0.6f)),
-				4.0f * ImGui.GetIO().FontGlobalScale
-			);
-
-			ImGui.SetCursorScreenPos(speedTextPos);
-			ImGuiSafe.TextColoredSafe(new Num.Vector4(1.0f, 1.0f, 0.0f, 1.0f), speedText);
 		}
 
 		OverrideMouseInput();
