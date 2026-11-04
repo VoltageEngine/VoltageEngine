@@ -449,6 +449,9 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 			return;
 		}
 
+		if (_layoutManager.WasReset)
+			_lastSelectedLayout.Value = "Default";
+
 		string lastLayout = _lastSelectedLayout.Value;
 		if (!string.IsNullOrWhiteSpace(lastLayout) && File.Exists(_layoutManager.GetLayoutPath(lastLayout)))
 			_layoutManager.LoadLayout(lastLayout);

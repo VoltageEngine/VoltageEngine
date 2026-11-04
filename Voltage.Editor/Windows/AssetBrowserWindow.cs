@@ -717,7 +717,7 @@ public class AssetBrowserWindow : IDisposable
 
         var scale = DisplayScale;
         var tile = tileWidth > 0;
-        var rowHeight = Math.Max(20 * scale, ImGui.GetTextLineHeight()) + 4 * scale;
+        var rowHeight = ImGui.GetTextLineHeight();
         var tileHeight = Math.Min(tileWidth + ImGui.GetTextLineHeight() + 12 * scale,
             Math.Max(rowHeight, ImGui.GetWindowHeight() - ImGui.GetStyle().WindowPadding.Y * 2));
         var size = new Num.Vector2(tile ? tileWidth : Math.Max(1, ImGui.GetContentRegionAvail().X), tile ? tileHeight : rowHeight);
@@ -734,7 +734,7 @@ public class AssetBrowserWindow : IDisposable
             var hasPreview = id != IntPtr.Zero;
             if (!hasPreview) id = AssetBrowserIcons.GetIconId(item.Descriptor);
             var imageHeight = Math.Max(1, tileHeight - ImGui.GetTextLineHeight() - 12 * scale);
-            var iconSide = tile ? Math.Min(imageHeight, hasPreview ? tileWidth - 8 * scale : Math.Min(tileWidth - 8 * scale, 40 * scale)) : 16 * scale;
+            var iconSide = tile ? Math.Min(imageHeight, hasPreview ? tileWidth - 8 * scale : Math.Min(tileWidth - 8 * scale, 40 * scale)) : Math.Min(16 * scale, rowHeight);
             iconSide = Math.Max(1, iconSide);
             var iconPosition = tile ? itemMin + new Num.Vector2((tileWidth - iconSide) / 2, 4 * scale + (imageHeight - iconSide) / 2)
                 : itemMin + new Num.Vector2(4 * scale, (rowHeight - iconSide) / 2);

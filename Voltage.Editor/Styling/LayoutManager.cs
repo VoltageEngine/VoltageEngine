@@ -43,6 +43,9 @@ namespace Voltage.Editor.Styling
         /// <summary>True when no persisted layout was found on disk - the first launch of a built Editor.</summary>
         public bool WasFreshInstall { get; private set; }
 
+        /// <summary>True when an outdated working layout was replaced by the shipped default this launch.</summary>
+        public bool WasReset { get; private set; }
+
         private void CreateCustomLayoutIfNeeded()
         {
             try
@@ -83,10 +86,26 @@ namespace Voltage.Editor.Styling
             }
         }
 
+        /// <summary>Bump when DefaultLayout.ini changes enough that older working layouts should be replaced.</summary>
+        public const int DefaultLayoutVersion = 2;
+
         private void InitializeDefaultLayout()
         {
             try
             {
+                var layoutVersion = new PersistentInt("Editor_LayoutVersion");
+                if (layoutVersion.Value < DefaultLayoutVersion)
+                {
+                    if (File.Exists(_defaultLayoutPath))
+                    {
+                        File.Copy(_defaultLayoutPath, $"{_defaultLayoutPath}.v{layoutVersion.Value}.bak", true);
+                        File.Delete(_defaultLayoutPath);
+                        Debug.Log($"Editor layout reset to the v{DefaultLayoutVersion} default; the old one is kept as {_defaultLayoutPath}.v{layoutVersion.Value}.bak");
+                    }
+                    WasReset = true;
+                    layoutVersion.Value = DefaultLayoutVersion;
+                }
+
                 WasFreshInstall = !File.Exists(_defaultLayoutPath);
 
                 if (File.Exists(_defaultContentLayoutPath) && WasFreshInstall)
