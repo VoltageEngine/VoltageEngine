@@ -719,8 +719,8 @@ public class AssetBrowserWindow : IDisposable
 
         var scale = DisplayScale;
         var tile = tileWidth > 0;
-        // Match the Entity pane's row pitch, which uses the unpushed item spacing.
-        var rowHeight = ImGui.GetTextLineHeight() + Math.Max(0, _baseItemSpacingY - ImGui.GetStyle().ItemSpacing.Y);
+        // Entity-pane pitch (unpushed item spacing) plus a little air for the icon.
+        var rowHeight = ImGui.GetTextLineHeight() + Math.Max(0, _baseItemSpacingY - ImGui.GetStyle().ItemSpacing.Y) + 4 * scale;
         var tileHeight = Math.Min(tileWidth + ImGui.GetTextLineHeight() + 12 * scale,
             Math.Max(rowHeight, ImGui.GetWindowHeight() - ImGui.GetStyle().WindowPadding.Y * 2));
         var size = new Num.Vector2(tile ? tileWidth : Math.Max(1, ImGui.GetContentRegionAvail().X), tile ? tileHeight : rowHeight);
