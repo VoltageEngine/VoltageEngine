@@ -8,14 +8,15 @@ name: Release
 # A tag builds, signs and publishes the editor for every desktop platform. The download page links to
 # releases/latest/download/<asset>, so asset names never carry the version. A manual run builds the same
 # packages as workflow artifacts without publishing, and may skip signing to test the packaging alone.
-# macOS builds are signed and notarized and Linux checksums are GPG-signed; Windows builds are unsigned.
+# Signing happens when its secrets are configured: macOS builds are then signed and notarized and the
+# checksums GPG-signed. Without them macOS builds are ad-hoc signed. Windows builds are unsigned.
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
     inputs:
       sign:
-        description: Sign and notarize the macOS packages and sign the checksums
+        description: Sign and notarize the macOS packages and sign the checksums, if the secrets are configured
         type: boolean
         default: true
 
@@ -128,6 +129,7 @@ jobs:
         rid: [osx-arm64, osx-x64]
     env:
       RID: ${{ matrix.rid }}
+      HAS_APPLE_ID: ${{ secrets.APPLE_DEVELOPER_ID_P12 != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -150,7 +152,7 @@ jobs:
 
       # Developer ID certificate as a base64 .p12 in a throwaway keychain that dies with the runner.
       - name: Import the signing certificate
-        if: env.SIGN == 'true'
+        if: env.SIGN == 'true' && env.HAS_APPLE_ID == 'true'
         env:
           CERT_P12: ${{ secrets.APPLE_DEVELOPER_ID_P12 }}
           CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
@@ -169,7 +171,7 @@ jobs:
       # Inside-out: every Mach-O file first, then the bundle. --deep is not used because it signs nested
       # code with the bundle's entitlements and hides which file failed.
       - name: Sign the app
-        if: env.SIGN == 'true'
+        if: env.SIGN == 'true' && env.HAS_APPLE_ID == 'true'
         env:
           IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
         run: |
@@ -183,13 +185,18 @@ jobs:
           codesign --force --timestamp --options runtime --entitlements "$ENT" --sign "$IDENTITY" "$APP"
           codesign --verify --strict --verbose=2 "$APP"
 
+      # Apple Silicon refuses to run unsigned code, and reports the app as damaged without this.
+      - name: Ad-hoc sign the app
+        if: env.SIGN != 'true' || env.HAS_APPLE_ID != 'true'
+        run: codesign --force --deep --sign - "stage/Voltage Editor.app"
+
       - name: Make the disk image
         run: |
           mkdir -p dist
           hdiutil create -volname "Voltage Editor" -srcfolder stage -ov -format UDZO "dist/Voltage-Editor-$RID.dmg"
 
       - name: Notarize
-        if: env.SIGN == 'true'
+        if: env.SIGN == 'true' && env.HAS_APPLE_ID == 'true'
         env:
           IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
           API_KEY_P8: ${{ secrets.APPLE_NOTARY_API_KEY_P8 }}
@@ -215,6 +222,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      HAS_GPG: ${{ secrets.RELEASE_GPG_PRIVATE_KEY != '' }}
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -228,7 +237,7 @@ jobs:
           cat SHA256SUMS.txt
 
       - name: Sign the checksums
-        if: env.SIGN == 'true'
+        if: env.SIGN == 'true' && env.HAS_GPG == 'true'
         working-directory: dist
         env:
           GPG_PRIVATE_KEY: ${{ secrets.RELEASE_GPG_PRIVATE_KEY }}
