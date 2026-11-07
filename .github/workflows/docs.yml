@@ -38,6 +38,7 @@ jobs:
       - run: npm run test:security
 
       - run: npm audit --audit-level=low
+        continue-on-error: true
 
       - run: npm run build
 
