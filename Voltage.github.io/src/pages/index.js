@@ -44,7 +44,10 @@ export default function Home() {
           <h1 className={styles.title}>{siteConfig.title}</h1>
           <p className={styles.subtitle}>{siteConfig.tagline}</p>
           <div className={styles.buttons}>
-            <Link className="button button--primary button--lg" to="/docs/intro">
+            <Link className="button button--primary button--lg" to="/download">
+              Download
+            </Link>
+            <Link className="button button--secondary button--lg" to="/docs/intro">
               Read the docs
             </Link>
             <Link className="button button--secondary button--outline button--lg" to="/docs/getting-started/installation">

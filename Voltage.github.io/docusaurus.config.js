@@ -74,6 +74,11 @@ const config = {
             label: 'Gateway',
           },
           {
+            to: 'download',
+            position: 'right',
+            label: 'Download',
+          },
+          {
             href: 'https://github.com/VoltageEngine/VoltageEngine',
             label: 'GitHub',
             position: 'right',
@@ -87,6 +92,7 @@ const config = {
             title: 'Docs',
             items: [
               {label: 'Introduction', to: 'docs/intro'},
+              {label: 'Download', to: 'download'},
               {label: 'Installation', to: 'docs/getting-started/installation'},
               {label: 'Scripting', to: 'docs/scripting/components'},
             ],
