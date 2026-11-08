@@ -262,6 +262,17 @@ function base.success(data)
   return { result = data or {} }
 end
 
+-- PNG bytes of an image as base64, on get_sprite_screenshot's path so no new file permission is asked.
+function base.image_png(image)
+  local path = app.fs.tempPath .. app.fs.pathSeparator .. "mcp_screenshot.png"
+  image:saveAs(path)
+  local f = assert(io.open(path, "rb"))
+  local data = f:read("*a")
+  f:close()
+  base.remove_temp_file(path)
+  return _G.MCP_BASE64.encode(data)
+end
+
 function base.error(code, message, data)
   local err = { code = code, message = message }
   if data then err.data = data end
@@ -5887,6 +5898,8 @@ local function load_commands()
   handlers["get_autotile_rules"] = advanced_cmds.get_autotile_rules
   handlers["set_lospec_palette"] = advanced_cmds.set_lospec_palette
   handlers["copy_between_sprites"] = advanced_cmds.copy_between_sprites
+
+  _G.VOLTAGE_BRIDGE = { handlers = handlers, base = base, color_util = color_util }
 
   local total = 0
   for _ in pairs(handlers) do total = total + 1 end

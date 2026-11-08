@@ -6,5 +6,5 @@
   "author": "Voltage Engine",
   "license": "MIT",
   "api": 27,
-  "contributes": { "scripts": [{ "path": "./plugin.lua" }] }
+  "contributes": { "scripts": [{ "path": "./plugin.lua" }, { "path": "./normals.lua" }] }
 }

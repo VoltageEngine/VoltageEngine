@@ -52,20 +52,20 @@ public partial class AnimatedNormalMap : Component
             ? _animator.AsepriteAsset.ResolvePath() : _animator.TextureFilePath;
         if (Layers is { Count: > 0 } && !string.IsNullOrEmpty(path))
         {
-            var atlas = Entity.Scene.Content.LoadAsepriteAtlas(path, Layers, false);
+            var atlas = Entity.Scene.Content.LoadAsepriteNormalAtlas(path, Layers);
             foreach (var name in atlas.AnimationNames)
                 animations[name] = atlas.GetAnimation(name);
             if (atlas.AnimationNames.Length == 0 && atlas.Sprites.Length > 0)
-                animations["Default"] = new SpriteAnimation(atlas.Sprites, 10);
+                animations["Default"] = new SpriteAnimation(atlas.Sprites, 10) { HasGlow = atlas.HasGlow };
         }
         if (Clips != null)
             foreach (var clip in Clips)
             {
                 if (clip == null || string.IsNullOrWhiteSpace(clip.Animation) || !clip.Source.IsValid || clip.Layers is not { Count: > 0 })
                     continue;
-                var atlas = Entity.Scene.Content.LoadAsepriteAtlas(clip.Source.ResolvePath(), clip.Layers, false);
+                var atlas = Entity.Scene.Content.LoadAsepriteNormalAtlas(clip.Source.ResolvePath(), clip.Layers);
                 if (string.IsNullOrWhiteSpace(clip.Tag) && atlas.AnimationNames.Length == 0 && atlas.Sprites.Length > 0)
-                    animations[clip.Animation] = new SpriteAnimation(atlas.Sprites, 10);
+                    animations[clip.Animation] = new SpriteAnimation(atlas.Sprites, 10) { HasGlow = atlas.HasGlow };
                 else
                     animations[clip.Animation] = atlas.GetAnimation(clip.Tag);
             }

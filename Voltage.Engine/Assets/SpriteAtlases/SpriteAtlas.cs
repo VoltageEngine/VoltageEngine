@@ -11,6 +11,9 @@ namespace Voltage.Sprites
 		public string[] AnimationNames;
 		public SpriteAnimation[] SpriteAnimations;
 
+		/// <summary>The frames carry a Glow layer's self-illumination in their alpha.</summary>
+		public bool HasGlow;
+
 		public Sprite GetSprite(string name)
 		{
 			var index = Array.IndexOf(Names, name);

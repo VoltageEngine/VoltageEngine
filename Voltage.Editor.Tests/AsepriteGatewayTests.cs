@@ -20,7 +20,7 @@ public class AsepriteGatewayTests
 	public void All_tools_have_nested_schemas_and_safety_annotations()
 	{
 		var commands = Call("commands").EnumerateArray().Where(c => c.GetProperty("name").GetString().StartsWith("aseprite.")).ToArray();
-		Assert.That(commands.Length, Is.EqualTo(129));
+		Assert.That(commands.Length, Is.EqualTo(138));
 		var pixels = commands.Single(c => c.GetProperty("name").GetString() == "aseprite.put_pixels");
 		Assert.That(pixels.GetProperty("inputSchema").GetProperty("properties").GetProperty("pixels").GetProperty("items").GetProperty("properties").TryGetProperty("color", out _), Is.True);
 		Assert.That(pixels.GetProperty("unsafe").GetBoolean(), Is.True);

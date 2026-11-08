@@ -13,7 +13,7 @@ static void Check(bool success, string description)
 var resources = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../../Voltage.Editor/Aseprite/Resources"));
 using var catalogue = JsonDocument.Parse(File.ReadAllText(Path.Combine(resources, "tools.json")));
 var tools = catalogue.RootElement.EnumerateArray().ToArray();
-Check(tools.Length == 123 && tools.Select(t => t.GetProperty("name").GetString()).Distinct().Count() == 123, "123 unique Aseprite schemas");
+Check(tools.Length == 132 && tools.Select(t => t.GetProperty("name").GetString()).Distinct().Count() == 132, "132 unique Aseprite schemas");
 var drawing = tools.Single(t => t.GetProperty("name").GetString() == "put_pixels").GetProperty("schema");
 var valid = JsonSerializer.SerializeToElement(new { pixels = new[] { new { x = 1, y = 2, color = "#AABBCC" } } });
 AsepriteSchema.Validate(drawing, valid);

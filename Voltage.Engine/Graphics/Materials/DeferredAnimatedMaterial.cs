@@ -11,6 +11,7 @@ public class DeferredAnimatedMaterial : DeferredSpriteMaterial
     private readonly SpriteAnimator _animator;
     private readonly SpriteAnimation _normalMapAnimation;
     private readonly IReadOnlyDictionary<string, SpriteAnimation> _normalAnimations;
+    private bool _glowOn, _flagBeforeGlow;
 
     public DeferredAnimatedMaterial(SpriteAnimator animator, SpriteAnimation normalMapAnimation)
         : base(normalMapAnimation.Sprites[0].Texture2D)
@@ -31,6 +32,13 @@ public class DeferredAnimatedMaterial : DeferredSpriteMaterial
         var animation = _normalMapAnimation;
         if (_normalAnimations != null && _animator.CurrentAnimationName != null)
             _normalAnimations.TryGetValue(_animator.CurrentAnimationName, out animation);
+        bool glow = animation?.HasGlow == true;
+        if (glow != _glowOn)
+        {
+            if (glow) _flagBeforeGlow = Effect.UseNormalAlphaChannelForSelfIllumination;
+            Effect.SetUseNormalAlphaChannelForSelfIllumination(glow || _flagBeforeGlow);
+            _glowOn = glow;
+        }
         var diffuse = _animator.Sprite;
         if (animation?.Sprites is not { Length: > 0 } || diffuse == null)
         {

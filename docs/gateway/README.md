@@ -97,7 +97,7 @@ voltage --game app.exit
 
 ## Methods
 
-The editor also exposes 123 live `aseprite.*` tools and connection/project helpers through the same
+The editor also exposes 132 live `aseprite.*` tools and connection/project helpers through the same
 gateway and MCP. See [Live Aseprite Integration](../editor/aseprite.md) for installation and usage.
 
 | Group | Methods |
@@ -117,6 +117,7 @@ gateway and MCP. See [Live Aseprite Integration](../editor/aseprite.md) for inst
 | View | `view.get`, `view.set`, `view.focus` |
 | Assets and builds | `asset.list`, `asset.get`, `asset.refresh`, `asset.kinds`, `asset.drop`, `asset.import`, `asset.importAseprite`, `asset.meta`, `build.platforms`, `build.game`, `build.run` |
 | Prefabs | `prefab.list`, `prefab.info`, `prefab.create`, `prefab.link`, `prefab.instantiate`, `prefab.apply`, `prefab.revert`, `prefab.open`, `prefab.close` |
+| Lighting | `lighting.list_light_types`, `lighting.preview_sprite`, `lighting.show` |
 | Tilemaps | `tilemap.list`, `tilemap.info`, `tilemap.context`, `tilemap.create`, `tilemap.get`, `tilemap.paint`, `tilemap.erase`, `tilemap.fill`, `tilemap.collision`, `tilemap.generateCollision`, `tileset.list`, `tileset.info`, `tileset.create` |
 | Timelines and animation | `timeline.list`, `timeline.create`, `timeline.info`, `timeline.set`, `timeline.track.types`, `timeline.track.add`, `timeline.track.set`, `timeline.track.remove`, `timeline.clip.add`, `timeline.clip.set`, `timeline.clip.remove`, `timeline.key.add`, `timeline.key.remove`, `timeline.marker.list`, `timeline.events`, `timeline.properties`, `timeline.eases`, `timeline.validate`, `timeline.bind`, `timeline.unbind`, `timeline.director`, `timeline.director.state`, `animation.list`, `animation.play`, `animation.stop` |
 | Audio | `audio.zones`, `audio.zone.types`, `audio.zone.create`, `audio.mixer`, `audio.mixer.set`, `audio.state` |

@@ -3135,5 +3135,446 @@
       ],
       "additionalProperties": false
     }
+  },
+  {
+    "name": "normals_generate",
+    "description": "Generate flat faceted normals into hidden Normals-<layer> layers. An existing Normals layer is never replaced without overwrite=true; a new -gen layer is written instead.",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Diffuse layer names; defaults to every visible art layer"
+        },
+        "frames": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "1-based frames; defaults to the tag, then every frame"
+        },
+        "tag": {
+          "type": "string",
+          "description": "Tag whose frames to use"
+        },
+        "preset": {
+          "type": "string",
+          "enum": [
+            "Character",
+            "Prop",
+            "Wall-tile"
+          ],
+          "description": "Starting values for the options below"
+        },
+        "width": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 4,
+          "description": "Silhouette bevel width in pixels"
+        },
+        "merge_outlines": {
+          "type": "boolean",
+          "description": "Dark outline pixels take the facet of the surface they wrap"
+        },
+        "split": {
+          "type": "boolean",
+          "description": "Add side facets to large colour clusters"
+        },
+        "split_min": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Smallest cluster to split, in pixels"
+        },
+        "diagonals": {
+          "type": "boolean",
+          "description": "Use the four diagonal facets at corners"
+        },
+        "overwrite": {
+          "type": "boolean",
+          "description": "Replace the existing Normals layer"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "normals_apply",
+    "description": "Set the selected pixels of a Normals layer to one palette facet, clipped to the diffuse alpha.",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string",
+          "description": "Diffuse or Normals- layer; defaults to the active layer"
+        },
+        "facet": {
+          "type": "string",
+          "enum": [
+            "front",
+            "left",
+            "right",
+            "top",
+            "bottom",
+            "top_left",
+            "top_right",
+            "bottom_left",
+            "bottom_right"
+          ],
+          "description": "Palette facet"
+        },
+        "frame": {
+          "type": "number",
+          "description": "1-based frame; defaults to the active frame"
+        }
+      },
+      "required": [
+        "facet"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "normals_average",
+    "description": "Replace the selected normals with the palette facet nearest to their average.",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string",
+          "description": "Diffuse or Normals- layer; defaults to the active layer"
+        },
+        "frame": {
+          "type": "number",
+          "description": "1-based frame; defaults to the active frame"
+        },
+        "diagonals": {
+          "type": "boolean",
+          "description": "Allow diagonal facets as the result"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "normals_select_cluster",
+    "description": "Select the connected same-colour diffuse cluster under a canvas point.",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "Canvas x"
+        },
+        "y": {
+          "type": "number",
+          "description": "Canvas y"
+        },
+        "layer": {
+          "type": "string",
+          "description": "Diffuse or Normals- layer; defaults to the active layer"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "replace",
+            "add",
+            "remove"
+          ],
+          "description": "How it combines with the current selection"
+        },
+        "frame": {
+          "type": "number",
+          "description": "1-based frame; defaults to the active frame"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "normals_validate",
+    "description": "Check every Normals-/Glow- layer against its diffuse: alpha, bounds, frames, palette colours; unbevelled silhouette pixels are warnings.",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Normals- or Glow- layer names; defaults to all of them"
+        },
+        "diagonals": {
+          "type": "boolean",
+          "description": "Accept the diagonal facets"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "normals_glow",
+    "description": "Glow brush: action=edit shows the Glow-<layer> and targets it, strength sets the foreground colour for the pencil, fill and clear work on the selection.",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "edit",
+            "strength",
+            "fill",
+            "clear"
+          ],
+          "description": "What to do"
+        },
+        "layer": {
+          "type": "string",
+          "description": "Diffuse or Normals- layer; defaults to the active layer"
+        },
+        "on": {
+          "type": "boolean",
+          "description": "action=edit: false ends editing and hides the layer again"
+        },
+        "strength": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Self-illumination 0..1"
+        },
+        "frame": {
+          "type": "number",
+          "description": "1-based frame; defaults to the active frame"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "normals_rim",
+    "description": "Compute the Jolt-style pixel rim. bake=true writes it into Glow-<layer> on the chosen frames; otherwise returns an image of it.",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Diffuse layer names; defaults to every visible art layer"
+        },
+        "frames": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "1-based frames; defaults to the tag, then every frame"
+        },
+        "tag": {
+          "type": "string",
+          "description": "Tag whose frames to use"
+        },
+        "width": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 4,
+          "description": "Rim depth from the silhouette"
+        },
+        "side_strength": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Left and right edges relative to the top"
+        },
+        "facing": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "How far a normal must face the edge"
+        },
+        "skip_layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Layers whose pixels get no rim"
+        },
+        "bake": {
+          "type": "boolean",
+          "description": "Write into the Glow layers"
+        },
+        "replace": {
+          "type": "boolean",
+          "description": "Discard the existing glow on those frames"
+        },
+        "use_generated": {
+          "type": "boolean",
+          "description": "Read normals from -gen layers"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "normals_carry",
+    "description": "Record cluster facets and glow on one frame and carry them to matching clusters on other frames. Without apply=true it only reports the diff and returns a strip with changed pixels in magenta.",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string",
+          "description": "Diffuse or Normals- layer; defaults to the active layer"
+        },
+        "frames": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "1-based frames; defaults to the tag, then every frame"
+        },
+        "tag": {
+          "type": "string",
+          "description": "Tag whose frames to use"
+        },
+        "source_frame": {
+          "type": "number",
+          "description": "Frame to copy from; defaults to the active frame"
+        },
+        "threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "description": "Largest match score for a cluster pair"
+        },
+        "apply": {
+          "type": "boolean",
+          "description": "Write the result"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "normals_preview",
+    "description": "Render a frame in Aseprite with a Voltage-exact CPU copy of the lighting. Returns a PNG.",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "frame": {
+          "type": "number",
+          "description": "1-based frame; defaults to the active frame"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "final",
+            "normals",
+            "glow"
+          ],
+          "description": "View"
+        },
+        "preset": {
+          "type": "string",
+          "enum": [
+            "Fluorescent bar above",
+            "Warm room fill",
+            "Cable spark"
+          ],
+          "description": "Light preset when lights is omitted"
+        },
+        "lights": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "point",
+                  "bar",
+                  "fill"
+                ]
+              },
+              "preset": {
+                "type": "string"
+              },
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "z": {
+                "type": "number"
+              },
+              "radius": {
+                "type": "number"
+              },
+              "intensity": {
+                "type": "number"
+              },
+              "color": {
+                "type": "string"
+              },
+              "length": {
+                "type": "number"
+              },
+              "range": {
+                "type": "number"
+              },
+              "spread": {
+                "type": "number"
+              },
+              "softness": {
+                "type": "number"
+              },
+              "falloff": {
+                "type": "number"
+              }
+            },
+            "required": [],
+            "additionalProperties": false
+          },
+          "description": "Lights in canvas pixels"
+        },
+        "ambient": {
+          "type": "string",
+          "description": "Ambient colour as #RRGGBB"
+        },
+        "normal_layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Normals layers; defaults to all of them"
+        },
+        "use_generated": {
+          "type": "boolean",
+          "description": "Prefer -gen layers"
+        },
+        "scale": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 16,
+          "description": "Integer upscale"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
   }
 ]

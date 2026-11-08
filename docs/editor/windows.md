@@ -20,6 +20,7 @@ sidebar_position: 2
 | **Tileset Editor** | Defines tile dimensions, source art, animation, terrain and collision metadata in a `.vtileset`. See [Tilesets](tilesets.md). |
 | **Build Game** | Publishes a standalone game and controls per-scene Debug/Release inclusion. See [Build Game and Scene Presets](game-build.md). |
 | **Aseprite** | Connects source-art editing to Voltage. Open from **View > Window > Aseprite**; see [Live Aseprite Integration](aseprite.md). |
+| **Light Preview** | Lights an Aseprite sprite through the real deferred renderer with any engine or game light. Open from **View > Window > Light Preview**; see [Light Preview](light-preview.md). |
 | **Timeline Editor** | Authors and previews sequences through a scene's Timeline Director. See [Timeline Editor](timelines.md). |
 | **Animation Event Inspector** | Edits events associated with sprite animation frames. See [Animation Event Inspector](animation-events.md). |
 | **Core Settings** | Live engine switches and FPS graph, opened through **Core Window**. See [Core Settings](core-settings.md). |

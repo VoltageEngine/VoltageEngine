@@ -33,7 +33,7 @@ public sealed class AsepriteBridge : IDisposable
 
 	public AsepriteBridge(Action<string, object> emit) { _emit = emit; }
 
-	public object Status() => new { connected = IsConnected, listening = IsListening, port = Port, installed = File.Exists(Path.Combine(ExtensionDirectory, "plugin.lua")), extension = ExtensionDirectory, tools = 123 };
+	public object Status() => new { connected = IsConnected, listening = IsListening, port = Port, installed = File.Exists(Path.Combine(ExtensionDirectory, "plugin.lua")), extension = ExtensionDirectory, tools = 132 };
 
 	public void Start()
 	{
@@ -69,6 +69,7 @@ public sealed class AsepriteBridge : IDisposable
 			.Replace("__VOLTAGE_PORT__", _port.ToString(System.Globalization.CultureInfo.InvariantCulture))
 			.Replace("__VOLTAGE_TOKEN__", _token);
 		File.WriteAllText(Path.Combine(ExtensionDirectory, "plugin.lua"), plugin);
+		File.Copy(Path.Combine(Resources, "normals.lua"), Path.Combine(ExtensionDirectory, "normals.lua"), true);
 		File.Copy(Path.Combine(Resources, "LICENSE"), Path.Combine(ExtensionDirectory, "LICENSE"), true);
 		File.Copy(Path.Combine(Resources, "package.json"), Path.Combine(ExtensionDirectory, "package.json"), true);
 		return new { installed = true, directory = ExtensionDirectory, port = _port, instruction = "Restart Aseprite or enable Voltage Bridge in its Extensions preferences. Allow its initial WebSocket request." };

@@ -22,6 +22,8 @@ const sidebars = {
         'editor/hot-reload',
         'editor/asset-build',
         'editor/aseprite',
+        'editor/voltage-normals',
+        'editor/light-preview',
         'editor/tilesets',
         'editor/tile-palette',
         'editor/tile-selection',

@@ -255,7 +255,7 @@ public class EntityList : IEnumerable<Entity>
 			foreach (var entity in _tempEntityList)
 				entity.OnAddedToScene();
 
-			Serialization.ComponentReferenceResolver.ResolveAll();
+			Serialization.ComponentReferenceResolver.ResolveAll(Scene);
 
 			// SceneComponents are scene-level services; entity components are consumers.
 			// OnEnabled + OnStart must fire on all SceneComponents before entity OnStart so
@@ -321,7 +321,7 @@ public class EntityList : IEnumerable<Entity>
 	internal void ActivatePendingComponents()
 	{
 		for (int i = 0; i < _entities.Length; i++) _entities.Buffer[i].Components.CommitPendingAdditions();
-		Serialization.ComponentReferenceResolver.ResolveAll();
+		Serialization.ComponentReferenceResolver.ResolveAll(Scene);
 		for (int i = 0; i < _entities.Length; i++)
 		{
 			if (_entities.Buffer[i].Components.HasPendingStartup) _entities.Buffer[i].Components.CallOnEnableAndOnStart();

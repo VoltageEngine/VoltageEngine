@@ -66,6 +66,7 @@ public sealed class EditorGatewayDispatcher : GatewayDispatcher
 		EditorPromptCommands.Register(Commands);
 		AssetBuildCommands.Register(Commands);
 		ScriptCommands.Register(Commands);
+		LightingCommands.Register(Commands);
 	}
 
 	/// <summary>A startup prompt that --no-prompts kept closed: warns in the log and tells subscribed agents what they would have been asked.</summary>

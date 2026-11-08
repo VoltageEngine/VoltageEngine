@@ -7,7 +7,7 @@ sidebar_position: 9
 
 Voltage Editor includes Voltage Bridge, its live Aseprite integration. The editor
 hosts an authenticated WebSocket connection; its Lua extension edits documents inside running Aseprite,
-including unsaved documents. The existing `voltage` CLI and MCP server expose 123 Aseprite commands
+including unsaved documents. The existing `voltage` CLI and MCP server expose 132 Aseprite commands
 under `aseprite.*`, together with six connection, installation, guidance and project commands. No Node.js
 or Python installation is required. This feature is editor-only and adds nothing to published games.
 

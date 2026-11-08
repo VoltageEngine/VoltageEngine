@@ -8,6 +8,8 @@ public class SpriteAnimation
 {
 	public readonly Sprite[] Sprites;
 	public readonly float[] FrameRates;
+	/// <summary>The normal frames carry a Glow layer's self-illumination in their alpha.</summary>
+	public bool HasGlow;
 
 	public SpriteAnimation(Sprite[] sprites, float frameRate)
 	{

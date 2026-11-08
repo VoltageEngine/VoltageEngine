@@ -21,6 +21,21 @@ red points right and green points up. Keep the RGB vector normalized and use
 opaque pixels wherever the matching artwork is visible. Flipping, negative
 scale and sprite rotation also transform the normal direction.
 
+Green above 128 faces up, so a pixel with G = 198 brightens under a light
+placed above it and darkens under one below it.
+
+Add a hidden `Glow-<layer>` beside a `Normals-<layer>` to make pixels
+self-illuminated. Strength is the brightest colour channel times alpha, so a
+grey or tinted pixel both work, from none to fully lit. `AnimatedNormalMap`
+packs the matching Glow frames into the normal texture's alpha and enables
+self-illumination for that clip only; clips without Glow are unchanged. Code
+that loads normals itself gets the same behaviour from
+`Content.LoadAsepriteNormalAtlas(path, layers)`. Glow does not hide ambient,
+which the final combine still adds on top. The
+[Voltage Normals](../editor/voltage-normals.md) panel paints and bakes these
+layers, and the [Light Preview](../editor/light-preview.md) shows them through
+the real renderer.
+
 `DeferredAnimatedMaterial` accepts either one normal animation or a dictionary
 keyed by the animator's animation names. Content-owned Aseprite atlases are
 shared by path, layer selection and visibility setting. Identical full frames

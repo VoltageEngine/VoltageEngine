@@ -641,6 +641,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		TilesetEditorWindow.Draw();
 		DataAssetWindow.Draw();
 		Aseprite.AsepriteWindow.Draw();
+		Voltage.Editor.Windows.LightPreviewWindow.Draw();
 
 		Plugins.EditorPluginHost.DrawWindows();
 		_cursorSelectionManager.UpdateSelection();

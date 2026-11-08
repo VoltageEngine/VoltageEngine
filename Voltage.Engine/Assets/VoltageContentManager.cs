@@ -314,10 +314,18 @@ public class VoltageContentManager : ContentManager
 
     public SpriteAtlas LoadAsepriteAtlas(string name, IReadOnlyCollection<string> layers, bool onlyVisibleLayers) => LoadAsepriteAtlas(name, layers, out _, onlyVisibleLayers);
 
-	internal SpriteAtlas LoadAsepriteAtlas(string name, IReadOnlyCollection<string> layers, out float firstFrameRate, bool onlyVisibleLayers = true)
+	/// <summary>Loads hidden normal layers; a <c>Glow-&lt;layer&gt;</c> beside a <c>Normals-&lt;layer&gt;</c> is packed into the alpha and marked with HasGlow.</summary>
+	public SpriteAtlas LoadAsepriteNormalAtlas(string name, IReadOnlyCollection<string> layers)
+	{
+		var glow = LoadAsepriteFileForRendering(name).GlowLayersFor(layers.ToArray());
+		return LoadAsepriteAtlas(name, layers, out _, false, glow);
+	}
+
+	internal SpriteAtlas LoadAsepriteAtlas(string name, IReadOnlyCollection<string> layers, out float firstFrameRate, bool onlyVisibleLayers = true, string[] glowLayers = null)
 	{
 		var selected = layers is { Count: > 0 } ? layers.Distinct(StringComparer.Ordinal).OrderBy(layer => layer, StringComparer.Ordinal).ToArray() : Array.Empty<string>();
-		var key = (Path.GetFullPath(ResolveContentPath(name)), string.Concat(selected.Select(layer => layer.Length + ":" + layer)), onlyVisibleLayers);
+		bool packsGlow = glowLayers is { Length: > 0 };
+		var key = (Path.GetFullPath(ResolveContentPath(name)), string.Concat(selected.Select(layer => layer.Length + ":" + layer)) + (packsGlow ? "|glow:" + string.Join(",", glowLayers.Order(StringComparer.Ordinal)) : ""), onlyVisibleLayers);
 		if (_asepriteAtlases.TryGetValue(key, out var cached))
 		{
 			firstFrameRate = cached.FirstFrameRate;
@@ -325,7 +333,7 @@ public class VoltageContentManager : ContentManager
 		}
 		using var timing = SceneLoadDiagnostics.Measure("asset.aseprite.atlas", name + " [" + string.Join(",", selected) + "]");
 		var file = LoadAsepriteFileForRendering(name);
-		var atlas = file.ToSharedSpriteAtlas(onlyVisibleLayers, selected);
+		var atlas = file.ToSharedSpriteAtlas(onlyVisibleLayers, selected, glowLayers);
 		firstFrameRate = file.Frames.Count > 0 ? 1000f / Math.Max(1, file.Frames[0].Duration) : 10f;
 		_asepriteAtlases.Add(key, (atlas, firstFrameRate));
 		DisposableAssets.Add(atlas);

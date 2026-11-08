@@ -72,6 +72,7 @@ namespace Voltage.DeferredLighting
 		Color _clearColor;
 		static Texture2D _nullNormalMapTexture;
 		static int _normalMapUsers;
+		RenderTarget2D _outputOverride;
 
 		public RenderTexture DiffuseRT;
 		public RenderTexture NormalRT;
@@ -115,6 +116,17 @@ namespace Voltage.DeferredLighting
 
 			// set some sensible defaults
 			SetAmbientColor(new Color(0.2f, 0.2f, 0.2f)).SetClearColor(Color.Black);
+		}
+
+		/// <summary>Runs the full pipeline for a scene that was never begun, centring its camera on target and writing the result there.</summary>
+		public void RenderTo(Scene scene, RenderTarget2D target)
+		{
+			if (DiffuseRT == null || DiffuseRT.RenderTarget.Width != target.Width || DiffuseRT.RenderTarget.Height != target.Height)
+				OnSceneBackBufferSizeChanged(target.Width, target.Height);
+			scene.Camera.Origin = new Vector2(target.Width, target.Height) / 2;
+			_outputOverride = target;
+			try { Render(scene); }
+			finally { _outputOverride = null; }
 		}
 
 		/// <summary>
@@ -266,7 +278,7 @@ namespace Voltage.DeferredLighting
 
 		void RenderFinalCombine(Scene scene)
 		{
-			Core.GraphicsDevice.SetRenderTarget(scene.SceneRenderTarget);
+			Core.GraphicsDevice.SetRenderTarget(_outputOverride ?? scene.SceneRenderTarget);
 			Core.GraphicsDevice.BlendState = BlendState.Opaque;
 			Core.GraphicsDevice.DepthStencilState = DepthStencilState.None;
 
@@ -306,6 +318,13 @@ namespace Voltage.DeferredLighting
 
 		void RenderLight(DeferredLight light)
 		{
+            if (light.RenderCustom(new DeferredLightContext(this, light.Entity.Scene.Camera, _lightEffect)))
+            {
+                Core.GraphicsDevice.BlendState = BlendState.Additive;
+                Core.GraphicsDevice.DepthStencilState = DepthStencilState.None;
+                Core.GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+                return;
+            }
             if (light is FluorescentLight fluorescent)
             {
                 if (!fluorescent.HasValidTransform || fluorescent.Bounds.Width <= 0 || fluorescent.Bounds.Height <= 0) return;
@@ -359,6 +378,10 @@ namespace Voltage.DeferredLighting
 			_polygonMesh.Render();
 		}
 
+		internal void RenderPointVolume() => _polygonMesh.Render();
+		internal void RenderQuadVolume() => _quadPolygonMesh.Render();
+		internal void RenderFullscreen() => _quadMesh.Render();
+
 		void RenderLight(SpotLight light)
 		{
 			_lightEffect.UpdateForLight(light);
@@ -396,9 +419,9 @@ namespace Voltage.DeferredLighting
 		{
 			_lightEffect.Dispose();
 
-			DiffuseRT.Dispose();
-			NormalRT.Dispose();
-			LightRT.Dispose();
+			DiffuseRT?.Dispose();
+			NormalRT?.Dispose();
+			LightRT?.Dispose();
 			AmbientRT?.Dispose();
 
 			if (--_normalMapUsers == 0)

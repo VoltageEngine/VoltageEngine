@@ -505,6 +505,7 @@ public partial class ImGuiManager
 			if (Gui.BeginMenu("Window"))
 			{
 				Gui.MenuItem("Aseprite", null, ref Aseprite.AsepriteWindow.IsOpen);
+				Gui.MenuItem("Light Preview", null, ref Voltage.Editor.Windows.LightPreviewWindow.IsOpen);
 				var showMainInspector = ShowMainInspectorWindow;
 				Gui.MenuItem("Inspector Window", null, ref showMainInspector);
 				ShowMainInspectorWindow = showMainInspector;

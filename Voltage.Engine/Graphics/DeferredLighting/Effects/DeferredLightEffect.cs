@@ -156,15 +156,19 @@ namespace Voltage.DeferredLighting
 		/// <param name="light">Light.</param>
 		public void UpdateForLight(PointLight light)
 		{
-			SetLightPosition(new Vector3(light.Entity.Transform.Position + light.LocalOffset, light.ZPosition));
-			SetColor(light.Color);
-			SetLightRadius(light.Radius * System.Math.Abs(light.Entity.Transform.Scale.X));
-			SetLightIntensity(light.Intensity);
+			PreparePointLight(new Vector3(light.Entity.Transform.Position + light.LocalOffset, light.ZPosition),
+				light.Radius * System.Math.Abs(light.Entity.Transform.Scale.X), light.Intensity, light.Color);
+		}
 
-			var objToWorld = Matrix.CreateScale(light.Radius * System.Math.Abs(light.Entity.Transform.Scale.X)) *
-							 Matrix.CreateTranslation(light.Entity.Transform.Position.X + light.LocalOffset.X,
-								 light.Entity.Transform.Position.Y + light.LocalOffset.Y, 0);
-			SetObjectToWorldMatrix(objToWorld);
+
+		/// <summary>Sets up the point-light pass from plain values, so a custom light can draw any number of point lobes.</summary>
+		public void PreparePointLight(Vector3 position, float radius, float intensity, Color color)
+		{
+			SetLightPosition(position);
+			SetColor(color);
+			SetLightRadius(radius);
+			SetLightIntensity(intensity);
+			SetObjectToWorldMatrix(Matrix.CreateScale(radius) * Matrix.CreateTranslation(position.X, position.Y, 0));
 
 			CurrentTechnique = Techniques["DeferredPointLight"];
 			pointLightPass.Apply();

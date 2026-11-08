@@ -5,9 +5,9 @@ namespace Voltage.Serialization;
 
 public static class ComponentReferenceResolver
 {
-	public static void ResolveAll()
+	public static void ResolveAll(Scene scene = null)
 	{
-		var scene = Core.Scene;
+		scene ??= Core.Scene;
 
 		// Resolve SceneComponent references first: they are scene-level services and must
 		// have their references wired up before entity components (which may query them

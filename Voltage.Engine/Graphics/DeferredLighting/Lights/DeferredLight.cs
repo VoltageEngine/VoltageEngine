@@ -11,5 +11,11 @@ namespace Voltage.DeferredLighting
 		public override void Render(Batcher batcher, Camera camera)
 		{
 		}
+
+		/// <summary>Visible everywhere by default; override it to cull a custom light. Built-in lights override it.</summary>
+		public override RectangleF Bounds => Entity?.Scene != null ? Entity.Scene.Camera.Bounds : new RectangleF();
+
+		/// <summary>Draws a custom light into the light buffer and returns true. Returning false leaves the light to the renderer's built-in types.</summary>
+		public virtual bool RenderCustom(DeferredLightContext context) => false;
 	}
 }

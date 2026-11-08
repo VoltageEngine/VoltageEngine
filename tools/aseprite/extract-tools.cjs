@@ -28,6 +28,11 @@ for (const file of fs.readdirSync(process.argv[2]).filter(f => f.endsWith('.js')
   const code = source.replace(/^import .*;\r?\n/gm, '').replace('export function', 'function');
   new Function('z', 'server', 'aseprite', `${code}\n${match[1]}(server, aseprite);`)(z, server, {});
 }
+// --merge keeps the catalogue's other entries, because only Voltage's own modules live in this repository.
+if (process.argv[4] === '--merge') {
+  const fresh = new Set(tools.map(t => t.name));
+  tools.unshift(...JSON.parse(fs.readFileSync(process.argv[3], 'utf8')).filter(t => !fresh.has(t.name)));
+}
 if (new Set(tools.map(t => t.name)).size !== tools.length) throw new Error('Duplicate tools');
 fs.writeFileSync(process.argv[3], JSON.stringify(tools, null, 2) + '\n');
 console.log(`Extracted ${tools.length} tool schemas`);

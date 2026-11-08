@@ -69,7 +69,7 @@ internal static class AsepriteCommands
 			}, parameters).WithInputSchema(schema);
 			if (IsReadOnly(name)) command.ReadOnly();
 			else command.Unsafe();
-			if (name.StartsWith("delete_", StringComparison.Ordinal) || name is "close_sprite" or "flatten_sprite" or "clear_image" or "clear_cel" or "execute_script") command.Destructive();
+			if (name.StartsWith("delete_", StringComparison.Ordinal) || name is "close_sprite" or "flatten_sprite" or "clear_image" or "clear_cel" or "execute_script" or "normals_carry" or "normals_rim") command.Destructive();
 		}
 	}
 
@@ -84,5 +84,5 @@ internal static class AsepriteCommands
 
 	private static bool IsReadOnly(string name) => name.StartsWith("get_", StringComparison.Ordinal) ||
 		name.StartsWith("list_", StringComparison.Ordinal) || name.StartsWith("compare_", StringComparison.Ordinal) ||
-		name is "find_unused_colors" or "validate_animation";
+		name is "find_unused_colors" or "validate_animation" or "normals_validate" or "normals_preview";
 }
