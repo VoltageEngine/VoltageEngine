@@ -1,12 +1,16 @@
 ---
 title: Installation
 sidebar_position: 1
-description: Build the editor from source and open your first project.
+description: Download the editor, or build it from source, and open your first project.
 ---
 
 # Installation
 
-Voltage is built from source. There is no installer yet; the editor is a single executable that the .NET SDK produces in a couple of minutes.
+## Download the editor
+
+Builds for Windows, macOS (Apple Silicon and Intel) and Linux are on the [download page](/download). Each is self-contained, so running the editor needs no .NET install. Unzip or open it and start `Voltage.Editor`.
+
+To change the engine itself, build it from source as described below. The editor is a single executable that the .NET SDK produces in a couple of minutes.
 
 ## Prerequisites
 
