@@ -2,7 +2,7 @@ using System;
 
 namespace Voltage.Editor.Plugins
 {
-	/// <summary>Minimal semver range matcher: "*", &gt;=, &gt;, &lt;=, &lt;, a bare exact version, and space-separated conjunctions. Pre-release suffixes compare ordinally after the numeric parts.</summary>
+	/// <summary>Minimal semver range matcher: "*", &gt;=, &gt;, &lt;=, &lt;, a bare exact version, and space-separated conjunctions. An optional fourth number is a hotfix (0.2.2.1 follows 0.2.2). Pre-release suffixes compare ordinally after the numeric parts.</summary>
 	public static class SemVerRange
 	{
 		/// <summary>True when version satisfies range. Empty or "*" matches everything; malformed input is false.</summary>
@@ -54,7 +54,7 @@ namespace Voltage.Editor.Plugins
 		public static bool IsNewer(string candidate, string current) =>
 			TryCompare(candidate, current, out var comparison) && comparison > 0;
 
-		private static bool ClauseSatisfied((int major, int minor, int patch, string pre) v, string clause)
+		private static bool ClauseSatisfied((int major, int minor, int patch, int hotfix, string pre) v, string clause)
 		{
 			string op;
 			string versionPart;
@@ -80,11 +80,12 @@ namespace Voltage.Editor.Plugins
 			};
 		}
 
-		private static int Compare((int major, int minor, int patch, string pre) a, (int major, int minor, int patch, string pre) b)
+		private static int Compare((int major, int minor, int patch, int hotfix, string pre) a, (int major, int minor, int patch, int hotfix, string pre) b)
 		{
 			if (a.major != b.major) return a.major.CompareTo(b.major);
 			if (a.minor != b.minor) return a.minor.CompareTo(b.minor);
 			if (a.patch != b.patch) return a.patch.CompareTo(b.patch);
+			if (a.hotfix != b.hotfix) return a.hotfix.CompareTo(b.hotfix);
 
 			// Per semver, a release (no pre-release tag) is higher than any pre-release of the same triple.
 			var aHasPre = !string.IsNullOrEmpty(a.pre);
@@ -93,7 +94,7 @@ namespace Voltage.Editor.Plugins
 			return string.CompareOrdinal(a.pre ?? "", b.pre ?? "");
 		}
 
-		private static bool TryParseVersion(string input, out (int major, int minor, int patch, string pre) result)
+		private static bool TryParseVersion(string input, out (int major, int minor, int patch, int hotfix, string pre) result)
 		{
 			result = default;
 			if (string.IsNullOrWhiteSpace(input))
@@ -112,7 +113,7 @@ namespace Voltage.Editor.Plugins
 			}
 
 			var parts = text.Split('.');
-			if (parts.Length < 1 || parts.Length > 3)
+			if (parts.Length < 1 || parts.Length > 4)
 				return false;
 
 			if (!int.TryParse(parts[0], out var major))
@@ -120,12 +121,15 @@ namespace Voltage.Editor.Plugins
 
 			var minor = 0;
 			var patch = 0;
+			var hotfix = 0;
 			if (parts.Length > 1 && !int.TryParse(parts[1], out minor))
 				return false;
 			if (parts.Length > 2 && !int.TryParse(parts[2], out patch))
 				return false;
+			if (parts.Length > 3 && !int.TryParse(parts[3], out hotfix))
+				return false;
 
-			result = (major, minor, patch, pre);
+			result = (major, minor, patch, hotfix, pre);
 			return true;
 		}
 	}
