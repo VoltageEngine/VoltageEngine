@@ -12,6 +12,7 @@ public class Program
 	public static void Main(string[] args)
 	{
 		CommandLineArgs = args;
+		Voltage.Editor.Utils.LaunchPath.Complete();
 		// Ask SDL for native pixels before it creates the window, avoiding Windows bitmap scaling.
 		if (OperatingSystem.IsWindows() && Environment.GetEnvironmentVariable("SDL_WINDOWS_DPI_AWARENESS") == null)
 			Environment.SetEnvironmentVariable("SDL_WINDOWS_DPI_AWARENESS", "permonitorv2");
