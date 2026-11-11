@@ -42,6 +42,12 @@ It selects Intel or Apple Silicon automatically, permits one helper build per ch
 
 Normal macOS builds also default to non-shared compilation and sequential project-reference builds. These settings reduce build concurrency and background compiler retention; they do not cap the editor's runtime heap or diagnose a system restart. If the entire Mac restarts, inspect the macOS panic report rather than assuming a managed out-of-memory exception. Follow [Apple's unexpected-restart troubleshooting](https://support.apple.com/102382) if the problem persists.
 
+### Dock app on macOS
+
+Every macOS build also refreshes `Voltage.Editor/bin/<configuration>/Voltage Editor.app`, a bundle with the Voltage icon. Drag it to the Dock once; later builds update it in place, so the Dock icon keeps launching the newest build. Pass `-p:VoltageMacApp=false` to skip it.
+
+If the checkout or your projects are in Documents, Desktop or Downloads, macOS asks for access on first launch and remembers the answer per code signature. Builds are ad-hoc signed, so the question returns after a rebuild. To keep the answer, write a signing identity from `security find-identity -v -p codesigning` as the only line of `Voltage.Editor/mac-signing-identity.txt`, which is never committed; each build then signs the app with it.
+
 ## Run it
 
 Start the editor with no arguments to get the project picker, or pass a `.voltage` file to open a project directly:

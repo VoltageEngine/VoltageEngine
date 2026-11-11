@@ -300,5 +300,28 @@
 		</ItemGroup>
 	</Target>
 
+	<!-- macOS: refresh a Dock-ready "Voltage Editor.app" beside the build output after every build, in place so a
+	     pinned Dock icon survives rebuilds. -p:VoltageMacApp=false skips it. A signing identity, from
+	     -p:VoltageMacSigningIdentity or the one line of the gitignored mac-signing-identity.txt next to this
+	     project, keeps macOS folder permissions from being asked again after each rebuild. -->
+	<Target Name="RefreshMacAppBundle" AfterTargets="Build"
+	        Condition="'$(IsOSX)' == 'true' And '$(VoltageMacApp)' != 'false' And '$(DesignTimeBuild)' != 'true' And $(RuntimeIdentifier.StartsWith('osx'))">
+		<PropertyGroup>
+			<_MacSigningFile>$(MSBuildThisFileDirectory)mac-signing-identity.txt</_MacSigningFile>
+			<_MacApp>$(MSBuildThisFileDirectory)bin/$(Configuration)/Voltage Editor.app</_MacApp>
+		</PropertyGroup>
+		<ReadLinesFromFile File="$(_MacSigningFile)" Condition="'$(VoltageMacSigningIdentity)' == '' And Exists('$(_MacSigningFile)')">
+			<Output TaskParameter="Lines" ItemName="_MacSigningLine" />
+		</ReadLinesFromFile>
+		<ItemGroup>
+			<_MacSigningIdentity Include="@(_MacSigningLine)" Condition="!$([System.String]::Copy('%(Identity)').StartsWith('#'))" />
+		</ItemGroup>
+		<PropertyGroup Condition="'$(VoltageMacSigningIdentity)' == ''">
+			<VoltageMacSigningIdentity>@(_MacSigningIdentity)</VoltageMacSigningIdentity>
+		</PropertyGroup>
+		<Exec Command="/bin/bash &quot;$(MSBuildThisFileDirectory)../tools/macos/make-editor-app.sh&quot; &quot;$(OutDir)&quot; &quot;$(_MacApp)&quot; &quot;$(VoltageMacSigningIdentity)&quot;" />
+		<Message Importance="high" Text="Voltage Editor.app -> $(_MacApp)" />
+	</Target>
+
 	<Import Sdk="Microsoft.NET.Sdk" Project="Sdk.targets" />
 </Project>
