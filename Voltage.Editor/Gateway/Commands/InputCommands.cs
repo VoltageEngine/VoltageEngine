@@ -47,21 +47,25 @@ internal static class InputCommands
 			};
 		}).ReadOnly();
 
-		table.Add("ui.resize", "Resize the editor window, for repeatable screenshot coordinates.", (args, _) =>
+		table.Add("ui.resize", "Resize the editor window to a back-buffer size in pixels, for repeatable screenshot coordinates.", (args, _) =>
 		{
 			var width = args.Int("width");
 			var height = args.Int("height");
 			if (width < 320 || height < 240)
 				throw new GatewayException("width and height must be at least 320x240");
 			ScreenUtils.ApplyScreenChange(ScreenUtils.ScreenMode.Windowed);
-			Screen.SetSize(width, height);
-			return new { width, height };
+			var scale = Styling.MacRetina.Scale;
+			Screen.SetSize((int)System.MathF.Round(width / scale), (int)System.MathF.Round(height / scale));
+			Styling.MacRetina.Sync();
+			var pp = Core.GraphicsDevice.PresentationParameters;
+			return new { width = pp.BackBufferWidth, height = pp.BackBufferHeight };
 		}, P.Int("width", "Window width, at least 320", required: true), P.Int("height", "Window height, at least 240", required: true));
 
 		table.Add("ui.maximize", "Size the editor window to the usable screen area.", (_, _) =>
 		{
 			ScreenUtils.ApplyScreenChange(ScreenUtils.ScreenMode.WindowedMax);
 			Utils.EditorWindowLayout.FitToUsableBounds();
+			Styling.MacRetina.Sync();
 			var pp = Core.GraphicsDevice.PresentationParameters;
 			return new { width = pp.BackBufferWidth, height = pp.BackBufferHeight };
 		});

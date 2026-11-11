@@ -38,11 +38,8 @@ public class ImGuiInput
 		io.DisplaySize = new System.Numerics.Vector2(Core.GraphicsDevice.PresentationParameters.BackBufferWidth,
 			Core.GraphicsDevice.PresentationParameters.BackBufferHeight);
 		io.DisplayFramebufferScale = System.Numerics.Vector2.One;
+		// Input already reports the mouse in back-buffer pixels, the same space as DisplaySize.
 		UpdateInput(Input.CurrentKeyboardState, Input.CurrentMouseState, Core.Instance.IsActive || Core.KeepRunningWhenUnfocused);
-		var client = Core.Instance.Window.ClientBounds;
-		if (client.Width > 0 && client.Height > 0 && (Core.Instance.IsActive || Core.KeepRunningWhenUnfocused))
-			io.AddMousePosEvent(Input.CurrentMouseState.X * io.DisplaySize.X / client.Width,
-				Input.CurrentMouseState.Y * io.DisplaySize.Y / client.Height);
 	}
 
 	internal void UpdateInput(KeyboardState keyboard, MouseState mouse, bool focused)

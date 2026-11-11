@@ -18,6 +18,9 @@ namespace Voltage
 
 		internal static Vector2 _resolutionScale;
 		internal static Point _resolutionOffset;
+
+		/// <summary>Back-buffer pixels per window point, raised by the editor when its macOS back buffer is a Retina drawable.</summary>
+		internal static float WindowPixelScale = 1;
 		static KeyboardState _previousKbState;
 		static KeyboardState _currentKbState;
 		static MouseState _previousMouseState;
@@ -86,7 +89,7 @@ namespace Voltage
 			_currentKbState = Keyboard.GetState();
 
 			_previousMouseState = new MouseState();
-			_currentMouseState = Mouse.GetState();
+			_currentMouseState = PollMouse();
 			_lastPolledMousePos = new Point(_currentMouseState.X, _currentMouseState.Y);
 
 			MaxSupportedGamePads = 1;
@@ -101,7 +104,7 @@ namespace Voltage
 			_currentKbState = Keyboard.GetState();
 
 			_previousMouseState = _currentMouseState;
-			_currentMouseState = Mouse.GetState();
+			_currentMouseState = PollMouse();
 			// MonoGame reports global mouse buttons, so clicks in other windows would reach an unfocused game.
 			// Keep the position; synthetic input is applied afterwards and still works.
 			if (Core.Instance?.IsActive == false)
@@ -158,9 +161,21 @@ namespace Voltage
 		/// <summary>Re-anchors the physical delta at the cursor's current position so the next Update reads zero movement.</summary>
 		public static void ResyncMousePosition()
 		{
-			var mouse = Mouse.GetState();
+			var mouse = PollMouse();
 			_lastPolledMousePos = new Point(mouse.X, mouse.Y);
 			_mousePositionDelta = Point.Zero;
+		}
+
+		/// <summary>Reads the OS mouse in back-buffer pixels.</summary>
+		static MouseState PollMouse()
+		{
+			var state = Mouse.GetState();
+			if (WindowPixelScale == 1)
+				return state;
+
+			return new MouseState((int)System.MathF.Round(state.X * WindowPixelScale), (int)System.MathF.Round(state.Y * WindowPixelScale),
+				state.ScrollWheelValue, state.LeftButton, state.MiddleButton, state.RightButton, state.XButton1, state.XButton2,
+				state.HorizontalScrollWheelValue);
 		}
 
 		/// <summary>

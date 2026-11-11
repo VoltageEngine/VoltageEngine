@@ -26,6 +26,8 @@ public class Editor : Core
 	protected override void Initialize()
 	{
 		base.Initialize();
+		if (!EditorRunMode.Headless)
+			Voltage.Editor.Styling.MacRetina.Enable(Window);
 
 		var font = Content.LoadBitmapFont("DefaultContent/Fonts/VoltageDefaultBMFont.fnt");
 		Graphics.Instance = new Graphics(font);
@@ -148,6 +150,7 @@ public class Editor : Core
 			return;
 		}
 
+		Voltage.Editor.Styling.MacRetina.Sync();
 		base.Draw(gameTime);
 		_gateway?.AfterDraw();
 	}
@@ -180,6 +183,7 @@ public class Editor : Core
 
 	protected override void Update(GameTime gameTime)
 	{
+		Voltage.Editor.Styling.MacRetina.Sync();
 		base.Update(gameTime);
 
 #if OS_WINDOWS || LINUX

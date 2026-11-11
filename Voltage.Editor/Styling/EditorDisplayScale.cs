@@ -22,6 +22,7 @@ internal static class EditorDisplayScale
 	internal static float GetScale()
 	{
 		if (Core.Instance?.Window == null) return 1;
+		if (MacRetina.Active) return MacRetina.Scale;
 		if (OperatingSystem.IsWindows())
 		{
 			_getWindowInfo ??= Utils.SdlNative.TryGet<GetWindowInfo>("SDL_GetWindowWMInfo", out var function) ? function : null;
