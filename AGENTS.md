@@ -14,6 +14,11 @@ These apply to every agent, assistant, or automation that edits this repository,
 - Before committing or pushing a large change set (a new subsystem, many files, new dependencies, anything touching networking, authentication, file access, or process launching), run a security review and an architecture review of the diff, fix the findings, and only then commit.
 - Before pushing anything, re-read the outgoing commit messages (`git log origin/main..HEAD`) and confirm none of them break the attribution rules above.
 
+## Releases and version numbers
+
+- `VoltageVersion.Engine` in `Voltage.Engine/VoltageVersion.cs` is the version. A release is cut by pushing the tag `v<that version>`, and the release workflow refuses a tag that does not match it.
+- A hotfix, a release that only fixes the current one, appends a number instead of bumping the patch: 0.2.2 becomes 0.2.2.1, then 0.2.2.2. A release with new features bumps the three-part version (0.2.3 or 0.3.0) and drops the hotfix number.
+
 ## Working conventions
 
 - Comments are budgeted: one-line XML docs, no narration, no banner dividers.
