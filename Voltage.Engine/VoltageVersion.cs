@@ -4,6 +4,6 @@ namespace Voltage
 	public static class VoltageVersion
 	{
 		/// <summary>Current engine version. The single source of truth for every version check, so the release workflow refuses a tag that disagrees with it.</summary>
-		public const string Engine = "0.2.2";
+		public const string Engine = "0.2.3";
 	}
 }
