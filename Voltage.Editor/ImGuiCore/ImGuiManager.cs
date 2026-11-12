@@ -113,12 +113,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	private WindowPosition? _gameViewForcedPos;
 
 	// Camera Params
-	public static float EditModeCameraSpeed = 400f;
-	public static float EditModeCameraFastSpeed = 800f;
+	public static float EditModeCameraSpeed = 600f;
 	private const float EditorCameraZoomSpeed = 1f;
 	public static float EditModeCameraMinSpeed = 100f;
-	public static float EditModeCameraMaxSpeed = 3000f;
-	private static float _dynamicCameraSpeed = EditModeCameraFastSpeed;
+	public static float EditModeCameraMaxSpeed = 2000f;
+	private static float _dynamicCameraSpeed = EditModeCameraSpeed;
 	private const float CameraSpeedAdjustmentStep = 20f; // How much to change per scroll
 	public static float CurrentCameraSpeed { get; private set; }
 
@@ -986,11 +985,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		var zoom = $"Zoom: {(int)(Core.Scene.Camera.RawZoom * 100)}%";
 		flow.Next(ImGui.CalcTextSize(zoom).X + ImGui.GetStyle().FramePadding.X * 2);
 		DrawZoomControl(zoom);
-		var speed = $"Camera Speed: {(int)GetDynamicCameraSpeed()}";
-		flow.Next(ImGui.CalcTextSize(speed).X + ImGui.GetStyle().FramePadding.X * 2);
-		if (Gui.Button(speed + "##CameraSpeed"))
-			ResetDynamicCameraSpeed();
-		if (ImGui.IsItemHovered()) ImGuiSafe.SetTooltipSafe("Edit-mode camera speed. Click to reset it.");
+		DrawCameraSpeedControl(flow);
 		flow.Next(size.X);
 		DrawPlayViewButton(size);
 	}
@@ -1094,24 +1089,7 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 				if (_cameraTargetPosition == default)
 					_cameraTargetPosition = Core.Scene.Camera.Position;
 
-				bool isMovingCamera = Input.IsKeyDown(Keys.W) || Input.IsKeyDown(Keys.A) ||
-				                      Input.IsKeyDown(Keys.S) || Input.IsKeyDown(Keys.D);
-
-				if (Input.IsKeyDown(Keys.LeftShift))
-				{
-					if (isMovingCamera)
-					{
-						CurrentCameraSpeed = _dynamicCameraSpeed;
-					}
-					else
-					{
-						CurrentCameraSpeed = EditModeCameraFastSpeed;
-					}
-				}
-				else
-				{
-					CurrentCameraSpeed = EditModeCameraSpeed;
-				}
+				CurrentCameraSpeed = _dynamicCameraSpeed * (Input.IsKeyDown(Keys.LeftShift) ? 2f : 1f);
 
 				if (!Input.IsKeyDown(Keys.LeftControl) && !Input.IsKeyDown(Keys.RightControl))
 				{

@@ -1135,6 +1135,11 @@ public partial class ImGuiManager
 			if (Core.IsEditMode)
 			{
 				ImGui.TextUnformatted($"Editor view: {camera.RawZoom * 100f:0.#}%");
+				ImGui.SameLine();
+				if (Gui.SmallButton("Reset Zoom"))
+					camera.Zoom = Camera.DefaultZoom;
+				if (ImGui.IsItemHovered())
+					ImGui.SetTooltip("Reset the editor view to 100%");
 				ImGui.Indent();
 				ImGui.TextDisabled("Mouse wheel. Editor only, never written to the scene.");
 				ImGui.Unindent();
@@ -1156,6 +1161,37 @@ public partial class ImGuiManager
 			ImGui.Unindent();
 		}
 
+		Gui.EndPopup();
+	}
+
+	/// <summary>Edit-mode camera speed readout. Clicking it opens the speed slider and reset.</summary>
+	private void DrawCameraSpeedControl(ToolbarFlow flow)
+	{
+		const string glyph = "\uf030";
+		var text = $"Speed: {(int)GetDynamicCameraSpeed()}";
+		flow.Next(Gui.IconTextButtonWidth(glyph, _renderer.IconFontPtr, text));
+		if (Gui.IconTextButton("Camera Speed", glyph, _renderer.IconFontPtr, text))
+			ImGui.OpenPopup("camera-speed-popup");
+
+		if (ImGui.IsItemHovered())
+			ImGui.SetTooltip("Edit-mode camera speed. Click to change or reset it.");
+
+		if (!Gui.BeginPopup("camera-speed-popup"))
+			return;
+
+		ImGui.TextUnformatted("Camera Speed");
+		ImGui.Separator();
+		var speed = GetDynamicCameraSpeed();
+		ImGui.SetNextItemWidth(240f);
+		if (Gui.SliderFloat("##CameraSpeedSlider", ref speed, EditModeCameraMinSpeed, EditModeCameraMaxSpeed, "%.0f"))
+			SetDynamicCameraSpeed(speed);
+
+		if (Gui.Button("Reset Speed"))
+			ResetDynamicCameraSpeed();
+		if (ImGui.IsItemHovered())
+			ImGui.SetTooltip($"Reset camera speed to {(int)EditModeCameraSpeed}");
+
+		ImGui.TextDisabled("Hold Shift to move twice as fast.");
 		Gui.EndPopup();
 	}
 

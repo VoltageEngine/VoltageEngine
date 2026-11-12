@@ -110,6 +110,27 @@ public static partial class Gui
 		return pressed;
 	}
 
+	/// <summary>A frame-height button showing an icon glyph followed by text.</summary>
+	public static bool IconTextButton(string label, string glyph, ImFontPtr font, string text)
+	{
+		var style = ImGui.GetStyle();
+		var glyphSize = font.CalcTextSizeA(font.FontSize, float.MaxValue, 0, glyph);
+		var textSize = ImGui.CalcTextSize(text);
+		var size = new Vector2(IconTextButtonWidth(glyph, font, text), ImGui.GetFrameHeight());
+		var pressed = Item(ImGui.Button("##" + label, size), "button", label);
+		var min = ImGui.GetItemRectMin();
+		var color = ImGui.GetColorU32(ImGuiCol.Text);
+		var draw = ImGui.GetWindowDrawList();
+		draw.AddText(font, font.FontSize, Snap(min + new Vector2(style.FramePadding.X, (size.Y - glyphSize.Y) * 0.5f)), color, glyph);
+		draw.AddText(Snap(min + new Vector2(style.FramePadding.X + glyphSize.X + style.ItemInnerSpacing.X, (size.Y - textSize.Y) * 0.5f)), color, text);
+		return pressed;
+		static Vector2 Snap(Vector2 v) => new(System.MathF.Floor(v.X), System.MathF.Floor(v.Y));
+	}
+
+	public static float IconTextButtonWidth(string glyph, ImFontPtr font, string text) =>
+		font.CalcTextSizeA(font.FontSize, float.MaxValue, 0, glyph).X + ImGui.GetStyle().ItemInnerSpacing.X
+		+ ImGui.CalcTextSize(text).X + ImGui.GetStyle().FramePadding.X * 2;
+
 	public static bool SmallButton(string label) => Item(ImGui.SmallButton(WrappedLabel(label, ImGui.GetStyle().FramePadding.X * 2)), "button", label);
 
 	public static bool InvisibleButton(string id, Vector2 size) => Item(ImGui.InvisibleButton(id, size), "button", id);

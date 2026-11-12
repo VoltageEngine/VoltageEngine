@@ -343,52 +343,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		IsGameWindowHovered = ImGui.IsItemHovered();
 		UpdateEscCursorOverride();
 
-		// Draw buttons and text on top using screen coordinates
-		var camera = Core.Scene?.Camera;
-		bool showZoomButton = camera != null && Math.Abs(camera.Zoom - Camera.DefaultZoom) > 0.01f;
-		bool showSpeedButton = Math.Abs(GetDynamicCameraSpeed() - EditModeCameraSpeed) > 0.1f;
-
-		if (showZoomButton || showSpeedButton)
-		{
-			var windowPos = ImGui.GetWindowPos();
-			var contentMin = ImGui.GetCursorStartPos();
-			var buttonStartPos = _gameImageScreenPos +
-			                     new Num.Vector2(8, 8) * ImGui.GetIO().FontGlobalScale;
-
-			ImGui.SetCursorScreenPos(buttonStartPos);
-
-			if (showZoomButton)
-			{
-				var zoomButtonText = "Reset Camera Zoom";
-				var zoomTextSize = ImGui.CalcTextSize(zoomButtonText);
-				var zoomPadding = new Num.Vector2(16, 8) * ImGui.GetIO().FontGlobalScale;
-				var zoomButtonSize = zoomTextSize + zoomPadding;
-
-				if (Gui.Button(zoomButtonText, zoomButtonSize))
-				{
-					camera.Zoom = Camera.DefaultZoom;
-				}
-
-				if (showSpeedButton)
-				{
-					EditorLayout.SameLine(EditorLayout.ButtonWidth("Reset Camera Speed"));
-				}
-			}
-
-			if (showSpeedButton)
-			{
-				var speedButtonText = "Reset Camera Speed";
-				var speedTextSize = ImGui.CalcTextSize(speedButtonText);
-				var speedPadding = new Num.Vector2(16, 8) * ImGui.GetIO().FontGlobalScale;
-				var speedButtonSize = speedTextSize + speedPadding;
-
-				if (Gui.Button(speedButtonText, speedButtonSize))
-				{
-					ResetDynamicCameraSpeed();
-				}
-			}
-		}
-
 		OverrideMouseInput();
 
 		if (!ImGui.IsWindowFocused())
