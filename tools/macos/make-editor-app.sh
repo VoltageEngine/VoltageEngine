@@ -40,10 +40,13 @@ sed "s/__VERSION__/${version:-0.0.0}/g" "$repo_dir/tools/macos/Info.plist" > "$p
 /usr/libexec/PlistBuddy -c "Delete :CFBundleDocumentTypes" "$plist" 2>/dev/null || true
 if ! cmp -s "$plist" "$contents/Info.plist"; then
     cp "$plist" "$contents/Info.plist"
-    touch "$app"
 fi
 
 # macOS ties folder permissions to the signature, so only a stable identity keeps them across rebuilds.
 if [[ -n $identity ]]; then
     codesign --force --deep --sign "$identity" "$app"
 fi
+
+# Finder dates an .app by its bundle folder, which the in-place refresh above never touches, so without this the
+# app keeps showing the day it was first made. Touching it also tells Launch Services to re-read Info.plist.
+touch "$app"

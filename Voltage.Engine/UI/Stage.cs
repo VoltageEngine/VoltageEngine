@@ -213,12 +213,13 @@ namespace Voltage.UI
 		#region Input
 
 		/// <summary>
-		/// gets the appropriate mouse position (scaled vs raw) based on if this isFullScreen and if we have an entity
+		/// The mouse in the pixels this stage draws in: a stage on an entity draws into its scene's render target, so it
+		/// reads the scaled position even when full screen; only a stage without an entity uses the raw window position.
 		/// </summary>
 		/// <returns>The mouse position.</returns>
 		public Vector2 GetMousePosition()
 		{
-			return Entity != null && !IsFullScreen ? Input.ScaledMousePosition : Input.RawMousePosition.ToVector2();
+			return Entity != null ? Input.ScaledMousePosition : Input.RawMousePosition.ToVector2();
 		}
 
 
@@ -675,26 +676,28 @@ namespace Voltage.UI
 
 
 		/// <summary>
-		/// The Stages world width
+		/// The Stages world width: scene render-target pixels when full screen (world units otherwise), window pixels without an entity
 		/// </summary>
 		/// <returns>The width.</returns>
 		public float GetWidth()
 		{
-			if (Entity != null && !IsFullScreen)
-				return Entity.Scene.SceneRenderTargetSize.X / (float)Entity.Scene.PixelArtRenderScale;
+			var scene = Entity?.Scene;
+			if (scene != null)
+				return IsFullScreen ? scene.SceneRenderTargetSize.X : scene.SceneRenderTargetSize.X / (float)scene.PixelArtRenderScale;
 
 			return Screen.Width;
 		}
 
 
 		/// <summary>
-		/// The Stages world height
+		/// The Stages world height: scene render-target pixels when full screen (world units otherwise), window pixels without an entity
 		/// </summary>
 		/// <returns>The height.</returns>
 		public float GetHeight()
 		{
-			if (Entity != null && !IsFullScreen)
-				return Entity.Scene.SceneRenderTargetSize.Y / (float)Entity.Scene.PixelArtRenderScale;
+			var scene = Entity?.Scene;
+			if (scene != null)
+				return IsFullScreen ? scene.SceneRenderTargetSize.Y : scene.SceneRenderTargetSize.Y / (float)scene.PixelArtRenderScale;
 
 			return Screen.Height;
 		}
