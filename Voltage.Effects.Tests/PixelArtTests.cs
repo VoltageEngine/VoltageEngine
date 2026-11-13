@@ -460,6 +460,19 @@ public class PixelArtTests
                     Assert.That(displaySize.Y, Is.LessThanOrEqualTo(size.Y + 0.001f));
                     Assert.That(Math.Min(size.X - displaySize.X, size.Y - displaySize.Y), Is.LessThanOrEqualTo(1));
                     Assert.That(displaySize.X / displaySize.Y, Is.EqualTo(640f / 360).Within(0.005));
+
+                    canvas.IsFullScreen = true;
+                    Assert.That(canvas.Stage.GetWidth(), Is.EqualTo(scene.SceneRenderTargetSize.X), "Full-screen UI lays out in the render target it draws into");
+                    Assert.That(canvas.Stage.GetHeight(), Is.EqualTo(scene.SceneRenderTargetSize.Y));
+                    var drawnAt = new Vector2(scene.SceneRenderTargetSize.X * 0.75f, scene.SceneRenderTargetSize.Y * 0.8f);
+                    var onScreen = Input.ResolutionOffset + drawnAt / Input.ResolutionScale;
+                    Input.SetCurrentMouseState(new Microsoft.Xna.Framework.Input.MouseState((int)Math.Round(onScreen.X), (int)Math.Round(onScreen.Y), 0,
+                        Microsoft.Xna.Framework.Input.ButtonState.Released, Microsoft.Xna.Framework.Input.ButtonState.Released,
+                        Microsoft.Xna.Framework.Input.ButtonState.Released, Microsoft.Xna.Framework.Input.ButtonState.Released,
+                        Microsoft.Xna.Framework.Input.ButtonState.Released));
+                    Assert.That(Vector2.Distance(canvas.Stage.GetMousePosition(), drawnAt), Is.LessThanOrEqualTo(Input.ResolutionScale.X),
+                        $"Full-screen UI must hit-test where it draws ({size})");
+                    canvas.IsFullScreen = false;
                 }
             }
             finally { rendering.SmoothPixelArtFixedFrame = originalFixedFrame; }

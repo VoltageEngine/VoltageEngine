@@ -21,8 +21,8 @@ namespace Voltage
 		public Stage Stage;
 
 		/// <summary>
-		/// if true, the rawMousePosition will be used else the scaledMousePosition will be used. If your UI is in screen space (using a 
-		/// ScreenSpaceRenderer for example) then set this to true so input is not scaled.
+		/// if true, the stage is laid out and hit-tested in scene render-target pixels (screen-space UI, e.g. a ScreenSpaceRenderer
+		/// or the UIElement layer); if false, in world units through the camera.
 		/// </summary>
 		public bool IsFullScreen
 		{
