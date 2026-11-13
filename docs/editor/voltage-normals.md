@@ -6,7 +6,7 @@ description: Generate, paint and validate flat faceted normal maps and glow insi
 
 # Voltage Normals
 
-Voltage Normals is part of the [Aseprite bridge](aseprite.md). Open it with **Edit > Voltage Normals** in Aseprite. Every button calls the same command the `aseprite.normals_*` tools run, so a panel session and an agent produce identical results. Aseprite's scripting API has no docking, so the panel is a floating window. It sizes itself to the current Screen and UI Scaling when it opens; reopen it after changing them.
+Voltage Normals is part of the [Aseprite bridge](aseprite.md). Open it with **Edit > Voltage Normals** in Aseprite 1.3 or newer. Every button calls the same command the `aseprite.normals_*` tools run, so a panel session and an agent produce identical results. Aseprite's scripting API has no docking, so the panel is a floating window. It sizes itself to the current Screen and UI Scaling when it opens; reopen it after changing them. Aseprite dialogs have no tooltips, so the **Tips** button under the tabs lists what each setting on the current tab does.
 
 ![Voltage Normals panel, Glow tab, with the rim baked into the Glow layers](../images/voltage-normals-panel.png)
 

@@ -6,7 +6,7 @@ local pc = app.pixelColor
 
 local NORMAL_PREFIX, GLOW_PREFIX, GENERATED_SUFFIX = "Normals-", "Glow-", "-gen"
 local GLOW_TINT = { 255, 170, 40 }
-local PANEL_ROWS_HEIGHT = 340
+local PANEL_ROWS_HEIGHT = 362
 local FACETS = {
   front = { 128, 128, 255 }, left = { 58, 128, 234 }, right = { 198, 128, 234 },
   top = { 128, 198, 234 }, bottom = { 128, 58, 234 },
@@ -20,6 +20,54 @@ local PRESETS = {
   ["Character"] = { width = 1, merge_outlines = false, split = false, split_min = 24, split_band = 0.2 },
   ["Prop"] = { width = 1, merge_outlines = false, split = true, split_min = 48, split_band = 0.15 },
   ["Wall-tile"] = { width = 1, merge_outlines = false, split = false, split_min = 0, split_band = 0 },
+}
+-- Aseprite dialogs have no tooltips, so the Tips button shows these per tab.
+local TIPS = {
+  tab_generate = {
+    "Preset: starting values for a Character, Prop or Wall-tile.",
+    "Bevel width: how many pixels in from the edge get side facets.",
+    "Merge Outlines: outline pixels take the facet of the shape they wrap.",
+    "Split large clusters: adds side facets inside big flat colour areas.",
+    "Split from (px): only areas at least this big get split.",
+    "Diagonal facets: allows the four in-between directions too.",
+    "Frames: which frames Generate writes.",
+    "Overwrite Normals: replaces Normals-. Off writes a -gen layer to compare.",
+  },
+  tab_paint = {
+    "Facet: the direction Apply to selection paints. Click one in the grid.",
+    "Average selection: sets the selection to its nearest average facet.",
+    "Cluster: Select cluster replaces, adds to or removes from the selection.",
+    "Select cluster: click the sprite to grab connected same-colour pixels.",
+    "Validate: errors are broken pixels, warnings are edges with no bevel.",
+  },
+  tab_glow = {
+    "Glow brush: makes the Glow layer active so the pencil paints glow.",
+    "Strength %: how self-lit painted glow is. 100 stays bright in the dark.",
+    "Width: how many pixels deep the rim reaches in from the edge.",
+    "SideStrength %: rim brightness on left and right edges. Top is always full.",
+    "Facing %: how strongly a facet must face out to catch rim. Higher = less.",
+    "Intensity %: rim brightness in the preview only. Bake writes full rim.",
+    "Rim overlay: shows the rim in the preview before you bake it.",
+  },
+  tab_carry = {
+    "Record this frame on a finished frame, then Preview diff and Apply.",
+    "Apply to: the frames that get this frame's normals and glow.",
+    "Preview diff: magenta marks the pixels Apply would change.",
+  },
+  tab_light = {
+    "Preset: a starting light. Drag on the preview to move it.",
+    "Height: low gives strong side shading, high lights more evenly.",
+    "Radius: how far the light reaches, in pixels.",
+    "Intensity %: light brightness. Over 100 overexposes, good for sparks.",
+    "Ambient: light every pixel gets. Darker gives more contrast.",
+    "Light follows the mouse: the light tracks the cursor over the preview.",
+  },
+  shared = {
+    "Layer: All visible means every layer for Generate and Bake, else the active one.",
+    "View: Final is the lit result, Normals and Glow show those layers alone.",
+    "Preview generated layers: preview the -gen layers instead of Normals-.",
+    "Auto refresh: redraws the preview after edits. Turn off if it lags.",
+  },
 }
 N.PRESET_NAMES = { "Character", "Prop", "Wall-tile" }
 N.LIGHT_PRESET_NAMES = { "Fluorescent bar above", "Warm room fill", "Cable spark" }
@@ -1081,6 +1129,7 @@ end
 N.commands = {
   normals_generate = N.generate, normals_apply = N.apply, normals_average = N.average, normals_select_cluster = N.select_cluster,
   normals_validate = N.validate, normals_glow = N.glow, normals_rim = N.rim, normals_carry = N.carry, normals_preview = N.preview,
+  normals_open_panel = function() N.open_panel(); return ok({ opened = true }) end,
 }
 
 function N.register()
@@ -1289,6 +1338,9 @@ function N.close_panel()
 end
 
 function N.open_panel(tab)
+  if app.version.major == 1 and app.version.minor < 3 then
+    return app.alert { title = "Voltage Normals", text = "Voltage Normals needs Aseprite 1.3 or newer. This is Aseprite " .. tostring(app.version) .. "." }
+  end
   N.close_panel()
   local dlg = Dialog { title = "Voltage Normals", onclose = function()
     if panel.dlg then
@@ -1471,6 +1523,13 @@ function N.open_panel(tab)
   dlg:color { id = "ambient", label = "Ambient", color = Color { red = 51, green = 51, blue = 51 }, onchange = preview_changed }
   dlg:check { id = "follow_mouse", label = "Mouse", text = "Light follows the mouse", selected = false }
   dlg:endtabs { id = "tabs", selected = tab or "tab_generate" }
+  dlg:button { id = "tips", text = "Tips", onclick = function()
+    local lines = {}
+    for _, line in ipairs(TIPS[dlg.data.tabs] or {}) do lines[#lines + 1] = line end
+    lines[#lines + 1] = ""
+    for _, line in ipairs(TIPS.shared) do lines[#lines + 1] = line end
+    app.alert { title = "Voltage Normals tips", text = lines }
+  end }
 
   dlg:combobox { id = "view_mode", label = "View", option = "Final", options = { "Final", "Normals", "Glow" }, onchange = preview_changed }
   dlg:check { id = "use_generated", label = "Layers", text = "Preview generated layers", selected = false, onclick = preview_changed }

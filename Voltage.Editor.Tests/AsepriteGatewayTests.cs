@@ -49,6 +49,12 @@ public class AsepriteGatewayTests
 			var message = await client.ReceiveAsync(new ArraySegment<byte>(buffer), cancellation.Token);
 			using var request = JsonDocument.Parse(Encoding.UTF8.GetString(buffer, 0, message.Count));
 			if (!request.RootElement.TryGetProperty("id", out var id)) continue;
+			if (request.RootElement.GetProperty("method").GetString() == "get_server_info")
+			{
+				var info = JsonSerializer.Serialize(new { id = id.GetString(), result = new { aseprite_version = "1.2.40" } });
+				await client.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(info)), WebSocketMessageType.Text, true, cancellation.Token);
+				continue;
+			}
 			Assert.That(request.RootElement.GetProperty("method").GetString(), Is.EqualTo("get_sprite_info"));
 			Assert.That(request.RootElement.GetProperty("params").GetProperty("voltage_sprite_id").GetInt32(), Is.EqualTo(12));
 			var response = JsonSerializer.Serialize(new { id = id.GetString(), result = new { width = 8, height = 8 } });
@@ -56,6 +62,9 @@ public class AsepriteGatewayTests
 			break;
 		}
 		Assert.That((await query).GetProperty("width").GetInt32(), Is.EqualTo(8));
+		var status = Call("aseprite.status");
+		Assert.That(status.GetProperty("aseprite_version").GetString(), Is.EqualTo("1.2.40"));
+		Assert.That(status.GetProperty("aseprite_supported").GetBoolean(), Is.False);
 		Assert.Throws<CliException>(() => Call("aseprite.put_pixels", new { pixels = new[] { new { x = 1 } } }));
 		var start = new ProcessStartInfo("dotnet") { UseShellExecute = false, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
 		foreach (var argument in new[] { typeof(McpServer).Assembly.Location, "--config", InfoPath, "mcp" }) start.ArgumentList.Add(argument);

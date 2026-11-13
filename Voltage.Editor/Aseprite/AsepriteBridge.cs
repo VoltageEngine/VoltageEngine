@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Voltage.Editor.Persistence;
 using Voltage.Gateway;
@@ -33,7 +35,47 @@ public sealed class AsepriteBridge : IDisposable
 
 	public AsepriteBridge(Action<string, object> emit) { _emit = emit; }
 
-	public object Status() => new { connected = IsConnected, listening = IsListening, port = Port, installed = File.Exists(Path.Combine(ExtensionDirectory, "plugin.lua")), extension = ExtensionDirectory, tools = 132 };
+	/// <summary>Version reported by the connected Aseprite, or null until it answers.</summary>
+	public string AsepriteVersion => _asepriteVersion;
+	private volatile string _asepriteVersion;
+
+	public object Status() => new
+	{
+		connected = IsConnected, listening = IsListening, port = Port, installed = File.Exists(Path.Combine(ExtensionDirectory, "plugin.lua")), extension = ExtensionDirectory, tools = 132,
+		aseprite_version = AsepriteVersion, aseprite_supported = AsepriteVersion == null ? (bool?)null : !IsTooOld(AsepriteVersion),
+	};
+
+	/// <summary>True for Aseprite versions older than 1.3, which lack the dialog features the extension uses.</summary>
+	public static bool IsTooOld(string version)
+	{
+		var match = Regex.Match(version ?? "", @"^(\d{1,4})\.(\d{1,4})");
+		return match.Success && new Version(int.Parse(match.Groups[1].Value), int.Parse(match.Groups[2].Value)) < new Version(1, 3);
+	}
+
+	/// <summary>Version of an Aseprite found in its default install folders, or null.</summary>
+	public static string InstalledVersion()
+	{
+		// ponytail: default install folders only; the live connection's version covers custom installs.
+		if (OperatingSystem.IsWindows())
+		{
+			foreach (var root in new[] { Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Steam", "steamapps", "common") })
+			{
+				var exe = Path.Combine(root, "Aseprite", "Aseprite.exe");
+				if (File.Exists(exe)) return FileVersionInfo.GetVersionInfo(exe).ProductVersion?.Replace(", ", ".").Replace(',', '.');
+			}
+		}
+		else if (OperatingSystem.IsMacOS())
+		{
+			var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+			foreach (var app in new[] { "/Applications/Aseprite.app", Path.Combine(home, "Applications", "Aseprite.app"), Path.Combine(home, "Library", "Application Support", "Steam", "steamapps", "common", "Aseprite", "Aseprite.app") })
+			{
+				var plist = Path.Combine(app, "Contents", "Info.plist");
+				var match = File.Exists(plist) ? Regex.Match(File.ReadAllText(plist), @"<key>CFBundleShortVersionString</key>\s*<string>([^<]+)</string>") : Match.Empty;
+				if (match.Success) return match.Groups[1].Value;
+			}
+		}
+		return null;
+	}
 
 	public void Start()
 	{
@@ -55,10 +97,21 @@ public sealed class AsepriteBridge : IDisposable
 			_port = connection.Port;
 			Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath));
 			File.WriteAllText(SettingsPath, new JsonObject { ["token"] = _token, ["port"] = _port }.ToJsonString());
-			connection.ConnectionChanged += connected => _emit?.Invoke(connected ? "aseprite.connected" : "aseprite.disconnected", new { port = _port });
+			connection.ConnectionChanged += connected =>
+			{
+				_asepriteVersion = null;
+				if (connected) _ = ReadVersion(connection);
+				_emit?.Invoke(connected ? "aseprite.connected" : "aseprite.disconnected", new { port = _port });
+			};
 			_connection = connection;
 		}
 		catch { connection.Dispose(); throw; }
+	}
+
+	private async Task ReadVersion(AsepriteConnection connection)
+	{
+		try { _asepriteVersion = (await connection.Call("get_server_info", JsonSerializer.SerializeToElement(new { }), TimeSpan.FromSeconds(10))).GetProperty("aseprite_version").GetString(); }
+		catch (Exception ex) when (ex is InvalidOperationException or TimeoutException or KeyNotFoundException or System.Net.WebSockets.WebSocketException or IOException) { }
 	}
 
 	public object Install()
@@ -72,7 +125,8 @@ public sealed class AsepriteBridge : IDisposable
 		File.Copy(Path.Combine(Resources, "normals.lua"), Path.Combine(ExtensionDirectory, "normals.lua"), true);
 		File.Copy(Path.Combine(Resources, "LICENSE"), Path.Combine(ExtensionDirectory, "LICENSE"), true);
 		File.Copy(Path.Combine(Resources, "package.json"), Path.Combine(ExtensionDirectory, "package.json"), true);
-		return new { installed = true, directory = ExtensionDirectory, port = _port, instruction = "Restart Aseprite or enable Voltage Bridge in its Extensions preferences. Allow its initial WebSocket request." };
+		var version = AsepriteVersion ?? InstalledVersion();
+		return new { installed = true, directory = ExtensionDirectory, port = _port, aseprite_version = version, aseprite_supported = version == null ? (bool?)null : !IsTooOld(version), instruction = "Restart Aseprite or enable Voltage Bridge in its Extensions preferences. Allow its initial WebSocket request." };
 	}
 
 	public async Task<object> Call(string method, JsonElement parameters)

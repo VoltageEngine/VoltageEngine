@@ -20,6 +20,12 @@ or Python installation is required. This feature is editor-only and adds nothing
 4. Allow the extension's WebSocket and file access when Aseprite asks.
 5. Press **Refresh open sprites** in Voltage to check the connection.
 
+The Install and Connect buttons turn green briefly when they succeed. Voltage reads the Aseprite version
+from its default install folder on Install and from Aseprite itself once it connects, and shows a red
+error if it is older than 1.3. **Open Voltage Normals in Aseprite** opens the
+[Voltage Normals](voltage-normals.md) panel in the connected Aseprite; in Aseprite it is
+**Edit > Voltage Normals**.
+
 The equivalent CLI commands are `voltage aseprite.install`, `voltage aseprite.status`,
 `voltage aseprite.connect` and `voltage aseprite.disconnect`. An installed extension causes the bridge
 to start with the editor, unless `--gateway-safe` is enabled. The extension reconnects after editor
