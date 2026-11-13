@@ -16,7 +16,7 @@ namespace Voltage.Editor.Builders;
 
 /// <summary>
 /// Handles building/exporting a game project into a standalone executable.
-/// Produces <c>bin/&lt;Configuration&gt;/&lt;rid&gt;</c> inside the game project folder containing:
+/// Produces <c>bin/&lt;Configuration&gt;/&lt;rid&gt;</c> inside the game project folder (packed into an .app for macOS) containing:
 ///   - The published executable (AOT + trimmed)
 ///   - Voltage engine content files (compiled effects, etc.)
 ///   - Project content/assets (copied raw or compiled via MGCB)
@@ -76,7 +76,8 @@ public static class GameBuilder
 		var configuration = debugBuild ? "Debug" : "Release";
 
 		var buildDir = GetBuildOutputDirectory(project, platform, configuration);
-		OnBuildStarted?.Invoke(7);
+		var macApp = MacAppBundler.Applies(platform);
+		OnBuildStarted?.Invoke(macApp ? 8 : 7);
 
 		try
 		{
@@ -215,11 +216,20 @@ public static class GameBuilder
 			bool settingsSuccess = CopyProjectSettings(project, buildDir);
 			OnBuildStepCompleted?.Invoke("Copy project settings", settingsSuccess);
 
-			bool allSuccess = runtimeLibsSuccess && publishSuccess && voltageContentSuccess && assetsSuccess && dataSuccess && settingsSuccess;
+			bool appSuccess = true;
+			if (macApp)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				OnBuildStepStarted?.Invoke("Packaging macOS app...");
+				appSuccess = MacAppBundler.Package(project, buildDir, aot);
+				OnBuildStepCompleted?.Invoke("Package macOS app", appSuccess);
+			}
+
+			bool allSuccess = runtimeLibsSuccess && publishSuccess && voltageContentSuccess && assetsSuccess && dataSuccess && settingsSuccess && appSuccess;
 
 			if (allSuccess)
 			{
-				OnBuildFinished?.Invoke(true, $"Build succeeded! Output: {buildDir}");
+				OnBuildFinished?.Invoke(true, $"Build succeeded! Output: {(macApp ? MacAppBundler.AppPath(project, buildDir) : buildDir)}");
 			}
 			else
 			{
@@ -389,6 +399,9 @@ public static class GameBuilder
 		var buildDir = GetBuildOutputDirectory(project, platform, debugBuild);
 		if (!Directory.Exists(buildDir))
 			return null;
+
+		if (MacAppBundler.Applies(platform) && MacAppBundler.FindExecutable(project, buildDir) is { } bundled)
+			return bundled;
 
 		// On Windows, look for .exe; on Linux/macOS, look for file without extension
 		var exeName = platform.RuntimeIdentifier.StartsWith("win")
@@ -794,7 +807,7 @@ public static class GameBuilder
 	/// <summary>
 	/// Finds the Voltage.Editor project directory by walking up from the app base directory.
 	/// </summary>
-	private static string FindEditorProjectDir()
+	internal static string FindEditorProjectDir()
 	{
 		var dir = AppContext.BaseDirectory;
 		var di = new DirectoryInfo(dir);

@@ -9,6 +9,12 @@ Open **Build > Build Game** to publish a standalone game. This is separate from 
 
 Choose a target platform, Debug or Release configuration, output options and **Scene to load on startup**, then press **Build** or **Build and Run**. Targets depend on installed native toolchains; unavailable platforms explain their requirements. The progress area reports build results. Cancel stops a running build; opening the panel or selecting scenes does not start one.
 
+## macOS app
+
+A macOS build produces `bin/<Configuration>/<rid>/<Project>.app`. The executable is in `Contents/MacOS`, MonoGame's SDL2 and OpenAL libraries are in `Contents/Frameworks`, and Content, Data, scenes and `ProjectSettings.json` are in `Contents/Resources`. When the game starts from the bundle, the engine points `AppContext.BaseDirectory` at `Contents/Resources`, so code that reads files relative to it needs no changes. Debug symbols (`.dsym`, and `.pdb` from Native AOT builds) stay next to the app instead of inside it.
+
+`Info.plist` takes its name, version and executable from the project. The bundle identifier is `com.<company>.<project>`, built from `AssemblyCompany` in `Properties/AssemblyInfo.cs`, and `AssemblyCopyright` becomes the copyright line. The icon is converted from the project's `Icon.ico`, or `Icon.bmp` when there is no `.ico`. The app is signed with the identity in the engine's `Voltage.Editor/mac-signing-identity.txt`, the same file the editor's own app uses (see [Installation](../getting-started/installation.md)). Without that file, or if signing with it fails, the app is signed ad-hoc. Either signature runs on the Mac that built it; a copy downloaded on another Mac is blocked by Gatekeeper unless it is signed with a Developer ID and notarized, which Build Game does not do. Icons and signing need macOS, so a macOS build made on Windows or Linux has no icon and no signature.
+
 ## Scenes in Build
 
 ![Build Game showing six selected scenes, Debug and Release checkboxes and the vertical resize handle](../images/build-scenes.png)

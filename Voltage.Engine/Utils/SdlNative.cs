@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -37,7 +38,12 @@ namespace Voltage
 
 			foreach (var candidate in candidates)
 			{
-				if (NativeLibrary.TryLoad(candidate, assembly, searchPath, out var handle))
+				// Same copy MonoGame loaded from a macOS .app, before a search can find another SDL on the system.
+				var bundled = Path.Combine(AppContext.BaseDirectory, "..", "Frameworks", candidate);
+				if (OperatingSystem.IsMacOS() && File.Exists(bundled) && NativeLibrary.TryLoad(bundled, out var handle))
+					return handle;
+
+				if (NativeLibrary.TryLoad(candidate, assembly, searchPath, out handle))
 					return handle;
 			}
 
