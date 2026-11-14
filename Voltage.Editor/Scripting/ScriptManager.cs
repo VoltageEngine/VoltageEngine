@@ -21,6 +21,7 @@ namespace Voltage.Editor.Scripting
 		private readonly string _scriptsDirectory;
 		private readonly PersistentBool _enableHotReload;
 		private readonly PersistentBool _autoReloadSceneOnChange;
+		private bool? _manualReloadScene;
 		private static PersistentBool _compileOnStartup = new PersistentBool("ScriptManager_CompileOnStartup", true);
 		
 		public static bool CompileOnStartup
@@ -80,7 +81,8 @@ namespace Voltage.Editor.Scripting
 			_scriptWatcher.AutoCompileOnFileChange = _enableHotReload.Value;
 			_scriptWatcher.OnCompilationComplete += HandleCompilationComplete;
 
-			CompileScripts(EditorSettingsWindow.AutoReloadSceneAfterScriptCompile);
+			if (CompileOnStartup)
+				CompileScripts(EditorSettingsWindow.AutoReloadSceneAfterScriptCompile);
 		}
 
 		private void CreateExampleScript()
@@ -149,6 +151,7 @@ namespace GameScripts
 				// Invalidate the component type cache so newly compiled script components
 				// appear in the editor's "Add Component" dropdown
 				EntityInspectorWindow.InvalidateComponentTypeCache();
+				Voltage.Console.DebugConsole.Instance.RegisterScriptCommands(result.Assembly);
 			}
 			else
 			{
@@ -158,7 +161,7 @@ namespace GameScripts
 			}
 
 			bool shouldReloadScene = result.Success && Core.IsEditMode &&
-			                         (_scriptWatcher.ReloadAfterDeferredCompile || (EnableHotReload && AutoReloadSceneOnChange));
+			                         (_manualReloadScene ?? (_scriptWatcher.ReloadAfterDeferredCompile || (EnableHotReload && AutoReloadSceneOnChange)));
 
 			OnCompilationComplete?.Invoke(result, shouldReloadScene);
 
@@ -227,26 +230,15 @@ namespace GameScripts
 			if (!string.IsNullOrEmpty(projectPath))
 				EngineLibsSync.SyncToProject(projectPath);
 
-			// Store the reload preference temporarily
-			var originalAutoReload = AutoReloadSceneOnChange;
-			
+			// The compile completes synchronously, so the caller's choice overrides the hot reload switches for it alone.
+			_manualReloadScene = reloadSceneOnSuccess;
 			try
 			{
-				// Override auto reload setting for manual compilation
-				if (!reloadSceneOnSuccess)
-				{
-					_autoReloadSceneOnChange.Value = false;
-				}
-				
 				_scriptWatcher.CompileAllScripts(false);
 			}
 			finally
 			{
-				// Restore original setting after a short delay to ensure compilation event fires first
-				Core.Schedule(0.1f, false, this, _ =>
-				{
-					_autoReloadSceneOnChange.Value = originalAutoReload;
-				});
+				_manualReloadScene = null;
 			}
 		}
 

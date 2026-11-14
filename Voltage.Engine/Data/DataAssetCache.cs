@@ -203,6 +203,7 @@ namespace Voltage.Data
 			CopyInto(fresh, existing);
 			existing.LoadedVersion = fresh.LoadedVersion;
 			existing.OnLoaded();
+			UpdatePlayModeSnapshot(existing);
 
 			lock (_lock)
 			{
@@ -251,6 +252,16 @@ namespace Voltage.Data
 					Debug.Warn(
 						$"[DataAssetCache] Could not restore '{pair.Key.SourcePath}' after play mode: {ex.Message}");
 				}
+			}
+		}
+
+		/// <summary>Makes the current values the ones restored after play mode, so a save or file change during play sticks.</summary>
+		internal static void UpdatePlayModeSnapshot(DataAsset asset)
+		{
+			lock (_lock)
+			{
+				if (_playModeSnapshot != null && _playModeSnapshot.ContainsKey(asset))
+					_playModeSnapshot[asset] = SafeSnapshot(asset);
 			}
 		}
 

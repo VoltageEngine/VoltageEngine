@@ -12,7 +12,7 @@ description: The rules that keep components saving, loading and running correctl
 
 - **Leave the generated `[ComponentId("...")]` alone.** On its first compile without one, the editor stamps `[ComponentId]` onto each concrete component and scene component, using the class name at that moment. Scenes store that id, so you can later rename the class or move its namespace freely. Deleting or editing the attribute creates a new identity, and scenes that referenced the old id lose the component. Abstract classes are never stamped, and sources of installed (non-dev) plugins are left untouched, so plugin authors write the attribute themselves.
 
-- **Renaming a serialized field drops its saved value.** `[ComponentId]` identifies the type, not its fields; values are stored under the field name, and the generated reader matches names exactly. Keep the old name, or re-enter the value after renaming. `[DecodeAlias]` from `Voltage.Persistence` only affects hand-written `ComponentData` classes, which are read by reflection.
+- **Renaming a serialized field needs `[DecodeAlias]`.** `[ComponentId]` identifies the type, not its fields; values are stored under the field name. Add `[DecodeAlias("OldName")]` from `Voltage.Persistence` to the renamed field so scenes saved with the old name still load its value, and keep it until every scene has been saved again. Without it, the saved value is dropped and the field loads with its default.
 
 - **Don't give serialized structs an explicit parameterless constructor.** The generated reader creates structs with `new T()` in published builds, which skips defaults set in that constructor. The generator reports `VLT003` for this pattern. Use a class that implements `IComponentGroup` instead.
 

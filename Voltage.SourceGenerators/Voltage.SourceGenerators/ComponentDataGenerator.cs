@@ -16,6 +16,7 @@ public partial class ComponentDataGenerator : IIncrementalGenerator
 {
 	private const string HideAttribute = "Voltage.HideAttributeInInspector";
 	private const string JsonExcludeAttribute = "Voltage.Persistence.JsonExcludeAttribute";
+	private const string DecodeAliasAttribute = "Voltage.Persistence.DecodeAliasAttribute";
 	private const string SerializeAttributeFullName = "Voltage.SerializeAttribute";
 	private const string ComponentBaseFullName = "Voltage.Component";
 	private const string SceneComponentBaseFullName = "Voltage.SceneComponent";
@@ -670,6 +671,7 @@ namespace Voltage
 		sb.AppendLine($"{indent}\t\tswitch (_k)");
 		sb.AppendLine($"{indent}\t\t{{");
 
+		var structLabels = new HashSet<string>(structType.GetMembers().Select(m => m.Name));
 		foreach (var member in structType.GetMembers())
 		{
 			if (member is not IFieldSymbol field)
@@ -699,7 +701,7 @@ namespace Voltage
 			{
 				readExpr = GetReadExpression(field.Type, "_r");
 			}
-			sb.AppendLine($"{indent}\t\t\tcase \"{field.Name}\": _v.{field.Name} = {readExpr}; break;");
+			sb.AppendLine($"{indent}\t\t\t{CaseLabels(field.Name, GetDecodeAliases(field), structLabels)} _v.{field.Name} = {readExpr}; break;");
 		}
 
 		sb.AppendLine($"{indent}\t\t\tdefault: _r.SkipValue(); break;");
@@ -806,6 +808,7 @@ namespace Voltage
 		sb.AppendLine($"{indent}\t\tswitch (_k)");
 		sb.AppendLine($"{indent}\t\t{{");
 
+		var groupLabels = new HashSet<string>(groupType.GetMembers().Select(m => m.Name));
 		foreach (var member in groupType.GetMembers())
 		{
 			if (member is not IFieldSymbol field) continue;
@@ -832,7 +835,7 @@ namespace Voltage
 			{
 				readExpr = GetReadExpression(field.Type, "_r");
 			}
-			sb.AppendLine($"{indent}\t\t\tcase \"{field.Name}\": _v.{field.Name} = {readExpr}; break;");
+			sb.AppendLine($"{indent}\t\t\t{CaseLabels(field.Name, GetDecodeAliases(field), groupLabels)} _v.{field.Name} = {readExpr}; break;");
 		}
 
 		sb.AppendLine($"{indent}\t\t\tdefault: _r.SkipValue(); break;");
@@ -859,6 +862,7 @@ namespace Voltage
 		sb.AppendLine($"{indent}\t\t\tcase \"CanBeSelected\": _d.CanBeSelected = _r.ReadBool(); break;");
 		sb.AppendLine($"{indent}\t\t\tcase \"UpdateOrder\": _d.UpdateOrder = _r.ReadInt(); break;");
 
+		var dataLabels = new HashSet<string>(members.Select(m => GetDataFieldName(m.Name))) { "Enabled", "CanBeSelected", "UpdateOrder" };
 		foreach (var m in members)
 		{
 			var dataFieldName = GetDataFieldName(m.Name);
@@ -896,7 +900,7 @@ namespace Voltage
 			{
 				readExpr = GetReadExpressionForMember(m, "_r");
 			}
-			sb.AppendLine($"{indent}\t\t\tcase \"{dataFieldName}\": _d.{dataFieldName} = {readExpr}; break;");
+			sb.AppendLine($"{indent}\t\t\t{CaseLabels(dataFieldName, m.DecodeAliases?.Select(GetDataFieldName), dataLabels)} _d.{dataFieldName} = {readExpr}; break;");
 		}
 
 		sb.AppendLine($"{indent}\t\t\tdefault: _r.SkipValue(); break;");
@@ -1398,6 +1402,7 @@ namespace Voltage
 						members.Add(new MemberModel
 						{
 							Name = field.Name,
+							DecodeAliases = GetDecodeAliases(field),
 							TypeFullName = field.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
 							IsEnum = isEnum,
 							IsProperty = false,
@@ -1425,6 +1430,7 @@ namespace Voltage
 						members.Add(new MemberModel
 						{
 							Name = field.Name,
+							DecodeAliases = GetDecodeAliases(field),
 							TypeFullName = field.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
 							IsEnum = isEnum,
 							IsProperty = false,
@@ -1518,6 +1524,7 @@ namespace Voltage
 						members.Add(new MemberModel
 						{
 							Name = prop.Name,
+							DecodeAliases = GetDecodeAliases(prop),
 							TypeFullName = prop.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
 							IsEnum = isEnum,
 							IsProperty = true,
@@ -1545,6 +1552,7 @@ namespace Voltage
 						members.Add(new MemberModel
 						{
 							Name = prop.Name,
+							DecodeAliases = GetDecodeAliases(prop),
 							TypeFullName = prop.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
 							IsEnum = isEnum,
 							IsProperty = true,
@@ -1781,6 +1789,27 @@ namespace Voltage
 		return plusIdx >= 0
 			? fullyQualifiedDataTypeName.Substring(plusIdx + 1)
 			: fullyQualifiedDataTypeName;
+	}
+
+	/// <summary>Names from the member's [DecodeAlias] attributes, so a renamed field still reads its old saved key.</summary>
+	private static string[] GetDecodeAliases(ISymbol symbol) =>
+		symbol.GetAttributes()
+			.Where(a => a.AttributeClass?.ToDisplayString() == DecodeAliasAttribute)
+			.SelectMany(a => a.ConstructorArguments.Length == 1 && a.ConstructorArguments[0].Kind == TypedConstantKind.Array
+				? a.ConstructorArguments[0].Values
+				: ImmutableArray<TypedConstant>.Empty)
+			.Select(v => v.Value as string)
+			.Where(n => !string.IsNullOrEmpty(n))
+			.ToArray();
+
+	/// <summary>A switch label for <paramref name="name"/> plus one per alias not already taken in that switch.</summary>
+	private static string CaseLabels(string name, IEnumerable<string> aliases, HashSet<string> taken)
+	{
+		var labels = new StringBuilder($"case {SymbolDisplay.FormatLiteral(name, true)}:");
+		foreach (var alias in aliases ?? Enumerable.Empty<string>())
+			if (taken.Add(alias))
+				labels.Append($" case {SymbolDisplay.FormatLiteral(alias, true)}:");
+		return labels.ToString();
 	}
 
 	private static string GetDataFieldName(string memberName)
@@ -2133,6 +2162,7 @@ namespace Voltage
 	private struct MemberModel
 	{
 		public string Name;
+		public string[] DecodeAliases;
 		/// <summary>
 		/// True when the member's type is an enum.
 		/// </summary>

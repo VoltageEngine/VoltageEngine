@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Voltage.Editor.DebugUtils;
+using Voltage.Editor.Plugins;
 
 namespace Voltage.Editor.ProjectFile
 {
@@ -49,7 +50,7 @@ namespace Voltage.Editor.ProjectFile
 				return;
 			}
 
-			if (!TryParse(ProjectVersion, out var project) || !TryParse(EditorVersion, out var editor))
+			if (!SemVerRange.TryCompare(ProjectVersion, EditorVersion, out var comparison))
 			{
 				State = ProjectVersionState.Unreadable;
 				Summary = $"This project records engine version '{ProjectVersion}', which is not a version " +
@@ -57,7 +58,6 @@ namespace Voltage.Editor.ProjectFile
 				return;
 			}
 
-			var comparison = project.CompareTo(editor);
 			if (comparison == 0)
 			{
 				State = ProjectVersionState.Match;
@@ -100,9 +100,8 @@ namespace Voltage.Editor.ProjectFile
 
 			var recorded = runtime.Metadata?.EngineVersion;
 			if (!allowDowngrade &&
-			    TryParse(recorded, out var recordedVersion) &&
-			    TryParse(EditorVersion, out var editorVersion) &&
-			    recordedVersion > editorVersion)
+			    SemVerRange.TryCompare(recorded, EditorVersion, out var recordedVsEditor) &&
+			    recordedVsEditor > 0)
 			{
 				message = $"This project targets Voltage {recorded} and this editor is {EditorVersion}. " +
 				          "Lowering the recorded version would not make the project readable here - it would " +
@@ -135,36 +134,6 @@ namespace Voltage.Editor.ProjectFile
 				EditorDebug.Error(message, "Project");
 				return false;
 			}
-		}
-
-		/// <summary>Semver-ish parse, always normalised to three components: Version.TryParse leaves an absent component at -1, so "0.1" would compare as older than "0.1.0".</summary>
-		private static bool TryParse(string text, out Version version)
-		{
-			version = null;
-			if (string.IsNullOrWhiteSpace(text))
-				return false;
-
-			var trimmed = text.Trim();
-			var cut = trimmed.IndexOfAny(new[] { '-', '+' });
-			if (cut >= 0)
-				trimmed = trimmed.Substring(0, cut);
-
-			var parts = trimmed.Split('.');
-			var numbers = new int[3];
-
-			for (var i = 0; i < 3; i++)
-			{
-				if (i >= parts.Length)
-					continue;   // absent component is zero, not -1
-
-				if (!int.TryParse(parts[i], out var value) || value < 0)
-					return false;
-
-				numbers[i] = value;
-			}
-
-			version = new Version(numbers[0], numbers[1], numbers[2]);
-			return true;
 		}
 	}
 }

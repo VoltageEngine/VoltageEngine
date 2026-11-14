@@ -13,7 +13,7 @@ A Voltage project is a folder holding a `.voltage` metadata file, the game's C# 
 
 **File > Load Project** opens a `.voltage` file. **File > Recent Projects** lists the last ten projects and has **Clear Recent Projects**. On startup the editor reopens the last project, then loads any `.voltage` path given on the command line, which is how opening a `.voltage` file from the file explorer works. **Project > Close Project** unloads the project and asks to save unsaved changes first.
 
-The `.voltage` file records the engine version the project targets. On open the editor compares it with its own version:
+The `.voltage` file records the engine version the project targets. On open the editor compares it with its own version, counting a hotfix number as well, so a 0.2.2.1 project is newer than a 0.2.2 editor:
 
 - **Newer project than editor**: a warning is logged. Scenes may contain settings this build does not understand, and saving can drop them. Update the editor before editing.
 - **Older or unrecorded**: opening is safe. **Project > Settings > Project Info** offers **Set project to Voltage &lt;version&gt;**, which writes the editor's version into the `.voltage` file. Commit that change so the team moves together. The editor never rewrites the version on its own.

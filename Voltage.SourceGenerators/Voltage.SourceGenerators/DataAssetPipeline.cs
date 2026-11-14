@@ -272,6 +272,7 @@ public partial class ComponentDataGenerator
 		sb.AppendLine($"{indent}\t\tswitch (_k)");
 		sb.AppendLine($"{indent}\t\t{{");
 
+		var labels = new HashSet<string>(model.Members.Select(m => m.Name));
 		foreach (var m in model.Members)
 		{
 			string readExpr;
@@ -304,7 +305,7 @@ public partial class ComponentDataGenerator
 				readExpr = GetReadExpressionForMember(m, "_r");
 			}
 
-			sb.AppendLine($"{indent}\t\t\tcase \"{m.Name}\": _v.{m.Name} = {readExpr}; break;");
+			sb.AppendLine($"{indent}\t\t\t{CaseLabels(m.Name, m.DecodeAliases, labels)} _v.{m.Name} = {readExpr}; break;");
 		}
 
 		// Skipped, not rejected: adding or removing a field must not invalidate existing assets.

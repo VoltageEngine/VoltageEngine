@@ -65,6 +65,6 @@ In the editor, press the tilde key to open the in-game console over the game vie
 | `vsync`, `fixed`, `framerate` | Toggle vertical sync and fixed time step, set the target frame rate. |
 | `log-drawcalls`, `clear`, `console-scale`, `exit` | Diagnostics and console housekeeping. |
 
-Commands are static methods marked `[Command("name", "help")]` (namespace `Voltage.Console`) with `string`, `int`, `float` or `bool` parameters; default values become optional arguments. The console collects them once, when it starts, from the engine and the assemblies loaded at that moment. Methods in game scripts, which compile later, are not picked up, so script-side debug tools are better exposed as `[InspectorCallable]` buttons (see [Inspector Attributes](inspector-attributes.md)).
+Commands are static methods marked `[Command("name", "help")]` (namespace `Voltage.Console`) with `string`, `int`, `float` or `bool` parameters; default values become optional arguments. The console collects the engine's commands when it starts, and the commands in game scripts after every successful compile, so a renamed or deleted script command disappears with the next compile. A command method that is not static, or has a parameter of another type, is skipped with an error in the Debug Log.
 
 `DebugConsole.BindCommandToFunctionKey(2, "debug-render")` runs a command from a function key. The console exists only in the editor; game builds do not include it. Scripts and agents can run the same commands through the gateway's `console.exec` and list them with `console.commands`.

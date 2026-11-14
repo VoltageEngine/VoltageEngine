@@ -177,7 +177,7 @@ namespace Voltage.Editor.Tools
 					
 					if (ImGui.IsItemHovered())
 					{
-						ImGui.SetTooltip("Automatically compile all scripts when the editor starts (requires restart to take effect)");
+						ImGui.SetTooltip("Compile all scripts when a project opens. When off, script components show as missing until you compile.");
 					}
 					
 					VoltageEditorUtils.SmallVerticalSpace();

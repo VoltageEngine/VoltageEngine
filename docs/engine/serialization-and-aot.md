@@ -54,8 +54,8 @@ A struct with an explicit parameterless constructor is error VLT003: the reader 
 |---|---|
 | Component class name or namespace | Nothing. Scenes reference the class by its `[ComponentId]`. |
 | Data asset class name or namespace | Nothing. `.vasset` files store the `[AssetTypeId]`. |
-| A saved field or property on a `partial` component | The generated reader matches JSON keys to exact member names and skips unknown keys, so the saved value is dropped and the member loads with its default. Re-enter the value after renaming. |
-| A field in a hand-written `ComponentData` class | Add `[DecodeAlias("oldName")]` to the renamed field. These classes are read by the reflection decoder, which honours the alias. `[DecodeAlias]` has no effect on generated data. |
+| A saved field or property on a `partial` component or data asset | Add `[DecodeAlias("oldName")]` to the renamed member. The generated reader accepts the old key as well as the new one. Without the alias it skips the unknown key, so the saved value is dropped and the member loads with its default. |
+| A field in a hand-written `ComponentData` class | Add `[DecodeAlias("oldName")]` to the renamed field. The reflection decoder honours it the same way. |
 
 ## Identity attributes
 

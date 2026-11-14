@@ -441,7 +441,6 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 	internal void OpenLastProject()
 	{
 		_projectManager.LoadLastProject();
-		InitializeScriptManager();
 	}
 
 	/// <summary>
@@ -655,6 +654,11 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 
 	private void OnEditModeSwitched(bool isEditMode)
 	{
+		if (isEditMode)
+			Voltage.Data.DataAssetCache.RestoreAfterPlayMode();
+		else
+			Voltage.Data.DataAssetCache.SnapshotForPlayMode();
+
 		DisposeTimelinePreview();
 		EditorGameZoom.OnEditModeSwitched(isEditMode);
 		if(EditorSettingsWindow.DisableDebugInPlayMode)

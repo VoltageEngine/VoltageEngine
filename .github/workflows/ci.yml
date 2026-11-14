@@ -45,8 +45,8 @@ jobs:
         run: |
           VERSION=$(grep -o 'Engine = "[^"]*"' Voltage.Engine/VoltageVersion.cs | head -1 | sed 's/.*"\(.*\)"/\1/')
           echo "VoltageVersion.Engine = $VERSION"
-          echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' \
-            || { echo "::error::VoltageVersion.Engine ('$VERSION') is not semver"; exit 1; }
+          echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?(-[0-9A-Za-z.-]+)?$' \
+            || { echo "::error::VoltageVersion.Engine ('$VERSION') is not major.minor.patch, with an optional hotfix number"; exit 1; }
 
   # Starts a headless editor on a generated project and drives it over the gateway. The editor needs a
   # GL 2+ context even without a window: Linux gets it from Mesa under Xvfb; Windows runners only offer

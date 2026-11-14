@@ -183,7 +183,11 @@ namespace Voltage.Data
 		}
 
 		/// <summary>Writes <paramref name="asset"/> to <paramref name="path"/>.</summary>
-		public static void Save(DataAsset asset, string path) => File.WriteAllText(path, ToJson(asset));
+		public static void Save(DataAsset asset, string path)
+		{
+			File.WriteAllText(path, ToJson(asset));
+			DataAssetCache.UpdatePlayModeSnapshot(asset);
+		}
 
 		/// <summary>A fresh instance of the type with that stable id, or null when it is unknown.</summary>
 		public static DataAsset CreateDefault(string assetTypeId) =>

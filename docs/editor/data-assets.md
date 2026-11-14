@@ -43,4 +43,6 @@ public AssetReference Settings;
 var settings = DataAssets.Load<EnemySettings>(Settings);
 ```
 
-`Load` returns the shared instance, or `null` when the reference is empty, cannot be resolved or has the wrong type. Changing its fields at runtime changes them for every user of the asset. Mark the class `[CloneOnLoad]` to give each `Load` call its own copy. See [content loading](../scripting/content-loading.md) for asset references and project paths.
+`Load` returns the shared instance, or `null` when the reference is empty, cannot be resolved or has the wrong type. Changing its fields at runtime changes them for every user of the asset. Mark the class `[CloneOnLoad]` to give each `Load` call its own copy.
+
+In the editor, pressing Stop puts every loaded data asset back to the values it had when Play started, so changes made by game code never carry over into editing. An asset saved during Play, or whose file changed on disk, keeps the values it had at that point instead. See [content loading](../scripting/content-loading.md) for asset references and project paths.

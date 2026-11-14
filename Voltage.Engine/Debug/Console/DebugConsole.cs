@@ -52,6 +52,7 @@ namespace Voltage.Console
 		public bool IsOpen;
 		Dictionary<string, CommandInfo> _commands;
 		List<string> _sorted;
+		readonly HashSet<string> _scriptCommands = new();
 
 		string _currentText = "";
 		List<string> _drawCommands;
@@ -672,7 +673,8 @@ namespace Voltage.Console
 				foreach (var assembly in assemblies)
 				{
 					var name = assembly.GetName().Name;
-					if (name.StartsWith("System.") || Enumerable.Contains(ignoredAssemblies, name))
+					// Editor script assemblies arrive through RegisterScriptCommands, which replaces them on recompile.
+					if (name.StartsWith("System.") || name.StartsWith("DynamicScripts_") || Enumerable.Contains(ignoredAssemblies, name))
 						continue;
 
 					ProcessAssembly(assembly);
@@ -684,9 +686,36 @@ namespace Voltage.Console
 			}
 
 
-			// Maintain the sorted command list
-			foreach (var command in _commands)
-				_sorted.Add(command.Key);
+			RebuildSortedList();
+		}
+
+		/// <summary>Swaps in the [Command] methods of a freshly compiled script assembly, dropping the previous one's.</summary>
+		public void RegisterScriptCommands(Assembly assembly)
+		{
+			foreach (var name in _scriptCommands)
+				_commands.Remove(name);
+			_scriptCommands.Clear();
+
+			var existing = new HashSet<string>(_commands.Keys);
+			try
+			{
+				ProcessAssembly(assembly);
+			}
+			catch (Exception e)
+			{
+				Debug.Error($"Could not read console commands from the scripts: {e.Message}");
+			}
+			foreach (var name in _commands.Keys)
+				if (!existing.Contains(name))
+					_scriptCommands.Add(name);
+
+			RebuildSortedList();
+		}
+
+		void RebuildSortedList()
+		{
+			_sorted.Clear();
+			_sorted.AddRange(_commands.Keys);
 			_sorted.Sort();
 		}
 
@@ -700,8 +729,17 @@ namespace Voltage.Console
 					CommandAttribute attr = null;
 					attr = method.GetCustomAttribute<CommandAttribute>(false);
 
-					if (attr != null)
+					if (attr == null)
+						continue;
+
+					try
+					{
 						ProcessMethod(method, attr);
+					}
+					catch (Exception e)
+					{
+						Debug.Error(e.Message);
+					}
 				}
 			}
 		}
