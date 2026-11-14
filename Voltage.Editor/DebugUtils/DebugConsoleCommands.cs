@@ -15,6 +15,7 @@ namespace Voltage.Editor.DebugUtils
 			{
 				service = new ImGuiManager();
 				Core.RegisterGlobalManager(service);
+				service.OpenLastProject();
 			}
 			else
 			{

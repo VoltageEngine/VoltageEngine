@@ -430,10 +430,17 @@ public partial class ImGuiManager : GlobalManager, IFinalRenderDelegate, IDispos
 		_projectManager.OnProjectUnloaded += OnProjectUnloaded;
 		Utils.ProjectLoadProgress.FramePump = RenderProjectLoadFrame;
 		Core.KeepRunningWhileBusy = () => CompilationProgressWindow.AnyRunning;
-		_projectManager.LoadLastProject();
 
 		Core.WindowTitleStatusProvider = ComposeWindowTitleStatus;
+	}
 
+	/// <summary>
+	/// Opens the last project. Called once the editor's gateway exists: plugins initialize while the project
+	/// loads, and the ones that add gateway commands find EditorGatewayDispatcher.Current null before it.
+	/// </summary>
+	internal void OpenLastProject()
+	{
+		_projectManager.LoadLastProject();
 		InitializeScriptManager();
 	}
 

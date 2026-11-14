@@ -79,6 +79,7 @@ public class Editor : Core
 			Headless = gatewayOptions.Headless
 		}, imGuiManager);
 		RegisterGlobalManager(_gateway);
+		imGuiManager.OpenLastProject();
 
 		Scene.OnSceneBegin += TrackSceneChange;
 		Scene.OnSceneBegin += SetSceneClearColor;
