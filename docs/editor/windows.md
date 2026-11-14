@@ -9,47 +9,68 @@ sidebar_position: 2
 
 *Example workspace: Scene Select is active, while the Inspector has no entity selected. Tile selection and entity selection are separate.*
 
-| Window | Purpose |
-|---|---|
-| **Scene Graph** | Entity hierarchy for the active scene. Create, rename, reparent, duplicate, and delete entities. Select an entity to open its inspector. |
-| **Inspector** | Edits the selected entity's `Transform` and component fields. Component data is read and written through each component's `Data` property. |
-| **Asset Browser** | Project file tree. Scenes and prefabs are discovered anywhere inside the project; `Scenes/` and `Prefabs/` are default creation folders. Drag a texture onto a `SpriteRenderer` field to assign it. Right-click for file actions; keyboard: `Ctrl+C`, `Ctrl+V`, `Ctrl+D`, `Delete`. |
-| **Game Viewport** | The live MonoGame render target displayed as an ImGui image. The editor UI is rendered on top; the game content renders into the same window as a passthrough. |
-| **Editor Tools bar** | Cursor/zoom mode toggle, audio mute toggle, and the Play / Stop / Pause / Reset button cluster. |
-| **Tile Palette** | Picks the active tilemap layer, brush source and scene tile tools. Open from **View > Window > Tile Palette**. See [Tile Palette](tile-palette.md). |
-| **Tileset Editor** | Defines tile dimensions, source art, animation, terrain and collision metadata in a `.vtileset`. See [Tilesets](tilesets.md). |
-| **Build Game** | Publishes a standalone game and controls per-scene Debug/Release inclusion. See [Build Game and Scene Presets](game-build.md). |
-| **Aseprite** | Connects source-art editing to Voltage. Open from **View > Window > Aseprite**; see [Live Aseprite Integration](aseprite.md). |
-| **Light Preview** | Lights an Aseprite sprite through the real deferred renderer with any engine or game light. Open from **View > Window > Light Preview**; see [Light Preview](light-preview.md). |
-| **Timeline Editor** | Authors and previews sequences through a scene's Timeline Director. See [Timeline Editor](timelines.md). |
-| **Animation Event Inspector** | Edits events associated with sprite animation frames. See [Animation Event Inspector](animation-events.md). |
-| **Core Settings** | Live engine switches and FPS graph, opened through **Core Window**. See [Core Settings](core-settings.md). |
-| **Data Asset** | Edits shared `.vasset` settings separately from scenes. See [Data Assets](data-assets.md). |
-| **Plugin Manager** | Project plugin installation, status and reload workflows. See [Plugin Manager](plugin-windows.md). |
-| **Debug Log** | Shows editor and script diagnostics. Check it when an asset fails to load or a script fails to compile; see [Hot Reload](hot-reload.md). |
+The menu bar holds **File**, **Project**, **View**, **Profiler**, **Scripting**, **Effects**, **Plugins**, **Build** and **Help**. When the editor window is too narrow, the menus that do not fit move into **More**. Plugins can add their own items to any of these menus.
 
-Layouts and theme can be changed from the **View** menu. The current dock arrangement, tab order, active tabs, floating geometry and window visibility are saved automatically when the editor closes. See [Editor Layouts](layouts.md) for named snapshots and recovery.
+## Windows
 
-The current default theme is **Studio Graphite**. **View > Themes** changes the theme; **UI font**, **Code font**, and **Interface scale** control readability independently. Drag a window tab to dock or undock it, and drag its border to resize it. **View > Window** restores a closed tool window. Scene Graph sections can be restored with its **Scene Graph Sections** menu.
+| Window | Open from | Purpose |
+|---|---|---|
+| **Scene Graph** | View > Window > Scene Graph Window | The active scene in four sections: Scene Components, Post Processors, Renderers and Entities. The arrow button at the top shows or hides sections. Right-click an entity to rename, duplicate, destroy, create a child, paste a copied component, open it in a separate inspector, or **Move Camera Here**. Post-processors added here apply live but are not saved in the scene file. |
+| **Main Entity Inspector** | View > Window > Inspector Window | Name, transform and components of the selected entity, **Add Component**, prefab creation and prefab overrides. See [Scenes and Prefabs](scenes-and-prefabs.md). |
+| **Asset Browser** | View > Window > Asset Browser | Project files, `.meta` GUIDs, drag and drop into the scene and inspector. See [The Asset Browser](asset-browser.md). |
+| **Game** | View > Window > Separate Game Window (on by default) | The game view as a dockable window. Its title reads **Playing**, **Paused**, or **Paused (Editor)** in Edit mode. With the option off, the game draws behind the dock layout instead. See [Play, Pause, Reset](play-mode.md). |
+| **Editor Tools** | Always shown | Cursor tools, debug overlays, audio mute, snapping, zoom, camera speed and Play View. Holds the playback buttons when Separate Game Window is off. |
+| **Debug Log** | Always shown | Editor, script and engine messages. **Collapse Text**, **Group Logs** (merges repeats with a count), **Clear**, and **Max Messages** (default 350). Script compile errors appear here; see [Hot Reload](hot-reload.md). |
+| **Tile Palette** | View > Window > Tile Palette, or the Tile Brush cursor | Active tilemap layer, brush source and scene tile tools. See [Tile Palette](tile-palette.md). |
+| **Tileset Editor** | View > Window > Tileset Editor, or double-click a `.vtileset` | Tile size, source art, animation, terrain and collision data. See [Tilesets](tilesets.md). |
+| **Timeline** | View > Window > Timeline Editor, or double-click a `.vtimeline` | Sequences played through a scene's Timeline Director. See [Timeline Editor](timelines.md). |
+| **Animation Event Inspector** | View > Window > Animation Event Inspector | Events on sprite animation frames. See [Animation Event Inspector](animation-events.md). |
+| **Aseprite** | View > Window > Aseprite | Live link to Aseprite. See [Live Aseprite Integration](aseprite.md). |
+| **Light Preview** | View > Window > Light Preview | Lights an Aseprite sprite through the deferred renderer. See [Light Preview](light-preview.md). |
+| **Core Settings** | View > Window > Core Window | FPS graph and live engine switches. See [Core Settings](core-settings.md). |
+| **Data Asset** | Double-click a `.vasset` | Edits shared data assets. See [Data Assets](data-assets.md). |
+| **Scripting** | Scripting > Scripting Window | Hot reload switches, compile actions, loaded script types and the compile log. |
+| **Editor Settings** | File > Settings | Interface scale, text size and font, script and effect options, snapping, and **Custom Hotkeys** for rebinding shortcuts. |
+| **Project Settings** | Project > Settings | `ProjectSettings.json`. See [Projects](projects.md#project-settings). |
+| **Build Game** | Build > Build Game | Standalone builds and the scene list. See [Build Game](game-build.md). |
+| **Asset Build** | Build > Asset Build | MGCB compilation of Content. See [Asset Build](asset-build.md). |
+| **Plugin Manager** | Plugins > Plugin Manager | Project plugins. See [Plugin Manager](plugin-windows.md). |
+| **Audio Profiler**, **Performance Profiler** | Profiler | Live audio and runtime performance data. |
+| **Sprite Atlas Editor** | File > Open Sprite Atlas Editor | Edits sprite atlases. |
 
-For placement, use the cursor tools in **Editor Tools**. Entity transform tools affect an entire entity; **Scene Select** in the Tile Palette affects individual placed cells. See [Scene tile selection](tile-selection.md) for direct prop picking and moving a drawn section without moving its whole renderer.
+View > Window also has **Preserve Game Window Aspect Ratio**. The Help menu holds the ImGui demo window and style editor.
 
-The eye button in **Editor Tools** shows or hides debug overlays. Its dropdown has **All** and independent
-categories for **Colliders**, **Sprite renderers**, **Tilemaps**, **Lights**, **UI**, **Other components**,
-and **Transform gizmos**. Checked categories are visible; **All** shows or hides everything. The eye button
-temporarily hides your selected categories and restores them on the next click. Category choices persist
-as editor preferences and do not modify scenes. The collider category includes tilemap-generated collision
-shapes independently of tilemap bounds. Parent and component settings still apply.
+## Docking and appearance
 
-With the Scene Graph focused in Edit mode, **Up/Down** selects the previous or next entity through the
-whole hierarchy, including collapsed children. Holding a key repeats. Navigation follows the selected
-entity even when the inspector is locked, expands its ancestors, and scrolls the selected row into view.
-Text fields keep their own arrow-key input.
+Drag a window's tab to dock or undock it, and drag a border to resize it. The dock arrangement and window visibility are saved when the editor closes; see [Editor Layouts](layouts.md) for named layouts and recovery.
 
-In Edit mode, selecting an entity in the Scene Graph centers the camera on the combined bounds of its
-renderers, colliders, and descendants. Tilemap layers use their painted cells rather than their shared
-origin. Empty layers do not pull a populated group toward the origin; groups without content use their
-leaf positions. **Move Camera Here** and gateway `view.focus` use the same content bounds.
+The default theme is **Studio Graphite**. **View > Themes** changes the theme, and **View > Interface scale** (75% to 200%), **View > UI font** and **View > Code font** change readability independently. **File > Settings > Interface** adds a separate text size (80% to 160%).
 
-The Inspector's **Debug Render Enabled** flag also gates every descendant. Turning a parent back on
-restores each child's own debug setting; it does not overwrite those settings or disable gameplay rendering.
+## Editor Tools
+
+The Editor Tools row contains, in order:
+
+- **Cursor tools**: Default cursor for moving (`1` or `Q`), Resize Entities (`2` or `E`), Rotate Entities (`3` or `R`), Resize Bounds for colliders and lights (`4` or `T`), and Paint Tiles (`5` or `B`), which also opens the Tile Palette.
+- **Debug overlays**: the eye button and its dropdown.
+- **Audio mute**.
+- **Snap to Grid** and **Show Grid**. Hold `Ctrl` while dragging to invert snapping. The grid size is in File > Settings > Placement Snapping (default 16 px).
+- **Background colour**, **Zoom** and **Camera Speed**.
+- **Play View**; see [Play View](play-mode.md#play-view).
+
+Transform tools move whole entities. **Scene Select** in the Tile Palette works on individual placed cells; see [Scene tile selection](tile-selection.md).
+
+The eye button shows or hides debug overlays. Its dropdown has **All** and independent categories for **Colliders**, **Sprite renderers**, **Tilemaps**, **Lights**, **UI**, **Other components** and **Transform gizmos**. Checked categories are visible. Clicking the eye hides the selected categories and the next click restores them. Category choices are editor preferences and do not modify scenes. The collider category includes tilemap-generated collision shapes independently of tilemap bounds.
+
+## Navigating the scene
+
+With the Game view focused in Edit mode, or while paused from the editor:
+
+- **Mouse wheel** zooms. **Shift + wheel** changes camera speed.
+- **Middle mouse drag** pans.
+- **W A S D** pans (not while `Ctrl` is held). Hold **Shift** to double the speed.
+
+With the Scene Graph focused in Edit mode, **Up** and **Down** select the previous or next entity through the whole hierarchy, including collapsed children, and repeat while held. Navigation follows the selected entity even when the inspector is locked, expands its ancestors and scrolls the row into view. Text fields keep their own arrow-key input.
+
+Selecting an entity in the Scene Graph in Edit mode centres the camera on the combined bounds of its renderers, colliders and descendants. Tilemap layers use their painted cells rather than their shared origin. Empty layers do not pull a group toward the origin, and groups without content use their leaf positions. **Move Camera Here** and the gateway command `view.focus` use the same bounds.
+
+The Inspector's **Debug Render Enabled** flag also gates every descendant. Turning a parent back on restores each child's own setting; it does not overwrite those settings or disable gameplay rendering.

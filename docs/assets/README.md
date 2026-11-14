@@ -1,25 +1,18 @@
 ---
 title: Asset File Formats
 sidebar_position: 3
-description: How the engine's own asset file types work, and how to add your own.
+description: How the engine's own asset file types work, how to add your own, and how data assets are declared and loaded.
 ---
 
 # Asset File Formats
 
-How the engine's own asset file types work, and how to add your own — for engine contributors, plugin
-authors, and game developers.
+How the engine's own asset file types work and how to add your own, for engine contributors, plugin authors and game developers.
 
-An **asset file format** is a file extension plus the code that turns that file into an object and back.
-`.vtileset` and `.vtimeline` are the built-in examples. Both are built on one shared type,
-`JsonAssetFile<T>`, so adding a format is roughly fifteen lines rather than a new copy of the same
-load/save boilerplate.
-
----
+An **asset file format** is a file extension plus the code that turns that file into an object and back. `.vtileset`, `.vtimeline` and `.vasset` are the built-in examples. They share one implementation, `JsonAssetFile<T>`, so adding a format takes a few lines rather than another copy of the same load and save code.
 
 ## 1. The landscape
 
-Voltage projects contain two kinds of file: **source assets** authored in other tools (`.png`,
-`.aseprite`, `.ogg`, `.tmx`, `.fx`) and **native assets** the engine defines and owns.
+A project contains two kinds of file: **source assets** authored in other tools (`.png`, `.aseprite`, `.ogg`, `.tmx`, `.fx` and so on) and **native assets** the engine defines.
 
 | Extension | Backing type | Owner |
 |---|---|---|
@@ -28,48 +21,39 @@ Voltage projects contain two kinds of file: **source assets** authored in other 
 | `.vprefab` | `PrefabData` | `SerializationManager` |
 | `.vtileset` | `TilesetAsset` | `TilesetAssetIO` |
 | `.vtimeline` | `TimelineAsset` | `TimelineAssetIO` |
+| `.vasset` | a `DataAsset` subclass | `DataAssetIO` (see §6) |
 
-`.vscene` and `.vprefab` are special-cased throughout the engine (entity graphs, prefab deltas, AOT scene
-deserialization) and are **not** built on the pattern below. `.vtileset` and `.vtimeline` are — and so is
-anything you add.
+`.vscene` and `.vprefab` are special-cased throughout the engine (entity graphs, prefab deltas, generated scene readers) and do **not** use the pattern below. The other native formats do, and so does anything you add.
 
 ### Identity: GUIDs, not paths
 
-Every file the editor indexes gets a stable GUID stored in a `.meta` sidecar next to it
-(`AssetDatabase`). References store that GUID, so **renaming or moving an asset never breaks a
-reference**. A rename or move made outside the editor while it is open (Explorer, git, a script) takes
-the sidecar along too; one made while the editor is closed needs the `.meta` moved with the file. If two
-files claim one GUID (a copied `.meta`), the file the manifest last pointed at keeps it and the copy gets
-a new one, with a warning in the console. At build time the editor bakes a GUID→path map into
-`Data/assets.manifest`, which `Voltage.Assets.AssetManifest` reads at runtime so published builds resolve
-the same way.
+Every file the editor indexes gets a stable GUID in a `.meta` file next to it (`AssetDatabase`). References store that GUID, so **renaming or moving an asset never breaks a reference**. A rename or move made outside the editor while it is open (Explorer, git, a script) takes the `.meta` along; one made while the editor is closed needs the `.meta` moved with the file. If two files claim one GUID (a copied `.meta`), the file the manifest last pointed at keeps it and the copy gets a new one, with a warning in the console.
 
-You get all of this for free. A new format needs no identity work of its own.
+The editor keeps a GUID to path map in `Data/assets.manifest`, rewritten on every asset refresh. It ships in the build's `Data/` folder, and `Voltage.Assets.AssetManifest` reads it at runtime, so published builds resolve references by GUID too.
 
----
+A new format gets all of this without any identity code of its own.
 
 ## 2. The pattern: `JsonAssetFile<T>`
 
-Every JSON-backed, single-object asset format differs in only three things:
+JSON-backed, single-object asset formats differ in only three things:
 
 1. the file extension,
 2. the `JsonSettings` used to encode and decode,
 3. how a fresh default instance is built,
 
-plus an optional post-load hook. `JsonAssetFile<T>` takes exactly those as constructor arguments and
-supplies `CreateDefault` / `CreateAndSave` / `ToJson` / `FromJson` / `Save` / `Load`.
+plus an optional post-load hook. `JsonAssetFile<T>` takes exactly those as constructor arguments and supplies `CreateDefault`, `CreateAndSave`, `ToJson`, `FromJson`, `Save` and `Load`.
 
 ```mermaid
 flowchart LR
-  subgraph DECL["Your format — one static readonly field"]
+  subgraph DECL["Your format: one static readonly field"]
     FMT["JsonAssetFile&lt;MyAsset&gt;<br/>extension · settings · createDefault · afterLoad"]
   end
 
   REG["AssetFileRegistry<br/>extension → IAssetFileFormat"]
-  MI["[ModuleInitializer]<br/>EngineAssetFormats / plugin / game bootstrap"]
+  MI["[ModuleInitializer]<br/>EngineAssetFormats / plugin / game"]
 
-  subgraph CONSUME["Consumers — no per-format code"]
-    MENU["Asset Browser<br/>Create ▸ menu"]
+  subgraph CONSUME["Consumers: no per-format code"]
+    MENU["Asset Browser<br/>Create menu"]
     LOAD["ForPath(path).LoadObject(…)"]
   end
 
@@ -78,17 +62,13 @@ flowchart LR
   REG --> LOAD
 ```
 
-`IAssetFileFormat` is the non-generic view of a format (`Extension`, `DisplayName`, `AssetType`,
-`LoadObject`, `SaveObject`, `CreateOptions`). It is what lets the editor treat every format uniformly:
-the "Create ▸" submenu is a loop over `AssetFileRegistry.All`, not a hardcoded list.
-
----
+`IAssetFileFormat` is the non-generic view of a format (`Extension`, `DisplayName`, `AssetType`, `LoadObject`, `SaveObject`, `CreateOptions`). It lets the editor treat every format uniformly: the Asset Browser's **Create** submenu is a loop over `AssetFileRegistry.All`, not a hard-coded list.
 
 ## 3. Adding a format
 
 ### 3.1 Define the asset type
 
-A plain class. No base class, no interface, no attributes required.
+A plain class. No base class, interface or attributes required.
 
 ```csharp
 namespace MyGame.Dialogue
@@ -133,15 +113,13 @@ namespace MyGame.Dialogue
 }
 ```
 
-The static facade is optional — `DialogueTableIO.Format.Load(path)` works just as well — but it keeps
-call sites short and gives you one place to add format-specific helpers.
+The facade is optional (`DialogueTableIO.Format.Load(path)` works as well), but it keeps call sites short and gives format-specific helpers a home.
 
-**`createDefault`** receives the file name without its extension as a naming hint, or `null` when the
-asset is created outside a file context. Use it to seed a `Name` field; ignore it if your type has none.
+`createDefault` receives the file name without its extension as a naming hint, or `null` when the asset is created outside a file context. Use it to seed a `Name` field, or ignore it.
 
 ### 3.3 Register it
 
-Registration must happen from a `[ModuleInitializer]`, not from a lazy static. See §5.1 for why.
+Register from a `[ModuleInitializer]`, not from a lazy static (see §5.1).
 
 ```csharp
 using System.Runtime.CompilerServices;
@@ -157,24 +135,21 @@ namespace MyGame.Dialogue
 }
 ```
 
-This works from all three places code can live:
+This works wherever the code lives:
 
 | Where your code lives | Does `[ModuleInitializer]` run? |
 |---|---|
-| **Engine** (`Voltage.Engine`) | Yes — but add your line to `EngineAssetFormats.RegisterAll()` instead, so all engine formats stay in one place |
-| **Plugin** | Yes — `PluginManager` calls `RunModuleConstructor` on load, and `PluginBootstrap.g.cs` forces it in NativeAOT builds |
-| **Game project** (`Scripts/`) | Yes — `ScriptManager` calls `RunModuleConstructor` after compiling your scripts |
+| **Engine** (`Voltage.Engine`) | Yes, but add your line to `EngineAssetFormats.RegisterAll()` instead, so the engine formats stay in one place. |
+| **Plugin** | Yes. `PluginManager` calls `RunModuleConstructor` on load, and `PluginBootstrap.g.cs` forces it in NativeAOT builds. |
+| **Game project** (`Scripts/`) | Yes. `ScriptManager` calls `RunModuleConstructor` after compiling your scripts. |
 
-That is the whole job. The format now appears under **Create ▸ Dialogue Table** in the Asset Browser
-context menu, and `AssetFileRegistry.ForPath("…/Intro.vdialogue")` resolves it.
-
----
+The format now appears under **Create > Dialogue Table** in the Asset Browser context menu, and `AssetFileRegistry.ForPath("…/Intro.vdialogue")` resolves it.
 
 ## 4. Using your asset
 
 ### 4.1 From a component
 
-Declare an `AssetReference` field to get a drag-and-drop slot in the Inspector:
+An `AssetReference` field gives you a drag-and-drop slot in the Inspector:
 
 ```csharp
 public partial class DialoguePlayer : Component
@@ -185,54 +160,46 @@ public partial class DialoguePlayer : Component
 
     public override void OnStart()
     {
-        var path = Table.ResolvePath();          // GUID-first; survives rename/move
+        var path = Table.ResolvePath();          // GUID first; survives rename and move
         _table = DialogueTableIO.Load(path);
     }
 }
 ```
 
-`AssetReference` resolves GUID-first through the editor's `AssetDatabase` in play mode and through the
-baked `assets.manifest` in a published build, falling back to the stored path.
+`AssetReference` resolves GUID-first, through the editor's `AssetDatabase` in the editor and through `assets.manifest` in a published build, and falls back to the stored path.
 
 ### 4.2 Shipping the file
 
-The generated `.csproj` copies `Content/**` and `Data/**` to the output with `PreserveNewest`. Keep
-your assets under one of those two roots (`Scenes/` and `Prefabs/` already live inside `Data/`). A file
-elsewhere — `Scripts/`, say — will work in the editor and then be **missing from the build**.
+Keep custom asset files under `Content/` or `Data/`. The generated `.csproj` copies both to the output, and a game build copies them into the build folder; when the build compiles assets, `Content/` follows the project's [Asset Build](../editor/asset-build.md) rules. Scenes and prefabs are the exception: the build packages every `.vscene` it includes and every `.vprefab` from wherever they live in the project. Any other file outside `Content/` and `Data/` works in the editor and is then **missing from the build**.
 
-### 4.3 Optional: `Scene.LoadAsset<T>` support
+### 4.3 Loading through `Scene.LoadAsset<T>`
 
-`Core.Scene.LoadAsset<T>(reference)` routes through a loader table in `VoltageContentManager`
-(`AssetLoaderTable`). That table is engine-internal, so wiring a new type into it is an engine change —
-add one line:
+`Core.Scene.LoadAsset<T>(reference)` dispatches on `T` through `VoltageContentManager`. The engine covers textures, sounds, sprite atlases, bitmap fonts, Aseprite files, Tiled maps, tilesets, particle configs, effects, JSON strings and every `DataAsset` subclass. Teach it your type with `VoltageContentManager.RegisterLoader`, from the same module initializer:
 
 ```csharp
-[typeof(DialogueTable)] = static (c, path, name, raw) => DialogueTableIO.Load(path),
+using Voltage.Systems;
+
+[ModuleInitializer]
+internal static void Install()
+{
+    AssetFileRegistry.Register(DialogueTableIO.Format);
+    VoltageContentManager.RegisterLoader<DialogueTable>((content, path) => DialogueTableIO.Load(path));
+}
 ```
 
-Outside the engine, call your own `Load` as in §4.1. The only thing you give up is the shared
-`LoadedAssets` cache, which you can replace with a `Dictionary<Guid, T>` of your own if the asset is
-expensive.
-
----
+A registered loader shares the content manager's `LoadedAssets` cache, and a compiled `.xnb` from an asset build still takes precedence when one exists. After that, `Scene.LoadAsset<DialogueTable>(Table)` works like any built-in type.
 
 ## 5. Rules and gotchas
 
 ### 5.1 Register from a `[ModuleInitializer]`, never a lazy static
 
-It is tempting to let `AssetFileRegistry` be populated as a side effect of the first touch of
-`DialogueTableIO`. Do not — the registry would be **empty for any caller that arrives first**, and the
-symptom is silent: a Create menu with missing entries, not an exception.
+It is tempting to populate `AssetFileRegistry` as a side effect of the first use of `DialogueTableIO`. Do not: the registry would be **empty for any caller that arrives first**, and the symptom is silent, a Create menu with missing entries rather than an exception.
 
-`AssetFileRegistry.EnsureEngineFormatsRegistered()` guards the engine's own formats on every read path
-as a second line of defence, but that only covers formats listed in `EngineAssetFormats`. Your format
-needs its own module initializer.
+`AssetFileRegistry.EnsureEngineFormatsRegistered()` guards the engine's own formats on every read path as a second line of defence, but it only covers the formats in `EngineAssetFormats`. Your format needs its own module initializer.
 
 ### 5.2 Polymorphic members need `TypeNameHandling.Auto`
 
-The default settings are pretty-printed, **no type names**, no reference tracking — correct for a plain
-data file. If a field's declared type is abstract or a base class (a `List<Track>` holding
-`TransformTrack`s), the concrete type is lost on save unless you opt in:
+The default settings are pretty-printed, with **no type names** and no reference tracking, which suits a plain data file. If a member's declared type is abstract or a base class (a `List<Track>` holding `TransformTrack`s), the concrete type is lost on save unless you opt in:
 
 ```csharp
 settings: new JsonSettings
@@ -245,52 +212,48 @@ settings: new JsonSettings
 
 This is what `.vtimeline` does. The encoder writes an `@type` hint per polymorphic value.
 
-Two caveats. Type hints are **CLR type names**, so renaming or moving the class breaks existing files.
-And resolving them uses reflection, which a NativeAOT build can trim — engine types survive because
-`Voltage.dll` is preserved wholesale by `TrimmerRoots.xml`, but your own types need a trimmer root or a
-`[DynamicDependency]`. Prefer concrete types where you can.
+Two caveats. Type hints are **CLR type names**, so renaming or moving the class breaks existing files. And resolving them uses reflection, which a NativeAOT build can trim. Engine types survive because `TrimmerRoots.xml` preserves `Voltage.dll` wholesale, and prebuilt plugin assemblies are preserved through their trimmer roots; types in your game project may need a `[DynamicDependency]`. Prefer concrete types where you can.
 
 ### 5.3 The post-load hook
 
-`afterLoad` runs after a successful decode and is skipped when decoding yields null. Use it for anything
-derived that deserialization cannot reconstruct:
+`afterLoad` runs after a successful decode and is skipped when decoding yields null. Use it for derived state that deserialization cannot rebuild:
 
 ```csharp
 afterLoad: asset => asset.InvalidateEventOrder()
 ```
 
-### 5.4 Icons and drop behaviour are editor-side
+### 5.4 Icons, double-click and drop behaviour
 
-`AssetTypeRegistry` (in `Voltage.Editor`) maps an extension to its browser icon, its `AssetKind`, and its
-drag-into-the-scene factory. It is currently populated by a private static constructor, so **only engine
-and editor code can add entries**. A format registered from a plugin or a game project works fully — it
-loads, saves, and appears in the Create menu — but shows the generic "unsupported" icon and cannot be
-dropped into the viewport.
+`AssetTypeRegistry` (in `Voltage.Editor`) maps an extension to its Asset Browser icon, its `AssetKind`, an optional drop factory (what dragging the file into the scene creates) and an optional `Open` action (what double-clicking does). A format registered only through `AssetFileRegistry` loads, saves and appears in the Create menu, but shows the generic icon and cannot be dropped into the viewport.
 
-If you are adding a format inside the engine and want a proper icon, add a descriptor to
-`AssetTypeRegistry`'s static constructor and an icon PNG under
-`DefaultContent/UI/RemixIcon/FileTypes/`.
+Engine and editor code add descriptors in `AssetTypeRegistry`'s static constructor, with icon PNGs under `DefaultContent/UI/RemixIcon/FileTypes/`. An editor plugin calls `AssetTypeRegistry.Register` from `IEditorPlugin.Initialize`:
+
+```csharp
+AssetTypeRegistry.Register(new AssetTypeDescriptor(
+    Extensions: new[] { ".vdialogue" },
+    IconPath: "DefaultContent/UI/AssetTypes/Data.png",
+    Kind: AssetKind.Custom,
+    DropFactory: null)
+{
+    Open = path => _dialogueWindow.Open(path),
+});
+```
+
+`IconPath` is loaded with `Core.Content.LoadTexture`. A `DropFactory` receives the asset's `AssetReference` and, for a drop on the game view, the world position. Registering again replaces the descriptor for the same extensions.
 
 ### 5.5 Saving is not atomic
 
-`Save` is a plain `File.WriteAllText`. A crash mid-write truncates the file. This matches how scenes and
-prefabs already behave; if your asset is large or precious, write to a temporary file and move it into
-place yourself.
+`Save` is a plain `File.WriteAllText`, so a crash mid-write truncates the file. Scenes and prefabs behave the same way. For a large or precious asset, write to a temporary file and move it into place yourself.
 
 ### 5.6 `Load` returns null for a missing file
 
-It does not throw. Callers that need a hard failure should check.
-
----
+It does not throw. Callers that need a hard failure must check.
 
 ## 6. Data assets (`.vasset`)
 
-A **data asset** is a file holding shared, referenceable data with no entity, transform or update cost —
-Voltage's equivalent of Unity's ScriptableObject. Difficulty tables, item definitions, loot tables,
-dialogue data, tuning curves.
+A **data asset** is a file of shared, referenceable data with no entity, transform or update cost, like Unity's ScriptableObject: difficulty tables, item definitions, loot tables, dialogue data, tuning curves.
 
-Unlike the formats above you do **not** write an IO class or a format descriptor. Declare a class; the
-source generator does the rest.
+You do **not** write an IO class or a format for one. Declare a class; the source generator does the rest.
 
 ### 6.1 Declaring one
 
@@ -319,13 +282,9 @@ public class LootEntry : ISerializableData    // nested data needs this marker
 }
 ```
 
-Requirements: **concrete**, **`partial`**, and a **public parameterless constructor**. The generator
-emits a reflection-free reader into the partial half, which is what makes data assets load under
-NativeAOT.
+A data asset must be **concrete**, **`partial`** and have a **public parameterless constructor**. The generator emits a reflection-free reader into the partial half, which is what lets data assets load under NativeAOT. Script files for one can start from **Create > New Script > Data Asset** in the `Scripts` folder.
 
-Create one in the editor with right-click ▸ **Create ▸ Data Asset ▸ &lt;your type&gt;**, and double-click it
-to edit. One generic window serves every type, driven by the same inspectors the entity inspector uses —
-enums, lists, colours, asset slots, nested types and `[Tooltip]` all work with no editor code.
+Create an asset with right-click **Create > Data Asset > &lt;your type&gt;**, and double-click it to edit. One window serves every type, built from the same inspectors as the entity Inspector: enums, lists, colours, asset slots, nested types and `[Tooltip]` all work with no editor code.
 
 ### 6.2 Reading one
 
@@ -342,22 +301,18 @@ public partial class Enemy : Component
 }
 ```
 
-`[AssetType]` makes the inspector filter its picker and **reject** a mismatched drag. It also accepts an
-extension list — `[AssetType(".png", ".aseprite")]` — for source assets.
+`[AssetType]` makes the Inspector filter its picker and **reject** a mismatched drag. It also accepts an extension list, as in `[AssetType(".png", ".aseprite")]`, for source assets. `DataAssets.LoadFromPath<T>` loads by absolute path, and `Scene.LoadAsset<T>` works for any `DataAsset` subclass.
 
 ### 6.3 Sharing, and the one thing to watch
 
-`Load` returns the **same instance** for the same asset. That is the point: edit the file, and every
-consumer sees it. It also means a runtime mutation is visible everywhere.
+`Load` returns the **same instance** for the same asset. That is the point: edit the file and every consumer sees it. It also means a runtime change is visible everywhere.
 
-- Need per-consumer state instead? Mark the type `[CloneOnLoad]` and each `Load` returns a fresh copy.
-- In the editor, the loaded set is snapshotted on entering play mode and restored on exit, so gameplay
-  mutation can never rewrite your authored values.
+- For per-consumer state, mark the type `[CloneOnLoad]` and each `Load` returns a fresh copy.
+- In the editor, loaded assets are snapshotted on entering Play mode and restored on exit, so gameplay changes never overwrite your authored values.
 
 ### 6.4 Swapping variants
 
-A `DataAssetSet` maps keys to other data assets, so difficulty (or region, or platform tier) is authored
-rather than coded:
+A `DataAssetSet` maps keys to other data assets, so difficulty (or region, or platform tier) is authored rather than coded:
 
 ```csharp
 [AssetType(typeof(DataAssetSet))]
@@ -366,32 +321,23 @@ public AssetReference Stats;
 public override void OnStart()
 {
     _stats = DataAssets.LoadVariant<EnemyStats>(Stats);   // resolves DataVariant.Active
-    DataVariant.Changed += ReloadStats;                   // remember to unsubscribe
+    DataVariant.Changed += ReloadStats;                   // unsubscribe in OnRemovedFromEntity
 }
 ```
 
-Set `DataVariant.Active = "Hard"` once, from a menu. An unknown key falls back to the set's
-`DefaultKey`. Adding a "Nightmare" tier is a row in an asset, not a code change. A slot expecting a set
-also accepts a plain asset, so you can upgrade one-asset → set-of-variants without touching the reader.
+Set `DataVariant.Active = "Hard"` once, from a menu. An unknown key falls back to the set's `DefaultKey` (`"Default"` unless you change it). Adding a "Nightmare" tier is a row in an asset, not a code change. A slot expecting a set also accepts a plain asset, so you can move from one asset to a set of variants without touching the reader.
 
 ### 6.5 Versioning and renaming
 
-- Renaming the class or its namespace is safe — files store the `[AssetTypeId]`, not the type name.
-- Renaming or moving the **file** is safe — references resolve by GUID.
-- Changing fields: unknown keys in a file are skipped and missing ones keep their default, so adding and
-  removing fields is non-breaking. For a real migration, bump `[AssetVersion(2)]` and branch on
-  `LoadedVersion` inside `OnLoaded`.
+- Renaming the class or its namespace is safe: files store the `[AssetTypeId]`, not the type name.
+- Renaming or moving the **file** is safe: references resolve by GUID.
+- Changing fields: unknown keys in a file are skipped and missing ones keep their defaults, so adding and removing fields does not break anything. For a real migration, add `[AssetVersion(2)]` and branch on `LoadedVersion` inside `OnLoaded`.
 
 ### 6.6 Limits
 
-- **Polymorphic fields are not supported.** A `List<Ability>` with an abstract element type will not
-  round-trip. Use concrete types.
-- **Only public members persist.** A private `[Serialize]` field is reported (VLT014) rather than
-  silently dropped, because the writer is the reflection encoder, which only emits public members.
-- Diagnostics: VLT010 duplicate id · VLT011 no public ctor · VLT012 not partial · VLT013 no members ·
-  VLT014 non-public member · VLT015 missing `[AssetTypeId]`.
-
----
+- **Polymorphic fields are not supported.** A `List<Ability>` with an abstract element type will not round-trip. Use concrete types.
+- **Only public members persist.** A non-public member marked `[Serialize]` is reported as VLT014 rather than silently dropped, because data assets are written by the reflection encoder, which only writes public members.
+- Diagnostics: VLT010 duplicate `[AssetTypeId]`, VLT011 no public parameterless constructor, VLT012 not `partial`, VLT013 no serializable members, VLT014 non-public `[Serialize]` member, VLT015 missing `[AssetTypeId]`, VLT003 a struct field with an explicit parameterless constructor.
 
 ## 7. Reference
 
@@ -399,35 +345,37 @@ also accepts a plain asset, so you can upgrade one-asset → set-of-variants wit
 
 | Type | Purpose |
 |---|---|
-| `JsonAssetFile<TAsset>` | The shared load/save implementation. One `static readonly` instance per format. |
+| `JsonAssetFile<TAsset>` | The shared load and save implementation. One `static readonly` instance per format. |
 | `IAssetFileFormat` | Non-generic view: `Extension`, `DisplayName`, `AssetType`, `LoadObject`, `SaveObject`, `CreateOptions`. |
-| `AssetCreateOption` | One entry in the Asset Browser's "Create ▸" menu: label, default file name, writer. |
-| `AssetFileRegistry` | Extension → format lookup. `Register`, `ForExtension`, `ForPath`, `IsKnownAssetFile`, `All`. |
-| `EngineAssetFormats` | `[ModuleInitializer]` that installs the built-in formats. Engine formats go here. |
-| `AssetManifest` | Runtime GUID → path resolution from the baked `Data/assets.manifest`. |
+| `AssetCreateOption` | One entry in the Asset Browser's Create menu: label, default file name, writer. |
+| `AssetFileRegistry` | Extension to format lookup: `Register`, `ForExtension`, `ForPath`, `IsKnownAssetFile`, `All`. |
+| `EngineAssetFormats` | The `[ModuleInitializer]` that installs the built-in formats. Engine formats go here. |
+| `AssetManifest` | Runtime GUID to path resolution from `Data/assets.manifest`. |
+
+**`Voltage.Systems`**
+
+| Type | Purpose |
+|---|---|
+| `VoltageContentManager.RegisterLoader<T>` | Adds a loader for a custom type to `Scene.LoadAsset<T>` and `AssetReference` loading. |
 
 **`Voltage.Data`** (`Voltage.Engine/Data/`)
 
 | Type | Purpose |
 |---|---|
-| `DataAsset` | Base class for a `.vasset` data container. |
-| `[AssetTypeId]` | Stable, rename-proof type id. Auto-stamped; frozen thereafter. |
-| `[CloneOnLoad]` · `[AssetVersion]` | Opt out of instance sharing · declare a schema version. |
+| `DataAsset` | Base class for a `.vasset`: `SourceGuid`, `SourcePath`, `LoadedVersion`, `OnLoaded()`. |
+| `[AssetTypeId]` | Stable, rename-proof type id. Stamped automatically, then frozen. |
+| `[CloneOnLoad]`, `[AssetVersion]` | Opt out of instance sharing; declare a schema version. |
 | `ISerializableData` | Marks a nested class as serializable (`IComponentGroup` derives from it). |
 | `DataAssets` | `Load<T>`, `LoadVariant<T>`, `LoadFromPath<T>`. |
-| `DataAssetIO` | Load/save, `PeekAssetTypeId` (header-only parse). |
-| `DataAssetCache` | Shared-instance store; in-place reload; play-mode snapshot/restore. |
-| `DataAssetRegistry` | id → type/factory/reader, populated by generated module initializers. |
-| `DataAssetSet` · `DataVariant` | Key → asset mapping, and the globally active key. |
-| `[AssetType]` | *(in `Voltage.Serialization`)* Constrains an `AssetReference` inspector slot. |
+| `DataAssetIO` | Load and save, and `PeekAssetTypeId` (reads only the header). |
+| `DataAssetCache` | The shared-instance store: in-place reload and the Play-mode snapshot. |
+| `DataAssetRegistry` | Id to type, factory and reader, filled by generated module initializers. |
+| `DataAssetSet`, `DataVariant` | Key to asset mapping, and the globally active key. |
+| `[AssetType]` | In `Voltage.Serialization`. Constrains an `AssetReference` Inspector slot. |
 
-**Multiple create options.** `CreateOptions` defaults to a single "New &lt;DisplayName&gt;" entry. A
-format whose files come in several flavours can implement `IAssetFileFormat` directly and return one
-option per flavour — the Asset Browser renders those as a nested submenu automatically.
-
----
+**Several create options.** `CreateOptions` defaults to a single "New &lt;DisplayName&gt;" entry. A format whose files come in several flavours can implement `IAssetFileFormat` directly and return one option per flavour; the Asset Browser shows them as a submenu.
 
 ## See also
 
-- [Plugins](../plugins/README.md) — shipping a format (and its editor tooling) as a plugin
-- [Content Loading](../scripting/content-loading.md) — the `ContentManager` layer for source assets (textures, audio, effects)
+- [Plugins](../plugins/README.md): shipping a format, and its editor tooling, as a plugin.
+- [Content Loading](../scripting/content-loading.md): the content manager layer for source assets (textures, audio, effects).

@@ -1,60 +1,72 @@
+---
+title: Effects
+description: How built-in and custom shaders are compiled, cached and shipped, and how the Wine toolchain is set up on macOS and Linux.
+---
+
 # Effects
 
-Voltage uses MonoGame DesktopGL on Windows, macOS and Linux. Every shader must be compiled with `/Profile:OpenGL`, including on Windows.
+Voltage renders with MonoGame DesktopGL on every desktop platform, so every shader is compiled with `/Profile:OpenGL`, on Windows too.
 
-## First launch and game exports
+## Built-in effects
 
-The built-in effects are compiled at MonoGame 3.8.5.1 and embedded in `Voltage.dll`. A fresh checkout, relocated Editor, or exported game needs no MGFXC or Wine installation to load them. Existing loose DirectX or old-format built-in files are ignored in favor of the bundled OpenGL versions.
+The engine's own effects are compiled with MonoGame 3.8.5.1 and embedded in `Voltage.dll`. A fresh checkout, a relocated editor and an exported game all load them without MGFXC or Wine. Loose DirectX or old-format copies of built-in effects are ignored in favour of the embedded OpenGL versions.
 
-Engine builds verify source and bytecode hashes against `Voltage.Engine/Graphics/Effects/Compiled/manifest.props`, accepting both LF and CRLF source checkouts. Changing a shader or the MonoGame package requires regenerating the bundle:
+Engine builds check each shader source and its bytecode against the hashes in `Voltage.Engine/Graphics/Effects/Compiled/manifest.props`, accepting LF and CRLF checkouts alike, and fail when they disagree. After changing a built-in shader or the MonoGame package version, regenerate the bundle and verify it:
 
 ```sh
 dotnet run --project tools/effects/Voltage.Effects.Build.csproj
 dotnet run --project tools/effects/Voltage.Effects.Build.csproj -- --verify
 ```
 
-Commit the shader, generated `.mgfxo`, and manifest together. The compiled files are release resources, not local build debris. The generator passes relative source paths so bytecode contains no account or workstation paths. An existing compiler can be supplied with `--compiler=/path/to/mgfxc` at the matching package version.
+Commit the shader, the generated `.mgfxo` and the manifest together: the compiled files are release resources, not build output. The generator passes relative source paths, so the bytecode contains no machine paths. To use a compiler you already have, pass `--compiler=/path/to/mgfxc` at the matching package version.
 
 ## Custom shaders
 
-The Effects menu and game publishing compile shaders from the project's configured Effects folder into `Content/Effects`, preserving subdirectories. Projects with no custom shaders need no compiler. Fingerprints include nested `#include` files, the tool version and profile; unchanged valid outputs are reused. Fingerprints also verify the output hash, so missing or damaged bytecode is rebuilt. Project stamps live in `obj/Effects`.
+Put `.fx` files in the project's Effects folder (`Effects/` in a new project). The **Effects** menu (**Compile Project Effects**, **Compile Engine Effects**, **Compile ALL Effects**) and every game build compile them into `Content/Effects`, keeping subfolders. A project without custom shaders needs no compiler.
 
-The first required compilation installs `dotnet-mgfxc` at the loaded MonoGame package version into the user application-data folder under `Voltage/Tools/mgfxc`. It requires the .NET SDK and NuGet access. A global MGFXC installation or shell PATH configuration is unnecessary. The Editor includes built-in shader sources in its output and compiles engine overrides into `Voltage/Effects/<version>/<bundle>/OpenGL` under user application data. The bundle key prevents overrides from an older engine release from masking updated built-in shaders. These overrides are included in game exports.
+Each output is fingerprinted from its source, every nested `#include`, the compiler version and the profile, together with a hash of the output itself. Unchanged, intact outputs are reused; missing or damaged bytecode is rebuilt. The project's stamps live in `obj/Effects`.
 
-On macOS and Linux, compiling changed HLSL shaders requires Wine. **Compile Effects** and **Build Game** share a short **Shader Setup** prompt when Wine or its shader environment is missing or fails verification. Choose **Install and Continue**, **Choose Installation**, or **Cancel**. Setup runs in the background, supports cancellation, and resumes the requested operation after compiling a test shader.
+Load a custom effect with `VoltageContentManager.LoadEffect`, which resolves the name against the project's content root. Built-in effect constructors use the embedded bytecode unless a valid override exists (see below).
 
-After success, a per-user verification stamp checks local tool and runtime metadata. Both manual effects compilation and game builds reuse this stamp: they do not repeat downloads, installation, or the test shader while the installation is unchanged. Missing files, changed tools or permissions, a different compiler version, and toolchain failures invalidate it. Valid cached shader outputs need no Wine check at all.
+### The compiler
 
-Automatic setup uses the detected Linux package manager with an OS authorization prompt, or an existing Homebrew installation on macOS. Immutable systems such as SteamOS retain their system filesystem: use Wine in the development container or choose an existing portable installation. Other unsupported installations can follow [MonoGame's platform setup instructions](https://docs.monogame.net/errors/mgfx0001/). Native macOS installation still needs verification on a Mac.
+The first compilation that needs it installs `dotnet-mgfxc` at the loaded MonoGame version into `<local app data>/Voltage/Tools/mgfxc`. This needs the .NET SDK and NuGet access; no global MGFXC install or PATH change is required.
 
-Voltage prepares a dedicated per-user Wine prefix containing a Windows .NET runtime, native `d3dcompiler_47.dll`, and MonoGame's `fxccs.dll`. Downloads are pinned and hash-verified. An existing Wine prefix is reused when it works and is never overwritten or deleted by setup. A selected Wine executable and prefix are saved locally without editing shell profiles. With no saved selection, Voltage respects `WINELOADER` and `MGFXC_WINE_PATH`, then checks managed and system Wine installations.
+Compilation has a two-minute deadline and tool installation five minutes. Cancelling ends the whole compiler process tree. Output goes to a temporary file, is checked for a current DesktopGL header, and replaces the previous output only on success, so a failed compile keeps the last good bytecode and a game build reports the failure instead of publishing.
 
-With `--headless` or `--no-prompts`, missing setup reports a clear error instead of waiting for a dialog. Run `effects.setup` to install explicitly, or `effects.setup wineLoader=/path/to/wine winePrefix=/path/to/prefix` to select and verify an existing installation, then retry. `effects.status` reports `setupBusy` and `setupVerified`.
+### Engine effect overrides
 
-Both output pipes are drained concurrently. Shader compilation has a two-minute deadline; tool installation has a five-minute deadline. Cancellation terminates the compiler process tree. Output is compiled to a temporary file, checked for the current DesktopGL header, then promoted only on success. A failed build preserves the previous output and blocks publishing it as a successful build. Build completion reports failures, including prerequisite errors and cancellation.
+The editor ships the built-in shader sources. **Compile Engine Effects** writes overrides to `<local app data>/Voltage/Effects/<MonoGame version>/<bundle revision>/OpenGL`. The bundle revision keeps overrides made by an older engine release from masking updated built-in shaders. Game builds copy valid overrides into the build's `Content/Voltage/Effects`.
 
-Custom effects loaded by `VoltageContentManager.LoadEffect` resolve against the project content root. Built-in effect constructors use embedded resources, with valid Editor overrides or loose exported overrides taking precedence.
+## Wine on macOS and Linux
 
-## Verification
+MGFXC compiles HLSL through Windows components, so on macOS and Linux it runs under Wine. **Compile** commands and **Build Game** share a **Shader Setup** prompt that opens when Wine or its shader environment is missing or fails verification:
+
+- **Install and Continue** installs everything in the background and resumes the requested operation after compiling a test shader.
+- **Choose Installation** takes an existing Wine executable and prefix, then **Check and Continue** verifies them.
+- **Cancel** stops setup.
+
+Voltage prepares its own per-user Wine prefix containing a Windows .NET runtime, the native `d3dcompiler_47.dll` and MonoGame's `fxccs.dll`. Downloads are pinned and hash-verified. An existing prefix is reused when it works and is never overwritten or deleted. A chosen Wine executable and prefix are saved in a per-user file; shell profiles are never edited. Without a saved choice, Voltage honours `WINELOADER` and `MGFXC_WINE_PATH`, then checks its managed Wine and the system's.
+
+Automatic installation uses the detected Linux package manager, with an OS authorization prompt, or an existing Homebrew install on macOS. On immutable systems such as SteamOS, use Wine inside a development container or choose an existing portable install. For other setups, follow [MonoGame's platform instructions](https://docs.monogame.net/errors/mgfx0001/).
+
+After a successful setup, a per-user verification stamp records the tool and runtime details, so later compiles and builds skip the download, install and test shader. Missing files, changed tools or permissions, a different compiler version or a toolchain failure invalidate the stamp. Cached shader outputs that are still valid need no Wine check.
+
+## Headless and agents
+
+With `--headless` or `--no-prompts`, a missing toolchain fails with setup guidance instead of opening the prompt. Through the [Editor Gateway](gateway/README.md):
+
+- `effects.setup` installs and verifies the toolchain.
+- `effects.setup wineLoader=/path/to/wine winePrefix=/path/to/prefix` selects and verifies an existing install.
+- `effects.status` reports the bundled and override effect counts, `compilerAvailable`, `wineReady`, `busy`, `setupBusy` and `setupVerified`.
+- `effects.compile` builds the engine effects.
+
+## Tests
+
+`Voltage.Effects.Tests` covers platform environment rules, custom Wine prefixes, nested includes, cache corruption, argument handling, cancellation and deadlines:
 
 ```sh
 dotnet test Voltage.Effects.Tests/Voltage.Effects.Tests.csproj -c Release
 ```
 
-The isolated suite covers Windows/macOS/Linux environment rules, custom Wine prefixes, nested includes and cache corruption, argument safety, output-pipe deadlocks, cancellation and deadlines. Set `VOLTAGE_TEST_MGFXC` to a compiler path to test native compilation and failure recovery. Native GPU loading runs on Windows; set `VOLTAGE_TEST_GPU=1` on another OS with a desktop graphics session. Linux CI uses Mesa/Xvfb.
-
-On macOS, run GPU checks on the process main thread with `dotnet run --project Voltage.Effects.Tests/Voltage.Effects.Tests.csproj -- --gpu-check`; Cocoa rejects graphics initialization from a test worker thread. This also checks shared animator textures, independent playback and origins, layer selections, refresh and scene-unload disposal.
-
-The Effects workflow runs first-launch and process tests on native Windows, macOS and Linux runners, native compilation on Windows, and GPU loading on Linux. Local environment simulations are not a substitute for native macOS/Linux compiler or driver verification. Native Wine compilation on those hosts remains a separate verification step after installing MonoGame's prerequisites.
-
-## Setup verification and follow-up
-
-Validated paths include background prefix installation, manual compilation before and after a shader edit, persisted verification after restarting, Linux and Windows Debug exports with AOT and asset rebuilding disabled, cancellation before publishing, and selecting an existing prefix after a missing dependency. The effects suite passes 72 tests with 7 GPU tests skipped. Editor-Debug and Editor-Release build successfully. The editor gateway suite passes 23 of 24 tests; `Headless_layout_is_docked` also fails against the unchanged editor.
-
-Further work and testing:
-
-- Run native macOS setup on Intel and Apple Silicon, including Homebrew, Wine loader paths, authorization, and cancellation.
-- Exercise automatic Wine and 7-Zip package installation on fresh supported Linux desktops and the portable-installation choice on immutable systems.
-- Test package-manager denial, network interruption, hash mismatch, and cancellation during download or installation.
-- Re-run game publishing with AOT and full asset compilation enabled, and opt into the GPU effect tests on supported desktops.
-- Investigate the existing headless docking failure independently of shader setup.
+Set `VOLTAGE_TEST_MGFXC` to a compiler path to include real compilation, and `VOLTAGE_TEST_GPU=1` to run GPU loading on a desktop session outside Windows. On macOS, run the GPU checks on the main thread with `dotnet run --project Voltage.Effects.Tests/Voltage.Effects.Tests.csproj -- --gpu-check`, because Cocoa rejects graphics initialization from a test worker thread.

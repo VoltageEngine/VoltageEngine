@@ -1,54 +1,78 @@
 ---
 title: Audio
 sidebar_position: 4
-description: The bussed mixer, 2D spatial sound, designer-placed zones, voice management, and the optional software DSP backend.
+description: Audio sources, trigger zones, the bus mixer, 2D spatial sound, voice management and the software DSP backend.
 ---
 
 # Audio
 
-A full-stack game audio system, from one-shot to reverb tail: a bussed mixer, 2D spatial sound, designer-placed zones for ambience, crowds, music and mood, real voice management, and an optional software-mixing backend with DSP for occlusion and reverb. Built on MonoGame, NativeAOT-safe, with pure-managed decoders for `wav`, `ogg` and `mp3`.
+Voltage's audio system runs through `Core.Audio`, an `AudioManager` that keeps playing across scene changes. It provides a bus mixer, 2D positional sound, trigger zones for ambience, music and mood, voice management, and an optional software mixer with low-pass and reverb. `wav`, `ogg` and `mp3` files are decoded in managed code, so audio works the same in NativeAOT builds.
 
-## Feature overview
-
-The signal path has five stages:
+## Signal path
 
 | Stage | What happens |
 |---|---|
-| **Sources** | Components and zones start voices: one-shots, loops, positional sound. |
-| **Mixer** | A bus tree with volume, mute and solo, ducking, and mood snapshots. |
-| **Spatial** | Distance attenuation and pan relative to the listener. |
-| **Voices** | Priority, instance caps, distance culling, virtual voices. |
-| **Backend** | MonoGame or the software mixer, then DSP, then the output device. |
+| Sources | Components and zones start voices: one-shots, loops and positional sound. |
+| Mixer | Every voice routes through a bus with volume, mute, solo, ducking and snapshots. |
+| Spatial | Volume and pan follow the voice's distance and offset from the listener. |
+| Voices | Priority, per-clip caps, distance culling and virtual voices keep the mix within budget. |
+| Backend | MonoGame playback, or the software mixer with DSP, then the output device. |
 
-### Sources and playback
+## Audio sources
 
-One component, `AudioSourceComponent`, covers fire-and-forget SFX, looping ambience, and 2D positional sound. Everything is live-tunable from the inspector while the game runs.
+`AudioSourceComponent` plays one clip. Assign `Clip` (an asset reference) in the Inspector; with `PlayOnStart` on, it starts when Play begins. Inspector edits are heard immediately in Play mode, including while paused.
 
-| Feature | API |
+| Field or method | Purpose |
 |---|---|
-| One-shots and loops. Play a clip once or loop it as a tracked, controllable voice; overlapping SFX go fire-and-forget. | `AudioSourceComponent`, `Play()`, `Stop()` |
-| 2D positional. Attenuate and pan by distance to the listener, with an inner full-volume radius and an outer silence radius. | `Is3D`, `MinDistance`, `MaxDistance` |
-| Pitch, pan, volume. Per-voice controls synced every frame; inspector edits are heard instantly in Play mode. | `Volume`, `Pitch`, `Pan` |
-| Random pitch. Vary pitch by a range per shot so repeated footsteps never sound machine-stamped. | `RandomPitchRange` |
-| Fades and crossfade. Fade any voice in or out, fade to a level, or crossfade to a different clip. | `FadeIn`, `FadeOut`, `FadeTo`, `CrossfadeTo` |
-| Priority and caps. Rank a source so it survives a crowded mix, and cap how many copies of one clip can stack. | `Priority`, `MaxInstances` |
+| `Clip`, `Bus` (default `SFX`) | What to play and which bus it routes through. |
+| `Volume`, `Pitch`, `Pan`, `Muted`, `Loop` | Per-voice controls, applied every frame. |
+| `RandomPitchRange` | Random pitch variation per play, for repeated sounds such as footsteps. |
+| `Is3D`, `MinDistance` (100), `MaxDistance` (800) | Positional sound: full volume inside `MinDistance`, silent beyond `MaxDistance`, panned by offset. |
+| `Priority` (128), `MaxInstances` | Survival order when voices run out, and a cap on overlapping copies (0 means no cap). |
+| `LowPassCutoffHz`, `ReverbSend` | Per-voice DSP. Audible only with the software backend. |
+| `Play()`, `Play(fadeIn)`, `Stop()` | Start or stop. |
+| `FadeIn`, `FadeOut`, `FadeTo(level, s)`, `CrossfadeTo(clip, s)` | Timed volume changes and clip swaps. |
 
-### Zones and atmosphere
+Positional sources draw their range in the editor: green for full volume, orange for silence.
 
-Drop a trigger volume, dial the levels, done. These components author a soundscape without code.
+## Playing from code
+
+```csharp
+using Voltage;
+using Voltage.Audio;
+
+var clip = Core.Audio.LoadClip(HitSound);                 // HitSound is an AssetReference
+Core.Audio.PlaySfx(clip, bus: "SFX", volume: 0.8f);       // fire and forget
+
+var voice = Core.Audio.PlayControlled(clip, new AudioPlaySettings
+{
+    Bus = "Ambience", Loop = true, Is3D = true,
+    Position = Entity.Position, MinDistance = 80, MaxDistance = 600,
+    Volume = 1f, Priority = 96,
+});
+
+Core.Audio.PlayMusic(Core.Audio.LoadClip(Theme), volume: 1f, fadeSeconds: 2f);
+Core.Audio.StopMusic(fadeSeconds: 1.5f);
+```
+
+Music plays on its own crossfading channel; starting a new track fades out the old one.
+
+## Zones
+
+Zone components shape a soundscape without code. Each needs a trigger collider on the same entity, and reacts when another collider enters or leaves it. Triggers fire only for entities that move with `Mover` or `ProjectileMover` (see [Collisions](../physics/collisions.md)), so give the player a collider and move it that way. Zones ignore triggers in Edit mode.
 
 | Component | Purpose |
 |---|---|
-| `AmbienceZoneComponent` | Looping environmental beds that crossfade in on enter and out on exit. Overlapping zones blend. |
-| `CrowdEmitterComponent` | Scatters randomized murmurs and footsteps around a point with a `Density` knob: a living crowd from one emitter. |
-| `MusicZoneComponent` | Starts a track when the player enters a region; it crossfades from whatever was playing. |
-| `MixerSnapshotZoneComponent` | Shifts the whole mix to a "mood" on enter as a smooth per-bus crossfade. |
-| `DialogueDuckingComponent` | While anything plays on the Voice bus, music and ambience dip so speech stays clear, then recover. |
-| `ReverbZoneComponent` | Makes a room, tunnel or cathedral reverberant while inside. Software backend only; a no-op elsewhere. |
+| `AmbienceZoneComponent` | A looping bed (`Ambience`) that fades in on enter and out on exit (`FadeSeconds`). Overlapping zones blend. |
+| `MusicZoneComponent` | Starts `Track` on enter, crossfading from the current music; `StopOnExit` stops it again. |
+| `MixerSnapshotZoneComponent` | A mood: crossfades the Music, SFX, UI, Ambience and Voice buses to the zone's own levels on enter. Master is left alone. `RestoreOnExit` returns the previous mix. |
+| `ReverbZoneComponent` | Applies `RoomSize`, `Damping` and `Wet` reverb while inside; `DisableOnExit` turns it off again. Software backend only. |
+| `CrowdEmitterComponent` | Not a trigger: scatters random clips from `Clips` around the entity within `Radius`, at a rate set by `Density`, with at most `MaxConcurrent` at once. |
+| `DialogueDuckingComponent` | Configures automatic ducking: while anything plays on the Voice bus, Music and Ambience dip to `DuckLevel`, then recover. |
 
-### The mixer
+Put `AudioListenerComponent` on whatever the player is, usually the player or the camera. It sets the listener position every frame; without one, positional sounds play at their base volume and pan.
 
-A hierarchical bus tree, the mixing layer MonoGame lacks. Every voice routes through a named bus, so an options slider or a story beat can move whole categories at once.
+## The mixer
 
 ```
 Master
@@ -59,194 +83,77 @@ Master
 └── Voice
 ```
 
-| Feature | API |
+| API | Purpose |
 |---|---|
-| Volume, mute, solo. Per-bus gain folded down the parent chain, with a mixing-desk solo rule for auditioning. | `SetBusVolume`, `Bus(name)` |
-| Ducking. Two independent duck factors, a transient sidechain hit and a sustained dialogue duck, that compose cleanly. | `Duck()`, auto-duck |
-| Mood snapshots. Capture the mixer state and transition to it over time with a smoothstep ease. Master is left for the player's volume. | `CaptureSnapshot`, `TransitionTo` |
+| `SetBusVolume(name, v)`, `GetBusVolume`, `SetBusMute`, `Bus(name)` | Per-bus gain and mute; gain multiplies down the chain to Master. Solo on any bus silences the others. |
+| `Duck(bus, multiplier, recoverySeconds)` | A short sidechain dip, for example under an explosion. |
+| `BeginDialogueDuck()`, `EndDialogueDuck()`, `AutoDuckDialogueEnabled` | A sustained duck while dialogue plays. `SetDialogueDuckBuses` changes which buses dip. |
+| `SaveSnapshot(name)`, `TransitionTo(name, seconds)`, `CaptureSnapshot()` | Mood presets: capture bus levels and blend to them over time. Master is excluded unless you ask, so the player's volume setting is kept. |
+| `PauseGameplayAudioOnPause` | Pauses the gameplay buses while Play is paused. |
+| `StopAll()` | Stops every voice. |
 
-### Spatial and voice management
+## Voices
 
-2D spatialization keeps crowded scenes legible, and a real voice manager keeps them under the platform's roughly 32-source ceiling.
+`MaxVoices` (default 24) caps real voices. When the pool is full, a new sound takes the weakest voice only if its priority is higher. Sounds out of range never take a voice; one-shots that would be inaudible are dropped, and distant loops become virtual (tracked but silent) and resume when back in range.
 
-| Feature | API |
-|---|---|
-| Distance and pan. Linear attenuation between min and max distance plus a stereo pan from the emitter's offset. | `AudioListenerComponent` |
-| Priority stealing. When the pool is full, a newcomer steals the weakest voice only if it outranks it. | `MaxVoices` |
-| Distance culling. Sounds beyond audible range never take a real voice; inaudible one-shots are dropped early. | `IsAudible` |
-| Virtual voices. A far-away loop goes virtual, tracked but silent, and revives when back in range. | `IsVirtual` |
-| Range gizmos. Every 3D source draws its reach in the editor: green is full volume, orange is silence, cyan is the crowd scatter radius. | `DebugRender` |
-| Live tuning. Edit any audio component in Play mode, even while paused, and hear the change immediately. | `IUpdatableInPauseMode` |
+## Backends and DSP
 
-### Backends and DSP
+The default backend plays each voice through MonoGame. The software backend mixes every voice into one stream, which enables per-voice low-pass (`LowPassCutoffHz`, for occlusion and distance) and a shared reverb (`ReverbSend`, `SetReverb(roomSize, damping, wet)`, `SetReverbEnabled`). It checks platform support and falls back to MonoGame when unsupported; DSP settings then do nothing.
 
-One swappable seam under everything. The default plays through MonoGame; an opt-in software mixer owns the PCM loop to unlock effects the per-sound path cannot do, and falls back where unsupported.
-
-| Feature | API |
-|---|---|
-| Two backends. MonoGame per-voice playback (default), or a software mixer that sums every voice into one dynamic stream. | `IAudioBackend` |
-| Clip abstraction. Components deal only in `AudioClip`, so the representation changes with the backend, not the code. | `AudioClip`, `LoadClip` |
-| Capability fallback. The software backend probes the platform and falls back to MonoGame if unsupported; DSP no-ops there. | `IsSupported` |
-| Occlusion low-pass. A per-voice low-pass cutoff muffles sounds behind walls or far away. | `LowPassCutoffHz` |
-| Reverb send. A shared Freeverb (8 comb + 4 all-pass); each voice feeds it by a send amount driven by reverb zones. | `ReverbSend`, `SetReverb` |
-| Managed decoders. `wav` (RIFF), `ogg` (NVorbis) and `mp3` (NLayer) decoded in managed code; AOT- and trim-safe. | `AudioDecoders` |
-
-### Cost controls
-
-Every place that can bound CPU or the voice pool is an explicit knob. Dial these per title, especially for mobile.
-
-| Knob | Bounds |
-|---|---|
-| `MaxVoices` | Real voice ceiling |
-| `MaxInstances` | Per-clip cap |
-| `MaxConcurrent` | Crowd bits |
-| `Density` | Crowd spawn rate |
-| `SetReverbEnabled` | DSP toggle |
-| SIMD | Vectorized output |
-
-## Architecture: internal signal flow
-
-How audio flows from the components you place, through the `AudioManager`, to the swappable backend and the OS.
-
-```mermaid
-flowchart TD
-
-  subgraph AUTH["AUTHORING — components you place in scenes"]
-    direction LR
-    SRC["AudioSourceComponent<br/>one-shots · loops · 3D<br/>fades · low-pass · reverb send"]
-    ZONES["Zone components<br/>Ambience · Crowd · Music<br/>MixerSnapshot · Reverb · Ducking"]
-    LIS["AudioListenerComponent<br/>(the ears)"]
-  end
-
-  subgraph MGR["Core.Audio — AudioManager (global manager)"]
-    direction TB
-    MIX["AudioMixer<br/>Master → Music / SFX / UI / Ambience / Voice<br/>volume · mute · solo"]
-    VOICES["Voice management<br/>MaxVoices · priority stealing<br/>distance culling · virtual voices"]
-    FX["Ducking · Snapshots (moods)<br/>Reverb control · per-voice fades"]
-    MUSIC["MusicChannel<br/>crossfading streaming music"]
-  end
-
-  CLIP["AudioClip abstraction<br/>+ AudioDecoders  wav / ogg / mp3  (managed)"]
-
-  subgraph BE["IAudioBackend — swappable seam"]
-    direction LR
-    MG["MonoGameAudioBackend<br/>default, all platforms<br/>one SoundEffectInstance per voice"]
-    SW["SoftwareMixingAudioBackend<br/>opt-in · real DSP<br/>SoftwareMixer → per-voice low-pass<br/>+ shared Freeverb → 1 DynamicSoundEffectInstance"]
-  end
-
-  OUT(["OpenAL → OS audio device<br/>Windows · macOS · Linux · mobile / console"])
-
-  SRC --> MGR
-  ZONES --> MGR
-  LIS -->|SetListener| VOICES
-  MGR --> CLIP
-  CLIP -->|"backend picks representation<br/>(SoundEffect or PCM)"| BE
-  MGR --> BE
-  MG --> OUT
-  SW --> OUT
-  SW -. "IsSupported? no → fall back" .-> MG
-
-  classDef mgr fill:#1c222b,stroke:#f2b544,stroke-width:1.5px,color:#e8ebef;
-  classDef dsp fill:#15211f,stroke:#4fd6c9,stroke-width:1.5px,color:#e8ebef;
-  classDef out fill:#241d12,stroke:#f2b544,stroke-width:1.5px,color:#f2b544;
-  class MIX,VOICES,FX,MUSIC mgr;
-  class SW,CLIP dsp;
-  class OUT out;
-```
-
-
-## Setup: which entity gets which components
-
-The practical composition guide for a game project.
-
-```mermaid
-flowchart TB
-
-  subgraph ONCE["① SET UP ONCE PER SCENE"]
-    direction LR
-    PLAYER["Player / Camera entity<br/> + AudioListenerComponent <br/>exactly one — the ears"]
-    SETTINGS["Audio Settings entity (persistent)<br/> + DialogueDuckingComponent <br/>global auto-duck config"]
-  end
-
-  subgraph EMIT["② EMITTERS — place at the sound's location (no collider needed)"]
-    direction LR
-    SND["Sound entity<br/> + AudioSourceComponent <br/>assign Clip · tick Is3D for spatial<br/>Is3D draws a range gizmo"]
-    CROWD["Crowd entity<br/> + CrowdEmitterComponent <br/>assign Clips[] · Density · Radius"]
-  end
-
-  subgraph ZONES["③ TRIGGER ZONES — each needs a trigger Collider on the SAME entity"]
-    direction LR
-    AMB["Ambience zone<br/> + Collider (isTrigger) <br/> + AmbienceZoneComponent <br/>looping bed, fades on enter/exit"]
-    MUS["Music zone<br/> + Collider (isTrigger) <br/> + MusicZoneComponent <br/>starts / crossfades a track"]
-    MOOD["Mood zone<br/> + Collider (isTrigger) <br/> + MixerSnapshotZoneComponent <br/>shifts whole-mix bus levels"]
-    REV["Reverb zone<br/> + Collider (isTrigger) <br/> + ReverbZoneComponent <br/>room reverb (software backend)"]
-  end
-
-  NOTE["Rules of thumb:<br/>• The Listener defines where sound is heard from — put it on whatever the player 'is'.<br/>• Emitters are just placed in the world; the Listener's distance drives 3D volume & pan.<br/>• Every Zone fires when the Player's collider enters its trigger — so the Player needs a Collider too.<br/>• Reverb & occlusion low-pass are audible only with the software backend (PreferSoftwareBackend); no-op otherwise."]
-
-  PLAYER -. "moves through the world,<br/>entering trigger zones" .-> ZONES
-  ONCE --> EMIT --> ZONES --> NOTE
-
-  classDef ears fill:#1c222b,stroke:#f2b544,stroke-width:1.5px,color:#e8ebef;
-  classDef emit fill:#15211f,stroke:#4fd6c9,stroke-width:1.4px,color:#e8ebef;
-  classDef zone fill:#1c222b,stroke:#3a4453,stroke-width:1.2px,color:#e8ebef;
-  classDef note fill:#241d12,stroke:#a67c2e,stroke-width:1px,color:#e8ebef;
-  class PLAYER,SETTINGS ears;
-  class SND,CROWD emit;
-  class AMB,MUS,MOOD,REV zone;
-  class NOTE note;
-```
-
-
-## Enabling the software backend (DSP)
-
-Reverb and occlusion low-pass require the software mixing backend. It's opt-in and set **before** the
-`AudioManager` is constructed (there's a commented line in `Voltage.Editor/Program.cs`):
+The editor turns the software backend on. A game turns it on by setting the flag in `Program.Main`, before the game object is created:
 
 ```csharp
 Voltage.Audio.AudioManager.PreferSoftwareBackend = true;
+using var game = new MyGameGame();
+game.Run();
 ```
 
-It probes the platform and falls back to the MonoGame backend automatically where unsupported; DSP is then a
-harmless no-op. Watch the console for a `[Audio] Using SoftwareMixingAudioBackend…` line to confirm.
+The log shows `[Audio] Using SoftwareMixingAudioBackend` when it is active, and `Core.Audio.ReverbSupported` reports it in code.
 
-## Muting and `IAudioComponent`
+## Mute and custom audio
 
-Any component that produces audio should implement `IAudioComponent` and register itself with `AudioComponentRegistry` so it respects the global mute toggle:
+The toolbar's mute button sets `Core.IsAudioOn`. While it is `false` the mixer outputs silence on every bus, and `SoundEffect.MasterVolume` is set to 0 for anything played outside the mixer. Engine audio components need nothing else.
+
+Custom code that plays `SoundEffectInstance`s directly can react to mute by implementing `IAudioComponent` (namespace `Voltage.Utils.Audio`) and registering with `AudioComponentRegistry`:
 
 ```csharp
-public partial class FootstepPlayer : Component, IUpdatable, IAudioComponent
+public partial class Engine : Component, IAudioComponent
 {
-    private SoundEffect _sfx;
-    private SoundEffectInstance _instance;
+    SoundEffectInstance _hum;
 
-    public override void OnAddedToEntity()
-    {
-        AudioComponentRegistry.Register(this);
-        _sfx = Entity.Scene.Content.LoadSoundEffect("Content/Audio/Footstep.wav");
-        _instance = _sfx.CreateInstance();
-    }
-
-    public override void OnRemovedFromEntity()
-    {
-        AudioComponentRegistry.Unregister(this);
-        _instance?.Dispose();
-    }
+    public override void OnAddedToEntity() => AudioComponentRegistry.Register(this);
+    public override void OnRemovedFromEntity() { AudioComponentRegistry.Unregister(this); _hum?.Dispose(); }
 
     public void OnAudioStateChanged(bool isAudioOn)
     {
-        if (!isAudioOn)
-            _instance?.Pause();
-        else if (_instance?.State == SoundState.Paused)
-            _instance?.Resume();
-    }
-
-    public void Update()
-    {
-        if (Input.IsKeyPressed(Keys.Space) && Core.IsAudioOn)
-            _instance.Play();
+        if (isAudioOn) _hum?.Resume(); else _hum?.Pause();
     }
 }
 ```
 
-`Core.IsAudioOn` — global read/write property. Setting it calls `Core.InvokeSwitchAudio`, which fires `Core.OnSwitchAudio` and applies `SoundEffect.MasterVolume` as a backstop for any audio that bypasses `IAudioComponent`.
+## Automation
+
+The [Editor Gateway](../gateway/README.md) exposes the mixer and zones to scripts and agents through the `audio.*` commands, for example to read the mixer state, change bus levels or create a zone.
+
+```mermaid
+flowchart TD
+  subgraph AUTH["Components in the scene"]
+    direction LR
+    SRC["AudioSourceComponent"]
+    ZONES["Zones: Ambience, Music, MixerSnapshot, Reverb, Crowd, Ducking"]
+    LIS["AudioListenerComponent"]
+  end
+  subgraph MGR["Core.Audio (AudioManager)"]
+    direction TB
+    MIX["AudioMixer: Master, Music, SFX, UI, Ambience, Voice"]
+    VOICES["Voices: MaxVoices, priority, culling, virtual voices"]
+    FX["Ducking, snapshots, reverb, fades"]
+    MUSIC["MusicChannel"]
+  end
+  BE["IAudioBackend: MonoGame or software mixer"]
+  OUT(["OpenAL output device"])
+  SRC --> MGR
+  ZONES --> MGR
+  LIS -->|SetListener| VOICES
+  MGR --> BE --> OUT
+```

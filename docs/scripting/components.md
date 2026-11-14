@@ -1,108 +1,125 @@
 ---
-title: The Component Model and Lifecycle
+title: Components and Lifecycle
 sidebar_position: 1
+description: Writing components, the order of lifecycle callbacks, Edit/Play behaviour and the entity API.
 ---
 
-# The Component Model and Lifecycle
+# Components and Lifecycle
 
-Derive from `Component` to attach behavior to an entity:
+Game behaviour lives in components. An `Entity` is a sealed container with a `Transform` and a list of components; you never subclass it. Derive from `Component` and attach the component to an entity in the editor or from code.
 
 ```csharp
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
+using Voltage;
+using Voltage.Utils;
+
 public partial class PlayerController : Component, IUpdatable
 {
     public float MoveSpeed = 200f;
 
-    public override void OnAddedToEntity()
-    {
-        // Called immediately when AddComponent is called.
-        // Entity.Transform is available. Other components may not be ready yet.
-    }
-
-    public override void OnEnabled()
-    {
-        // Called after OnAddedToEntity when the entity is enabled.
-    }
-
     public override void OnStart()
     {
-        // Called after OnEnabled. Entity.Scene is set. Safe to query other components.
+        if (Core.IsEditMode) return;   // see "Edit and Play" below
+        // Gameplay setup: other components on this entity are available here.
     }
 
     public void Update()
     {
-        // Called every frame while in Play mode and not paused.
         var dir = Vector2.Zero;
         if (Input.IsKeyDown(Keys.Left))  dir.X -= 1f;
         if (Input.IsKeyDown(Keys.Right)) dir.X += 1f;
         Entity.Position += dir * MoveSpeed * Time.DeltaTime;
     }
-
-    public override void OnRemovedFromEntity()
-    {
-        // Cleanup. Called when the component is removed or the entity is destroyed.
-    }
-
-    public override void OnDisabled()
-    {
-        // Called when the entity or this component is disabled.
-    }
 }
 ```
 
-**The `partial` keyword is required** on any component that serializes fields (see [Serialization and NativeAOT](../engine/serialization-and-aot.md)). Omitting it means the source generator cannot emit the `Data` property, so no fields will be saved or loaded.
+Declare components `partial`. The source generator then emits the code that saves and loads public fields, so values set in the Inspector survive saving and reloading. A non-partial component still runs, but its fields reset to their defaults on every load. See [Serialization and NativeAOT](../engine/serialization-and-aot.md).
 
-**Lifecycle order summary:**
+## Lifecycle
 
-```
-AddComponent(c) called
-  → c.OnAddedToEntity()          (immediate, before added to live list)
-  → c.OnEnabled()                (if enabled)
-  → c.OnStart()                  (after enabled; Entity.Scene is set)
-  ...per-frame...
-  → c.Update()                   (IUpdatable only; skipped while paused unless IUpdatableInPauseMode)
-  → c.OnEntityTransformChanged() (when parent transform changes)
-RemoveComponent(c) / entity.Destroy()
-  → c.OnRemovedFromEntity()
-```
+| Callback | When it runs |
+|---|---|
+| `OnAddedToEntity()` | Immediately inside `AddComponent`, before the component joins the entity's live list. `Entity` and `Transform` are set. Other components may not be ready. |
+| `OnEnabled()` | When the component becomes active: after it is committed to the entity, and whenever the component or its entity is re-enabled. |
+| `OnStart()` | Once, after `OnEnabled`. Every component added in the same batch has had `OnEnabled` first, so it is safe to look up siblings and other entities. |
+| `Update()` | Every frame for components that implement `IUpdatable`, in `UpdateOrder`. |
+| `OnEntityTransformChanged(Transform.Component)` | When the entity's position, rotation or scale changes, including through a parent. |
+| `OnDisabled()` | When the component or its entity is disabled. |
+| `OnRemovedFromEntity()` | When the component is removed or its entity is destroyed. Unsubscribe from events and release resources here. |
+| `DebugRender(Batcher)` | When debug rendering is on. Draw gizmos for your component. |
 
-**Common Entity API:**
+Components added during another component's `OnStart` or `Update` receive `OnEnabled` and `OnStart` before their first `Update`. An exception thrown in any callback is logged with the entity and component name; it does not stop the rest of the scene.
 
-```csharp
-// Add / get / remove components
-entity.AddComponent(new SpriteRenderer());
-var sr = entity.GetComponent<SpriteRenderer>();
-bool found = entity.TryGetComponent<SpriteRenderer>(out var sr);
-entity.RemoveComponent<SpriteRenderer>();
+## Edit and Play
 
-// Hierarchy traversal
-var childSprite = entity.GetComponentInChildren<SpriteRenderer>();
-var parentHealth = entity.GetComponentInParent<HealthComponent>();
+When the editor opens a scene, every component runs `OnAddedToEntity`, `OnEnabled` and `OnStart` in Edit mode. Pressing Play does not reload the scene: it only starts calling `Update`. Stopping reloads the scene from disk when `Core.ResetSceneAutomatically` is on (the default).
 
-// From within a Component, shortcut methods delegate to Entity:
-var sr = GetComponent<SpriteRenderer>();
-```
+| Mode | Which `Update` methods run |
+|---|---|
+| Edit | Only `RenderableComponent`s that implement `IUpdatable`, so animated sprites, particles and tilemaps stay visible while you edit. |
+| Play | Every enabled `IUpdatable`. |
+| Paused | Only components that also implement `IUpdatableInPauseMode` (menus, HUD, audio zones). |
 
-**Entity properties:**
+So gameplay that should start with Play needs two pieces: skip it in `OnStart` while `Core.IsEditMode` is true, and start it from `Core.OnSwitchEditMode`:
 
 ```csharp
-entity.Name
-entity.Tag              // int tag for scene-wide queries
-entity.Enabled          // enables/disables the entity and all its components
-entity.UpdateOrder      // sort order within the scene's entity list
-entity.Position         // world-space shortcut to entity.Transform.Position
-entity.LocalPosition    // local-space position
-entity.Rotation         // radians
-entity.Scale
-entity.Parent           // Transform of the parent entity
-entity.Destroy()        // queues destruction at end of frame
-entity.Destroy(float)   // destroy after N seconds (coroutine internally)
-```
-
-**Pause-mode behavior:** Components that implement `IUpdatableInPauseMode` continue receiving `Update` calls while `Core.IsPauseMode` is true. Regular gameplay components are frozen. Use this for HUD, menus, or any component that must remain responsive while the game is paused.
-
-```csharp
-public partial class PauseMenuUI : Component, IUpdatable, IUpdatableInPauseMode
+public partial class IntroMusic : Component
 {
-    public void Update() { /* runs even while paused */ }
+    public override void OnStart()
+    {
+        Core.OnSwitchEditMode += OnModeChanged;
+        if (!Core.IsEditMode) Begin();
+    }
+
+    public override void OnRemovedFromEntity() => Core.OnSwitchEditMode -= OnModeChanged;
+
+    void OnModeChanged(bool isEditMode)
+    {
+        if (!isEditMode) Begin();
+    }
+
+    void Begin() { /* start gameplay */ }
 }
 ```
+
+`Core.OnSwitchEditMode` is static and outlives scenes, so always unsubscribe. In a published game `Core.IsEditMode` is always `false`, and `OnStart` behaves like a normal start.
+
+## Adding and finding components
+
+```csharp
+var sprite = entity.AddComponent(new SpriteRenderer());
+var mover  = entity.AddComponent<Mover>();
+var health = entity.GetComponent<Health>();
+if (entity.TryGetComponent<Health>(out var h)) { }
+bool hasCollider = entity.HasComponent<Collider>();
+var animator = entity.GetOrCreateComponent<SpriteAnimator>();
+List<Collider> colliders = entity.GetComponents<Collider>();
+
+var childSprite = entity.GetComponentInChildren<SpriteRenderer>();
+var owner = entity.GetComponentInParent<Health>();
+
+entity.RemoveComponent<Mover>();
+entity.RemoveComponent(sprite);
+```
+
+Inside a component the same methods exist as shortcuts (`GetComponent<T>()`, `AddComponent(...)`), and `RemoveComponent()` removes the component itself.
+
+`AddComponent` refuses a second component of the same type and returns the existing one, unless you pass `allowSameComponentsOnEntity: true`. Duplicates get unique names (`BoxCollider`, `BoxCollider_1`), and `GetComponent<T>(name)` selects one by name.
+
+`[RequireComponent(typeof(T))]` and `[RequireComponentInChildren(typeof(T))]` (namespace `Voltage.Serialization`) add the listed dependencies when the component is added through the Inspector. They are not applied by `AddComponent` in code.
+
+## Entity basics
+
+| Member | Purpose |
+|---|---|
+| `Name`, `Tag` | Lookup keys. Tags are integers named in Project Settings; see [Scenes and Entities](scenes-and-entities.md). |
+| `Enabled` | Enables or disables the entity and all its components. |
+| `UpdateOrder` | Order of this entity's update relative to others. |
+| `UpdateInterval` | Update every N frames instead of every frame. |
+| `Position`, `LocalPosition`, `Rotation` (radians), `RotationDegrees`, `Scale`, `LocalScale` | Shortcuts to `Transform`. |
+| `Parent` | The parent's `Transform`. Use `Transform.SetParent` to reparent. |
+| `Destroy()` | Removes the entity, its children and their components. |
+| `Destroy(seconds)` | Destroys after a delay. |
+
+Entities placed in the editor are `Serialized`. Entities created with `new Entity("Name")` in code are `NonSerialized` and are never written to the scene file. `SceneRequired` entities, such as the main camera, cannot be destroyed.

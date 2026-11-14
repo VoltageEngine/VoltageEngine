@@ -1,59 +1,65 @@
+---
+title: Animated Normal Maps
+description: Per-frame normal maps and glow for animated Aseprite sprites, painted as hidden layers and applied with the AnimatedNormalMap component.
+---
+
 # Animated sprite normal maps
 
-Normal maps give sprite surfaces a directional response to deferred point,
-spot and directional lights. They shape highlights and the shaded sides of a
-sprite; they do not add cast shadows or geometry. Room fill remains diffuse.
+A normal map tells the deferred lights which way each pixel of a sprite faces, so highlights and shaded sides follow the light as it moves. It changes shading only: it adds no cast shadows or geometry, and [Room Light](room-light.md) fill ignores it.
 
-Add `AnimatedNormalMap` next to `SpriteAnimator`. Leave `Source` empty to use
-the animator's GUID-backed Aseprite asset, or assign another Aseprite file.
-List the normal layer names in `Layers`, then press `Reload` to preview changes.
-The component also reloads on scene start and re-enable. Save in Edit mode.
+## Requirements
 
-Keep normal layers hidden in Aseprite so they do not enter the albedo. Explicit
-normal selections include hidden layers. For each visible art layer, paint a
-matching normal layer on the same animation frames and canvas. Preserve tags,
-frame order and poses; include neutral normals for visible effects or props
-that should stay flat. The normal and diffuse atlases can be packed differently.
-Missing animation bindings use neutral normals.
+- Turn on **Deferred lighting** in **Project > Settings > Rendering Layers**, then reload the scene. `AnimatedNormalMap` does nothing in a scene without a `DeferredLightingRenderer`.
+- Lights only reach the sprite from the **Lighting** render layer. The [Lighting Overview](lighting.md) lists every light type.
 
-Encode tangent-space XYZ normals in RGB: (128, 128, 255) faces the screen;
-red points right and green points up. Keep the RGB vector normalized and use
-opaque pixels wherever the matching artwork is visible. Flipping, negative
-scale and sprite rotation also transform the normal direction.
+## Set up a sprite
 
-Green above 128 faces up, so a pixel with G = 198 brightens under a light
-placed above it and darkens under one below it.
+1. Add `AnimatedNormalMap` to an entity with a `SpriteAnimator` (it requires one).
+2. Leave `Source` empty to read the animator's own Aseprite file, or assign a different `.aseprite` that holds the normals.
+3. List the normal layer names in `Layers`, for example `Normals-Body`. Hidden layers are read; layers not listed are not.
+4. Press **Reload** in the inspector after changing the file or the settings. The component also loads on scene start and when re-enabled.
 
-Add a hidden `Glow-<layer>` beside a `Normals-<layer>` to make pixels
-self-illuminated. Strength is the brightest colour channel times alpha, so a
-grey or tinted pixel both work, from none to fully lit. `AnimatedNormalMap`
-packs the matching Glow frames into the normal texture's alpha and enables
-self-illumination for that clip only; clips without Glow are unchanged. Code
-that loads normals itself gets the same behaviour from
-`Content.LoadAsepriteNormalAtlas(path, layers)`. Glow does not hide ambient,
-which the final combine still adds on top. The
-[Voltage Normals](../editor/voltage-normals.md) panel paints and bakes these
-layers, and the [Light Preview](../editor/light-preview.md) shows them through
-the real renderer.
+The normal animations are looked up by the animator's current animation name, so the Aseprite tags must match the animator's animation names. A file with no tags gives a single animation named `Default`. The normal frame shown is the animator's current frame, so each tag needs the same number of frames as the art. An animation with no normals gets a flat, screen-facing normal.
 
-`DeferredAnimatedMaterial` accepts either one normal animation or a dictionary
-keyed by the animator's animation names. Content-owned Aseprite atlases are
-shared by path, layer selection and visibility setting. Identical full frames
-reuse atlas regions while keeping frame order, durations, tags and origins.
-Consumers must not dispose them. The component owns and disposes only its
-material, restoring the
-previous material when disabled or removed.
+## Paint the layers
 
-For an animator that loads several character files, add entries to `Clips`.
-Each entry stores the gameplay animation name, a GUID-backed source, its tag
-and the hidden normal layers. An empty tag is supported for untagged sources.
-Explicit clip entries override the matching single-source animation binding.
+Keep normal layers hidden in Aseprite so they never appear in the art. For each visible art layer, paint a matching normal layer on the same frames and canvas, keeping tags, frame order and poses. Give flat props and effects a front-facing normal rather than leaving them empty. The normal atlas may be packed differently from the art atlas; the material maps between them.
 
-For pixel art, start with restrained volumes for limbs, clothing and faces.
-Judge the result with a moving side light and through the whole animation.
-Avoid deriving height directly from painted brightness: dark clothing and
-baked shadows do not necessarily indicate a recessed surface. The
-[Slice Back developers](https://forums.unrealengine.com/t/slice-back-action-2d-pixel-art-with-normal-maps-demo/129904)
-describe character normal maps, limited shading tones and Aseprite workflows.
-The [SpriteIlluminator animation tutorial](https://www.codeandweb.com/spriteilluminator/tutorials/lighting-demo-cocos2d-x)
-explains matched normal atlases and light-direction shading.
+Normals are tangent-space XYZ stored in RGB: (128, 128, 255) faces the viewer, red above 128 faces right and green above 128 faces up. A pixel with G = 198 brightens under a light above it and darkens under one below. Keep the vector normalized and the pixels opaque wherever the art is visible. Sprite flips, negative scale and rotation turn the normals with the sprite.
+
+[Voltage Normals](../editor/voltage-normals.md) generates, paints and checks these layers inside Aseprite, and [Light Preview](../editor/light-preview.md) shows the result through the real renderer.
+
+## Glow
+
+Add a hidden `Glow-<layer>` beside a `Normals-<layer>` to make pixels light themselves. Strength is the brightest colour channel times alpha, so grey and tinted pixels both work, from none to fully lit. The glow is packed into the normal texture's alpha and enables self-illumination only while an animation that has glow is playing. Glow painted outside the normal layer's pixels gets a front-facing normal. Glow does not remove ambient light, which the final combine still adds on top.
+
+## Several source files
+
+When the animator's animations come from several Aseprite files, add an entry to `Clips` for each:
+
+| Field | Meaning |
+| --- | --- |
+| `Animation` | The animator's animation name |
+| `Source` | The `.aseprite` holding its normals |
+| `Tag` | The Aseprite tag to use; leave empty only for an untagged file |
+| `Layers` | The normal layers to read |
+
+A clip entry replaces the normals the main `Source` would give the same animation.
+
+## Code
+
+`Content.LoadAsepriteNormalAtlas(path, layers)` loads normal layers with their glow packed in, the same way the component does. Atlases from content are shared by path and layer selection, and identical frames reuse one atlas region, so never dispose them. `DeferredAnimatedMaterial` takes one normal `SpriteAnimation` or a dictionary keyed by animation name:
+
+```csharp
+var atlas = Entity.Scene.Content.LoadAsepriteNormalAtlas("Content/Actor.aseprite", new[] { "Normals-Body" });
+var normals = new Dictionary<string, SpriteAnimation>();
+foreach (var name in atlas.AnimationNames)
+    normals[name] = atlas.GetAnimation(name);
+animator.SetMaterial(new DeferredAnimatedMaterial(animator, normals));
+```
+
+The component owns only its material: it disposes it and restores the animator's previous material when disabled or removed.
+
+## Painting tips
+
+Start with restrained volumes for limbs, clothing and faces, and judge them under a moving side light across the whole animation. Do not derive height from painted brightness: dark clothing and baked shadows are not recesses.

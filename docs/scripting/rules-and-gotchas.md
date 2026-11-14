@@ -1,52 +1,56 @@
 ---
 title: Scripting Rules and Gotchas
-sidebar_position: 5
+sidebar_position: 20
+description: The rules that keep components saving, loading and running correctly in the editor and in NativeAOT builds.
 ---
 
 # Scripting Rules and Gotchas
 
-## Do
+## Serialization
 
-- **Always declare serialized components `partial`.**
-  Any `Component` or `SceneComponent` subclass that you want saved/loaded must be `partial`. If you forget, the class still works in code but its public fields reset to defaults on every scene reload.
+- **Declare saved components `partial`.** This applies to every `Component` and `SceneComponent` whose fields should persist. Without it the component still loads and runs, but its fields reset to their defaults on every load. Data assets must be `partial`; the generator reports `VLT012` otherwise.
 
-- **Use `SpriteRenderer.LoadPngFile` / `LoadAsepriteFile` / `LoadTmxFile` from code, not raw content loading.**
-  These methods update the component's internal `_data` so the file path is saved with the scene. Direct calls to `Scene.Content.LoadTexture` and `SetSprite(new Sprite(tex))` work visually but the path is not serialized.
+- **Leave the generated `[ComponentId("...")]` alone.** On its first compile without one, the editor stamps `[ComponentId]` onto each concrete component and scene component, using the class name at that moment. Scenes store that id, so you can later rename the class or move its namespace freely. Deleting or editing the attribute creates a new identity, and scenes that referenced the old id lose the component. Abstract classes are never stamped, and sources of installed (non-dev) plugins are left untouched, so plugin authors write the attribute themselves.
 
-- **Register audio components with `AudioComponentRegistry`.**
-  Implement `IAudioComponent`, call `AudioComponentRegistry.Register(this)` in `OnAddedToEntity`, and `Unregister` in `OnRemovedFromEntity`. Guard your own `Play` calls with `Core.IsAudioOn`.
+- **Renaming a serialized field drops its saved value.** `[ComponentId]` identifies the type, not its fields; values are stored under the field name, and the generated reader matches names exactly. Keep the old name, or re-enter the value after renaming. `[DecodeAlias]` from `Voltage.Persistence` only affects hand-written `ComponentData` classes, which are read by reflection.
 
-- **Never edit or delete a generated `[ComponentId("...")]`; it is what survives class renames and namespace moves.**
-  The editor stamps `[ComponentId]` onto every concrete component and scene component on its first compile without one, using the class name at that moment, and then leaves it alone. Scenes and prefabs store that id, so you can rename the class or move it to another namespace freely. If you delete the attribute the next compile stamps a fresh one from the current class name, which is a new identity, and every scene that referenced the old id loses the component. Changing the string by hand does the same. Two exceptions: abstract classes are never stamped, and sources of installed (non-dev) plugins are not touched, so plugin authors write the attribute themselves.
+- **Don't give serialized structs an explicit parameterless constructor.** The generated reader creates structs with `new T()` in published builds, which skips defaults set in that constructor. The generator reports `VLT003` for this pattern. Use a class that implements `IComponentGroup` instead.
 
-- **Use `[DecodeAlias("oldName")]` when renaming a field.**
-  `[ComponentId]` identifies the type, not its fields; field values are saved under the field name. Without the alias, old scenes and save files silently drop the renamed field's value.
+- **Initialize `IComponentGroup` fields where you declare them.**
 
-- **Use `IUpdatableInPauseMode` for UI and menus.**
-  Without it, your component stops updating the moment the user presses Pause.
-
-- **Initialize `IComponentGroup` fields at the declaration site.**
   ```csharp
-  public MyGroup Settings = new MyGroup();  // correct
-  public MyGroup Settings;                  // null at snapshot time → logged error
+  public MoveSettings Settings = new MoveSettings();  // correct
+  public MoveSettings Settings;                       // null when the component is saved
   ```
 
-- **Prefer `Scene.Content` for scene-lifetime assets, `Core.Content` for cross-scene assets.**
-  `Scene.Content` is disposed when the scene ends. Using `Core.Content` for a texture that is only needed in one scene leaks memory.
+- **Non-public fields need `[Serialize]` to be saved and shown.** Public fields are included by default; `[HideInInspector]` hides a field from the Inspector. See [Inspector Attributes](inspector-attributes.md).
 
-## Do Not
+## Edit and Play
 
-- **Do not use structs with explicit parameterless constructors as serializable fields.**
-  The source generator emits `new T()` in the AOT reader, which ignores any field defaults set inside an explicit constructor. The editor works (reflection is available) but the published build silently drops those defaults. The generator emits a compile-time error (`VLT003`) when it detects this pattern. Use a class implementing `IComponentGroup` instead.
+- **`OnStart` runs in Edit mode too.** The editor starts every component when it loads a scene, and Play only begins calling `Update`. Guard gameplay with `Core.IsEditMode` and start it from `Core.OnSwitchEditMode`. See [Edit and Play](components.md#edit-and-play).
 
-- **Do not save scene data in Play or Pause mode.**
-  `Ctrl+S` is blocked. Changes made during Play mode are intended to be discarded when you return to Edit mode (or when `Core.ResetSceneAutomatically` reloads the scene).
+- **`SceneComponent.Update` and global managers run in Edit mode.** Return early on `Core.IsEditMode` for gameplay logic.
 
-- **Asset references resolve by GUID at runtime via the baked manifest.**
-  The editor writes `Data/assets.manifest` (a `GUID → project-relative path` map) on every asset-database refresh; it ships with the build and `Voltage.Assets.AssetManifest` loads it at runtime. This is what lets a renamed/moved prefab still resolve in a published game. If the manifest is missing (e.g. a build that never opened in the editor), resolution falls back to name/path.
+- **Unsubscribe from static events.** `Core.OnSwitchEditMode`, `Core.OnSwitchPauseMode`, `Core.OnSwitchAudio` and `Core.Emitter` outlive scenes. A handler left subscribed keeps a dead scene alive and can act on the wrong scene after the next Play.
 
-- **Do not cache `Core.Scene.Content` across scene transitions.**
-  The content manager is disposed when the scene ends. Cache the asset reference instead, not the manager.
+- **Implement `IUpdatableInPauseMode` for menus and HUD.** Other components stop updating while Play is paused.
 
-- **Do not delete `.meta` files while the project is open.**
-  The editor regenerates them with a new GUID, breaking all editor-side prefab references that pointed to the old one.
+- **Don't save during Play or Pause.** `Ctrl+S` is blocked in Play. Changes made in Play mode are discarded when you stop, because the scene reloads from disk while `Core.ResetSceneAutomatically` is on.
+
+- **Script edits during Play wait.** The editor queues the compile and runs it, then reloads the scene, after Play stops.
+
+## Content
+
+- **Prefer `Scene.Content` for scene-only assets and `Core.Content` for assets used everywhere.** `Scene.Content` is disposed when the scene ends; loading a one-scene texture into `Core.Content` keeps it in memory for the whole session.
+
+- **Don't keep a scene's content manager, or its assets, across a scene change.** They are disposed with the scene.
+
+- **Use the `SpriteRenderer` loaders when the sprite should be saved.** `LoadPngFile`, `LoadAsepriteFile` and `LoadTmxFile` record the file in the component's data. A sprite assigned with `SetSprite` is runtime-only.
+
+- **Prefer asset references for anything assigned in the editor.** `AssetReference` and `PrefabReference` resolve by GUID, through the baked `Data/assets.manifest` in published builds, so moving or renaming the file is safe. See [Content Loading](content-loading.md).
+
+- **Don't delete `.meta` files while the project is open.** The editor regenerates a missing `.meta` with a new GUID, which breaks every reference to the old one. Move and rename assets in the Asset Browser so their `.meta` files travel with them.
+
+## Audio
+
+- **Engine audio components need no extra wiring for mute.** The mixer silences every bus while `Core.IsAudioOn` is `false`. Only custom code that plays `SoundEffectInstance`s directly should implement `IAudioComponent` and register with `AudioComponentRegistry`. See [Audio](audio.md).

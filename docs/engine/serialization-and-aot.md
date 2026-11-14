@@ -1,66 +1,90 @@
 ---
 title: Source Generation, Serialization, and NativeAOT
 sidebar_position: 1
+description: What the source generator emits for partial components, which members are saved, the identity attributes, and how a game is published.
 ---
 
 # Source Generation, Serialization, and NativeAOT
 
-## Why Components Must Be Declared `partial`
+## Why components are `partial`
 
-Voltage uses a Roslyn source generator (`ComponentDataGenerator`) to emit serialization code at compile time. For every `partial Component` or `partial SceneComponent` subclass that does not already override `Data`, the generator emits:
+`Voltage.SourceGenerators` (`ComponentDataGenerator`) writes serialization code at compile time. For every concrete `partial` subclass of `Component` or `SceneComponent` that does not override `Data` itself, it emits into the other half of the class:
 
-1. A nested `sealed class XxxGeneratedData : ComponentData` with one public field per serializable field on the component.
-2. An override of the `Data` property — a getter that snapshots the component's current fields into a `XxxGeneratedData` instance, and a setter that applies a loaded `XxxGeneratedData` back to the component's fields.
-3. A private static `Read_XxxGeneratedData(JsonTokenReader)` method — a hand-unrolled JSON parser with no reflection, safe under NativeAOT trimming.
-4. A `[ModuleInitializer]` method `__RegisterDeserializer_Xxx` that registers the reader with `ComponentDataAotDeserializer` so the engine can deserialize the type by its fully-qualified name at runtime.
+1. A nested `public sealed class <Name>GeneratedData : ComponentData` with one field per saved member.
+2. A `Data` property override. The getter snapshots the component's members into that class; the setter applies loaded data back.
+3. A static `Read_<Name>GeneratedData(JsonTokenReader)` method: a hand-unrolled JSON reader with no reflection.
+4. A `[ModuleInitializer]` method, `__RegisterDeserializer_<Name>`, that registers the reader with `ComponentDataAotDeserializer` under the data type's full name.
 
-A second generator pipeline emits a shared `[ModuleInitializer]` in `ComponentDataAotBootstrap.AutoRegister` that registers every concrete Component and SceneComponent in `ComponentAotFactory` (so instances can be created by name without reflection).
+A second pass emits `ComponentDataAotBootstrap.AutoRegister`, another module initializer. It registers **every** concrete component and scene component with a public parameterless constructor in `ComponentAotFactory`, partial or not, so scenes can create them by name without reflection. It also registers each `[ComponentId]` in `ComponentIdRegistry`, each `[FormerlyKnownAs]` name in `TypeRenameRegistry`, and a deserializer for any hand-written `Data` override.
 
-**What this means in practice:**
+In practice:
 
-- A component without `partial` has no `Data` override. Its fields serialize to nothing. In the editor this is immediately visible as "data not persisting on save/reload". In a published build the component type also cannot be instantiated by the factory, so it would not load from a scene file at all.
-- The generated code uses only `new T()`, direct field assignment, and `JsonTokenReader` — no `Activator.CreateInstance`, no `GetType().GetFields()`, no LINQ. This is what makes the published build trim-safe.
+- A component without `partial` still loads from a scene, in the editor and in a published build, but it has no generated `Data`, so its fields come back with their default values on every load.
+- `ComponentDataAotDeserializer` is consulted before reflection in every build, editor included. The generated code uses `new T()`, direct member assignment and `JsonTokenReader` only, which is what makes a trimmed NativeAOT build safe.
+- Data assets (`DataAsset` subclasses) must be `partial` as well; a non-partial one is error VLT012.
 
-## Serializable Fields
+## Which members are saved
 
-The generator picks up every `public` non-`static` field on the component (and its non-`Component` base classes, up to but not including `Component` itself). Fields of these types are supported out of the box:
+The generator walks the class and its base classes up to, but not including, `Component` or `SceneComponent`. It saves:
+
+- every public instance field that is not `const`;
+- every property with a public getter and a public setter (except the built-in ones such as `Enabled`, `UpdateOrder`, `Name`, `Entity` and `Transform`);
+- non-public fields and properties marked `[Serialize]` (`Voltage.SerializeAttribute`). `[Tooltip]` and `[Range]` derive from `[Serialize]`, so they also mark a private member for saving.
+
+Members marked `[JsonExclude]` are skipped.
 
 | Category | Types |
 |---|---|
-| Primitives | `bool`, `int`, `uint`, `long`, `float`, `double`, `string` |
+| Primitives | `bool`, `byte`, `sbyte`, `short`, `ushort`, `int`, `uint`, `long`, `float`, `double`, `string` |
 | Enums | Any `enum` |
-| Engine value types | `Vector2`, `Color`, `RectangleF` |
-| User structs | Plain structs with only public fields (no explicit constructor — see gotchas) |
-| `IComponentGroup` | Classes implementing `IComponentGroup` with public fields — the generator emits both a `Read_` and a `Clone_` helper |
-| Collections | `List<T>`, `Dictionary<string, TValue>`, `T[]` of any above |
-| References | `ComponentReference`, `EntityReference` (resolved post-load) |
+| Engine values | `Vector2`, `Color`, `RectangleF` |
+| Asset references | `AssetReference`, `PrefabReference` |
+| Scene references | Fields typed as a `Component` subclass, `Entity` or `Transform`. They are stored as `ComponentReference` or `EntityReference` and resolved after every entity in the scene exists. |
+| Your structs | Structs with public fields and no explicit parameterless constructor |
+| Your classes | Classes implementing `IComponentGroup`, with public fields. The generator emits a reader and a deep-copy helper for each. |
+| Collections | `List<T>`, `Dictionary<string, TValue>` and `T[]` of any of the above, including references |
 
-Fields marked `[JsonExclude]` are skipped entirely. Private fields are skipped unless marked `[SerializedField]` (`Voltage.SerializedFieldAttribute`).
+Other class types are skipped. When a component has public fields but none could be saved, the build warns with VLT002, and VLT001 when it has no saved members at all.
 
-## Serialization Attributes
+A struct with an explicit parameterless constructor is error VLT003: the reader calls `new T()` and never runs the constructor, so its defaults would silently differ between the editor and a build. Use an `IComponentGroup` class instead. Initialize `IComponentGroup` fields at their declaration (`= new Stats()`); a null group is logged as an error on save.
 
-| Attribute | Where | What it does |
+## Renaming
+
+| What changes | What to do |
+|---|---|
+| Component class name or namespace | Nothing. Scenes reference the class by its `[ComponentId]`. |
+| Data asset class name or namespace | Nothing. `.vasset` files store the `[AssetTypeId]`. |
+| A saved field or property on a `partial` component | The generated reader matches JSON keys to exact member names and skips unknown keys, so the saved value is dropped and the member loads with its default. Re-enter the value after renaming. |
+| A field in a hand-written `ComponentData` class | Add `[DecodeAlias("oldName")]` to the renamed field. These classes are read by the reflection decoder, which honours the alias. `[DecodeAlias]` has no effect on generated data. |
+
+## Identity attributes
+
+| Attribute | Applies to | Effect |
 |---|---|---|
-| `[JsonExclude]` | Field or property | Excluded from serialization. Applied to `Entity.Scene`, `Component.Entity`, `Component.Transform`, and similar back-references to prevent cycles. |
-| `[DecodeAlias("oldName")]` | Field in a `ComponentData` class | When loading JSON, a key matching `oldName` is mapped to this field. Use this when a field is renamed to keep old save files loading correctly. |
-| `[ComponentId("alias")]` | Component / SceneComponent class | Stable, rename-proof identity — a human-readable alias (like a protobuf field number or an Orleans `[Alias]`). Scenes reference the component by this id instead of its type name, so renaming the class *or moving its namespace* no longer breaks the scenes that use it. **The editor stamps this automatically** on first compile (defaulting the id to the class's simple name), so you normally never write it by hand. The id is assigned once and **frozen** — renaming the class never changes it. The attribute is emitted by the source generator (not the engine DLL), so it always compiles even against a stale engine reference; the generator bakes the mapping into the NativeAOT build via `ComponentIdRegistry`. Don't change or reuse an id once a scene has referenced it. |
-| `[DynamicallyAccessedMembers(...)]` | Engine internals | Preserves reflection metadata for trim-sensitive code paths. You will rarely need this in game scripts. |
+| `[ComponentId("alias")]` | Component and scene-component classes | The stable identity scenes store. The editor stamps it on the first compile that finds a class without one, using the class's simple name, and never rewrites it. Do not change or reuse an id once a scene refers to it; two classes with one id is error VLT004. The attribute is emitted by the generator into each compilation, so scripts compile even against an outdated engine reference. |
+| `[AssetTypeId("alias")]` | `DataAsset` classes | The same scheme for data assets: stamped once, then frozen. A duplicate is VLT010; a missing one is warning VLT015. |
+| `[FormerlyKnownAs("Old.Type")]` | Classes | Obsolete. Maps old type names for scenes saved before `[ComponentId]` existed. |
+| `[JsonExclude]` | Fields and properties | Never saved. The engine uses it on back-references such as `Component.Entity` to avoid cycles. |
 
-## The Build System
+## Publishing a game
 
-`GameBuilder.BuildGameAsync` in the editor orchestrates the publish:
+`GameBuilder.BuildGameAsync`, behind the Build window and the gateway's `build.game`, runs these steps:
 
-1. Builds the engine DLLs without the `EDITOR` preprocessor symbol.
-2. Runs `dotnet publish` on the game project with NativeAOT and trimming enabled.
-3. Copies the `Content/` folder and the `Data/` folder (scenes, prefabs) into the build output.
-4. Compiles custom effect shaders from `Effects/` using `EffectsCompiler`.
+1. Checks that the startup scene exists and is included in the chosen configuration.
+2. Builds `Voltage.Persistence` and `Voltage.Engine` without `EDITOR` and copies them into the project's `EngineLibs/`.
+3. Verifies every plugin and regenerates the plugin build files. An `Unavailable` or `Failed` plugin stops the build.
+4. Compiles the project's custom effects.
+5. Runs `dotnet publish --self-contained` for the target runtime. With AOT on (the default) this adds NativeAOT and trimming; with AOT off it is a plain self-contained build that needs no C++ toolchain.
+6. Copies the engine content (fonts and effect overrides), optionally compiles `Content/` with MGCB, then copies the project's content and plugin content.
+7. Copies `Data/` (including `assets.manifest`), then copies the selected scenes and every prefab at their project-relative paths, dropping excluded scenes from the manifest.
+8. Copies `ProjectSettings.json`, and on macOS packages an `.app` bundle.
 
-The output lands in `Build/<Configuration>/<platform>/` inside the project folder. Each `dotnet publish` target platform gets its own subfolder.
+The editor-flavoured engine assemblies are restored to `EngineLibs/` afterwards, whether the build succeeded or not. Output goes to `<project>/bin/<Debug|Release>/<rid>/`, for example `bin/Release/win-x64/`.
 
-The `[ModuleInitializer]` pattern guarantees that AOT registrations run before any deserialization is attempted — no runtime reflection needed.
+Trimming keeps what reflection still needs through `TrimmerRoots.xml`, which the editor copies into the game project before publishing. It preserves `Voltage.dll`, `Voltage.Persistence.dll` and the MonoGame assemblies wholesale.
 
-## Editor Hot-Reload vs Published Build
+## Editor scripts versus a published game
 
-In the editor the `DynamicScripts` assembly is loaded via reflection. This is fine because the editor runs on full .NET with a JIT. When the editor recompiles scripts it sets `Core.LatestScriptAssembly` so type resolution finds the newest types.
+In the editor, scripts compile with Roslyn into an in-memory `DynamicScripts` assembly. After each compile the editor sets `Core.LatestScriptAssembly` and runs the new assembly's module initializers, so the same generated registrations exist as in a build.
 
-In a published build there is no `DynamicScripts` assembly. All game code is statically compiled into the executable. The source generator's `[ModuleInitializer]` registrations replace the runtime reflection that the editor uses.
+A published game has no `DynamicScripts` assembly: `dotnet publish` compiles `Scripts/` into the game executable, and the module initializers run at startup before any scene is read.

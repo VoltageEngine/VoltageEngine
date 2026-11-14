@@ -5,42 +5,40 @@ sidebar_position: 9
 
 # Live Aseprite Integration
 
-Voltage Editor includes Voltage Bridge, its live Aseprite integration. The editor
-hosts an authenticated WebSocket connection; its Lua extension edits documents inside running Aseprite,
-including unsaved documents. The existing `voltage` CLI and MCP server expose 132 Aseprite commands
-under `aseprite.*`, together with six connection, installation, guidance and project commands. No Node.js
-or Python installation is required. This feature is editor-only and adds nothing to published games.
+Voltage Bridge connects the editor to a running copy of Aseprite. The editor listens for an authenticated WebSocket connection on the local machine, and a Lua extension inside Aseprite carries out the commands, including on documents that have never been saved. The `voltage` CLI and the MCP server expose 132 Aseprite commands under `aseprite.*`, plus six of Voltage's own for connecting, installing, guidance and saving into the project. Nothing else needs installing, and the bridge is editor-only: a published game contains none of it.
 
 ## Setup
 
-1. Open **View > Window > Aseprite** in Voltage.
-2. Press **Install or update extension**. The editor installs **Voltage Bridge** in Aseprite's user
-   extensions folder and starts its loopback listener.
+1. Open **View > Window > Aseprite**.
+2. Press **Install or update extension**. Voltage writes the **Voltage Bridge** extension into Aseprite's user extensions folder and starts listening.
 3. Restart Aseprite, or enable the extension in **Edit > Preferences > Extensions**.
-4. Allow the extension's WebSocket and file access when Aseprite asks.
-5. Press **Refresh open sprites** in Voltage to check the connection.
+4. Allow the WebSocket and file access requests that Aseprite shows.
+5. Press **Refresh open sprites**. The window lists the documents open in Aseprite.
 
-The Install and Connect buttons turn green briefly when they succeed. Voltage reads the Aseprite version
-from its default install folder on Install and from Aseprite itself once it connects, and shows a red
-error if it is older than 1.3. **Open Voltage Normals in Aseprite** opens the
-[Voltage Normals](voltage-normals.md) panel in the connected Aseprite; in Aseprite it is
-**Edit > Voltage Normals**.
+The window shows whether the bridge is connected, waiting for Aseprite or stopped. **Connect** starts listening without reinstalling and **Disconnect** stops it. Install and Connect turn green briefly when they succeed.
 
-The equivalent CLI commands are `voltage aseprite.install`, `voltage aseprite.status`,
-`voltage aseprite.connect` and `voltage aseprite.disconnect`. An installed extension causes the bridge
-to start with the editor, unless `--gateway-safe` is enabled. The extension reconnects after editor
-restarts. If its saved port is occupied, Voltage reports the failure rather than connecting to a
-different server. Stop the conflicting listener and reconnect.
+Voltage needs Aseprite 1.3 or newer. It reads the version from Aseprite's default install folder when you install, and from Aseprite itself once connected, and shows a red error for anything older. **Open Voltage Normals in Aseprite** opens the [Voltage Normals](voltage-normals.md) panel in the connected Aseprite; inside Aseprite it is **Edit > Voltage Normals**.
 
-Voltage uses its own extension name, command IDs, port and authentication token. Other installed
-Aseprite extensions are left intact. Using multiple bridges to edit the same document simultaneously can
-change the active document or frame between commands; prefer one owner during an editing sequence.
+Once the extension is installed, the bridge starts with the editor and the extension reconnects on its own after an editor restart. The extension always uses the port saved at install time. If another program holds that port, Voltage reports the error instead of switching ports: free the port and press **Connect**. Under `--gateway-safe` the bridge does not start, the install and connection buttons are disabled, and editing, installation and Lua commands are refused.
 
-`VOLTAGE_ASEPRITE_EXTENSION` can override the installation directory for custom Aseprite installations
-and isolated tests. Normal paths are `%APPDATA%/Aseprite/extensions/voltage-aseprite` on Windows,
-`~/Library/Application Support/Aseprite/extensions/voltage-aseprite` on macOS, and
-`$XDG_CONFIG_HOME/Aseprite/extensions/voltage-aseprite` (default `~/.config`) on Linux. The user-level
-`AsepriteBridge.json` next to Voltage's settings stores the local port and credential; do not share it.
+| Window | CLI |
+|---|---|
+| Install or update extension | `voltage aseprite.install` |
+| Connect | `voltage aseprite.connect` |
+| Disconnect | `voltage aseprite.disconnect` |
+| Connection state | `voltage aseprite.status` |
+
+Voltage uses its own extension name, command IDs, port and token, so other Aseprite extensions are left alone. Avoid driving one document from two bridges at once: each can change the active document or frame between the other's commands.
+
+### Install locations
+
+| Platform | Extension folder |
+|---|---|
+| Windows | `%APPDATA%/Aseprite/extensions/voltage-aseprite` |
+| macOS | `~/Library/Application Support/Aseprite/extensions/voltage-aseprite` |
+| Linux | `$XDG_CONFIG_HOME/Aseprite/extensions/voltage-aseprite` (default `~/.config`) |
+
+Set `VOLTAGE_ASEPRITE_EXTENSION` to use another folder, for a custom Aseprite install or an isolated test profile. `AsepriteBridge.json` in Voltage's per-user settings folder holds the port and token. Treat it as a credential and do not share it.
 
 ## Working with sprites
 
@@ -53,39 +51,33 @@ voltage aseprite.undo voltage_sprite_id=12
 voltage aseprite.save_to_project voltage_sprite_id=12 path=Characters/NewCharacter.aseprite entity=true x=100 y=80
 ```
 
-All Aseprite tools accept the optional `voltage_sprite_id` obtained from `list_open_sprites`. It targets
-that document for the operation and restores the previously active document afterwards if it remains
-open. Without it the command uses Aseprite's current active document. IDs last only for the current
-Aseprite session. For sequences that change selection or active frames, use stable IDs consistently.
+Every Aseprite command accepts an optional `voltage_sprite_id` from `list_open_sprites`. The command runs on that document and then switches back to the previously active one if it is still open. Without an ID, the command uses whatever document is active in Aseprite. IDs last for the current Aseprite session only. Use them throughout any sequence that changes the selection or the active frame.
 
-MCP tool names replace dots with underscores, for example `aseprite_put_pixels`. Full nested schemas
-preserve pixel arrays, animation templates, required fields and enums. Sprite screenshots and animation
-strips arrive as native MCP image content. Other inspection data arrives as JSON. `aseprite.guide`
-provides the bundled pixel-art workflow guidance.
+MCP tool names replace the dot with an underscore, for example `aseprite_put_pixels`. Their schemas keep nested pixel arrays, animation templates, required fields and enums. Sprite screenshots and animation strips come back as MCP images; other results come back as JSON. `aseprite.guide` returns bundled pixel-art workflow guidance.
 
-`save_to_project` saves a copy under the current project's `Content` folder, refreshes the asset
-database and preserves an existing `.meta` GUID. `entity=true` additionally creates an animated sprite
-using the normal Aseprite drop handler; this requires Edit mode and is undoable in Voltage. Set
-`overwrite=true` explicitly to replace an existing file. The original Aseprite document keeps its
-filename. The operation checks that the project has not changed while saving before importing it,
-and checks the scene again before creating an entity.
-Scene saving remains a separate action in Edit mode.
+### Saving into the project
+
+`aseprite.save_to_project` saves a copy of the document under the project's `Content` folder at `path`, refreshes the asset database and keeps any existing `.meta` GUID. The Aseprite document keeps its own filename. An existing file is only replaced with `overwrite=true`.
+
+`entity=true` also creates an animated sprite entity at `x`, `y`, the same way dropping an Aseprite file into the scene does. It needs Edit mode and is undoable. If the project or scene changes while Aseprite is saving, the file is kept but not imported, or not placed. Save the scene yourself afterwards.
+
+## Updating art already in use
+
+| Where the art is used | How it picks up a saved change |
+|---|---|
+| [Light Preview](light-preview.md) | Reloads on its own when the file changes on disk |
+| Tilesets | Press **Sync Changes** in the [Tile Palette](tile-palette.md) or [Tileset Editor](tilesets.md). Saving a `.vtileset` reloads the scene layers that use it |
+| Sprites in the open scene | Updated when the scene reloads, for example with **Scripting > Reload Scene** (F6) |
 
 ## Behavior and limits
 
-- Aseprite owns art-edit undo; Voltage owns scene-edit undo. They are separate histories.
-- Requests complete asynchronously without blocking Voltage's render loop. The bridge accepts up to
-  32 pending requests, limits each message to 3 MiB, and uses a 60-second deadline.
-- A timeout or disconnect does not prove an edit was cancelled. Inspect the document before retrying;
-  requests are never replayed automatically.
-- The listener binds to IPv4 loopback, requires the installation credential and rejects browser Origin
-  headers. Aseprite's exact `ws://127.0.0.1:<bridge port>` Origin is accepted.
-  `--gateway-safe` refuses mutation, installation and arbitrary Lua commands.
-- `execute_script` has the extension's full Lua authority. It is an explicitly unsafe gateway command.
-- Frame interpolation blends colors; it does not infer motion. Animation preview returns a frame strip.
-  Screenshot returns rendered sprite content, not Aseprite's entire window.
-- Some inherited operations iterate top-level layers only, and cel linking has a content-copy fallback.
-  See the [package audit](../engine/aseprite-package-audit.md) for inherited limitations and local fixes.
+- Aseprite owns the undo history for art edits and Voltage owns the one for scene edits. They are separate.
+- Requests run asynchronously and never block Voltage's render loop. Up to 32 requests can be pending, each message is limited to 3 MiB, and each request has a 60-second deadline.
+- A timeout or disconnect does not mean an edit was cancelled. Inspect the document before retrying; requests are never replayed automatically.
+- The listener binds to IPv4 loopback only, requires the installation token and rejects browser `Origin` headers. Only Aseprite's own `ws://127.0.0.1:<port>` origin is accepted.
+- `execute_script` runs arbitrary Lua with the extension's full permissions and is marked unsafe.
+- Frame interpolation blends colours; it does not infer motion. Animation preview returns a strip of frames, and a screenshot shows the rendered sprite, not Aseprite's window.
+- Some inherited commands only visit top-level layers, and cel linking falls back to copying content. The [package audit](../engine/aseprite-package-audit.md) lists the inherited limitations and local fixes.
 
 ## Verification and maintenance
 
@@ -95,12 +87,6 @@ powershell -File tools/aseprite/run-smoke.ps1 -AsepritePath <aseprite executable
 dotnet test Voltage.Editor.Tests -c Editor-Debug --filter FullyQualifiedName~AsepriteGatewayTests
 ```
 
-Bridge checks exercise authentication, schemas, response matching, remote errors and timeouts. The Lua
-smoke checks use temporary sprites in Aseprite batch mode, with pixel and export readback. Editor tests
-use a throwaway project and extension installation and emulate the Aseprite WebSocket peer. They do not
-replace testing the real GUI extension's initial permissions and reconnection.
+The bridge checks cover authentication, schemas, response matching, remote errors and timeouts. The Lua smoke run edits temporary sprites in Aseprite's batch mode and reads back pixels and exports. The editor tests use a throwaway project and extension folder and emulate the Aseprite side of the WebSocket. None of them replace a manual check of the real extension's first permission prompt and reconnection.
 
-Re-extract schemas from an updated upstream package with
-`node tools/aseprite/extract-tools.cjs <server/build/tools> Voltage.Editor/Aseprite/Resources/tools.json`.
-The extractor reads registration modules without starting their server. Updating schemas does not update
-Lua implementations: review and update both together, preserving the upstream license.
+To take schemas from an updated upstream package, run `node tools/aseprite/extract-tools.cjs <server/build/tools> Voltage.Editor/Aseprite/Resources/tools.json`. The extractor reads the registration modules without starting their server. It updates schemas only: review and update the Lua implementations alongside them, and keep the upstream license.

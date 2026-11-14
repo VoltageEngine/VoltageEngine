@@ -4,10 +4,38 @@ title: Animation Event Inspector
 
 # Animation Event Inspector
 
-Select an entity with a loaded **SpriteAnimator**, then press **Manage Animation Events** in its Inspector. This assigns that animator to the event window. **View > Window > Animation Event Inspector** restores the window; opening it from the menu alone does not assign an animator. Load the sprite's animations first; see [Aseprite integration](aseprite.md).
+Animation events are named markers on the frames of a `SpriteAnimator` animation. Game code subscribes to them by name, for example to deal damage on the frame a sword connects or to play a footstep sound.
 
-Choose an **Animation**, then use **Play/Stop** and the **Frame** slider to preview it. Frame numbers start at zero. Each event row contains its frame, name, animation assignment and a delete action. A **LongAnimationEvent** also has an end frame; the end cannot precede the start.
+## Open it
 
-Use **Add Event** to choose an `AnimationEvent` or `LongAnimationEvent`, then **Create**. Give it a meaningful name and assign the animation and frame or frame range. These events belong to the scene's animator component; editing them does not change the Aseprite source file.
+Select an entity whose **SpriteAnimator** has animations loaded (see [Live Aseprite Integration](aseprite.md)), then press **Manage Animation Events** in its Inspector. This connects that animator to the window. **View > Window > Animation Event Inspector** only shows or hides the window; without an animator it asks you to select one.
 
-Press **Save** to copy the working event list to the animator and save scene changes. The preview controls only preview frames; they do not save the list. Save before changing animators. Adding an event participates in undo, but other edits in this window do not currently have consistent undo coverage; do not rely on undo as a general cancel operation.
+## Edit events
+
+Choose an **Animation**; the list shows how many events each one has. **Play** and **Stop** preview it, and the **Frame** slider steps through it. Frames count from zero.
+
+Press **Add Event**, choose a type and press **Create**:
+
+| Type | Fires |
+|---|---|
+| `AnimationEvent` | Once, as its frame ends and before the next frame shows |
+| `LongAnimationEvent` | Every update while the current frame is between its start and end frames, inclusive |
+
+Each row has the start frame (and end frame for a long event), a name, the animation it belongs to and **Delete**. Frames are clamped to the animation's length. Set the end frame of a long event no lower than its start, since the inspector does not check it and such an event never fires. An event with no name never fires. Names are unique within an animation: a duplicate gets a numbered suffix.
+
+Events are stored on the scene's animator component; the Aseprite file is not changed.
+
+## Save
+
+Press **Save** to copy the edited list to the animator and save the scene. Edits are not applied until then, and the preview controls never save. Save before switching to another animator. Adding an event can be undone; other edits in this window cannot, so do not rely on undo to back out of them.
+
+## Use them in code
+
+Subscribe once the animator has its events, for example in a component's `OnStart`:
+
+```csharp
+var animator = Entity.GetComponent<SpriteAnimator>();
+animator.SubscribeToEvent("Attack", "Hit", DealDamage);
+```
+
+`SubscribeToEvent` throws if the animation has no event with that name. Events only fire while the animation is running, and follow the animator's update, so they pause with it.

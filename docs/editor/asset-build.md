@@ -6,71 +6,85 @@ description: Compile the Content folder into MonoGame .xnb files for published g
 
 # Asset Build
 
-A published game normally ships the `Content/` folder as raw files and decodes them at load time: PNGs through `Texture2D.FromStream`, Aseprite files through the engine's own parser, audio through NVorbis and NLayer. The asset build compiles that folder with the MonoGame Content Builder (MGCB) into `.xnb` files, so a build loads pre-decoded textures and pre-flattened Aseprite frames instead. It is off by default and changes nothing in the editor, which keeps loading raw files.
+Without the asset build, a published game ships the `Content/` folder as raw files and decodes them at load time: images through `Texture2D.FromStream`, Aseprite files through the engine's own parser, audio through NVorbis and NLayer. The asset build compiles that folder with the MonoGame Content Builder (MGCB) into `.xnb` files, so the game loads pre-decoded textures and pre-flattened Aseprite frames instead. It is off by default and never affects the editor, which always loads raw files.
 
-## Turning it on
+## Menu
 
-`Build > Asset Build` in the menu bar holds the switch and the tool:
+**Build > Asset Build** holds the switch and the tools:
 
 | Item | What it does |
 |---|---|
-| **Compile assets on build** | Stores `AssetBuild.Enabled` in `ProjectSettings.json`. When on, every game build runs the asset build before copying content. |
-| **Build assets now** | Runs the asset build alone into `<project>/bin/AssetBuild/<platform>` (the standalone tool's output, never used by a game build) and shows a report window with counts, timings and errors. The folder is emptied before every run. |
-| **Clean asset build** | Deletes that output and the intermediate folder. |
-| **Settings** | Platform, compression, texture options, include and exclude globs, rules, and the extension scaffold. |
-| **New pipeline extension** | Opens the settings window at the scaffold section (see Extending the asset build). |
+| **Compile assets on build** | Stores `AssetBuild.Enabled` in `ProjectSettings.json`. When on, every game build runs the asset build before copying content. If the asset build fails, the game build stops. |
+| **Build assets now** | Runs the asset build on its own into `<project>/bin/AssetBuild/<platform>` and opens a report with counts, timings and errors. The folder is emptied first. Game builds never use this output. |
+| **Clean asset build** | Deletes that output and the compile cache. |
+| **Settings** | The Asset Build Settings window (below). |
+| **New pipeline extension** | Opens the settings window at the scaffold section; see [Extending the asset build](#extending-the-asset-build). |
 | **Show last report** | Reopens the report of the last run, including one started by a game build. |
-| **Open output folder** | Opens the last output in the file browser. |
+| **Open output folder** | Opens the standalone output in your file manager. |
 
-The same switch is exposed to the gateway as `assetbuild.settings` and the tool as `assetbuild.run` (`platform`, `clean`, `copyRaw`, `output` inside the project); `assetbuild.status` and `assetbuild.clean` round it out, and `build.game compileAssets=` overrides the stored setting for one build.
+## Settings
 
-## Incremental builds
+| Setting | Default | Meaning |
+|---|---|---|
+| **Compile assets on build** | Off | As above. |
+| **Platform** | `DesktopGL` | MGCB platform for **Build assets now**. One of DesktopGL, Windows, Android, iOS, Switch, PlayStation4, PlayStation5, XboxOne, WindowsStoreApp; unknown names save as DesktopGL. Game builds for Windows, macOS and Linux always use DesktopGL. |
+| **Texture format** | `Color` | `Color` or `Compressed`. |
+| **Premultiply alpha** | Off | Passed to the texture, Aseprite and bitmap font processors. |
+| **Compress .xnb files** | On | MGCB `/compress`. |
+| **Compile audio** | Off | Converts `.wav`, `.ogg` and `.mp3` to PCM `.xnb` files, which are larger than the sources. |
+| **Include** | `**/*` | Globs relative to `Content/`. Files that match no include glob are skipped. |
+| **Exclude** | `**/Voltage/**`, `**/*.fx`, `**/*.mgfxo` | Matching files are copied raw instead of compiled. |
 
-MGCB keeps compiled outputs under `obj/AssetBuild/<platform>/compiled/<tool-version>` and dependency records beside them in `obj/AssetBuild/<platform>/obj`. Game builds and **Build assets now** share this cache. Recreating a publish or standalone output folder only copies the current compiled assets from the cache; it does not force another compile. MGCB rebuilds changed sources, dependencies, or processor settings, and missing outputs. The first build after enabling this cache compiles everything once.
-
-The report distinguishes newly compiled files from **up to date** files. **Clean asset build** deletes both the standalone output and the persistent cache, so the next run recompiles everything. Removed or renamed assets are excluded from the next output and index.
+Globs are case-insensitive: `**` spans folders, `*` and `?` stay inside one folder name. The window also edits rules and runs the extension scaffold. The same settings are exposed to the gateway as `assetbuild.settings`, and the build as `assetbuild.run` (`platform`, `clean`, `copyRaw`, `output` inside the project). `assetbuild.status` and `assetbuild.clean` complete the set, and `build.game compileAssets=` overrides the stored switch for one build.
 
 ## What gets compiled
 
 | Source | Compiled as | Runtime type | Notes |
 |---|---|---|---|
-| `.png .jpg .bmp .tga` | `TextureImporter` + `TextureProcessor` | `Texture2D` | `PremultiplyAlpha` follows the setting; `ColorKeyEnabled` off; mipmaps off; `TextureFormat` from the setting (`Color` or `Compressed`). |
-| `.aseprite .ase` | `AsepriteImporter` + `AsepriteProcessor` (Voltage.Pipeline) | `AsepriteFile` | Frames, layers, tags, slices and per-layer pixel data are flattened at build time, so the runtime skips cel decompression and compositing. |
-| `.wav` | `WavImporter` + `SoundEffectProcessor` | `SoundEffect` | Only when `CompileAudio` is on; PCM `.xnb` files are larger than the source. |
-| `.ogg .mp3` | copied raw | `SoundEffect` | Decoded at load time as today; `CompileAudio` converts them through `SoundEffectProcessor` when on. |
-| `.fnt` + texture | `BitmapFontImporter` + `BitmapFontProcessor` (Voltage.Pipeline) | `BitmapFont` | Uses the engine's existing `BitmapFontReader`. |
-| `.vtileset .vasset .vtimeline .vprefab .vscene .json .tmx .tsx .meta` | copied raw | as today | JSON and Tiled formats stay as files; the AOT-safe readers need no change. |
-| `.fx .mgfxo` | untouched | `Effect` | Effects keep the separate `mgfxc` path from the Effects menu. |
-| everything else | copied raw | | |
+| `.png .jpg .jpeg .bmp .tga` | `TextureImporter` + `VoltageTextureProcessor` | `Texture2D` | Fully transparent pixels are blacked out, matching `Texture2D.FromStream`. Colour key, mipmaps, power-of-two resize and make-square are off; premultiply and format follow the settings. Uses MonoGame's `TextureProcessor` if `Voltage.Pipeline.dll` is missing. |
+| `.aseprite .ase` | `AsepriteImporter` + `AsepriteProcessor` | `AsepriteFile` | Frames, layers, tags, slices and per-layer pixels are flattened at build time, so the runtime skips cel decompression and compositing. |
+| `.fnt` and its pages | `BitmapFontImporter` + `BitmapFontProcessor` | `BitmapFont` | Read back by the engine's `BitmapFontReader`. |
+| `.wav .ogg .mp3` | copied raw, or `WavImporter`/`OggImporter`/`Mp3Importer` + `SoundEffectProcessor` | `SoundEffect` | Compiled only with **Compile audio** on. |
+| `.vtileset .vasset .vtimeline .vprefab .vscene .json .tmx .tsx .meta` | copied raw | unchanged | JSON and Tiled formats stay as files. |
+| `.fx .mgfxo` | copied raw | `Effect` | Effects use the separate shader compiler from the Effects menu. |
+| anything else | copied raw | | |
 
-Files matched by an exclude glob, and files under `Content/Voltage` (engine content), are never compiled.
+Files under `Content/Voltage/` (engine content) are never compiled. Aseprite and `.fnt` files are copied raw, with a warning, when `Voltage.Pipeline.dll` is missing beside the editor. A file whose name contains `;` or a line break, or starts with `#`, `$` or `/`, is skipped because the response file cannot carry it.
+
+Skipped files are left out of a standalone run's output. In a game build, `dotnet publish` still copies them along with the rest of `Content/`.
+
+## Incremental builds
+
+MGCB keeps compiled outputs in `obj/AssetBuild/<platform>/compiled/<tool-version>` and dependency records in `obj/AssetBuild/<platform>/obj`. Game builds and **Build assets now** share this cache, so recreating an output folder only copies current compiled files. MGCB rebuilds a file when its source, dependencies or processor settings change, or when its output is missing. The report separates newly compiled files from **up to date** ones. **Clean asset build** deletes the cache, so the next run compiles everything.
 
 ## How a build finds compiled assets
 
-The asset build writes `Content/content.index` next to the compiled files: one line per compiled asset, `source path<TAB>asset name`, where the source path is the project-relative path the scene data and scripts use (`Content/Characters/Hero.aseprite`) and the asset name is the MGCB name relative to the content root, without extension (`Characters/Hero`). When two sources would share a name (`Hero.png` and `Hero.aseprite`), the later one gets its extension appended (`Characters/Hero_aseprite`).
+The asset build writes `Content/content.index` next to the compiled files: one line per compiled asset, `source path<TAB>asset name`. The source path is the project-relative path scene data and scripts use (`Content/Characters/Hero.aseprite`); the asset name is the MGCB name relative to the content root, without extension (`Characters/Hero`). When two sources would share a name (`Hero.png` and `Hero.aseprite`), the later one gets its extension appended (`Characters/Hero_aseprite`), then a number if that is taken too.
 
-`VoltageContentManager` reads the index once at startup when it exists. Every `Load*` method, `LoadByType<T>` behind `AssetReference`, and therefore every `SpriteRenderer`, `SpriteAnimator`, `TilemapRenderer`, audio component and legacy script call such as `Content.LoadTexture("Content/UI/Cursor.png")` or `AsepriteUtils.LoadAsepriteAnimation(entity, "Content/Characters/Hero.aseprite", "Idle")` first asks the index for a compiled name and loads the `.xnb` through the base `ContentManager` when one exists. Anything without an entry loads the raw file exactly as before, so a project can compile a subset, or nothing, and still run. The editor never has an index, so it never changes behaviour.
+`VoltageContentManager` reads the index from the game's `Content` folder on first use. Every `Load*` method, `LoadByType<T>` behind `AssetReference`, and therefore every `SpriteRenderer`, `SpriteAnimator`, `TilemapRenderer`, audio component and direct script call such as `Content.LoadTexture("Content/UI/Cursor.png")` or `AsepriteUtils.LoadAsepriteAnimation(entity, "Content/Characters/Hero.aseprite", "Idle")` asks the index first and loads the `.xnb` when there is an entry. Anything without an entry loads the raw file as before, so a project can compile a subset of its content, or none, and still run. The editor has no index, so its behaviour never changes.
 
-A compiled source is never shipped: the build output holds either the `.xnb` or the raw file, and files without a compiled counterpart are always copied. Game builds start from an empty output folder every time, and a standalone run empties `bin/AssetBuild/<platform>` first and removes any `.xnb` the current run did not produce, so renamed or deleted sources leave nothing behind.
+A compiled source never ships next to its `.xnb`: the output holds one or the other. Game builds start from an empty output folder, and every run deletes `.xnb` files the current plan did not produce, so renamed or deleted sources leave nothing behind.
 
 ## Extending the asset build
 
-Rules decide what happens to an extension before the built-in table does, so a project can route its own file types through custom importers, or change how a built-in type is handled (route `.png` through another processor, or `copy` or `skip` a type). A rule has a name, extensions, an action (`compile`, `copy` or `skip`), the importer and processor class names, optional `Key=Value` processor parameters, and optionally the project-relative DLL that holds the classes; rules with no DLL use MonoGame's built-in importers. Rules live under `AssetBuild.Rules` in `ProjectSettings.json`, in the settings window, and on the gateway as `assetbuild.rules`, `assetbuild.rule.set` and `assetbuild.rule.remove`. Editor plugins register rules in code with `AssetBuildRules.Register`; a project rule for the same extension wins.
+Rules decide what happens to an extension before the built-in table does. Use them to route your own file types through custom importers, or to change how a built-in type is handled (send `.png` through another processor, or `copy` or `skip` a type). A rule has a name, extensions, an action (`compile`, `copy` or `skip`), importer and processor class names, optional `Key=Value` processor parameters, and optionally the project-relative DLL that holds the classes; rules without a DLL use MonoGame's built-in importers. Rules live under `AssetBuild.Rules` in `ProjectSettings.json`, in the settings window, and on the gateway as `assetbuild.rules`, `assetbuild.rule.set` and `assetbuild.rule.remove`. Editor plugins register rules in code with `AssetBuildRules.Register`; a project rule for the same extension wins.
 
-`Build > Asset Build > New pipeline extension` (or `assetbuild.scaffold name=Level extension=.lvl`) writes a working starting point:
+**Build > Asset Build > New pipeline extension** (or `assetbuild.scaffold name=Level extension=.lvl`) writes a working starting point:
 
-- `Pipeline/Level/Level.csproj` with `LevelImporter`, `LevelProcessor` and `LevelWriter`, a .NET 8 class library referencing `MonoGame.Framework.Content.Pipeline`. The game project excludes `Pipeline/**` from its own compile (new projects carry the exclusion; the scaffold adds it to older ones).
-- `Scripts/Content/LevelAsset.cs` with the runtime `LevelAsset` type, its `LevelReader`, and a module initializer that registers a raw-file loader through `VoltageContentManager.RegisterLoader`, so `[AssetType(typeof(LevelAsset))] AssetReference` fields load in the editor and in raw builds too.
-- The rule `Level` for `.lvl` pointing at `Pipeline/Level/bin/Release/net8.0/Level.dll`.
+- `Pipeline/Level/Level.csproj` with `LevelImporter`, `LevelProcessor` and `LevelWriter`: a .NET 8 class library referencing the MonoGame content pipeline. The game project excludes `Pipeline/**` from its own compile (new projects carry the exclusion; the scaffold adds it to older ones).
+- `Scripts/Content/LevelAsset.cs` with the runtime `LevelAsset` type, its reader, and a module initializer that registers a raw-file loader through `VoltageContentManager.RegisterLoader`, so `[AssetType(typeof(LevelAsset))] AssetReference` fields load in the editor and in builds without the asset build.
+- The rule `Level` for `.lvl`, pointing at `Pipeline/Level/bin/Release/net8.0/Level.dll`.
 
-When a rule's DLL sits in a folder with exactly one `.csproj`, the asset build runs `dotnet build -c Release` on it whenever a source is newer than the DLL, before generating the response file. The scaffolded project references `Voltage.Pipeline` through the `VoltagePipelineDir` MSBuild property, which the editor passes on that command line, so the csproj carries no machine-specific path; building it by hand needs `-p:VoltagePipelineDir=<editor folder>/Pipeline/`. Rules are validated wherever they come from: the DLL must sit inside the project, importer and processor must be class names, parameters must be `Key=Value`, and none of them may contain `;` or line breaks; a rule that fails a check fails its files with the reason. Extension projects must stay on .NET 8, which is what `mgcb` loads. Only the runtime file compiles with the game scripts; the pipeline project is never loaded by the editor or the game.
+When a rule's DLL sits in a folder with exactly one `.csproj`, the asset build runs `dotnet build -c Release` on it whenever a source file is newer than the DLL. The scaffolded project references `Voltage.Pipeline` through the `VoltagePipelineDir` MSBuild property, which the editor passes on that command line, so the `.csproj` holds no machine-specific path; to build it by hand, add `-p:VoltagePipelineDir=<editor folder>/Pipeline/`. Extension projects must stay on .NET 8, which is what `mgcb` loads. Only the runtime file compiles with the game scripts; the pipeline project is never loaded by the editor or the game.
+
+Rules are validated wherever they come from. The DLL must be inside the project, the importer and processor must be class names, parameters must be `Key=Value`, extensions must be letters and digits, and no field may contain `;` or line breaks. Files covered by a rule that fails a check, or whose DLL is missing, fail with the reason instead of being copied.
 
 ## Tooling
 
-The build uses the `dotnet-mgcb` tool at the same version as the engine's MonoGame package, installed into a tool manifest inside the project (`<project>/.config/dotnet-tools.json`) with `dotnet tool restore`, which the editor runs the first time and whenever the version changes. Custom importers live in `Voltage.Pipeline.dll`, which ships beside the editor and is passed to MGCB with `/reference`. The generated response file is written to `<project>/obj/AssetBuild/<platform>.rsp` and can be inspected or run by hand with `dotnet mgcb /@:<file>`; it deliberately does not use the `.mgcb` extension, which the game's own MonoGame builder task would pick up during publish.
+The build uses the `dotnet-mgcb` tool at the same version as the engine's MonoGame package, recorded in a tool manifest inside the project (`<project>/.config/dotnet-tools.json`) and installed with `dotnet tool restore`. The editor runs the restore the first time and whenever the version changes, so the first run needs NuGet access. Custom importers live in `Voltage.Pipeline.dll`, which ships in the editor's `Pipeline` folder and is passed to MGCB with `/reference`. The generated response file is `<project>/obj/AssetBuild/<platform>.rsp`; inspect it or run it by hand with `dotnet mgcb /@:<file>`. It deliberately avoids the `.mgcb` extension, which the game's own MonoGame build task would pick up during publish.
 
-Requirements: the .NET SDK on the path (already needed for game builds). No Visual Studio components are needed.
+Requirements: the .NET SDK on the path, which game builds already need. No Visual Studio components are required.
 
 ## Diagnostics
 
-The report window and `assetbuild.run` list every file with its outcome: compiled, copied, skipped by a glob, or failed with MGCB's message; a file that MGCB accepted but produced no `.xnb` for is reported as failed too. `assetbuild.status` reports the tool version, whether the manifest is restored, the last output and its index size. `log.tail` carries the same lines with the `[AssetBuild]` prefix.
+The report window and `assetbuild.run` list every file with its outcome: compiled, up to date, copied, skipped, or failed with MGCB's message. A file MGCB accepted but produced no `.xnb` for is reported as failed. `assetbuild.status` reports the tool version, whether the manifest is restored, the last output and its index size. `log.tail` carries the same lines with the `[AssetBuild]` prefix.
