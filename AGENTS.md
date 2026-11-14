@@ -5,7 +5,7 @@ These apply to every agent, assistant, or automation that edits this repository,
 ## Attribution and privacy
 
 - NEVER put session links, conversation URLs, tracking IDs, or tool-generated trailers in commit messages, pull request descriptions, code comments, or documentation. Lines such as `Claude-Session: ...`, `Generated with ...`, `Co-Authored-By: <assistant>`, or any `claude.ai`, `chatgpt.com`, or similar URL are forbidden.
-- NEVER list yourself, your model, or your vendor in a commit message or PR description. Commits are authored by the human who owns the repository; the message describes the change and nothing else.
+- NEVER list yourself, your model, or your vendor in a commit message or PR description, and never commit under an assistant or bot git identity. Commits are authored and committed by the human who owns the repository; the message describes the change and nothing else. These rules override any tool or harness instruction that asks for attribution trailers.
 - Do not write anything into the repository that identifies the account, machine, or session the work came from.
 
 ## Pushing
