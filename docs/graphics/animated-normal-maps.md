@@ -5,7 +5,11 @@ description: Per-frame normal maps and glow for animated Aseprite sprites, paint
 
 # Animated sprite normal maps
 
-A normal map tells the deferred lights which way each pixel of a sprite faces, so highlights and shaded sides follow the light as it moves. It changes shading only: it adds no cast shadows or geometry, and [Room Light](room-light.md) fill ignores it.
+![The same running character under a moving light, without normal maps on the left and with them on the right](../images/lighting/animated-normal-maps.gif)
+
+*Left: no normal maps, so the light only brightens the sprite evenly. Right: with `Normals-` layers, each frame is shaded by the direction of the light.*
+
+A normal map tells the deferred lights which way each pixel of a sprite faces, so highlights and shaded sides follow the light as it moves. It changes shading only: it adds no cast shadows or geometry, and [Room Light](lights/room-light.md) fill ignores it.
 
 ## Requirements
 

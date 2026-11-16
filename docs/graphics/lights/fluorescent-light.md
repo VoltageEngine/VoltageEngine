@@ -1,9 +1,12 @@
 ---
 title: Fluorescent Light
+sidebar_position: 8
 description: A finite light bar that shines to one side with a feathered half-ellipse footprint, normal-mapped shading and optional deterministic flicker.
 ---
 
 # Fluorescent light
+
+![A fluorescent bar above a character, flickering](../../images/lighting/fluorescent-light.gif)
 
 `Voltage.DeferredLighting.FluorescentLight` emits from a straight bar, like a ceiling tube, toward the entity's local positive Y (down, unrotated). It shades receivers through their normal maps and casts nothing upward.
 

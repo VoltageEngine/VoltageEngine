@@ -6,7 +6,7 @@ description: See your Veltius production board inside the Voltage Editor, report
 
 # Veltius
 
-Veltius is a production planning app for game teams: boards, tasks and milestones linked to the game's own files. The Veltius plugin (`com.veltius.voltage`) brings that board into the Voltage Editor, so you can see what is planned for the scene you have open without leaving it. It is an editor-only plugin and adds nothing to published games.
+[Veltius](https://veltius.com) is a production planning app for game teams: boards, tasks and milestones linked to the game's own files. The Veltius plugin (`com.veltius.voltage`) brings that board into the Voltage Editor, so you can see what is planned for the scene you have open without leaving it. It is an editor-only plugin and adds nothing to published games.
 
 ## Setup
 

@@ -64,10 +64,22 @@ const sidebars = {
       label: 'Lighting',
       items: [
         'graphics/lighting',
+        {
+          type: 'category',
+          label: 'Light Types',
+          items: [
+            'graphics/lights/point-light',
+            'graphics/lights/spot-light',
+            'graphics/lights/directional-light',
+            'graphics/lights/area-light',
+            'graphics/lights/sprite-light',
+            'graphics/lights/room-light',
+            'graphics/lights/projected-light',
+            'graphics/lights/fluorescent-light',
+            'graphics/lights/shadow-lights',
+          ],
+        },
         'graphics/animated-normal-maps',
-        'graphics/room-light',
-        'graphics/projected-light',
-        'graphics/fluorescent-light',
       ],
     },
     {
@@ -82,13 +94,21 @@ const sidebars = {
     },
     {
       type: 'category',
-      label: 'Automation',
+      label: 'Voltage CLI',
       items: ['gateway/README'],
     },
     {
       type: 'category',
       label: 'Plugins and Integrations',
-      items: ['plugins/README', 'integrations/dialoguemaker', 'integrations/veltius', 'assets/README'],
+      items: [
+        'plugins/README',
+        {
+          type: 'category',
+          label: 'Plugins Examples',
+          items: ['integrations/dialoguemaker', 'integrations/veltius'],
+        },
+        'assets/README',
+      ],
     },
     {
       type: 'category',

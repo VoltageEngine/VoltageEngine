@@ -8,9 +8,9 @@ description: A live C# editor and runtime for desktop pixel art games.
 
 Voltage is a C# engine and live editor for 2D pixel art games on Windows, macOS and Linux. Paint tiles, arrange scenes, tune lights and test gameplay in one dockable workspace. Your game stays a separate C# project: its scripts reload on save, and the editor's Build window publishes it as a self-contained desktop executable.
 
-![Voltage Editor in Studio Graphite with Scene Select and two separated example tile cells](images/editor-studio-graphite.png)
+![The Voltage Editor with the Jolt rooftop at night: Scene Graph, Asset Browser, Editor Tools, Game view, the Inspector showing a point light, and the Debug Log](images/editor-overview.png)
 
-The editor uses the Studio Graphite theme with dockable tool windows. This example shows [Scene Select](editor/tile-selection.md), which edits placed cells separately from the palette's source stamp.
+The whole workspace in one window, here editing the rooftop of the game Jolt. The Scene Graph and Asset Browser are on the left, the live Game view sits in the centre with Editor Tools above it, the Inspector on the right shows the selected moon light's components, and the Debug Log runs along the bottom. Every panel docks anywhere; see [Main Windows](editor/windows.md).
 
 ## Pixel art workflow
 

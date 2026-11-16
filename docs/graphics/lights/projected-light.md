@@ -1,9 +1,12 @@
 ---
 title: Projected Light
+sidebar_position: 7
 description: Light cast through the transparent pixels of a tilemap, such as sunlight through boarded windows, shaded by the receivers' normal maps.
 ---
 
 # Projected light
+
+![Sunlight projected through the gaps of a boarded window, sweeping as its direction changes](../../images/lighting/projected-light.gif)
 
 `Voltage.DeferredLighting.ProjectedLight` casts light through the transparent pixels of a tilemap, for example sun falling through gaps in boarded windows, and lands it on a receiving area of the room. The result is added to the deferred light buffer and shaded with the receivers' normal maps.
 

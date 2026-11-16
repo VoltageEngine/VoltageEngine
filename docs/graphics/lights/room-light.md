@@ -1,9 +1,12 @@
 ---
 title: Room Light
+sidebar_position: 6
 description: Bounded, art-directed indirect fill for a room polygon, with an optional driver lamp, two-tone gradient, edge bounce and collider shadows.
 ---
 
 # Room light
+
+![A two-tone room light whose virtual source moves across the room](../../images/lighting/room-light.gif)
 
 `Voltage.DeferredLighting.RoomLight` fills a polygon with soft indirect light, the glow a lamp spreads through a room. It is added to the deferred light buffer like any other light and does not change point or spot lights.
 

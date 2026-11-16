@@ -18,24 +18,39 @@ With deferred lighting on, each scene sets up a `DeferredLightingRenderer` for e
 
 ## Light types
 
-| Light | Shape and use | Key settings |
-|---|---|---|
-| `PointLight` | Round light from a point: lamps, torches, sparks. | `Radius`, `Intensity`, `ZPosition` (height above the scene, which flattens or sharpens normal shading), `Color` |
-| `SpotLight` | A point light limited to a cone, aimed by the entity's rotation: flashlights, stage lights. | Point light settings plus `ConeAngle` |
-| `DirLight` | Light from one direction over the whole view: sun, moon, overall key light. Never culled. | `Direction` (3D), `SpecularIntensity`, `SpecularPower` |
-| `AreaLight` | A lit rectangle with a light direction: windows, screens, light panels. | `Width`, `Height`, `Direction`, `Intensity` |
-| `SpriteLight` | Makes a sprite's own silhouette emit a soft glow, following its animation: neon signs, glowing eyes, magic. | `Source` (a sprite renderer), `Radius`, `Intensity`, `GlowFalloff` |
-| [`RoomLight`](room-light.md) | Bounded, art-directed fill for a room polygon, optionally driven by a lamp and shadowed by colliders. | Polygon vertices, colours, `Scattering`, `SourceLight` |
-| [`ProjectedLight`](projected-light.md) | Light projected through the transparent pixels of a tilemap, such as sun through window boards. | `Boards`, `Windows`, `Direction`, `ProjectionDistance` |
-| [`FluorescentLight`](fluorescent-light.md) | A finite bar emitting to one side, with optional deterministic flicker: tube lights. | `SourceLength`, `Range`, `Spread`, `Flicker...` |
+Each light type has its own page under **Light Types**.
 
-Every light has `Color` and the renderable settings (`LocalOffset`, `Enabled`). Lights are components, so they can be animated with [tweens](../utilities/tweening.md), Timeline property tracks or code, and switched off by disabling them.
+| Light | Shape and use |
+|---|---|
+| [Point Light](lights/point-light.md) | Round light from a point: lamps, torches, sparks. |
+| [Spot Light](lights/spot-light.md) | A point light limited to a cone, aimed by the entity's rotation: flashlights, stage lights. |
+| [Directional Light](lights/directional-light.md) | Light from one direction over the whole view: sun, moon, overall key light. Adds specular highlights. |
+| [Area Light](lights/area-light.md) | Directional light confined to a rectangle: windows, screens, light panels. |
+| [Sprite Light](lights/sprite-light.md) | A sprite's own silhouette glows and lights its surroundings, following its animation: neon, magic, sparks. |
+| [Room Light](lights/room-light.md) | Bounded, art-directed fill for a room polygon, optionally driven by a lamp and shadowed by colliders. |
+| [Projected Light](lights/projected-light.md) | Light projected through the transparent pixels of a tilemap, such as sun through window boards. |
+| [Fluorescent Light](lights/fluorescent-light.md) | A finite bar emitting to one side, with optional deterministic flicker: tube lights. |
+| [2D Shadow Lights](lights/shadow-lights.md) | Lights that cast hard shadows from colliders into a light map, without normal maps. |
 
-Try any light on any sprite in the [Light Preview](../editor/light-preview.md) window, which renders through the real deferred renderer without touching the scene.
+| | |
+|---|---|
+| ![Point light](../images/lighting/point-light.gif) | ![Spot light](../images/lighting/spot-light.gif) |
+| [Point Light](lights/point-light.md) | [Spot Light](lights/spot-light.md) |
+| ![Directional light](../images/lighting/directional-light.gif) | ![Area light](../images/lighting/area-light.gif) |
+| [Directional Light](lights/directional-light.md) | [Area Light](lights/area-light.md) |
+| ![Sprite light](../images/lighting/sprite-light.gif) | ![Room light](../images/lighting/room-light.gif) |
+| [Sprite Light](lights/sprite-light.md) | [Room Light](lights/room-light.md) |
+| ![Projected light](../images/lighting/projected-light.gif) | ![Fluorescent light](../images/lighting/fluorescent-light.gif) |
+| [Projected Light](lights/projected-light.md) | [Fluorescent Light](lights/fluorescent-light.md) |
 
+Every light has `Color` and the renderable settings (`LocalOffset`, `Enabled`). Lights are components, so code and [tweens](../utilities/tweening.md) can animate them, and disabling one switches it off.
+
+Try any light on any sprite in the [Light Preview](../editor/light-preview.md) window, which renders through the real deferred renderer without touching the scene. The animations on these pages were rendered through the same renderer.
 ## Normal maps
 
 A normal map stores which way each pixel faces: RGB `(128, 128, 255)` faces the viewer, red points right and green points up.
+
+![A running character under a moving light, flat on the left and normal-mapped on the right](../images/lighting/animated-normal-maps.gif)
 
 | Renders | How to add normals |
 |---|---|
@@ -55,12 +70,4 @@ Derive from `DeferredLight`, override `RenderCustom(DeferredLightContext)` and d
 
 ## 2D shadow lights
 
-Separate from the deferred renderer, Voltage has lights that cast hard shadows from colliders. They produce a light map you combine with the scene.
-
-| Approach | How it works |
-|---|---|
-| `StencilLight` + `StencilLightRenderer` | Each light marks the shadows its colliders cast in the stencil buffer, then draws a falloff circle outside them into the renderer's render texture. `CollidesWithLayers` picks the shadow casters. |
-| `PolyLight`, `PolySpotLight` (namespace `Voltage.Shadows`) + `PolyLightPostProcessor` | Each light computes its visible polygon from nearby colliders and draws it into a light map, which the post-processor multiplies over the scene, optionally blurred. |
-| Sprite light map + `SpriteLightPostProcessor` | Draw light sprites (soft circles, cones) with a `RenderLayerRenderer` into a render texture whose clear colour is the ambient, then let the post-processor multiply it over the scene. Cheap and fully art-directed. |
-
-These suit games that want silhouette shadows or a stylised light map rather than normal-mapped shading.
+Separate from the deferred renderer, Voltage has lights that cast hard shadows from colliders into a light map: stencil lights, polygon lights and sprite light maps. They suit games that want silhouette shadows or a stylised light map rather than normal-mapped shading. See [2D Shadow Lights](lights/shadow-lights.md).
