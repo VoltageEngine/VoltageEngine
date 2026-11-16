@@ -324,10 +324,12 @@ public class GameBuildWindow
 
 			VoltageEditorUtils.SmallVerticalSpace();
 
-			ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(0.6f, 0.6f, 0.6f, 1.0f));
-			ImGui.TextWrapped("Assets will be copied directly to the output Content folder without compilation. " +
-			                  "MGCB asset compilation will be available in a future update.");
-			ImGui.PopStyleColor();
+			if (!compileAssetsValue)
+			{
+				ImGui.PushStyleColor(ImGuiCol.Text, new Num.Vector4(0.6f, 0.6f, 0.6f, 1.0f));
+				ImGui.TextWrapped("Assets will be copied directly to the output Content folder without compilation.");
+				ImGui.PopStyleColor();
+			}
 
 			VoltageEditorUtils.MediumVerticalSpace();
 
