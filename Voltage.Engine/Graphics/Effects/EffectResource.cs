@@ -1,8 +1,10 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Microsoft.Xna.Framework;
+using MonoGame.Framework.Utilities;
 using Voltage.Utils;
 using Voltage.Utils.Extensions;
 
@@ -33,8 +35,33 @@ namespace Voltage
 		}
 
 		public static string BuiltinOverrideDirectory { get; set; }
+
+		/// <summary>MGFX format id the loaded graphics backend accepts: 0 OpenGL, 2 DirectX 12, 80 Vulkan.</summary>
+		public static int ShaderProfile { get; } = DetectShaderProfile();
+
+		static int DetectShaderProfile()
+		{
+			// Asking the platform is a native call on the native runtimes, so the runtime has to be chosen first.
+			GraphicsBackendSelector.Select(Environment.GetCommandLineArgs());
+			return PlatformInfo.GraphicsBackend switch
+			{
+				GraphicsBackend.DirectX12 => 2,
+				GraphicsBackend.Vulkan => 80,
+				_ => 0
+			};
+		}
+
+		/// <summary>The effect compiler profile that produces <see cref="ShaderProfile"/>.</summary>
+		public static string ShaderProfileName => ShaderProfile switch { 2 => "DirectX_12", 80 => "Vulkan", _ => "OpenGL" };
+
+		/// <summary>OpenGL effects sit at the root; every other profile has a folder named after it.</summary>
+		static string ProfileFolder => ShaderProfile == 0 ? "" : ShaderProfileName + "/";
+
+		/// <summary>The bundled OpenGL set, which every effect has; other profiles are bundled per folder as they are ported.</summary>
 		public static string[] BundledEffectNames => Array.FindAll(typeof(EffectResource).Assembly.GetManifestResourceNames(),
-			name => name.StartsWith(BundledPrefix, StringComparison.Ordinal));
+			name => name.StartsWith(BundledPrefix, StringComparison.Ordinal) &&
+				!name.StartsWith(BundledPrefix + "DirectX_12.", StringComparison.Ordinal) &&
+				!name.StartsWith(BundledPrefix + "Vulkan.", StringComparison.Ordinal));
 		public static string BundledRevision { get; } = GetBundledRevision();
 
 		static string GetBundledRevision()
@@ -152,12 +179,25 @@ namespace Voltage
 
 			using (var stream = assembly.GetManifestResourceStream(name))
 			{
+				// The native runtimes keep the stock effects on their side, compiled for the loaded backend.
+				if (stream == null)
+					return StockSpriteEffectBytes();
+
 				using (var ms = new MemoryStream())
 				{
 					stream.CopyTo(ms);
 					return ms.ToArray();
 				}
 			}
+		}
+
+		[DllImport("mgruntime", EntryPoint = "MGG_EffectResource_GetBytecode", ExactSpelling = true, CallingConvention = CallingConvention.Cdecl)]
+		static extern unsafe void StockEffectBytecode([MarshalAs(UnmanagedType.LPUTF8Str)] string name, out byte* bytecode, out int size);
+
+		static unsafe byte[] StockSpriteEffectBytes()
+		{
+			StockEffectBytecode("SpriteEffect", out var bytecode, out var size);
+			return new ReadOnlySpan<byte>(bytecode, size).ToArray();
 		}
 
 
@@ -179,7 +219,7 @@ namespace Voltage
 				const string prefix = "Content/Voltage/Effects/";
 				if (normalized.StartsWith(prefix, StringComparison.Ordinal))
 				{
-					var relative = normalized.Substring(prefix.Length);
+					var relative = ProfileFolder + normalized.Substring(prefix.Length);
 					if (!string.IsNullOrEmpty(BuiltinOverrideDirectory))
 					{
 						var replacement = Path.Combine(BuiltinOverrideDirectory, relative);
@@ -189,7 +229,7 @@ namespace Voltage
 							catch (InvalidDataException) { }
 						}
 					}
-					var external = Path.Combine(AppContext.BaseDirectory, normalized);
+					var external = Path.Combine(AppContext.BaseDirectory, prefix + relative);
 					if (File.Exists(external))
 					{
 						try { return ReadEffect(File.OpenRead(external), path); }
@@ -197,12 +237,14 @@ namespace Voltage
 					}
 					using var bundled = typeof(EffectResource).Assembly.GetManifestResourceStream(BundledPrefix + relative.Replace('/', '.'));
 					if (bundled != null) return ReadEffect(bundled, path);
+					if (ShaderProfile != 0)
+						throw new InvalidDataException($"'{path}' has no {ShaderProfileName} build yet");
 				}
 				return ReadEffect(Path.IsPathRooted(path) ? File.OpenRead(path) : TitleContainer.OpenStream(path), path);
 			}
 			catch (Exception e)
 			{
-				var txt = $"Unable to load effect '{path}': {e.Message}. Custom effects must be compiled for DesktopGL and included in Content.";
+				var txt = $"Unable to load effect '{path}': {e.Message}. Custom effects must be compiled for {(ShaderProfile == 0 ? "DesktopGL" : ShaderProfileName)} and included in Content.";
 				Debug.Error(txt);
 				throw new Exception(txt, e);
 			}
@@ -217,8 +259,8 @@ namespace Voltage
 				stream.CopyTo(buffer);
 				var bytes = buffer.ToArray();
 #if !FNA
-				if (bytes.Length < 10 || bytes[0] != 'M' || bytes[1] != 'G' || bytes[2] != 'F' || bytes[3] != 'X' || bytes[4] != 11 || bytes[5] != 0)
-					throw new InvalidDataException($"'{path}' is not a valid DesktopGL effect; recompile with /Profile:OpenGL.");
+				if (bytes.Length < 10 || bytes[0] != 'M' || bytes[1] != 'G' || bytes[2] != 'F' || bytes[3] != 'X' || bytes[4] != 11 || bytes[5] != ShaderProfile)
+					throw new InvalidDataException($"'{path}' is not a valid {(ShaderProfile == 0 ? "DesktopGL" : ShaderProfileName)} effect; recompile with /Profile:{ShaderProfileName}.");
 #endif
 				return bytes;
 			}

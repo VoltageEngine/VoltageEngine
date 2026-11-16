@@ -21,6 +21,9 @@ namespace Voltage;
 
 public class Core : Game
 {
+	/// <summary>Runs before the base Game constructor touches the native runtime.</summary>
+	static Core() => GraphicsBackendSelector.Select(Environment.GetCommandLineArgs());
+
 	/// <summary>
 	/// The most recently compiled script assembly. Set this after each successful script compilation
 	/// so that ResolveType can find types from the latest scripts instead of stale ones from old assemblies.
@@ -271,6 +274,7 @@ public class Core : Game
 		base.Initialize();
 
 		GraphicsDevice = base.GraphicsDevice;
+		GraphicsBackendSelector.Confirm();
 		StartRuntimeGateway();
 	}
 

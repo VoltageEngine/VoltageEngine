@@ -28,6 +28,10 @@ namespace Voltage
 
 		private static IntPtr Resolve(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
 		{
+			// The engine's own calls into MonoGame's native runtime use the one the selector loaded.
+			if (libraryName == "mgruntime")
+				return GraphicsBackendSelector.Handle;
+
 			// On Windows the default resolution already finds SDL2.dll; only intervene elsewhere.
 			if (libraryName != "SDL2.dll" || OperatingSystem.IsWindows())
 				return IntPtr.Zero;

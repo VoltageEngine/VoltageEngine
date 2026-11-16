@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project>
   <PropertyGroup>
-    <BundledEffectsCompilerVersion>3.8.5.1</BundledEffectsCompilerVersion>
+    <BundledEffectsCompilerVersion>3.8.6.1</BundledEffectsCompilerVersion>
   </PropertyGroup>
   <ItemGroup>
     <_BundledEffectInput Include="$(MSBuildThisFileDirectory)../../../../Voltage.Editor/DefaultContent/Effects/Bevels.fx">

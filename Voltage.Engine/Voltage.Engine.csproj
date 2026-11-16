@@ -7,8 +7,8 @@
 		</GetFileHash>
 		<Error Condition="'%(_HashedEffectInput.FileHash)' != '%(_HashedEffectInput.ExpectedHash)' And '%(_HashedEffectInput.FileHash)' != '%(_HashedEffectInput.WindowsHash)'"
 			Text="Bundled effect changed: %(_HashedEffectInput.Identity). Run dotnet run --project tools/effects/Voltage.Effects.Build.csproj from the repository root to regenerate DesktopGL effects." />
-		<Error Condition="'%(PackageReference.Identity)' == 'MonoGame.Framework.DesktopGL' And '%(PackageReference.Version)' != '$(BundledEffectsCompilerVersion)'"
-			Text="Bundled effects must be regenerated with the MonoGame.Framework.DesktopGL package version." />
+		<Error Condition="('%(PackageReference.Identity)' == 'MonoGame.Framework.DesktopGL' Or '%(PackageReference.Identity)' == 'MonoGame.Framework.Native') And '%(PackageReference.Version)' != '$(BundledEffectsCompilerVersion)'"
+			Text="Bundled effects must be regenerated with the MonoGame.Framework package version." />
 	</Target>
 
 	<PropertyGroup>
@@ -72,7 +72,9 @@
 	</ItemGroup>		
 
 	<ItemGroup>
-		<PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5.1" />
+		<!-- VoltageGraphics=Native swaps the managed OpenGL build for MonoGame's native runtimes; see docs/rendering/ROADMAP.md. -->
+		<PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.6.1" Condition="'$(VoltageGraphics)' != 'Native'" />
+		<PackageReference Include="MonoGame.Framework.Native" Version="3.8.6.1" Condition="'$(VoltageGraphics)' == 'Native'" />
 		<PackageReference Include="System.Drawing.Common" Version="9.0.5" />
 		<!-- Audio decoders for .ogg (NVorbis) and .mp3 (NLayer), decoded to PCM SoundEffects -->
 		<PackageReference Include="NVorbis" Version="0.10.5" />

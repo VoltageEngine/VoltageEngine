@@ -148,10 +148,28 @@
 
 	<ItemGroup>
 		<PackageReference Include="ImGui.NET" Version="$(ImGuiVersion)" />
-		<PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.5.1" />
-		<PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5.1" />
+		<PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.6.1" />
+		<PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.6.1" Condition="'$(VoltageGraphics)' != 'Native'" />
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
 	</ItemGroup>
+
+	<!-- VoltageGraphics=Native: MonoGame's native platform with one mgruntime per backend under backends\, chosen at
+	     startup by GraphicsBackendSelector. Windows x64 only for now; see docs/rendering/ROADMAP.md. -->
+	<PropertyGroup Condition="'$(VoltageGraphics)' == 'Native'">
+		<MonoGamePlatform>DesktopGL</MonoGamePlatform>
+	</PropertyGroup>
+	<ItemGroup Condition="'$(VoltageGraphics)' == 'Native'">
+		<PackageReference Include="MonoGame.Framework.Native" Version="3.8.6.1" />
+		<PackageReference Include="MonoGame.Runtime.Windows.DX12" Version="3.8.6.1" GeneratePathProperty="true" ExcludeAssets="all" />
+		<PackageReference Include="MonoGame.Runtime.Windows.Vulkan" Version="3.8.6.1" GeneratePathProperty="true" ExcludeAssets="all" />
+		<PackageReference Include="MonoGame.Runtime.Windows.DesktopGL4" Version="3.8.6.1" GeneratePathProperty="true" ExcludeAssets="all" />
+		<None Include="$(PkgMonoGame_Runtime_Windows_DX12)\runtimes\win-x64\native\mgruntime.dll" Link="backends\directx12\mgruntime.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+		<None Include="$(PkgMonoGame_Runtime_Windows_Vulkan)\runtimes\win-x64\native\mgruntime.dll" Link="backends\vulkan\mgruntime.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+		<None Include="$(PkgMonoGame_Runtime_Windows_DesktopGL4)\runtimes\win-x64\native\mgruntime.dll" Link="backends\opengl4\mgruntime.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+	</ItemGroup>
+	<Target Name="CheckNativeGraphicsPlatform" BeforeTargets="Build" Condition="'$(VoltageGraphics)' == 'Native' And '$(RuntimeIdentifier)' != 'win-x64'">
+		<Error Text="VoltageGraphics=Native is wired for win-x64 only so far; build the default flavour for $(RuntimeIdentifier)." />
+	</Target>
 
 	<ItemGroup>
 	  <ProjectReference Include="..\Voltage.Engine\Voltage.Engine.csproj" />
@@ -286,7 +304,7 @@
 	     but these are bypassed during publish. This target fills that gap. -->
 	<Target Name="CopyMonoGameNativeLibsToPublish" AfterTargets="ComputeFilesToPublish">
 		<PropertyGroup>
-			<MonoGameRuntimes>$(NuGetPackageRoot)monogame.framework.desktopgl\3.8.5.1\runtimes\</MonoGameRuntimes>
+			<MonoGameRuntimes>$(NuGetPackageRoot)monogame.framework.desktopgl\3.8.6.1\runtimes\</MonoGameRuntimes>
 		</PropertyGroup>
 
 		<ItemGroup Condition="$(RuntimeIdentifier.StartsWith('win'))">

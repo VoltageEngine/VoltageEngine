@@ -10,9 +10,9 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="MonoGame.Framework.Content.Pipeline" Version="3.8.5.1" />
+		<PackageReference Include="MonoGame.Framework.Content.Pipeline" Version="3.8.6.1" />
 		<!-- Compile-time only: mgcb supplies its own MonoGame.Framework at build time. -->
-		<PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5.1" ExcludeAssets="runtime;native;contentFiles;build;buildTransitive;analyzers" />
+		<PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.6.1" ExcludeAssets="runtime;native;contentFiles;build;buildTransitive;analyzers" />
 	</ItemGroup>
 
 	<!-- The Aseprite parser and binary format are the engine's own sources, so one parser serves both sides. -->
