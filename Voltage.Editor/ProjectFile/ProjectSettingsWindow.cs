@@ -37,6 +37,7 @@ namespace Voltage.Editor.ProjectFile
 		private bool _smoothPixelArt;
 		private bool _smoothPixelArtFixedFrame;
 		private bool _deferredLighting;
+		private GraphicsApi _graphicsBackend;
 		private Vector4 _ambientLightColor;
 		private readonly string[] _resolutionPolicies = new[]
 		{
@@ -196,6 +197,7 @@ namespace Voltage.Editor.ProjectFile
 				_smoothPixelArt = settings.Rendering.SmoothPixelArt;
 				_smoothPixelArtFixedFrame = settings.Rendering.SmoothPixelArtFixedFrame;
 				_deferredLighting = settings.Rendering.DeferredLighting;
+				_graphicsBackend = settings.Rendering.GraphicsBackend;
 				var ambient = settings.Rendering.AmbientLightColor;
 				_ambientLightColor = new Vector4(ambient.R / 255f, ambient.G / 255f, ambient.B / 255f, 1f);
 				var background = settings.Rendering.BackgroundClearColor;
@@ -598,6 +600,10 @@ namespace Voltage.Editor.ProjectFile
 		
 		private void DrawRenderingLayersSettings()
 		{
+			ImGui.SetNextItemWidth(260f);
+			if (Tools.GraphicsBackendPicker.Draw("Graphics backend##Project", ref _graphicsBackend, gameBuild: true)) _hasUnsavedChanges = true;
+			if (ImGui.IsItemHovered())
+				ImGui.SetTooltip("The game's default graphics API. Players can pick another in a settings menu that offers it; greyed entries say why they cannot run.");
 			if (Gui.Checkbox("Deferred lighting", ref _deferredLighting)) _hasUnsavedChanges = true;
 			if (ImGui.IsItemHovered()) ImGui.SetTooltip("Default renderer for all scenes. Reload the scene after changing this setting. HUD and dialogue remain unlit.");
 			if (_deferredLighting && ImGui.ColorEdit4("Ambient light", ref _ambientLightColor, ImGuiColorEditFlags.NoAlpha)) _hasUnsavedChanges = true;
@@ -834,6 +840,7 @@ namespace Voltage.Editor.ProjectFile
 				settings.Rendering.SmoothPixelArt = _smoothPixelArt;
 				settings.Rendering.SmoothPixelArtFixedFrame = _smoothPixelArtFixedFrame;
 				settings.Rendering.DeferredLighting = _deferredLighting;
+				settings.Rendering.GraphicsBackend = _graphicsBackend;
 				settings.Rendering.AmbientLightColor = ToXnaColor(_ambientLightColor);
 				settings.Entities.EntityTags = new Dictionary<string, int>(_entityTags);
 				settings.ContentDirectory = _contentDirectory;

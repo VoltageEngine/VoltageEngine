@@ -180,6 +180,9 @@ namespace Voltage.Project
 			/// <summary>1 when higher render layers draw in front. A settings file without it predates that and is migrated by the editor.</summary>
 			public int RenderOrderVersion = 1;
 
+			/// <summary>The game's default graphics backend; a player's own choice overrides it.</summary>
+			public GraphicsApi GraphicsBackend = GraphicsApi.Auto;
+
 			[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(Dictionary<string, int>))]
 			public Dictionary<string, int> RenderingLayers = new()
 			{

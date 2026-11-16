@@ -20,6 +20,7 @@ public class Program
 
 		// First, so nothing writes to the pre-migration locations on the way up.
 		Persistence.EditorStorage.Initialize();
+		GraphicsBackendSelector.PreferenceFile = Path.Combine(Persistence.EditorStorage.Root, "GraphicsBackend.txt");
 
 		// Catches unhandled exceptions and logs them to a file & Editor Debug Window
 		AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;

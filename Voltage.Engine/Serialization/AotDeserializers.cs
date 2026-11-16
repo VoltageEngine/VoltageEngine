@@ -480,6 +480,7 @@ namespace Voltage.Serialization
 					case "DeferredLighting": s.DeferredLighting = r.ReadBool(); break;
 					case "AmbientLightColor": s.AmbientLightColor = ReadColor(r); break;
 					case "RenderOrderVersion": s.RenderOrderVersion = r.ReadInt(); break;
+					case "GraphicsBackend": s.GraphicsBackend = r.ReadEnum<GraphicsApi>(); break;
 					case "RenderingLayers":
 						s.RenderingLayers = r.ReadStringDictionary(rd => rd.ReadInt());
 						break;

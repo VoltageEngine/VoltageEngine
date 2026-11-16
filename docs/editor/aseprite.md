@@ -19,7 +19,11 @@ The window shows whether the bridge is connected, waiting for Aseprite or stoppe
 
 Voltage needs Aseprite 1.3 or newer. It reads the version from Aseprite's default install folder when you install, and from Aseprite itself once connected, and shows a red error for anything older. **Open Voltage Normals in Aseprite** opens the [Voltage Normals](voltage-normals.md) panel in the connected Aseprite; inside Aseprite it is **Edit > Voltage Normals**.
 
-Once the extension is installed, the bridge starts with the editor and the extension reconnects on its own after an editor restart. The extension always uses the port saved at install time. If another program holds that port, Voltage reports the error instead of switching ports: free the port and press **Connect**. Under `--gateway-safe` the bridge does not start, the install and connection buttons are disabled, and editing, installation and Lua commands are refused.
+Once the extension is installed, the bridge starts with the editor and the extension reconnects on its own after an editor restart. Aseprite scripts can only open outgoing connections, so the extension is the side that dials in. While the editor is closed it keeps trying quietly every few seconds and never opens Aseprite's console, so Aseprite works as usual; **Help > Voltage Bridge: Status** shows the last connection error.
+
+You only press **Install or update extension** once. Each time the bridge starts, the editor compares the installed extension with the copy bundled with it and rewrites any file that differs, so updating Voltage updates the extension too. Restart Aseprite afterwards to load the new version; the editor log says when it updated anything. It only touches an extension paired with its own connection key, so a test editor with separate data never overwrites yours.
+
+The extension always uses the port saved at install time. If another program holds that port, Voltage reports the error instead of switching ports: free the port and press **Connect**. Under `--gateway-safe` the bridge does not start, the install and connection buttons are disabled, and editing, installation and Lua commands are refused.
 
 | Window | CLI |
 |---|---|

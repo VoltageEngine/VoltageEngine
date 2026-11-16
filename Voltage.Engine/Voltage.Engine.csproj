@@ -44,6 +44,10 @@
 		<DefineConstants>TRACE;EDITOR</DefineConstants>
 	</PropertyGroup>
 
+	<PropertyGroup Condition="'$(VoltageGraphics)' == 'Native'">
+		<DefineConstants>$(DefineConstants);VOLTAGE_NATIVE_GRAPHICS</DefineConstants>
+	</PropertyGroup>
+
 	<ItemGroup>
 	  <Compile Remove="DefaultContent\**" />
 	  <EmbeddedResource Remove="DefaultContent\**" />

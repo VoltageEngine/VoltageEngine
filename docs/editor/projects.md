@@ -52,7 +52,7 @@ The `.voltage` file stores the six folder paths (`ContentsFolder`, `ScriptsFolde
 | **Project Info** | Name and path (read-only), the project version (written to the `.csproj` and embedded in the built executable), and the engine version check. |
 | **Display & Audio** | Screen resolution, fullscreen, VSync, background clear colour, design resolution and resolution policy (including `SmoothPixelPerfect`), **Smooth pixel art** and **Fixed camera frame**, master, music and SFX volume, and the content directory. |
 | **Physics Layers** | Named collision layers. New projects start with Default 0, Ground 1, Player 2, Enemy 3 and Projectile 4. |
-| **Rendering Layers** | Render-order layers, the **Deferred lighting** checkbox (the default renderer for every scene; reload the scene after changing it) and, when deferred lighting is on, the **Ambient light** colour. Defaults: Lighting -100, BehindAll -99, HideObject -30, Background 0, Entities 1, Foreground 2, InFrontOfAll 30, UIElement 99. |
+| **Rendering Layers** | **Graphics backend**, the game's default renderer (entries a game build cannot use yet are greyed, with the reason on hover), render-order layers, the **Deferred lighting** checkbox (the default renderer for every scene; reload the scene after changing it) and, when deferred lighting is on, the **Ambient light** colour. Defaults: Lighting -100, BehindAll -99, HideObject -30, Background 0, Entities 1, Foreground 2, InFrontOfAll 30, UIElement 99. |
 | **Entity Tags** | Named tags. New projects start with Default 0, Player 1, Enemy 2, Collectible 3 and Environment 4. |
 | **Loading Screen** | The small loading label a standalone game shows in the lower right: on or off, label text, font, margin, spark count and speed, and text and spark colours. |
 

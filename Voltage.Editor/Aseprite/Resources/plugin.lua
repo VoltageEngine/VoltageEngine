@@ -62,6 +62,10 @@ local handlers = {}
 local reconnect_timer = nil
 local port = DEFAULT_PORT
 local last_activity = 0
+-- Shown by Voltage Bridge: Status instead of printed, because any print opens Aseprite's console.
+local last_error = nil
+-- Set when Aseprite refuses socket access, so retries stop until a manual reconnect.
+local blocked = false
 
 ----------------------------------------------------------------------
 -- JSON (Aseprite built-in)
@@ -5900,10 +5904,6 @@ local function load_commands()
   handlers["copy_between_sprites"] = advanced_cmds.copy_between_sprites
 
   _G.VOLTAGE_BRIDGE = { handlers = handlers, base = base, color_util = color_util }
-
-  local total = 0
-  for _ in pairs(handlers) do total = total + 1 end
-  print("[Voltage] Total commands registered: " .. total)
 end
 
 ----------------------------------------------------------------------
@@ -5979,7 +5979,7 @@ end
 local function on_message(msg_data)
   local ok, request = pcall(json.decode, msg_data)
   if not ok or not request then
-    print("[Voltage] Failed to parse JSON: " .. tostring(msg_data):sub(1, 100))
+    last_error = "Failed to parse JSON: " .. tostring(msg_data):sub(1, 100)
     return
   end
 
@@ -5997,7 +5997,7 @@ local function on_message(msg_data)
     if ok2 and ws then
       ws:sendText(encoded)
     else
-      print("[Voltage] Failed to encode response: " .. tostring(encoded))
+      last_error = "Failed to encode response: " .. tostring(encoded)
     end
   elseif response and response.method == "pong" then
     local ok2, encoded = pcall(json.encode, { jsonrpc = "2.0", method = "pong" })
@@ -6050,10 +6050,11 @@ local function connect()
   local opened = false
 
   local url = "ws://127.0.0.1:" .. port .. "/voltage/__VOLTAGE_TOKEN__"
-  print("[Voltage] Connecting to Aseprite bridge on port " .. port)
+  blocked = false
 
   local sock
-  sock = WebSocket {
+  -- A Lua closure (not pcall(WebSocket, ...)) keeps this file as the caller Aseprite checks trust for.
+  local created, refusal = pcall(function() sock = WebSocket {
     url = url,
     deflate = false,
     onreceive = function(mt, data, err)
@@ -6070,12 +6071,11 @@ local function connect()
         stale_retries = 0
         sticky_port = port
         sticky_fails = 0
-        print("[Voltage] Connected to MCP server")
+        last_error = nil
       elseif mt == WebSocketMessageType.TEXT then
         on_message(data)
       elseif mt == WebSocketMessageType.CLOSE then
         connected = false
-        print("[Voltage] Disconnected from MCP server")
         pcall(function() sock:close() end)
         if ws == sock then ws = nil end
       elseif mt == WebSocketMessageType.ERROR then
@@ -6091,13 +6091,17 @@ local function connect()
             ("Connection failed; Aseprite " .. tostring(app.version) ..
               " did not provide error details. Check that Voltage Editor is running and the bridge port matches.")
         end
-        message = message:gsub("/voltage/[A-Fa-f0-9]+", "/voltage/[redacted]")
-        print("[Voltage] WebSocket error: " .. message)
+        last_error = message:gsub("/voltage/[A-Fa-f0-9]+", "/voltage/[redacted]")
         pcall(function() sock:close() end)
         if ws == sock then ws = nil end
       end
     end
-  }
+  } end)
+  if not created then
+    last_error = tostring(refusal):gsub("/voltage/[A-Fa-f0-9]+", "/voltage/[redacted]")
+    blocked = true
+    return
+  end
   ws = sock
   sock:connect()
 end
@@ -6114,6 +6118,7 @@ local function start_health_check()
   health_timer = Timer {
     interval = RECONNECT_INTERVAL_MS / 1000.0,
     ontick = function()
+      if blocked then return end
       local now = os.time()
       local stale = (now - last_activity) > STALE_SECONDS
       if connected then
@@ -6127,11 +6132,8 @@ local function start_health_check()
         if stale then
           stale_retries = stale_retries + 1
           if stale_retries >= 3 then
-            print("[Voltage] Connection stale repeatedly, trying next port")
             advance_port()
             stale_retries = 0
-          else
-            print("[Voltage] Connection stale, reconnecting (same port)")
           end
           if ws then pcall(function() ws:close() end) end
           ws = nil
@@ -6160,7 +6162,6 @@ local function start_health_check()
         -- hangs instead of erroring). Apply the same stickiness as the error
         -- path: hunt freely until the first session, then prefer the port that
         -- last carried one.
-        print("[Voltage] Connect attempt stalled")
         pcall(function() ws:close() end)
         ws = nil
         if sticky_port == nil or port ~= sticky_port then
@@ -6183,8 +6184,6 @@ end
 -- Plugin lifecycle
 ----------------------------------------------------------------------
 function init(plugin)
-  print("[Voltage] Voltage Bridge v" .. VERSION .. " initializing...")
-
   if plugin.preferences and plugin.preferences.port then
     port = plugin.preferences.port
   end
@@ -6204,10 +6203,7 @@ function init(plugin)
     id = "voltage_mcp_reconnect",
     title = "Voltage Bridge: Reconnect",
     group = "help_about",
-    onclick = function()
-      print("[Voltage] Manual reconnect requested")
-      connect()
-    end,
+    onclick = connect,
   }
 
   plugin:newCommand {
@@ -6224,6 +6220,7 @@ function init(plugin)
           "Port: " .. port,
           "Commands: " .. count_keys(handlers),
           "Aseprite: " .. tostring(app.version) .. " (API " .. tostring(app.apiVersion) .. ")",
+          "Last error: " .. (last_error or "none"),
         },
       }
     end,
@@ -6243,7 +6240,6 @@ function init(plugin)
       if dlg.data.ok then
         port = math.floor(dlg.data.port)
         plugin.preferences.port = port
-        print("[Voltage] Port changed to " .. port .. ". Reconnecting...")
         connect()
       end
     end,
@@ -6251,7 +6247,6 @@ function init(plugin)
 end
 
 function exit(plugin)
-  print("[Voltage] Voltage Bridge shutting down...")
   if health_timer then
     health_timer:stop()
     health_timer = nil

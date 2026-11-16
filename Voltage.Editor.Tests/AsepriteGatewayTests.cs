@@ -97,6 +97,28 @@ public class AsepriteGatewayTests
 		Call("aseprite.disconnect");
 	}
 
+	[Test]
+	public void Bridge_start_refreshes_an_outdated_extension()
+	{
+		var directory = Call("aseprite.install").GetProperty("directory").GetString();
+		var normals = Path.Combine(directory, "normals.lua");
+		var bundled = File.ReadAllText(normals);
+		File.WriteAllText(normals, "-- outdated");
+		Call("aseprite.disconnect");
+		Call("aseprite.connect");
+		Assert.That(File.ReadAllText(normals), Is.EqualTo(bundled));
+		var plugin = Path.Combine(directory, "plugin.lua");
+		var paired = File.ReadAllText(plugin);
+		File.WriteAllText(plugin, "-- paired by another editor");
+		File.WriteAllText(normals, "-- outdated");
+		Call("aseprite.disconnect");
+		Call("aseprite.connect");
+		Assert.That(File.ReadAllText(normals), Is.EqualTo("-- outdated"), "An extension paired with another editor must be left alone");
+		File.WriteAllText(plugin, paired);
+		File.WriteAllText(normals, bundled);
+		Call("aseprite.disconnect");
+	}
+
 	private static async Task<JsonElement> ReadResponse(Process process, int id, CancellationToken cancellation)
 	{
 		while (true)

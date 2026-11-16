@@ -10,13 +10,14 @@ file:close()
 source = source:gsub("__VOLTAGE_PORT__", "0"):gsub("__VOLTAGE_TOKEN__", "test")
 local bridge = assert(load(source .. [[
 return { base = base, sprite = sprite_cmds, drawing = drawing_cmds, analysis = analysis_cmds, advanced = advanced_cmds,
-  load_commands = load_commands, on_message = on_message, set_socket = function(socket) ws = socket end }
+  load_commands = load_commands, on_message = on_message, set_socket = function(socket) ws = socket end,
+  connect = connect, start_health_check = start_health_check }
 ]], "Voltage Bridge tests", "t", _G))()
 
 local temp_path = app.fs.joinPath(config, "temp")
 assert(app.fs.makeDirectory(temp_path))
 local test_fs = setmetatable({ tempPath = temp_path }, { __index = native_app.fs })
-app = setmetatable({ fs = test_fs }, { __index = native_app })
+app = setmetatable({ apiVersion = 32, fs = test_fs }, { __index = native_app })
 local native_remove = os.remove
 local remove_calls = 0
 os.remove = function()
@@ -121,4 +122,27 @@ local closing_id = closing_sprite.id
 bridge.on_message(json.encode({ jsonrpc = "2.0", id = "close-active", method = "close_sprite", params = { voltage_sprite_id = closing_id } }))
 assert(sent[#sent].id == "close-active" and not sent[#sent].error, "Closing the previous active sprite must still send a response")
 sprite:close()
-print("PASS: Aseprite bridge PNG operations, versioned temp cleanup, and targeted draw/export/save/close JSON-RPC responses")
+
+local prints, attempts, refuse, socket_options, timer = 0, 0, false, nil, nil
+local native_print, native_socket, native_timer = print, WebSocket, Timer
+print = function() prints = prints + 1 end
+WebSocket = function(options)
+  attempts = attempts + 1
+  if refuse then error("the script doesn't have access to create a WebSocket for '" .. options.url .. "'") end
+  socket_options = options
+  return { connect = function() end, close = function() end }
+end
+Timer = function(options) timer = options; return { start = function() end, stop = function() end } end
+bridge.connect()
+bridge.start_health_check()
+socket_options.onreceive(WebSocketMessageType.ERROR, "", "Unable to connect to 127.0.0.1")
+refuse = true
+timer.ontick()
+timer.ontick()
+assert(attempts == 2, "A refused socket must not be retried until a manual reconnect")
+refuse = false
+bridge.connect()
+assert(attempts == 3, "A manual reconnect must try again after a refusal")
+print, WebSocket, Timer = native_print, native_socket, native_timer
+assert(prints == 0, "The bridge must not print while the editor is away, since printing opens Aseprite's console")
+print("PASS: Aseprite bridge PNG operations, versioned temp cleanup, targeted draw/export/save/close JSON-RPC responses, and silent reconnects")

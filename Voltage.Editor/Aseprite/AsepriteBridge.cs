@@ -106,6 +106,38 @@ public sealed class AsepriteBridge : IDisposable
 			_connection = connection;
 		}
 		catch { connection.Dispose(); throw; }
+		RefreshExtension();
+	}
+
+	/// <summary>Rewrites an extension this editor paired with when it differs from the bundled copy; Aseprite loads it on its next start.</summary>
+	private void RefreshExtension()
+	{
+		var installed = Path.Combine(ExtensionDirectory, "plugin.lua");
+		try
+		{
+			// A different token means another editor data folder paired it, so leave it alone.
+			if (File.Exists(installed) && File.ReadAllText(installed).Contains($"/voltage/{_token}\"") && WriteExtension())
+				Debug.Log("[Aseprite] Updated the Voltage extension. Restart Aseprite to load it.");
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Debug.Warn($"[Aseprite] Could not update the extension: {ex.Message}"); }
+	}
+
+	/// <summary>Writes the bundled extension with this editor's port and token; true when any installed file changed.</summary>
+	private bool WriteExtension()
+	{
+		Directory.CreateDirectory(ExtensionDirectory);
+		var changed = false;
+		foreach (var name in new[] { "plugin.lua", "normals.lua", "LICENSE", "package.json" })
+		{
+			var text = File.ReadAllText(Path.Combine(Resources, name));
+			if (name == "plugin.lua")
+				text = text.Replace("__VOLTAGE_PORT__", _port.ToString(System.Globalization.CultureInfo.InvariantCulture)).Replace("__VOLTAGE_TOKEN__", _token);
+			var path = Path.Combine(ExtensionDirectory, name);
+			if (File.Exists(path) && File.ReadAllText(path) == text) continue;
+			File.WriteAllText(path, text);
+			changed = true;
+		}
+		return changed;
 	}
 
 	private async Task ReadVersion(AsepriteConnection connection)
@@ -117,14 +149,7 @@ public sealed class AsepriteBridge : IDisposable
 	public object Install()
 	{
 		Start();
-		Directory.CreateDirectory(ExtensionDirectory);
-		var plugin = File.ReadAllText(Path.Combine(Resources, "plugin.lua"))
-			.Replace("__VOLTAGE_PORT__", _port.ToString(System.Globalization.CultureInfo.InvariantCulture))
-			.Replace("__VOLTAGE_TOKEN__", _token);
-		File.WriteAllText(Path.Combine(ExtensionDirectory, "plugin.lua"), plugin);
-		File.Copy(Path.Combine(Resources, "normals.lua"), Path.Combine(ExtensionDirectory, "normals.lua"), true);
-		File.Copy(Path.Combine(Resources, "LICENSE"), Path.Combine(ExtensionDirectory, "LICENSE"), true);
-		File.Copy(Path.Combine(Resources, "package.json"), Path.Combine(ExtensionDirectory, "package.json"), true);
+		WriteExtension();
 		var version = AsepriteVersion ?? InstalledVersion();
 		return new { installed = true, directory = ExtensionDirectory, port = _port, aseprite_version = version, aseprite_supported = version == null ? (bool?)null : !IsTooOld(version), instruction = "Restart Aseprite or enable Voltage Bridge in its Extensions preferences. Allow its initial WebSocket request." };
 	}

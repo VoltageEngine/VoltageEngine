@@ -13,6 +13,7 @@ namespace Voltage.Editor.Tools
 	public class EditorSettingsWindow
 	{
 		private bool _isOpen = false;
+		private GraphicsApi? _backend;
 		private static readonly PersistentBool _assetTextPreviews = new("EditorSettings_AssetTextPreviews", true);
 		private static readonly PersistentBool _previewHintSeen = new("EditorSettings_PreviewHintSeen", false);
 		public static bool AssetTextPreviews { get => _assetTextPreviews.Value; set => _assetTextPreviews.Value = value; }
@@ -140,6 +141,25 @@ namespace Voltage.Editor.Tools
 						AssetTextPreviews = true;
 					}
 					ImGui.Separator();
+				}
+
+				if (Gui.CollapsingHeader("Graphics", ImGuiTreeNodeFlags.DefaultOpen))
+				{
+					ImGui.Indent();
+					VoltageEditorUtils.SmallVerticalSpace();
+					var backend = _backend ??= GraphicsBackendSelector.Preference;
+					ImGui.SetNextItemWidth(260f);
+					if (GraphicsBackendPicker.Draw("Graphics backend##Editor", ref backend, gameBuild: false))
+					{
+						_backend = backend;
+						try { GraphicsBackendSelector.Preference = backend; }
+						catch (System.Exception ex) when (ex is System.IO.IOException or System.UnauthorizedAccessException) { Debug.Error("Could not save the graphics backend: " + ex.Message); }
+					}
+					if (ImGui.IsItemHovered())
+						ImGui.SetTooltip("The graphics API the editor renders with. Greyed entries cannot run on this machine or are not in this build; hover them for the reason.");
+					ImGui.TextWrapped($"Running on {GraphicsBackendSelector.Label(GraphicsBackendSelector.Running)}. A change applies the next time the editor starts.");
+					VoltageEditorUtils.SmallVerticalSpace();
+					ImGui.Unindent();
 				}
 
 				// Project Creation tab
