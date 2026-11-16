@@ -15,7 +15,6 @@ namespace Voltage
 		public ScreenSpaceRenderer(int renderOrder, params int[] renderLayers) : base(renderOrder, null)
 		{
 			Array.Sort(renderLayers);
-			Array.Reverse(renderLayers);
 			RenderLayers = renderLayers;
 			WantsToRenderAfterPostProcessors = true;
 		}

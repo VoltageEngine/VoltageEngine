@@ -588,8 +588,8 @@ namespace Voltage.Editor.Tools.Tilemap
 		}
 
 		/// <summary>
-		/// Draw order across every tilemap layer, front-most first. Order 1 is the front. A LOWER RenderLayer draws IN
-		/// FRONT (engine convention, inverted from intuition), and it is the same layer space sprites use.
+		/// Draw order across every tilemap layer, front-most first. Order 1 is the front. A higher RenderLayer draws in
+		/// front, and it is the same layer space sprites use.
 		/// </summary>
 		private void DrawLayerOrder(TilePaintTool tool)
 		{
@@ -732,7 +732,7 @@ namespace Voltage.Editor.Tools.Tilemap
 					if (ImGui.IsItemHovered())
 					{
 						ImGui.SetTooltip(
-							"A LOWER render layer draws in FRONT (engine convention).\n" +
+							"A higher render layer draws in front.\n" +
 							"This is the same layer space sprites and other renderables use, so it is how you put a\n" +
 							"tilemap in front of or behind them.");
 					}
@@ -789,7 +789,7 @@ namespace Voltage.Editor.Tools.Tilemap
 
 			maps.Sort((a, b) =>
 			{
-				var byLayer = a.RenderLayer.CompareTo(b.RenderLayer);
+				var byLayer = b.RenderLayer.CompareTo(a.RenderLayer);
 				if (byLayer != 0)
 					return byLayer;
 

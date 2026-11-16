@@ -32,5 +32,6 @@
 		<Compile Remove="TileSelectionTests.cs" />
 		<Compile Remove="TimelineDocumentTests.cs" />
 		<Compile Remove="PluginAssemblyReloadTests.cs" />
+		<Compile Remove="RenderOrderTests.cs" />
 	</ItemGroup>
 </Project>

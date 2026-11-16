@@ -104,7 +104,6 @@ namespace Voltage.DeferredLighting
 
 			_lightLayer = lightLayer;
 			Array.Sort(renderLayers);
-			Array.Reverse(renderLayers);
 			RenderLayers = renderLayers;
 
 			_lightEffect = new DeferredLightEffect();

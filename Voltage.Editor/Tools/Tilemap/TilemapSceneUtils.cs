@@ -53,7 +53,7 @@ namespace Voltage.Editor.Tools.Tilemap
 				if (!map.Enabled || !map.Entity.Enabled || !map.IsVisible) continue;
 				var cell = map.WorldToTile(world);
 				if (!map.HasTile(cell.X, cell.Y)) continue;
-				if (picked == null || map.RenderLayer < picked.RenderLayer ||
+				if (picked == null || map.RenderLayer > picked.RenderLayer ||
 					(map.RenderLayer == picked.RenderLayer && map.LayerDepth < picked.LayerDepth) ||
 					(map.RenderLayer == picked.RenderLayer && map.LayerDepth == picked.LayerDepth && map.Entity.Id < picked.Entity.Id))
 					picked = map;

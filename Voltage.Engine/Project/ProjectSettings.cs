@@ -177,17 +177,20 @@ namespace Voltage.Project
 			public Microsoft.Xna.Framework.Color BackgroundClearColor =
 				new Microsoft.Xna.Framework.Color(100, 149, 237, 255);
 
+			/// <summary>1 when higher render layers draw in front. A settings file without it predates that and is migrated by the editor.</summary>
+			public int RenderOrderVersion = 1;
+
 			[DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(Dictionary<string, int>))]
 			public Dictionary<string, int> RenderingLayers = new()
 			{
-				{ "Lighting", 100 },
-				{ "BehindAll", 99 },
-				{ "HideObject", 30 },
+				{ "Lighting", -100 },
+				{ "BehindAll", -99 },
+				{ "HideObject", -30 },
 				{ "Background", 0 },
 				{ "Entities", 1 },
-				{ "Foreground", -2 },
-				{ "InFrontOfAll", -30 },
-				{ "UIElement", -99 }
+				{ "Foreground", 2 },
+				{ "InFrontOfAll", 30 },
+				{ "UIElement", 99 }
 			};
 		}
 

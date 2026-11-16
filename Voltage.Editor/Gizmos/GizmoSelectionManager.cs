@@ -511,10 +511,10 @@ namespace Voltage.Editor.Gizmos
 				}
 			}
 
-			// Sort sprites by render layer (lower = in front), then by distance
+			// Sort sprites by render layer (higher = in front), then by distance
 			spritesAtPosition.Sort((a, b) =>
 			{
-				int layerCompare = a.renderLayer.CompareTo(b.renderLayer);
+				int layerCompare = b.renderLayer.CompareTo(a.renderLayer);
 				if (layerCompare != 0) return layerCompare;
 				return a.distance.CompareTo(b.distance);
 			});

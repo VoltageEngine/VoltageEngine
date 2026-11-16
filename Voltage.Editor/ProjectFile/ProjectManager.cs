@@ -239,6 +239,8 @@ public class ProjectManager : GlobalManager
 			EngineLibsSync.SyncToProject(project.ProjectPath);
 			ProjectStructureGenerator.EnsureDefaultFontExists(project.ProjectPath);
 			ProjectSettings.Instance = project.Settings;
+			try { RenderOrderMigration.Run(project.ProjectPath, project.Settings); }
+			catch (Exception ex) { EditorDebug.Error($"Render order migration could not run: {ex.Message}", "Project"); }
 
 			Utils.EditorBackgroundColor.Apply();
 

@@ -57,8 +57,7 @@ namespace Voltage
 		}
 
 		/// <summary>
-		/// lower renderLayers are in the front and higher are in the back, just like layerDepth but not clamped to 0-1. Note that this means
-		/// higher renderLayers are sent to the Batcher first. An important fact when using the stencil buffer.
+		/// Higher renderLayers draw in front of lower ones, so lower renderLayers are sent to the Batcher first, which matters with the stencil buffer.
 		/// </summary>
 		/// <value>The render layer.</value>
 		[RenderLayer]
@@ -211,8 +210,7 @@ namespace Voltage
 		}
 
 		/// <summary>
-		/// lower renderLayers are in the front and higher are in the back, just like layerDepth but not clamped to 0-1. Note that this means
-		/// higher renderLayers are sent to the Batcher first. An important fact when using the stencil buffer.
+		/// Higher renderLayers draw in front of lower ones, so lower renderLayers are sent to the Batcher first, which matters with the stencil buffer.
 		/// </summary>
 		/// <returns>The render layer.</returns>
 		/// <param name="renderLayer">Render layer.</param>
@@ -283,7 +281,7 @@ namespace Voltage
 		/// <param name="other">Other.</param>
 		public int CompareTo(RenderableComponent other)
 		{
-			var res = other.RenderLayer.CompareTo(RenderLayer);
+			var res = RenderLayer.CompareTo(other.RenderLayer);
 			if (res == 0)
 			{
 				res = other.LayerDepth.CompareTo(LayerDepth);

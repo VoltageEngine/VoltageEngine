@@ -11,7 +11,7 @@ Voltage lights pixel art with a deferred renderer: sprites and tilemaps draw the
 ## Turning it on
 
 1. Open **Project > Settings**, go to **Rendering Layers**, check **Deferred lighting** and choose the **Ambient light** colour. Dark ambient makes lights stand out.
-2. Put every light on the **Lighting** render layer (value 100 by default). Only light components may use that layer.
+2. Put every light on the **Lighting** render layer (value -100 by default). Only light components may use that layer.
 3. Give sprites normal maps where you want directional shading (below). Sprites without one are lit evenly.
 
 With deferred lighting on, each scene sets up a `DeferredLightingRenderer` for every layer except Lighting, InFrontOfAll and UIElement. InFrontOfAll draws unlit on top, and UI is never lit. In code, `scene.GetRenderer<DeferredLightingRenderer>()` returns it: `AmbientColor` changes the ambient at runtime, `AmbientRegions` adds rectangles with their own ambient colour (a lit interior inside a dark level), and `EnableDebugBufferRender` shows the colour, normal and light buffers.

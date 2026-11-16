@@ -57,9 +57,9 @@ Project-wide names live in **Project > Settings** and are stored in `ProjectSett
 |---|---|---|
 | Entity Tags | Default 0, Player 1 | `EntityTags.GetEntityTag("Player")` |
 | Physics Layers | Default 0, Ground 1 | `PhysicsLayer.GetPhysicsLayerBit("Ground")`, `PhysicsLayer.GetPhysicsLayerMask("Default", "Ground")` |
-| Rendering Layers | Lighting 100, BehindAll 99, HideObject 30, Background 0, Entities 1, Foreground -2, InFrontOfAll -30, UIElement -99 | `RenderLayer.GetRenderLayer("Foreground")` |
+| Rendering Layers | Lighting -100, BehindAll -99, HideObject -30, Background 0, Entities 1, Foreground 2, InFrontOfAll 30, UIElement 99 | `RenderLayer.GetRenderLayer("Foreground")` |
 
-These helpers are in `Voltage.Project`. A physics layer is stored as a bit (`1 << index`), so masks combine layers. Renderables are sorted by render layer from the highest value to the lowest, so a lower value appears in front; within one layer, a higher `LayerDepth` draws first.
+These helpers are in `Voltage.Project`. A physics layer is stored as a bit (`1 << index`), so masks combine layers. Renderables are sorted by render layer from the lowest value to the highest, so a higher value appears in front; within one layer, a higher `LayerDepth` draws first.
 
 ## Default renderers
 

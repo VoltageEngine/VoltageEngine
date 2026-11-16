@@ -139,7 +139,7 @@ internal sealed class AssetThumbnailCache : IDisposable
                         (byte)Number(data, "ColorA", 255)), effects, (int)Number(data, "RenderLayer"), frame, tag, layers));
             }
         }
-        return sources.OrderByDescending(s => s.Layer).ToList();
+        return sources.OrderBy(s => s.Layer).ToList();
     }
 
     private static (string Path, string Tag, string[] Layers) FindAuthoredSprite(JsonElement components, string project, Dictionary<string, long> dependencies)

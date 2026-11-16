@@ -54,7 +54,7 @@ internal static class TilemapContextCommands
 		var region = new RectangleF(new Vector2(x, y), new Vector2(width, height));
 		var maps = TilemapSceneUtils.FindTilemaps()
 			.Where(map => map.Entity?.Scene == scene && map.Enabled && map.Entity.Enabled)
-			.OrderByDescending(map => map.RenderLayer).ThenByDescending(map => map.LayerDepth).ToList();
+			.OrderBy(map => map.RenderLayer).ThenByDescending(map => map.LayerDepth).ToList();
 		var layers = new List<object>();
 		var availableCells = 0;
 		var returnedCells = 0;

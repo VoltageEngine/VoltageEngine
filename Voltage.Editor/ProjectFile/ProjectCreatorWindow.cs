@@ -511,20 +511,7 @@ namespace Voltage.Editor.ProjectFile
 						{ "Projectile", 4 }
 					}
 				},
-				Rendering = new ProjectSettings.RenderingSettings
-				{
-					RenderingLayers = new Dictionary<string, int>
-					{
-						{ "Lighting", 100 },
-						{ "BehindAll", 99 },
-						{ "HideObject", 30 },
-						{ "Background", 0 },
-						{ "Entities", 1 },
-						{ "Foreground", -2 },
-						{ "InFrontOfAll", -30 },
-						{ "UIElement", -99 }
-					}
-				},
+				Rendering = new ProjectSettings.RenderingSettings(),
 				Entities = new ProjectSettings.EntitySettings
 				{
 					EntityTags = new Dictionary<string, int>

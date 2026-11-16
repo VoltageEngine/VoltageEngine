@@ -479,6 +479,7 @@ namespace Voltage.Serialization
 					case "SmoothPixelArtFixedFrame": s.SmoothPixelArtFixedFrame = r.ReadBool(); break;
 					case "DeferredLighting": s.DeferredLighting = r.ReadBool(); break;
 					case "AmbientLightColor": s.AmbientLightColor = ReadColor(r); break;
+					case "RenderOrderVersion": s.RenderOrderVersion = r.ReadInt(); break;
 					case "RenderingLayers":
 						s.RenderingLayers = r.ReadStringDictionary(rd => rd.ReadInt());
 						break;

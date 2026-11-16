@@ -33,7 +33,9 @@ A `RenderTexture` resizes with the scene render target by default; set its `Resi
 
 ## Render order
 
-Renderables are drawn by render layer from the highest value to the lowest, so lower layers appear on top, then by `LayerDepth` (higher first) within a layer. Layers are named in **Project > Settings > Rendering Layers**; use the names in code through `RenderLayer.GetRenderLayer("Foreground")` and mark `int` fields `[RenderLayer]` for a dropdown.
+Renderables are drawn by render layer from the lowest value to the highest, so higher layers appear on top, then by `LayerDepth` within a layer, where 0 is the front and 1 the back. Layers are named in **Project > Settings > Rendering Layers**; use the names in code through `RenderLayer.GetRenderLayer("Foreground")` and mark `int` fields `[RenderLayer]` for a dropdown.
+
+Projects saved when lower layers drew on top are converted the first time the editor opens them. Every stored `RenderLayer` value in scenes, prefabs and data assets and every value in the layer table is negated, so nothing moves on screen, and the original files are zipped into the project's `Backups` folder. Layer numbers written directly in scripts are not changed, so compare layers by name where you can.
 
 Changing a renderable's `LayerDepth` re-sorts its layer. To impose your own order, assign `RenderableComponentList.CompareUpdatableOrder` an `IComparer<IRenderable>`, and call `scene.RenderableComponents.SetRenderLayerNeedsComponentSort(layer)` when you need a layer sorted again.
 
@@ -61,7 +63,7 @@ wall.SetMaterial(Material.StencilWrite(1));
 playerSilhouette.SetMaterial(Material.StencilRead(1));     // e.g. a SpriteMime of the player, tinted
 ```
 
-The silhouette renderable must draw after the wall, so give it a lower render layer or a lower `LayerDepth`.
+The silhouette renderable must draw after the wall, so give it a higher render layer or a lower `LayerDepth`.
 
 ## Post-processing
 
